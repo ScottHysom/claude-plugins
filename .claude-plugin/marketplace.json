@@ -1,0 +1,21 @@
+{
+  "name": "claude-plugins",
+  "owner": {
+    "name": "Scott Hysom",
+    "url": "https://github.com/ScottHysom"
+  },
+  "plugins": [
+    {
+      "name": "cowork-project-scaffold",
+      "source": "./plugins/cowork-project-scaffold",
+      "displayName": "Cowork Project Scaffold",
+      "description": "Cowork only. Scaffolds a git-backed Cowork Project folder whose documents state what is true while git holds the history, and generates a per-project document-maintenance skill to keep it that way.",
+      "version": "0.1.0",
+      "category": "productivity",
+      "tags": ["cowork", "documentation", "git", "scaffolding", "project-setup"],
+      "author": { "name": "Scott Hysom" },
+      "homepage": "https://github.com/ScottHysom/claude-plugins/tree/main/plugins/cowork-project-scaffold",
+      "license": "MIT"
+    }
+  ]
+}

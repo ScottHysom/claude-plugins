@@ -1,0 +1,18 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Editor cruft
+*.swp
+*~
+.vscode/
+.idea/
+
+# Temp
+*.tmp
+*.bak
+
+# Commit message drafted by Claude, consumed by commit.sh
+.commit-msg
