@@ -16,3 +16,7 @@
 
 # Commit message drafted by Claude, consumed by commit.sh
 .commit-msg
+
+# Files Claude delivers into the chat. Deliverables, not project collateral.
+# commit.sh runs `git add -A`, so without this they land in the repo.
+Claude outputs/

@@ -70,6 +70,10 @@ rather than holding them all to the end.
    must all carry the same slots, one per candidate or vendor or option. Almost
    always no at the start. Say so and move on rather than inventing a template
    nobody needs yet.
+9. **Diagrams?** Whether the owner wants diagrams carrying real weight in the
+   documents rather than turning up occasionally. Yes keeps the Diagrams
+   section, no deletes it. Ask directly. It is a fact about how he reads, and
+   nothing about the project's subject predicts it.
 
 If the user is not present to answer, do not guess at 3 and 4. Scaffold the
 folder, leave those sections marked, and say plainly what is unanswered.

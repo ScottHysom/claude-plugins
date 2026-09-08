@@ -117,6 +117,50 @@ What this does **not** license: cutting nuance to make a sentence short, or
 dropping a caveat because it reads as a long clause. Split it into two
 sentences instead.
 
+## Diagrams
+
+<!-- OPTIONAL SECTION. Keep it only if the owner wants diagrams doing real work
+     in the documents. Ask; it is a fact about how he reads, not something the
+     project's subject implies. If not, delete through END OPTIONAL SECTION. -->
+
+The project owner is a visual learner. A diagram is not decoration here. It is
+often the explanation, and the prose is the support. `{{ANCHOR_DOC}}` owns that fact
+about him. This section owns what to do about it.
+
+- **Lead with the diagram.** Draw the thing, then write the prose around it. A
+  diagram appended beneath a finished explanation is decoration, and decoration
+  gets skipped.
+- **Mermaid fenced code blocks, never an image file.** Mermaid stays in git as
+  text, so it diffs line by line and a wrong arrow shows up in `git diff`. It
+  renders in place in Cowork and on GitHub, so the owner previews it in the
+  document itself. A PNG or an SVG drifts out of sync with the prose beside it
+  and no diff will ever say so.
+- **Render it before committing, for your own eyes only.** Mermaid fails quietly
+  in a viewer, and a diagram that parses can still read badly. Checking costs one
+  command:
+
+  ```sh
+  # -p takes a puppeteer launch config. In the cloud container that file holds
+  # {"executablePath":"/opt/pw-browsers/chromium","args":["--no-sandbox"]}
+  npx -y @mermaid-js/mermaid-cli@11 -i d.mmd -o d.png -p pc.json -b white
+  ```
+
+  Look at the PNG, then discard it. It is never committed, never referenced from
+  a document, and never sent to the owner. He previews the Mermaid in the file.
+- **Watch the aspect ratio.** A `flowchart TB` chain of ten or more nodes renders
+  as a column thousands of pixels tall, and nobody scrolls that. For a stack or a
+  pipeline, use `flowchart LR` at the top level with `direction TB` inside each
+  subgraph. The groups sit side by side and the whole thing fits on a screen.
+- **One idea per diagram.** A diagram that needs a legend to be read is two
+  diagrams that have not been separated yet.
+- **A drawing can be the test.** Where a document defines what "done" looks like,
+  "drawn" is a stronger bar than "able to explain". A gap in a diagram is
+  visible. A gap in a paragraph is not.
+- **The no-history rule still applies.** Diagram what is true. Never diagram how
+  the document got that way.
+
+<!-- END OPTIONAL SECTION -->
+
 ## TODO markers
 
 An open decision, or a question that could still be answered, gets a marker
