@@ -46,6 +46,28 @@ Dates that are *part of a fact* stay: a release year, a quarter a figure covers,
 a quote's date. The test is whether the date describes the world or describes
 the editing.
 
+**That test is the actual rule, and it applies to every sentence, not only to
+dates.** The list above is a list of shapes this mistake has taken. It is not
+the rule, and a sentence can break the rule while matching nothing on the list.
+The test: *would deleting this sentence cost the reader something about the
+subject, or only something about how the document got here?*
+
+The form that slips through most easily is a sentence justifying the document's
+own structure. It carries no date and no changelog word, so it reads as ordinary
+prose:
+
+- "Both corrections are large enough to have their own section."
+- "This is covered separately below, because it grew too long here."
+- "For completeness, the earlier approach is kept in this section."
+
+None of those tell a first-time reader anything about the subject. They explain
+an editing decision. Cut them, or replace them with the claim itself.
+
+A cross-reference is not this. "`<file>.md` § <Heading> works both out" is
+navigation, and navigation is content: it tells the reader where the rest of the
+answer is. The difference is justification. Pointing at a section is fine.
+Explaining why the section exists is not.
+
 The distinction that looks identical and isn't:
 
 - **Uncertainty is content.** Keep gaps sections, confidence flags, "could not
@@ -53,6 +75,47 @@ The distinction that looks identical and isn't:
   calibrate trust in what he is reading.
 - **History is metadata.** Move "I corrected X to Y", "this section was added
   on DATE" and "sections were renumbered" into the commit body.
+
+## Re-reading after an edit
+
+Replacing a block leaves the prose around it pointing at text that no longer
+exists. **The diff will look correct**, because every line in it is correct.
+The damage is only visible from the top of the section, and only to someone
+reading it as though for the first time.
+
+A worked case. A document said:
+
+> Two corrections to the obvious reading of that table.
+
+followed by two bullets. An edit replaced the bullets and kept the sentence
+stem, leaving "Both corrections are large enough to have their own section."
+The word *corrections* had meant *corrections to the reader's misreading*. With
+the bullets gone it reads as *corrections to this document*, which is history in
+the content, and the count no longer had anything to count.
+
+What to check in the surviving prose on both sides of an edit:
+
+- **A count.** "Both", "the two", "three of these". **A count needs a list** is
+  already a rule under **Prose instructions**. Editing is the usual way a count
+  loses its list, because the list and the count get separated by a replacement
+  that only touched one of them.
+- **A demonstrative.** "These", "those", "that table", "the above".
+- **A word the deleted text defined.** The hardest case, because the word is
+  still ordinary English and the sentence still parses. It has simply changed
+  meaning for anyone who did not see the old version.
+- **A promise about what comes next.** "As the next section shows", when the
+  next section is now a different section.
+
+This grep gathers candidates. It does not find violations, and it will not catch
+the third case at all:
+
+```sh
+grep -rnE '^(Both|These|Those|The (two|three|four)) |own section|separately below' \
+  . --include='*.md' --exclude-dir=skills
+```
+
+The real check is to read the whole section with no memory of the previous
+version. That is the only reader the document will ever have.
 
 ## The documents
 
@@ -111,7 +174,9 @@ How those land in this project specifically:
   elsewhere is not restating it: the same fact can appear in two tables doing
   different work in each.
 - **A count needs a list.** If a sentence counts something, the thing it counts
-  is enumerated in the same document, and near enough to check.
+  is enumerated in the same document, and near enough to check. This rule is
+  broken far more often by editing than by writing. See
+  § Re-reading after an edit.
 
 What this does **not** license: cutting nuance to make a sentence short, or
 dropping a caveat because it reads as a long clause. Split it into two
