@@ -1,0 +1,56 @@
+name: validate
+
+# Every manifest in this repo is consumed by `/plugin marketplace add`. A broken
+# manifest on main breaks installation for everyone, and nothing about it is
+# visible from a diff. So validate on the way in.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: validate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # Tracks latest on purpose. A new validation rule should surface here as a
+      # PR failure rather than as a user's failed install.
+      - name: Install the Claude Code CLI
+        run: |
+          curl -fsSL https://claude.ai/install.sh | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Report version
+        run: claude --version
+
+      # Exits 0 on pass and on warnings-only, 1 on error. Warnings do not fail
+      # the build.
+      - name: Validate the marketplace manifest
+        run: claude plugin validate .
+
+      - name: Validate every plugin manifest
+        run: |
+          rc=0
+          found=0
+          for dir in plugins/*/; do
+            [ -f "${dir}.claude-plugin/plugin.json" ] || continue
+            found=1
+            echo "::group::${dir}"
+            claude plugin validate "$dir" || rc=1
+            echo "::endgroup::"
+          done
+          if [ "$found" -eq 0 ]; then
+            echo "No plugin manifests found under plugins/. Expected at least one." >&2
+            exit 1
+          fi
+          exit $rc
