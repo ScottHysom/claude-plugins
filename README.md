@@ -15,7 +15,7 @@ In Claude Code:
 
 ```
 /plugin marketplace add ScottHysom/claude-plugins
-/plugin install cowork-project-scaffold@claude-plugins
+/plugin install cowork-project-scaffold@scott-claude-plugins
 ```
 
 In Cowork, add the marketplace and install from the plugin browser.
@@ -23,7 +23,7 @@ In Cowork, add the marketplace and install from the plugin browser.
 Custom marketplaces do not auto-update. To pick up new versions:
 
 ```
-/plugin marketplace update claude-plugins
+/plugin marketplace update scott-claude-plugins
 ```
 
 ## Plugins

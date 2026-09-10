@@ -20,7 +20,7 @@ if [ -s .commit-msg ]; then
     git commit -F .commit-msg
     : > .commit-msg
 else
-    git commit -m "chore: scaffold project from _project-template"
+    git commit -m "chore: scaffold project from cowork-project-scaffold"
 fi
 
 echo
