@@ -76,6 +76,27 @@ The distinction that looks identical and isn't:
 - **History is metadata.** Move "I corrected X to Y", "this section was added
   on DATE" and "sections were renumbered" into the commit body.
 
+### Settled decisions
+
+A decision that has been made records what was decided and the constraint that
+forced it. The alternatives that lost are editorial. Cut the "the alternative
+was X" and "the cost is Y" clauses once the choice is closed.
+
+The exception is a section deliberately authored as a comparison, either because
+the choice is still open or the author explicitly wants to record it for posterity. 
+That section keeps its full pros and cons.
+
+The test is one of the following:
+
+  1. The choice is still live. In this case, keep the comparison while the
+     decision is open. Move it to the commit body once the decision is closed.
+    <!-- FILL: point at a section in this project that is deliberately a
+        comparison with the choice still open, if one exists. Without an
+        example the exception gets read as permission to keep every
+        alternative-and-cost clause. -->
+  2. The user explicitly stated to record it for posterity. Indicate the purpose 
+     of the section is to record the options/comparisons.
+
 ## Re-reading after an edit
 
 Replacing a block leaves the prose around it pointing at text that no longer
@@ -148,6 +169,7 @@ folder, including this skill.
 - Prefer short sentences over long run-on sentences.
 - Prefer a period over the em-dash (ranges are ok).
 - Prefer bullet-lists over long sequences of comma- or semi-colon-delimited lists.
+- Use US spelling.
 
 How those land in this project specifically:
 
@@ -168,6 +190,9 @@ How those land in this project specifically:
 - **A section marker is a heading, not a bold phrase.** If a bolded phrase sits
   alone on a line and introduces the block beneath it, make it a `###`. Bold
   stays for emphasis *inside* a paragraph, and for the lead-in to a bullet.
+- **A run of three or more phrases becomes bullets.** "reading papers at the
+  source, contributing to an open-source project, or producing public writing
+  about any of this" becomes three bullets under a lead-in line.
 - **State a point once, in the place it lands hardest.** A section that opens
   with a claim, lists its parts, then closes by restating the claim has said it
   twice. Keep the version doing work the others do not. Applying a fact
@@ -181,6 +206,73 @@ How those land in this project specifically:
 What this does **not** license: cutting nuance to make a sentence short, or
 dropping a caveat because it reads as a long clause. Split it into two
 sentences instead.
+
+### Sentences
+
+- **Every sentence carries its own subject.** A sentence that borrows its
+  subject from the heading above it, from the sentence before it, or from the
+  reader's inference is incomplete. A line reading "Able to state what is
+  inside the file" names nobody.
+  <!-- FILL: replace with a real before and after from this project. -->
+  The check: read the sentence with nothing before it. If it no longer says who or what, its subject
+  is missing.
+- **Name the role.** A project has more than one person in it, and prose names
+  the one it means rather than leaving it to inference.
+  <!-- FILL: name this project's roles and say which documents speak of
+       which. A common set: the author, who sets the goals and constraints;
+       the reader, who works the material; the agent, who edits the
+       documents. Without this list every dropped subject returns as "you". -->
+- **Imperatives take no subject.** An exercise step or a procedure is written as
+  a bare imperative. Write "Write down the resulting number", not "Write down
+  the number you are actually working with", and not "The reader writes down the
+  number." Second person is the usual way a dropped role returns.
+- **Negation only where its absence would mislead.** "A model is not a program.
+  It is a large file of numbers" earns the negation, because a reader arrives
+  expecting a program. "A bonus, not a gating criterion" does not, because
+  nobody claimed otherwise. Where the negation is needed, fold it into the
+  preceding sentence rather than appending it as its own. "Understanding what
+  these involve is in scope. Doing them is not." becomes "It is in scope to
+  understand what these involve, and not a requirement to do them."
+- **A colon the reader could delete is the wrong mark.** "A lesson stays
+  current: when something in it is wrong or incomplete, amend it" reverses its
+  own meaning if the colon is missed. Rephrase rather than repunctuate: "Keep
+  the lesson content up to date. When something in it is wrong or incomplete,
+  amend it."
+- **Name what is counted rather than opening with the count.** "Three glosses,
+  since none of this is obvious from the outside" becomes "The terms that need a
+  gloss:". The count still needs its list, under **A count needs a list** above.
+- **A simplification is flagged in a full sentence.** "Simplifying:" reads as a
+  participle attached to the subject rather than as the author flagging a
+  compression. Name the agent and the compression in one sentence: "As a
+  simplification, this section treats X as fixed and leaves Y to §Z."
+- **A closing sentence that restates the passage is cut.** "Curated, not
+  collected. A resource earns a place here only after it has been used for
+  something. A bookmark list is not this document." carries one claim in three
+  sentences. Keep the sentence carrying the information. The check: delete the
+  sentence and see whether the reader has lost a fact.
+
+### Headings
+
+- **A heading is a short noun phrase.** "### The size arithmetic, which is the
+  whole point" becomes "### The size arithmetic". "### Jargon, defined once"
+  becomes "### Terminology". A heading does not editorialize, does not count its
+  own contents, and is not a sentence or a question.
+- **The first sentence of a section stands alone.** "## Kill criteria" followed
+  by "Decided in advance, while it is still cheap to decide:" borrows its
+  subject from the heading. It becomes "The criteria that end the project early
+  include:". A reader who jumps to a section, or who quotes one sentence out of
+  it, then gets a complete statement.
+
+### Register
+
+- **The register matches the audience.**
+  <!-- FILL: name this project's reader and the register that fits. Give one
+       colloquial phrase this project has actually produced, and its
+       replacement. A rule with no example does not survive contact. -->
+- **An adjective that presumes the reader's state is cut.** "The non-obvious
+  result is in the bolded column" tells the reader what he has already found
+  obvious, or has not. Write "The result in the bolded column:" and leave the
+  judgement to him.
 
 ## Diagrams
 
@@ -361,7 +453,7 @@ document. Record what was wrong and what it is now in the commit body, not in
 the document.
 <!-- END OPTIONAL SECTION -->
 
-## Committing: the bridge cannot do this alone
+## Committing through the bridge
 
 `device_bash` cannot delete files. Every `git commit` it attempts strands a
 `.git/HEAD.lock` that blocks all subsequent writes to the repo. So:
