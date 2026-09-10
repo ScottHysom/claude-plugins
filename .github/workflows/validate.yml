@@ -54,3 +54,8 @@ jobs:
             exit 1
           fi
           exit $rc
+
+      # `claude plugin validate` checks each manifest alone, so it cannot see two
+      # manifests disagreeing with each other. This catches that.
+      - name: Check manifests agree with each other
+        run: python3 .github/scripts/check-manifest-consistency.py

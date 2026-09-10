@@ -64,7 +64,12 @@ directory under `plugins/` and one new entry in the catalog.
 4. Validate, then push:
    ```sh
    claude plugin validate .
+   python3 .github/scripts/check-manifest-consistency.py
    ```
+
+   CI runs both on every pull request. The second one catches what
+   `claude plugin validate` cannot: two manifests that each validate but
+   disagree with each other, such as a version bumped in one and not the other.
 
 ## Editing this repo from Cowork
 
