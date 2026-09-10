@@ -1,5 +1,6 @@
 {
-  "name": "claude-plugins",
+  "name": "scott-claude-plugins",
+  "description": "Personal plugins for Claude. Each plugin's description states which surface it needs: Cowork, Claude Code, or both.",
   "owner": {
     "name": "Scott Hysom",
     "url": "https://github.com/ScottHysom"
@@ -10,7 +11,7 @@
       "source": "./plugins/cowork-project-scaffold",
       "displayName": "Cowork Project Scaffold",
       "description": "Cowork only. Scaffolds a git-backed Cowork Project folder whose documents state what is true while git holds the history, and generates a per-project document-maintenance skill to keep it that way.",
-      "version": "0.1.0",
+      "version": "0.2.1",
       "category": "productivity",
       "tags": ["cowork", "documentation", "git", "scaffolding", "project-setup"],
       "author": { "name": "Scott Hysom" },
