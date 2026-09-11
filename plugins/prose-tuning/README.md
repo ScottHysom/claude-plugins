@@ -84,9 +84,9 @@ your evidence. So `evidence` strips the markup in memory and diffs that instead.
 markup goes in as one batch applied bottom-up from a single snapshot. Twenty
 separate calls cannot work, which is what the first run discovered the hard way.
 
-Run `python3 scripts/prose.py selftest` to check it. The property that matters
-is a round trip: for any batch, insert then strip returns the file
-byte-identical.
+The property that matters is a round trip: for any batch, insert then strip
+returns the file byte-identical. `scripts/tests/test_round_trip.py` asserts it
+span shape by span shape. See [Running the tests](../../README.md#running-the-tests).
 
 ## Editing the rules
 
