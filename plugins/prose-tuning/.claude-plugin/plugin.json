@@ -1,0 +1,19 @@
+{
+  "name": "prose-tuning",
+  "version": "0.1.0",
+  "description": "Learns a project's house prose style from edits already made, records it as prose-style.md with stable rule ids, and conforms the rest of the documents to it. Ships prose.py, so it must be installed as a plugin rather than proposed as a single skill.",
+  "author": {
+    "name": "Scott Hysom",
+    "url": "https://github.com/ScottHysom"
+  },
+  "homepage": "https://github.com/ScottHysom/claude-plugins/tree/main/plugins/prose-tuning",
+  "repository": "https://github.com/ScottHysom/claude-plugins",
+  "license": "MIT",
+  "keywords": [
+    "prose",
+    "style",
+    "documentation",
+    "editing",
+    "writing"
+  ]
+}

@@ -31,6 +31,7 @@ Custom marketplaces do not auto-update. To pick up new versions:
 | Plugin | Surface | What it does |
 |---|---|---|
 | [cowork-project-scaffold](plugins/cowork-project-scaffold) | Cowork | Scaffolds a Cowork Project folder as a git repo, and generates a per-project skill that keeps its documents stating what is true while git holds the history |
+| [prose-tuning](plugins/prose-tuning) | Claude Code, Cowork | Learns a project's house prose style from edits already made, records it as `prose-style.md` with stable rule ids, and conforms the rest of the documents to it |
 
 ## Layout
 
@@ -42,6 +43,8 @@ plugins/
     .claude-plugin/
       plugin.json          the plugin's own manifest
     README.md
+    scripts/               optional. Shared by every skill in the plugin
+    reference/             optional. Normative docs a skill points at
     skills/
       <skill-name>/
         SKILL.md           plus any files the skill bundles
@@ -57,7 +60,14 @@ directory under `plugins/` and one new entry in the catalog.
    field, in kebab-case, matching the directory name.
 2. Put skills at `plugins/<name>/skills/<skill-name>/SKILL.md`. A skill can
    bundle reference files, scripts and templates in subdirectories beside its
-   `SKILL.md`, and reach them at `${CLAUDE_SKILL_DIR}/...`.
+   `SKILL.md`, and reach them at `${CLAUDE_SKILL_DIR}/...`. Anything two skills
+   share goes at the plugin root instead, reached at
+   `${CLAUDE_PLUGIN_ROOT}/...`. Copying it into each skill is how one parser
+   becomes three that disagree.
+
+   A plugin that bundles a script cannot be delivered to Cowork through
+   `propose_skills`, which takes a single `SKILL.md` and no bundled files. Say
+   so in the skill, or it fails confusingly at the point of use.
 3. Add an entry to `.claude-plugin/marketplace.json` with `name`, `source`,
    `description` and `version`. State the required surface in the first
    sentence of the description.

@@ -37,11 +37,19 @@ They ship with this skill, at `${CLAUDE_SKILL_DIR}/templates/`:
 | `skills-README.md` | `skills/README.md` | verbatim |
 | `current-state.md` | `current-state.md` | seeded, filled from the interview |
 | `project-instructions.md` | `project-instructions.md` | seeded, filled from the interview |
+| `prose-style.md` | `prose-style.md` | substituted, then every marker resolved |
 | `maintain-docs.md` | `skills/<skill-name>/SKILL.md` | substituted, then every marker resolved |
 
-**Read `templates/maintain-docs.md` in full before generating from it.** Do not
-work from a remembered version. It is the universal half of the rules and it
-changes.
+**Read `templates/maintain-docs.md` and `templates/prose-style.md` in full
+before generating from either.** Do not work from a remembered version. They
+are the universal half of the rules and they change.
+
+The two split cleanly. `maintain-docs.md` becomes the skill and owns document
+mechanics: front matter, TODO markers, diagrams, commits. `prose-style.md`
+becomes a document in the repo and owns how the sentences read. It is a
+separate file because a project diverges from it - one project's register is
+not another's - and because every agent touching the repo has to read it,
+including agents that never load the skill.
 
 ## Step 1: the interview
 
@@ -63,7 +71,10 @@ rather than holding them all to the end.
 5. **The phases.** The names of the work buckets. Reused verbatim as the
    `TODO(phase)` vocabulary, so they should be short and stable.
 6. **Standing prose instructions.** Whether the user has their own. The
-   template ships a default list; it is a `FILL` block because it is personal.
+   answer fills `prose-style.md`, not the skill. The template ships 24 rules
+   with ids; the `FILL` markers in them want a real before-and-after from this
+   project, because a rule with no example does not survive contact. Leaving
+   them unfilled is allowed and weakens every rule that carries one.
 7. **Sourced claims?** Whether the project makes factual claims that need
    provenance flags. Yes keeps the source-quality section, no deletes it.
 8. **Repeating sections?** Whether any document will hold many sections that

@@ -76,27 +76,6 @@ The distinction that looks identical and isn't:
 - **History is metadata.** Move "I corrected X to Y", "this section was added
   on DATE" and "sections were renumbered" into the commit body.
 
-### Settled decisions
-
-A decision that has been made records what was decided and the constraint that
-forced it. The alternatives that lost are editorial. Cut the "the alternative
-was X" and "the cost is Y" clauses once the choice is closed.
-
-The exception is a section deliberately authored as a comparison, either because
-the choice is still open or the author explicitly wants to record it for posterity. 
-That section keeps its full pros and cons.
-
-The test is one of the following:
-
-  1. The choice is still live. In this case, keep the comparison while the
-     decision is open. Move it to the commit body once the decision is closed.
-    <!-- FILL: point at a section in this project that is deliberately a
-        comparison with the choice still open, if one exists. Without an
-        example the exception gets read as permission to keep every
-        alternative-and-cost clause. -->
-  2. The user explicitly stated to record it for posterity. Indicate the purpose 
-     of the section is to record the options/comparisons.
-
 ## Re-reading after an edit
 
 Replacing a block leaves the prose around it pointing at text that no longer
@@ -116,8 +95,8 @@ the content, and the count no longer had anything to count.
 
 What to check in the surviving prose on both sides of an edit:
 
-- **A count.** "Both", "the two", "three of these". **A count needs a list** is
-  already a rule under **Prose instructions**. Editing is the usual way a count
+- **A count.** "Both", "the two", "three of these". `sentences-09` in
+  `prose-style.md` already requires a count to have its list. Editing is the usual way a count
   loses its list, because the list and the count get separated by a replacement
   that only touched one of them.
 - **A demonstrative.** "These", "those", "that table", "the above".
@@ -149,130 +128,36 @@ version. That is the only reader the document will ever have.
        - `<doc>.md` - <what it owns>. <what belongs elsewhere>.
 -->
 
+`prose-style.md` is in the folder too, and is not a research document. It is
+the house prose style, it is read before every edit, and it is maintained by
+the `prose-tuning` plugin rather than by hand.
+
 A fact lives in exactly one document. Other documents reference it rather than
 restating it. When two documents could plausibly own something, `{{ANCHOR_DOC}}`
 owns it.
 
 ## Prose instructions
 
-The project owner's standing instructions. They apply to every document in this
-folder, including this skill.
+The house prose style lives in `prose-style.md` at the root of this repo, not
+in this skill. Read it before editing any document, and do not work from a
+remembered version of it.
 
-<!-- FILL: replace this list if the owner's standing instructions differ from
-     the default below. If they are already set as a Claude preference, restate
-     them here anyway. A skill cannot rely on a preference being loaded. -->
+Each rule there has a stable id, so a note about a passage can name the rule it
+breaks: `sentences-01 at landscape.md:42`. A rule that gets reworded keeps its
+id, and `git log -p prose-style.md` holds what it used to say. Nothing in that
+file is ever marked retired.
 
-- Define jargon and acronyms on first use.
-- Don't assume familiarity with named tools, libraries or techniques unless already known.
-- Prefer a concrete example over an abstraction.
-- Flag when you're simplifying.
-- Prefer short sentences over long run-on sentences.
-- Prefer a period over the em-dash (ranges are ok).
-- Prefer bullet-lists over long sequences of comma- or semi-colon-delimited lists.
-- Use US spelling.
+This skill owns document mechanics - front matter, TODO markers, diagrams,
+cross-references, commit format. `prose-style.md` owns how the sentences read.
+When the two seem to overlap, they do not: mechanics decide where a thing goes,
+prose decides how it is written.
 
-How those land in this project specifically:
+Changing the prose rules is its own job, and the `prose-tuning` plugin does it:
+`update-prose-config` infers rules from edits you have already made, and
+`apply-prose` conforms the existing documents to them. Editing `prose-style.md`
+by hand is fine for a one-line fix and loses the worked example that makes a
+rule survive contact.
 
-- **First use is per document, not per project.** A pointer to a glossary is not
-  a definition. One clause is enough.
-- **"Already known" means the owner's own career.**
-  <!-- FILL: name the domains that need no gloss, and the domains in THIS
-       project that always do. Both halves matter: without the first, every
-       document over-explains; without the second, jargon slips through. -->
-- **Concrete means a number, a name or a title.**
-  <!-- FILL: one real example from this project, and the vague version it beats. -->
-- **Flag a simplification with the word.** Write "Simplifying:" and name what
-  was left out.
-- **Ranges keep their en-dash.** `20–30 hrs/wk`, `§1–§9`, `1988–2026`. That is
-  a different mark doing a different job.
-- **Tables follow the same rules.** A cell that reaches for an em-dash almost
-  always wants a period or a colon instead.
-- **A section marker is a heading, not a bold phrase.** If a bolded phrase sits
-  alone on a line and introduces the block beneath it, make it a `###`. Bold
-  stays for emphasis *inside* a paragraph, and for the lead-in to a bullet.
-- **A run of three or more phrases becomes bullets.** "reading papers at the
-  source, contributing to an open-source project, or producing public writing
-  about any of this" becomes three bullets under a lead-in line.
-- **State a point once, in the place it lands hardest.** A section that opens
-  with a claim, lists its parts, then closes by restating the claim has said it
-  twice. Keep the version doing work the others do not. Applying a fact
-  elsewhere is not restating it: the same fact can appear in two tables doing
-  different work in each.
-- **A count needs a list.** If a sentence counts something, the thing it counts
-  is enumerated in the same document, and near enough to check. This rule is
-  broken far more often by editing than by writing. See
-  § Re-reading after an edit.
-
-What this does **not** license: cutting nuance to make a sentence short, or
-dropping a caveat because it reads as a long clause. Split it into two
-sentences instead.
-
-### Sentences
-
-- **Every sentence carries its own subject.** A sentence that borrows its
-  subject from the heading above it, from the sentence before it, or from the
-  reader's inference is incomplete. A line reading "Able to state what is
-  inside the file" names nobody.
-  <!-- FILL: replace with a real before and after from this project. -->
-  The check: read the sentence with nothing before it. If it no longer says who or what, its subject
-  is missing.
-- **Name the role.** A project has more than one person in it, and prose names
-  the one it means rather than leaving it to inference.
-  <!-- FILL: name this project's roles and say which documents speak of
-       which. A common set: the author, who sets the goals and constraints;
-       the reader, who works the material; the agent, who edits the
-       documents. Without this list every dropped subject returns as "you". -->
-- **Imperatives take no subject.** An exercise step or a procedure is written as
-  a bare imperative. Write "Write down the resulting number", not "Write down
-  the number you are actually working with", and not "The reader writes down the
-  number." Second person is the usual way a dropped role returns.
-- **Negation only where its absence would mislead.** "A model is not a program.
-  It is a large file of numbers" earns the negation, because a reader arrives
-  expecting a program. "A bonus, not a gating criterion" does not, because
-  nobody claimed otherwise. Where the negation is needed, fold it into the
-  preceding sentence rather than appending it as its own. "Understanding what
-  these involve is in scope. Doing them is not." becomes "It is in scope to
-  understand what these involve, and not a requirement to do them."
-- **A colon the reader could delete is the wrong mark.** "A lesson stays
-  current: when something in it is wrong or incomplete, amend it" reverses its
-  own meaning if the colon is missed. Rephrase rather than repunctuate: "Keep
-  the lesson content up to date. When something in it is wrong or incomplete,
-  amend it."
-- **Name what is counted rather than opening with the count.** "Three glosses,
-  since none of this is obvious from the outside" becomes "The terms that need a
-  gloss:". The count still needs its list, under **A count needs a list** above.
-- **A simplification is flagged in a full sentence.** "Simplifying:" reads as a
-  participle attached to the subject rather than as the author flagging a
-  compression. Name the agent and the compression in one sentence: "As a
-  simplification, this section treats X as fixed and leaves Y to §Z."
-- **A closing sentence that restates the passage is cut.** "Curated, not
-  collected. A resource earns a place here only after it has been used for
-  something. A bookmark list is not this document." carries one claim in three
-  sentences. Keep the sentence carrying the information. The check: delete the
-  sentence and see whether the reader has lost a fact.
-
-### Headings
-
-- **A heading is a short noun phrase.** "### The size arithmetic, which is the
-  whole point" becomes "### The size arithmetic". "### Jargon, defined once"
-  becomes "### Terminology". A heading does not editorialize, does not count its
-  own contents, and is not a sentence or a question.
-- **The first sentence of a section stands alone.** "## Kill criteria" followed
-  by "Decided in advance, while it is still cheap to decide:" borrows its
-  subject from the heading. It becomes "The criteria that end the project early
-  include:". A reader who jumps to a section, or who quotes one sentence out of
-  it, then gets a complete statement.
-
-### Register
-
-- **The register matches the audience.**
-  <!-- FILL: name this project's reader and the register that fits. Give one
-       colloquial phrase this project has actually produced, and its
-       replacement. A rule with no example does not survive contact. -->
-- **An adjective that presumes the reader's state is cut.** "The non-obvious
-  result is in the bolded column" tells the reader what he has already found
-  obvious, or has not. Write "The result in the bolded column:" and leave the
-  judgement to him.
 
 ## Diagrams
 
@@ -575,14 +460,17 @@ rather than as an all-clear.
 
 ## Scope discipline for the process itself
 
-`commit.sh`, `setup.sh`, `.gitignore`, `project-instructions.md`, `skills/` and
-this skill are the entire process apparatus. `skills/README.md` is the one
-deliberate addition, documenting the mirror convention. Nothing further:
+`commit.sh`, `setup.sh`, `.gitignore`, `project-instructions.md`,
+`prose-style.md`, `skills/` and this skill are the entire process apparatus.
+Two of those are deliberate additions rather than oversights:
+`skills/README.md` documents the mirror convention, and `prose-style.md` holds
+the house prose style, which is read on every edit and is too long to live
+inside this file. Nothing further:
 
 - no CHANGELOG.md
-- no second document about how the research itself is written
+- no third document about how the research itself is written
 - no version numbers
-- no templates
+- no templates beyond `prose-style.md`
 - no ISO conformance
 
 ## Improving these rules
@@ -594,6 +482,11 @@ A rule that turns out to be universal belongs back in that template, in the
 plugin repo, or the next project will not get it. A rule specific to
 {{PROJECT_NAME}} stays here. Sorting a rule into the wrong pile is the main way
 the template decays.
+
+Prose rules are the exception, because they do not live in this file. They live
+in `prose-style.md`, and carrying one upstream to the shipped default is what
+`adopt-prose` is for. Doing it by hand works and loses the merge review that
+catches a rule this project has already answered differently.
 
 Editing the plugin does not change this file, and editing this file does not
 change the plugin. They are separate copies on purpose: this one is tuned to

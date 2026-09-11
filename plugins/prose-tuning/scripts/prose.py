@@ -358,11 +358,22 @@ class Rule:
     def body_text(self):
         return "\n".join(self.body).strip()
 
+    def body_key(self):
+        """The body normalised for comparison, for adopt-prose.
+
+        HTML comments go: a FILL marker tells one project what to supply and is
+        not part of the rule, so two rules differing only by one are the same
+        rule. Whitespace collapses, because a rewrap is not an edit.
+        """
+        stripped = re.sub(r"<!--.*?-->", " ", self.body_text(), flags=re.S)
+        return " ".join(stripped.split())
+
     def as_dict(self):
         return {
             "id": self.id, "section": self.section, "number": self.number,
             "title": self.title, "line": self.line, "group": self.group,
             "meta": self.meta, "body": self.body_text(),
+            "body_key": self.body_key(),
             "example": (None if self.before is None and self.after is None
                         else {"before": self.before, "after": self.after}),
         }
@@ -691,8 +702,35 @@ class Blocks:
     def is_protected(self, line):
         return self.kinds[line - 1] in PROTECTED_KINDS
 
+    def code_span_offsets(self, fences):
+        """Backtick code spans: `<del>` in prose is a quotation, not markup.
+
+        Without this, any document that documents this vocabulary fails its own
+        tags check, and so does any project document quoting HTML.
+        """
+        out = []
+        runs = [m for m in re.finditer(r"`+", self.text.s)
+                if not any(a <= m.start() < b for a, b in fences)]
+        i = 0
+        while i < len(runs):
+            width = len(runs[i].group(0))
+            j = i + 1
+            while j < len(runs) and len(runs[j].group(0)) != width:
+                j += 1
+            if j < len(runs):
+                out.append((runs[i].start(), runs[j].end()))
+                i = j + 1
+            else:
+                i += 1
+        return out
+
+    def shielded_offsets(self):
+        """Everything the tag scanner must ignore: fences, front matter, spans."""
+        fences = self.protected_offsets()
+        return fences + self.code_span_offsets(fences)
+
     def protected_offsets(self):
-        """[(start, end)] absolute ranges the tag scanner must ignore."""
+        """[(start, end)] absolute ranges of front matter and fenced blocks."""
         out, start = [], None
         for i, kind in enumerate(self.kinds):
             if kind in ("frontmatter", "fence"):
@@ -825,7 +863,7 @@ class TagScanner:
                              % (self.path, self.text.line_of(offset), msg))
 
     def _scan(self):
-        protected = self.blocks.protected_offsets()
+        protected = self.blocks.shielded_offsets()
 
         def shielded(pos):
             return any(a <= pos < b for a, b in protected)
@@ -969,18 +1007,23 @@ def is_block_form(node, text):
 
 
 def tidy_block(s):
-    """Drop the blank lines a block tag's own lines leave behind.
+    """Drop exactly what a block tag's own two lines contribute, and no more.
 
-    Deliberately does not dedent. Insertion never re-indents the text it wraps,
-    so removing indentation here would shift every wrapped line left and break
-    the round trip that selftest asserts.
+    That is one leading newline (the one ending the opening tag's line) and any
+    indent sitting before the closing tag. Stripping every blank line at the
+    edges instead would silently eat an author's own blank line, which shows up
+    later as a phantom deletion in the next evidence run.
+
+    Deliberately does not dedent either. Insertion never re-indents the text it
+    wraps, so removing indentation here would shift every wrapped line left.
     """
-    lines = s.split("\n")
-    while lines and not lines[0].strip():
-        lines.pop(0)
-    while lines and not lines[-1].strip():
-        lines.pop()
-    return "\n".join(lines)
+    if s.startswith("\r\n"):
+        s = s[2:]
+    elif s.startswith("\n"):
+        s = s[1:]
+    if not s.strip():
+        return ""
+    return re.sub(r"\n[ \t]*\Z", "\n", s)
 
 
 def node_span(node, text):
@@ -1419,8 +1462,14 @@ def apply_inserts(text, blocks, records, path, qid_start):
 # --------------------------------------------------------------------------
 
 def load(args):
+    """repo, config, scope for one invocation.
+
+    The config override is `config_file`, not `file`: restore takes a --file of
+    its own, and one shared attribute name would have it silently reinterpreted
+    as a path to prose-style.md.
+    """
     repo = Repo(args.repo)
-    config = Config(config_path(repo, getattr(args, "file", None)))
+    config = Config(config_path(repo, getattr(args, "config_file", None)))
     return repo, config, Scope(repo, config)
 
 
@@ -1721,8 +1770,9 @@ def cmd_config(args):
                                   "; ! marks one with no worked example"
                                   if any(not (r.before or r.after)
                                          for r in rules) else ""))
-    return emit(args, "config list", repo.root, data,
-                warnings=config.warnings, human=human)
+    # list reads the rules; lint checks the file. Repeating lint's warnings
+    # here would bury the listing under them on every call.
+    return emit(args, "config list", repo.root, data, human=human)
 
 
 def cmd_tags(args):
@@ -2048,6 +2098,19 @@ def selftest_cases():
         return None
     case("fences shield markup", fence_shield)
 
+    def code_span_shield():
+        src = ("A `<del>` in prose is a quotation.\n\n"
+               "| `<repl>x</repl>` | note |\n|---|---|\n| a | b |\n\n"
+               "<del>this one is real</del>\n")
+        scanner = TagScanner(Text(src), None, "t.md")
+        if scanner.errors:
+            return "backticked tags were parsed as markup: %s" % scanner.errors
+        if len(scanner.roots) != 1 or scanner.roots[0].kind != "del":
+            return "expected exactly one real tag, got %s" % [
+                n.kind for n in scanner.roots]
+        return None
+    case("code spans shield markup", code_span_shield)
+
     def inline_round_trip():
         return _round_trip([
             {"file": "sample.md", "kind": "del", "start": 8, "col_start": 0,
@@ -2060,6 +2123,21 @@ def selftest_cases():
             {"file": "sample.md", "kind": "del", "start": 10, "end": 12},
         ])
     case("block del round trip", block_round_trip)
+
+    def blank_edge_round_trip():
+        """A span ending on a blank line must give the blank line back.
+
+        tidy_block used to strip every edge blank, which turned the author's
+        own blank line into a phantom deletion on the next evidence run.
+        """
+        for rec in [{"file": "sample.md", "kind": "del", "start": 7, "end": 9},
+                    {"file": "sample.md", "kind": "del", "start": 9, "end": 12},
+                    {"file": "sample.md", "kind": "del", "start": 10, "end": 13}]:
+            problem = _round_trip([rec])
+            if problem:
+                return "%s: %s" % (rec, problem)
+        return None
+    case("blank-edged block round trip", blank_edge_round_trip)
 
     def repl_round_trip():
         return _round_trip([
@@ -2184,6 +2262,21 @@ def selftest_cases():
             return "next_id gave %s" % cfg.next_id("sentences")
         return None
     case("config parsing", config_parse)
+
+    def body_key_normalisation():
+        """A FILL marker must not make two identical rules look different."""
+        rule = Rule("x-01", "x", 1, "T", 1)
+        rule.body = ["Same rule.", "<!-- FILL: supply an example. -->", ""]
+        other = Rule("x-01", "x", 1, "T", 1)
+        other.body = ["Same", "rule."]
+        if rule.body_key() != other.body_key():
+            return "%r != %r" % (rule.body_key(), other.body_key())
+        third = Rule("x-01", "x", 1, "T", 1)
+        third.body = ["A different rule."]
+        if rule.body_key() == third.body_key():
+            return "different bodies compared equal"
+        return None
+    case("body_key normalisation", body_key_normalisation)
 
     def front_matter_grammar():
         import tempfile
