@@ -2,8 +2,10 @@
 
 Paste this into the Project's custom instructions field. A copy is retained here for version control tracking.
 
-Prose style is not in this field. It lives in the `{{SKILL_NAME}}` skill, under
-**Prose instructions**, and applies to every document in the repo.
+Prose style is not in this field. It lives in `prose-style.md` at the root of
+the repo, and applies to every document there. Read it before editing any
+document. The `{{SKILL_NAME}}` skill covers document mechanics and points at
+the same file.
 
 ---
 

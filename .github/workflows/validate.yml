@@ -59,3 +59,10 @@ jobs:
       # manifests disagreeing with each other. This catches that.
       - name: Check manifests agree with each other
         run: python3 .github/scripts/check-manifest-consistency.py
+
+      # prose.py parses a markup grammar and rewrites files in place. Its
+      # round-trip property - insert then strip returns the file byte-identical
+      # - is the only thing standing between a tagging pass and a mangled
+      # document, so it runs on every push.
+      - name: prose-tuning selftest
+        run: python3 plugins/prose-tuning/scripts/prose.py selftest

@@ -44,16 +44,23 @@ UI leaves no commit and no diff, and the two copies drift silently.
   setup.sh                     one time: git init and the first commit
   current-state.md             the anchor document. Wins on every conflict
   project-instructions.md      mirror of the Project's custom-instructions field
+  prose-style.md               the house prose style, 24 rules with stable ids
   skills/
     README.md                  the repo-is-source convention, and the drift check
     update-<project>-docs/
       SKILL.md                 generated for this project, then registered
 ```
 
-The generated skill carries the house rules that turned out to be universal:
-front matter, `TODO(phase)` markers, decisions recorded as ADRs, Conventional
-Commits with the correction log in the body, ISO dates, the drift check, and
-the procedure for committing from a bridge that cannot delete files.
+The generated skill carries the document mechanics that turned out to be
+universal: front matter, `TODO(phase)` markers, decisions recorded as ADRs,
+Conventional Commits with the correction log in the body, ISO dates, the drift
+check, and the procedure for committing from a bridge that cannot delete files.
+
+How the sentences read is a separate file. `prose-style.md` sits in the repo
+rather than inside the skill, because every agent touching the project has to
+read it and not all of them load the skill, and because a project is expected
+to diverge from the shipped default. Its rules carry stable ids, so a note can
+name the rule a passage breaks. The `prose-tuning` plugin maintains it.
 
 Two sections are optional and get deleted outright when they do not apply: a
 template for repeating sections, and source-quality flags for projects that
