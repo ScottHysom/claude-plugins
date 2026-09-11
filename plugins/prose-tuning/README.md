@@ -24,8 +24,9 @@ Every later agent editing those documents started from nothing.
 Prose style becomes a file in the repo, not a thing re-derived per session.
 
 `prose-style.md` sits at the project root. Every agent reads it before editing.
-Its rules carry stable ids, so a note can say `sentences-01 at landscape.md:42`
-and mean something checkable.
+Its rules carry stable ids that say what the rule means, so a note can read
+`sentences-own-subject at landscape.md:42` and be checkable without opening the
+file.
 
 `cowork-project-scaffold` ships the default, so a new project starts with
 twenty-four rules rather than a blank file, and a project that wants to diverge

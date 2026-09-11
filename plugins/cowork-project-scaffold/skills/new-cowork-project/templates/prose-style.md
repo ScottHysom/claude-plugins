@@ -17,10 +17,12 @@ The house style for every document in this repo, including this one. The
 TODO markers, diagrams, commit format. This file is authoritative on how the
 sentences read. The two never overlap.
 
-Every rule has a stable id. A report names the id, and a rule that gets
-reworded keeps it, so `apply-prose` can say `sentences-01 at landscape.md:42`
-and mean something. Nothing here is ever marked retired: a rule that changes is
-edited in place, and `git log -p prose-style.md` holds what it used to say.
+Every rule has a stable id of the form `<section>-<name>`, where the name is
+one to four words saying what the rule means. A report names the id, so
+`apply-prose` can say `sentences-own-subject at landscape.md:42` and be checked
+by eye. A rule that gets reworded keeps its name. Nothing here is ever marked
+retired: a rule that changes is edited in place, and `git log -p prose-style.md`
+holds what it used to say.
 
 What none of this licenses: cutting nuance to make a sentence short, or
 dropping a caveat because it reads as a long clause. Split it into two
@@ -36,13 +38,13 @@ folder.
      restate them here anyway. A skill cannot rely on a preference being
      loaded, and neither can this file. -->
 
-### standing-01: Define jargon and acronyms on first use
+### standing-define-terms: Define jargon and acronyms on first use
 <!-- prose-rule: source=shipped -->
 
 First use is per document, not per project. A pointer to a glossary is not a
 definition. One clause is enough.
 
-### standing-02: Do not assume familiarity with a named tool or technique
+### standing-no-assumed-familiarity: Do not assume familiarity with a named tool or technique
 <!-- prose-rule: source=shipped -->
 
 "Already known" means the owner's own career, not the field at large.
@@ -51,7 +53,7 @@ definition. One clause is enough.
      project that always do. Both halves matter: without the first, every
      document over-explains; without the second, jargon slips through. -->
 
-### standing-03: Prefer a concrete example over an abstraction
+### standing-concrete-over-abstract: Prefer a concrete example over an abstraction
 <!-- prose-rule: source=shipped -->
 
 Concrete means a number, a name or a title.
@@ -59,21 +61,21 @@ Concrete means a number, a name or a title.
 <!-- FILL: one real example from this project, and the vague version it
      beats. -->
 
-### standing-04: Flag a simplification with the word
+### standing-flag-simplification: Flag a simplification with the word
 <!-- prose-rule: source=shipped -->
 
 Write "Simplifying:" and name what was left out. A compression the reader
 cannot see is a compression the reader will later mistake for the whole
 picture.
 
-### standing-05: Prefer short sentences over long run-on sentences
+### standing-short-sentences: Prefer short sentences over long run-on sentences
 <!-- prose-rule: source=shipped -->
 
 Two sentences that each carry one claim beat one sentence carrying both. This
 rule loses to nuance, never the other way round: when splitting would drop a
 caveat, keep the caveat and split somewhere else.
 
-### standing-06: Prefer a period over the em-dash
+### standing-no-em-dash: Prefer a period over the em-dash
 <!-- prose-rule: source=shipped -->
 
 Ranges keep their en-dash. `20-30 hrs/wk`, `1988-2026`. That is a different
@@ -83,7 +85,7 @@ for an em-dash almost always wants a period or a colon instead.
 > **Before.** The estimate holds - until the vendor changes its pricing.
 > **After.** The estimate holds. It stops holding when the vendor changes its pricing.
 
-### standing-07: Prefer a bullet list over a long delimited run
+### standing-bullet-over-run: Prefer a bullet list over a long delimited run
 <!-- prose-rule: source=shipped -->
 
 A run of three or more phrases becomes bullets under a lead-in line.
@@ -91,14 +93,14 @@ A run of three or more phrases becomes bullets under a lead-in line.
 > **Before.** reading papers at the source, contributing to an open-source project, or producing public writing about any of this
 > **After.** The ways this could go further:
 
-### standing-08: Use US spelling
+### standing-us-spelling: Use US spelling
 <!-- prose-rule: source=shipped -->
 
 Behavior, not behaviour. Judgment, not judgement.
 
 ## Sentences
 
-### sentences-01: Every sentence carries its own subject
+### sentences-own-subject: Every sentence carries its own subject
 <!-- prose-rule: source=shipped -->
 
 A sentence that borrows its subject from the heading above it, from the
@@ -113,7 +115,7 @@ or what, its subject is missing.
 <!-- FILL: replace that example with a real before and after from this
      project. -->
 
-### sentences-02: Name the role
+### sentences-name-the-role: Name the role
 <!-- prose-rule: source=shipped -->
 
 A project has more than one person in it, and prose names the one it means
@@ -124,7 +126,7 @@ rather than leaving it to inference.
      who works the material; the agent, who edits the documents. Without this
      list every dropped subject returns as "you". -->
 
-### sentences-03: Imperatives take no subject
+### sentences-imperative-no-subject: Imperatives take no subject
 <!-- prose-rule: source=shipped -->
 
 An exercise step or a procedure is written as a bare imperative. Second person
@@ -133,7 +135,7 @@ is the usual way a dropped role returns.
 > **Before.** Write down the number you are actually working with.
 > **After.** Write down the resulting number.
 
-### sentences-04: Negation only where its absence would mislead
+### sentences-negation-earns-place: Negation only where its absence would mislead
 <!-- prose-rule: source=shipped -->
 
 "A model is not a program. It is a large file of numbers" earns the negation,
@@ -144,7 +146,7 @@ it into the preceding sentence rather than appending it as its own.
 > **Before.** Understanding what these involve is in scope. Doing them is not.
 > **After.** It is in scope to understand what these involve, and not a requirement to do them.
 
-### sentences-05: A colon the reader could delete is the wrong mark
+### sentences-load-bearing-colon: A colon the reader could delete is the wrong mark
 <!-- prose-rule: source=shipped -->
 
 Rephrase rather than repunctuate.
@@ -152,16 +154,16 @@ Rephrase rather than repunctuate.
 > **Before.** A lesson stays current: when something in it is wrong or incomplete, amend it.
 > **After.** Keep the lesson content up to date. When something in it is wrong or incomplete, amend it.
 
-### sentences-06: Name what is counted rather than opening with the count
+### sentences-name-before-count: Name what is counted rather than opening with the count
 <!-- prose-rule: source=shipped -->
 
 An opening count makes the reader hold a number until the list arrives. The
-count still needs its list, under `sentences-09`.
+count still needs its list, under `sentences-count-needs-list`.
 
 > **Before.** Three glosses, since none of this is obvious from the outside.
 > **After.** The terms that need a gloss:
 
-### sentences-07: A simplification is flagged in a full sentence
+### sentences-simplification-full-sentence: A simplification is flagged in a full sentence
 <!-- prose-rule: source=shipped -->
 
 "Simplifying:" reads as a participle attached to the subject rather than as the
@@ -171,7 +173,7 @@ sentence.
 > **Before.** Simplifying: this section treats X as fixed.
 > **After.** As a simplification, this section treats X as fixed and leaves Y to §Z.
 
-### sentences-08: A closing sentence that restates the passage is cut
+### sentences-no-restating-close: A closing sentence that restates the passage is cut
 <!-- prose-rule: source=shipped -->
 
 Keep the sentence carrying the information.
@@ -181,7 +183,7 @@ Keep the sentence carrying the information.
 > **Before.** Curated, not collected. A resource earns a place here only after it has been used for something. A bookmark list is not this document.
 > **After.** A resource earns a place here only after it has been used for something.
 
-### sentences-09: A count needs a list
+### sentences-count-needs-list: A count needs a list
 <!-- prose-rule: source=shipped -->
 
 If a sentence counts something, the thing it counts is enumerated in the same
@@ -189,7 +191,7 @@ document, and near enough to check. This rule is broken far more often by
 editing than by writing. See the `{{SKILL_NAME}}` skill,
 § Re-reading after an edit.
 
-### sentences-10: State a point once, in the place it lands hardest
+### sentences-say-it-once: State a point once, in the place it lands hardest
 <!-- prose-rule: source=shipped -->
 
 A section that opens with a claim, lists its parts, then closes by restating
@@ -200,7 +202,7 @@ tables doing different work in each.
 
 ## Headings
 
-### headings-01: A heading is a short noun phrase
+### headings-noun-phrase: A heading is a short noun phrase
 <!-- prose-rule: source=shipped -->
 
 A heading does not editorialize, does not count its own contents, and is not a
@@ -209,7 +211,7 @@ sentence or a question.
 > **Before.** ### The size arithmetic, which is the whole point
 > **After.** ### The size arithmetic
 
-### headings-02: The first sentence of a section stands alone
+### headings-first-sentence-standalone: The first sentence of a section stands alone
 <!-- prose-rule: source=shipped -->
 
 A reader who jumps to a section, or who quotes one sentence out of it, gets a
@@ -218,7 +220,7 @@ complete statement.
 > **Before.** ## Kill criteria / Decided in advance, while it is still cheap to decide:
 > **After.** ## Kill criteria / The criteria that end the project early include:
 
-### headings-03: A section marker is a heading, not a bold phrase
+### headings-not-bold-phrase: A section marker is a heading, not a bold phrase
 <!-- prose-rule: source=shipped -->
 
 If a bolded phrase sits alone on a line and introduces the block beneath it,
@@ -227,14 +229,14 @@ lead-in to a bullet.
 
 ## Register
 
-### register-01: The register matches the audience
+### register-matches-audience: The register matches the audience
 <!-- prose-rule: source=shipped -->
 
 <!-- FILL: name this project's reader and the register that fits. Give one
      colloquial phrase this project has actually produced, and its
      replacement. A rule with no example does not survive contact. -->
 
-### register-02: An adjective that presumes the reader's state is cut
+### register-no-presuming-adjectives: An adjective that presumes the reader's state is cut
 <!-- prose-rule: source=shipped -->
 
 "The non-obvious result is in the bolded column" tells the reader what he has
@@ -245,7 +247,7 @@ already found obvious, or has not. Leave the judgement to him.
 
 ## Settled decisions
 
-### decisions-01: A closed decision drops its alternatives
+### decisions-drop-alternatives: A closed decision drops its alternatives
 <!-- prose-rule: source=shipped -->
 
 A decision that has been made records what was decided and the constraint that

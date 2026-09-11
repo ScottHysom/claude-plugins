@@ -18,7 +18,7 @@ Commands:
     scope       which files the prose rules govern
     segments    the prose-eligible spans of a file
     evidence    explicit tags + inferred edits + open questions
-    config      list | lint | next-id | init
+    config      list | lint | check-id | similar | init
     tags        check | list | insert | resolve | strip
     apply       apply approved rewrites
     restore     put a file back to its committed state
@@ -322,7 +322,11 @@ class Repo:
 # prose-style.md
 # --------------------------------------------------------------------------
 
-RULE_HEADING = re.compile(r"^###\s+([a-z][a-z0-9]*)-(\d+)\s*:\s*(.+?)\s*$")
+RULE_HEADING = re.compile(r"^###\s+([a-z][a-z0-9]*)-(\S+?)\s*:\s*(.+?)\s*$")
+SECTION = re.compile(r"^[a-z][a-z0-9]*$")
+RULE_NAME = re.compile(r"^[a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*$")
+POSITIONAL = re.compile(r"^\d+$")
+MAX_NAME_WORDS = 4
 ANY_H3 = re.compile(r"^###\s+(.*)$")
 ANY_H2 = re.compile(r"^##\s+(.+?)\s*$")
 META_COMMENT = re.compile(r"^<!--\s*prose-rule\s*:\s*(.*?)\s*-->\s*$")
@@ -336,6 +340,44 @@ META_KEYS = {"source", "origin"}
 META_SOURCES = {"shipped", "inferred", "interview", "adopted"}
 
 
+def validate_rule_name(name):
+    """The part of an id after the section. Returns a message, or None.
+
+    One message per shape of mistake. A checker that says two things about
+    one typo teaches the author to skim its output.
+    """
+    if POSITIONAL.match(name):
+        return ("rule id is positional; expected "
+                "'### <section>-<name>: <Title>', where the name is one to "
+                "%d words saying what the rule means" % MAX_NAME_WORDS)
+    words = name.split("-")
+    if any(w[:1].isdigit() for w in words):
+        return ("rule name %r carries a number; a name says what a rule "
+                "means, not where it was written" % name)
+    if not RULE_NAME.match(name):
+        return "rule name %r is not lower-case words joined by '-'" % name
+    if len(words) > MAX_NAME_WORDS:
+        return ("rule name %r has %d words; at most %d. A name that needs "
+                "more is a rule that has not been decided yet"
+                % (name, len(words), MAX_NAME_WORDS))
+    return None
+
+
+def rule_similarity(a, b):
+    """(body, name, score) for two rules, each 0..1.
+
+    Deliberately crude, and reported in parts so the author can see which
+    half fired. A rule can be restated in different words under the same
+    name, or say the same thing under a different one, and either is worth
+    a look - so the score is the higher of the two rather than a blend that
+    hides both. The corpus is a few dozen rules, so the quadratic is free.
+    """
+    body = difflib.SequenceMatcher(None, a.body_key(), b.body_key()).ratio()
+    at, bt = set(a.name.split("-")), set(b.name.split("-"))
+    name = len(at & bt) / float(len(at | bt)) if (at | bt) else 0.0
+    return body, name, max(body, name)
+
+
 def unquote(s):
     if len(s) >= 2 and s[0] == s[-1] and s[0] in "\"'":
         return s[1:-1]
@@ -343,10 +385,10 @@ def unquote(s):
 
 
 class Rule:
-    def __init__(self, rid, section, number, title, line):
+    def __init__(self, rid, section, name, title, line):
         self.id = rid
         self.section = section
-        self.number = number
+        self.name = name
         self.title = title
         self.line = line
         self.group = ""
@@ -370,7 +412,7 @@ class Rule:
 
     def as_dict(self):
         return {
-            "id": self.id, "section": self.section, "number": self.number,
+            "id": self.id, "section": self.section, "name": self.name,
             "title": self.title, "line": self.line, "group": self.group,
             "meta": self.meta, "body": self.body_text(),
             "body_key": self.body_key(),
@@ -483,10 +525,10 @@ class Config:
                 if not m:
                     current = None
                     self._err(num, "rule heading carries no id; expected "
-                                   "'### <section>-<NN>: <Title>'")
+                                   "'### <section>-<name>: <Title>'")
                     continue
                 current = Rule(("%s-%s" % (m.group(1), m.group(2))),
-                               m.group(1), int(m.group(2)), m.group(3), num)
+                               m.group(1), m.group(2), m.group(3), num)
                 current.group = group
                 self.rules.append(current)
                 continue
@@ -516,6 +558,13 @@ class Config:
                                      "line %d" % (rule.id, seen[rule.id]))
             else:
                 seen[rule.id] = rule.line
+            bad = validate_rule_name(rule.name)
+            if bad:
+                self._err(rule.line, bad)
+            elif rule.name.split("-")[0] == rule.section:
+                self._warn(rule.line, "rule name %s opens with its own "
+                                      "section; the id already says %s"
+                           % (rule.name, rule.section))
             for k, v in rule.meta.items():
                 if k not in META_KEYS:
                     self._err(rule.line, "unknown metadata key %r; allowed: %s"
@@ -535,9 +584,25 @@ class Config:
         if self.exists and "name" not in self.front:
             self._warn(1, "front matter has no name:")
 
-    def next_id(self, section):
-        used = [r.number for r in self.rules if r.section == section]
-        return "%s-%02d" % (section, (max(used) + 1) if used else 1)
+    def check_id(self, section, name):
+        """(id, message or None). Grammar first, then whether it is taken.
+
+        There is no allocator to replace this, because there is nothing to
+        allocate: the author names the rule and the script rules on the
+        name. Catching a collision before the file is edited is the whole
+        job - lint catches one afterwards either way.
+        """
+        rid = "%s-%s" % (section, name)
+        if not SECTION.match(section):
+            return rid, ("section %r is not a lower-case word" % section)
+        bad = validate_rule_name(name)
+        if bad:
+            return rid, bad
+        taken = self.by_id().get(rid)
+        if taken:
+            return rid, ("%s is already the id of the rule at %s:%d - %s"
+                         % (rid, self.rel(), taken.line, taken.title))
+        return rid, None
 
     def by_id(self):
         return dict((r.id, r) for r in self.rules)
@@ -1698,14 +1763,16 @@ The house style for every document in this repo. Document mechanics - front
 matter, TODO markers, commit format - live in the project's maintenance skill.
 This file is authoritative on how the sentences read. The two never overlap.
 
-A rule here has a stable id. Reports name the id, and a rule that gets reworded
-keeps it. Git holds what the rule used to say, so nothing here is ever marked
-retired.
+A rule here has a stable id of the form `<section>-<name>`, where the name is
+one to four words saying what the rule means. Reports name the id, and a rule
+that gets reworded keeps its name. Git holds what the rule used to say, so
+nothing here is ever marked retired.
 
 ## Standing instructions
 
-<!-- One "### standing-NN: Title" per rule. Run update-prose-config to fill
-     this in from edits rather than writing rules from scratch. -->
+<!-- One "### standing-<name>: Title" per rule, as in
+     "### standing-us-spelling: Use US spelling". Run update-prose-config to
+     fill this in from edits rather than writing rules from scratch. -->
 '''
 
 
@@ -1733,11 +1800,50 @@ def cmd_config(args):
         raise Fatal("%s does not exist; run: prose.py config init"
                     % config.path)
 
-    if which == "next-id":
-        nid = config.next_id(args.section)
-        return emit(args, "config next-id", repo.root,
-                    {"section": args.section, "next_id": nid},
-                    human=lambda: print(nid))
+    if which == "check-id":
+        rid, problem = config.check_id(args.section, args.name)
+        return emit(args, "config check-id", repo.root,
+                    {"id": rid, "section": args.section, "name": args.name,
+                     "free": problem is None},
+                    errors=([problem] if problem else []),
+                    # The id goes to stdout only when it is usable, so that
+                    # ID=$(... check-id ...) cannot capture a refused one.
+                    human=lambda: problem or print(rid))
+
+    if which == "similar":
+        other = Config(os.path.abspath(args.to))
+        if not other.exists:
+            raise Fatal("%s does not exist" % args.to)
+        pairs = []
+        for a in config.rules:
+            for b in other.rules:
+                # A shared id is already adopt-prose's identical or colliding
+                # bucket. This command is for the pairs that agree in substance
+                # under two different names, which nothing else can see.
+                if a.id == b.id:
+                    continue
+                body, name, score = rule_similarity(a, b)
+                if score >= args.threshold:
+                    pairs.append({"source": a.id, "target": b.id,
+                                  "score": round(score, 2),
+                                  "body": round(body, 2),
+                                  "name": round(name, 2)})
+        pairs.sort(key=lambda p: (-p["score"], p["source"], p["target"]))
+
+        def human():
+            w = max([len(p["source"]) for p in pairs] + [8])
+            for p in pairs:
+                print("%.2f  %-*s  %s   (body %.2f, name %.2f)"
+                      % (p["score"], w, p["source"], p["target"],
+                         p["body"], p["name"]))
+            print("\n%d candidate pair(s) at or above %.2f; each is a question"
+                  " for the author, not a decision."
+                  % (len(pairs), args.threshold))
+        return emit(args, "config similar", repo.root,
+                    {"source": config.path,
+                     "target": os.path.abspath(args.to),
+                     "threshold": args.threshold, "pairs": pairs},
+                    human=human)
 
     if which == "lint":
         def human():
@@ -1762,10 +1868,11 @@ def cmd_config(args):
             for r in rules:
                 print(r.id)
             return
+        w = max([len(r.id) for r in rules] + [16])
         for r in rules:
             mark = " " if (r.before or r.after) else "!"
-            print("%s %-16s %-10s %s" % (mark, r.id, r.meta.get("source", "-"),
-                                         r.title))
+            print("%s %-*s %-10s %s" % (mark, w, r.id,
+                                        r.meta.get("source", "-"), r.title))
         print("\n%d rule(s)%s" % (len(rules),
                                   "; ! marks one with no worked example"
                                   if any(not (r.before or r.after)
@@ -2238,10 +2345,10 @@ def selftest_cases():
         src = ('---\nname: T\nscope:\n  include:\n    - "**/*.md"\n'
                '  exclude:\n    - "x.md"\n---\n\n'
                '## Sentences\n\n'
-               '### sentences-01: Carries its own subject\n'
+               '### sentences-own-subject: Carries its own subject\n'
                '<!-- prose-rule: source=shipped -->\n\n'
                'Body text.\n\n> **Before.** a\n> **After.** b\n\n'
-               '### sentences-01: Duplicate\n\nBody.\n')
+               '### sentences-own-subject: Duplicate\n\nBody.\n')
         import tempfile
         fd, path = tempfile.mkstemp(suffix=".md")
         os.close(fd)
@@ -2258,20 +2365,89 @@ def selftest_cases():
             return "duplicate id not reported"
         if cfg.rules[0].before != "a" or cfg.rules[0].after != "b":
             return "worked example not extracted"
-        if cfg.next_id("sentences") != "sentences-02":
-            return "next_id gave %s" % cfg.next_id("sentences")
+        if cfg.check_id("sentences", "own-subject")[1] is None:
+            return "check-id did not notice a taken id"
+        rid, problem = cfg.check_id("sentences", "name-the-role")
+        if rid != "sentences-name-the-role" or problem is not None:
+            return "check-id refused a free id: %s" % problem
         return None
     case("config parsing", config_parse)
 
+    def rule_id_grammar():
+        """One mistake, one message. Five shapes, five lines, no overlap."""
+        src = ('---\nname: T\n---\n\n## Sentences\n\n'
+               '### sentences-01: Positional\n'
+               'Body.\n> **Before.** a\n> **After.** b\n\n'
+               '### sentences-a-b-c-d-e: Five words\n'
+               'Body.\n> **Before.** a\n> **After.** b\n\n'
+               '### sentences-Own_Subject: Not lower case\n'
+               'Body.\n> **Before.** a\n> **After.** b\n\n'
+               '### sentences-rule-01: Smuggled ordinal\n'
+               'Body.\n> **Before.** a\n> **After.** b\n\n'
+               '### sentences: No id at all\n'
+               'Body.\n\n'
+               '### sentences-sentences-subject: Repeats its section\n'
+               'Body.\n> **Before.** a\n> **After.** b\n\n'
+               '### sentences-own-subject: Fine\n'
+               'Body.\n> **Before.** a\n> **After.** b\n')
+        import tempfile
+        fd, path = tempfile.mkstemp(suffix=".md")
+        os.close(fd)
+        try:
+            Text(src).write(path)
+            cfg = Config(path)
+        finally:
+            os.unlink(path)
+        wanted = ["rule id is positional", "has 5 words; at most 4",
+                  "is not lower-case words", "carries a number",
+                  "carries no id"]
+        for want in wanted:
+            hits = [e for e in cfg.errors if want in e]
+            if len(hits) != 1:
+                return "%r matched %d error(s): %s" % (want, len(hits),
+                                                       cfg.errors)
+        if len(cfg.errors) != len(wanted):
+            return "expected %d errors, got %s" % (len(wanted), cfg.errors)
+        opens = [w for w in cfg.warnings if "opens with its own section" in w]
+        if len(opens) != 1:
+            return "section-repeating name warned %d time(s)" % len(opens)
+        if cfg.rules[-1].name != "own-subject":
+            return "good name parsed as %r" % cfg.rules[-1].name
+        return None
+    case("rule id grammar", rule_id_grammar)
+
+    def similar_candidates():
+        """The floor under adopt-prose's similar bucket, not a decision."""
+        shared = ["A sentence that borrows its subject from the heading above",
+                  "it is incomplete."]
+        a = Rule("sentences-own-subject", "sentences", "own-subject", "T", 1)
+        a.body = list(shared)
+        renamed = Rule("voice-carries-subject", "voice", "carries-subject",
+                       "T", 1)
+        renamed.body = list(shared)
+        namesake = Rule("voice-own-subject", "voice", "own-subject", "T", 1)
+        namesake.body = ["Commit messages name the file they touch."]
+        far = Rule("headings-noun-phrase", "headings", "noun-phrase", "T", 1)
+        far.body = ["Commit messages name the file they touch."]
+        if rule_similarity(a, renamed)[2] < 0.9:
+            return "the same rule renamed scored %.2f" % \
+                rule_similarity(a, renamed)[2]
+        if rule_similarity(a, namesake)[2] < 0.6:
+            return "the same name scored %.2f" % rule_similarity(a, namesake)[2]
+        if rule_similarity(a, far)[2] >= 0.6:
+            return "unrelated rules scored %.2f" % rule_similarity(a, far)[2]
+        return None
+    case("similarity candidates", similar_candidates)
+
     def body_key_normalisation():
         """A FILL marker must not make two identical rules look different."""
-        rule = Rule("x-01", "x", 1, "T", 1)
+        rule = Rule("x-thing", "x", "thing", "T", 1)
         rule.body = ["Same rule.", "<!-- FILL: supply an example. -->", ""]
-        other = Rule("x-01", "x", 1, "T", 1)
+        other = Rule("x-thing", "x", "thing", "T", 1)
         other.body = ["Same", "rule."]
         if rule.body_key() != other.body_key():
             return "%r != %r" % (rule.body_key(), other.body_key())
-        third = Rule("x-01", "x", 1, "T", 1)
+        third = Rule("x-thing", "x", "thing", "T", 1)
         third.body = ["A different rule."]
         if rule.body_key() == third.body_key():
             return "different bodies compared equal"
@@ -2395,7 +2571,8 @@ def build_parser():
     p = sub.add_parser("config", parents=[common], help="the rule file")
     csub = p.add_subparsers(dest="config_cmd", required=True)
     for name, helptext in [("list", "the rules"), ("lint", "check the file"),
-                           ("next-id", "next free id in a section"),
+                           ("check-id", "is this id well-formed and free"),
+                           ("similar", "rules two files state twice"),
                            ("init", "write a skeleton")]:
         c = csub.add_parser(name, parents=[common], help=helptext)
         c.add_argument("--file", dest="config_file", metavar="PATH",
@@ -2403,8 +2580,14 @@ def build_parser():
         if name == "list":
             c.add_argument("--rule", metavar="ID")
             c.add_argument("--ids", action="store_true")
-        if name == "next-id":
+        if name == "check-id":
             c.add_argument("--section", required=True)
+            c.add_argument("--name", required=True,
+                           help="one to four lower-case words joined by -")
+        if name == "similar":
+            c.add_argument("--to", required=True, metavar="PATH",
+                           help="the prose-style.md to compare against")
+            c.add_argument("--threshold", type=float, default=0.6, metavar="N")
         if name == "init":
             c.add_argument("--from", dest="source", metavar="PATH",
                            help="copy an existing config instead")

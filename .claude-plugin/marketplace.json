@@ -11,7 +11,7 @@
       "source": "./plugins/cowork-project-scaffold",
       "displayName": "Cowork Project Scaffold",
       "description": "Cowork only. Scaffolds a git-backed Cowork Project folder whose documents state what is true while git holds the history, and generates a per-project document-maintenance skill to keep it that way.",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "category": "productivity",
       "tags": [
         "cowork",
@@ -31,7 +31,7 @@
       "source": "./plugins/prose-tuning",
       "displayName": "Prose Tuning",
       "description": "Learns a project's house prose style from edits already made, records it as prose-style.md with stable rule ids, and conforms the rest of the documents to it.",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "category": "productivity",
       "tags": [
         "prose",
