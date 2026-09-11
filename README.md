@@ -44,6 +44,7 @@ plugins/
       plugin.json          the plugin's own manifest
     README.md
     scripts/               optional. Shared by every skill in the plugin
+      tests/               optional. pytest suite for those scripts
     reference/             optional. Normative docs a skill points at
     skills/
       <skill-name>/
@@ -75,11 +76,34 @@ directory under `plugins/` and one new entry in the catalog.
    ```sh
    claude plugin validate .
    python3 .github/scripts/check-manifest-consistency.py
+   pytest
    ```
 
-   CI runs both on every pull request. The second one catches what
+   CI runs all three on every pull request. The second one catches what
    `claude plugin validate` cannot: two manifests that each validate but
    disagree with each other, such as a version bumped in one and not the other.
+
+## Running the tests
+
+The plugin scripts import nothing outside the standard library, because they
+run wherever `/plugin marketplace add` puts them. Their tests are a contributor
+tool and live outside that constraint: pytest is installed from a clone and
+never ships to anyone who installs a plugin.
+
+```sh
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements-dev.txt
+pytest
+```
+
+`pytest` from the repo root discovers every `plugins/*/scripts/tests/`
+directory. A new plugin adding a script adds `scripts/tests/conftest.py`
+alongside it, which puts its own script directory on `sys.path`; nothing at the
+repo root needs editing for CI to pick it up.
+
+CI runs the suite on Python 3.9 and 3.13. The floor is not decoration - the
+scripts have to run under whatever Python is already on the machine, which on
+macOS is still 3.9, so no walrus in a comprehension and no `X | Y` unions.
 
 ## Editing this repo from Cowork
 

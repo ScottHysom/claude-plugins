@@ -2,7 +2,9 @@ name: validate
 
 # Every manifest in this repo is consumed by `/plugin marketplace add`. A broken
 # manifest on main breaks installation for everyone, and nothing about it is
-# visible from a diff. So validate on the way in.
+# visible from a diff. So validate on the way in. The same argument covers the
+# plugin scripts, which rewrite the user's files in place: `test` runs their
+# suite on the same trigger.
 
 on:
   pull_request:
@@ -60,9 +62,33 @@ jobs:
       - name: Check manifests agree with each other
         run: python3 .github/scripts/check-manifest-consistency.py
 
+  # Kept separate from `validate` so it starts immediately rather than queueing
+  # behind the Claude Code install, and so a red X says which kind of thing
+  # broke. The matrix is the enforcement of prose.py's stated 3.9 floor: a
+  # walrus or a X | Y union drifting in fails here rather than on the machine of
+  # whoever is still on the system Python.
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.13"]
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      # pytest is a contributor dependency. The plugin scripts themselves import
+      # nothing outside the standard library, and a user installing a plugin
+      # never sees this.
+      - name: Install test dependencies
+        run: pip install -r requirements-dev.txt
+
       # prose.py parses a markup grammar and rewrites files in place. Its
       # round-trip property - insert then strip returns the file byte-identical
       # - is the only thing standing between a tagging pass and a mangled
       # document, so it runs on every push.
-      - name: prose-tuning selftest
-        run: python3 plugins/prose-tuning/scripts/prose.py selftest
+      - name: Run the test suite
+        run: pytest

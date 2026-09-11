@@ -16,3 +16,11 @@
 
 # Commit message drafted by Claude, consumed by commit.sh
 .commit-msg
+
+# Python: bytecode from importing the plugin scripts, and the test runner's
+# cache. Contributors also tend to keep a venv here for requirements-dev.txt.
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.venv/
+venv/
