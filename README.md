@@ -87,8 +87,8 @@ directory under `plugins/` and one new entry in the catalog.
 
 The plugin scripts import nothing outside the standard library, because they
 run wherever `/plugin marketplace add` puts them. Their tests are a contributor
-tool and live outside that constraint: pytest is installed from a clone and
-never ships to anyone who installs a plugin.
+tool and live outside that constraint: pytest and hypothesis are installed from
+a clone and never ship to anyone who installs a plugin.
 
 ```sh
 python3 -m venv .venv && source .venv/bin/activate
@@ -103,7 +103,30 @@ repo root needs editing for CI to pick it up.
 
 CI runs the suite on Python 3.9 and 3.13. The floor is not decoration - the
 scripts have to run under whatever Python is already on the machine, which on
-macOS is still 3.9, so no walrus in a comprehension and no `X | Y` unions.
+macOS is still 3.9, so no walrus in a comprehension and no `X | Y` unions. It
+binds the test dependencies too: hypothesis dropped 3.9 in 6.142.0, so pip
+resolves 6.141.1 on that leg and the current release on 3.13. The properties
+run on both, which means they have to stay on strategies 6.141.1 already had -
+requirements-dev.txt says so, and the 3.9 leg fails if one does not.
+
+### Properties
+
+`test_properties_*.py` state what is true for every input rather than for a
+chosen one, and the rest of the suite says what specifically happened and why
+it mattered. Both are load-bearing: a property that fails prints a shrunk
+counterexample, which tells you what broke and nothing about why anyone cared.
+
+Property tests explore a different set of inputs on each run, so CI fixes the
+seed - a red build there is always caused by the diff - while a developer
+machine explores. When exploring turns something up, pin it with `@example(...)`
+so it is checked every run afterwards, and add the example-based test that says
+what the bug was.
+
+Two habits keep them honest. Mutation-check: break the code the property
+guards and confirm it fails, because a property that passes against broken code
+is a generator producing nothing interesting. And watch for vacuity with
+`--hypothesis-show-statistics` - a round-trip generator whose inputs are all
+refused proves only that refusing works.
 
 ## Editing this repo from Cowork
 

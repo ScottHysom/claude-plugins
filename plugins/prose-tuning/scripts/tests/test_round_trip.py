@@ -34,9 +34,16 @@ def test_block_del_with_a_blank_line_at_an_edge(round_trip, start, end):
 
 
 def test_inline_repl(round_trip):
+    """Named line 6 with columns 2-9 until the property tests went in.
+
+    Line 6 is blank, so those columns were outside it, and Text.offset added
+    them blind: the record silently edited "urated," on line 7 instead. It
+    round-tripped, so nothing noticed for as long as the case existed. It now
+    names the line it always meant.
+    """
     round_trip([
-        {"file": "sample.md", "kind": "repl", "start": 6, "col_start": 2,
-         "col_end": 9, "with": "Sample"},
+        {"file": "sample.md", "kind": "repl", "start": 7, "col_start": 1,
+         "col_end": 8, "with": "urated,"},
     ])
 
 

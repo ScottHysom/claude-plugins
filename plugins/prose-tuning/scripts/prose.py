@@ -152,11 +152,22 @@ class Text:
 
     Lines keep their endings, so join(lines) == original text, including a
     missing final newline. scripts/tests asserts that.
+
+    A line ends at "\n" and nowhere else. str.splitlines() would be the obvious
+    way to cut them and is wrong here: it also breaks on \v, \f, \x1c, \x1d,
+    \x1e, U+0085, U+2028 and U+2029, none of which git, an editor or markdown
+    treats as a line break. A document carrying one of those - they arrive in
+    text pasted from other tools - would be numbered differently by this script
+    than by everything the author can see, and a report saying landscape.md:42
+    would send them to the wrong passage.
     """
 
     def __init__(self, s):
         self.s = s
-        self.lines = s.splitlines(keepends=True)
+        parts = s.split("\n")
+        self.lines = [p + "\n" for p in parts[:-1]]
+        if parts[-1]:
+            self.lines.append(parts[-1])
         self.starts = []
         off = 0
         for ln in self.lines:
@@ -183,7 +194,10 @@ class Text:
 
     def bare(self, n):
         """1-indexed, without its ending."""
-        return self.lines[n - 1].splitlines()[0] if self.lines[n - 1] else ""
+        raw = self.lines[n - 1]
+        if raw.endswith("\r\n"):
+            return raw[:-2]
+        return raw[:-1] if raw.endswith("\n") else raw
 
     def offset(self, line, col=0):
         if line < 1 or line > len(self.lines):
@@ -222,10 +236,31 @@ class EditEngine:
         self.edits.append((start, end, replacement, label))
 
     def conflicts(self):
+        """Pairs whose result would depend on the order they were added in.
+
+        Sorting by (start, end) puts a zero-width point immediately before any
+        span starting at the same offset, so comparing neighbours catches every
+        overlap without comparing every pair.
+
+        The second clause - two edits beginning at the same offset - is where
+        everything that shares a boundary lands. Such a pair overlaps by no
+        definition, so the first clause passes it, and then the answer depends
+        on the order the records happened to arrive in. Two ordinary requests
+        hit this. A <q> on the first line of a block <del> puts a zero-width
+        insert at the offset the block replacement starts from, and the splice
+        discards whichever went first. Two neighbouring inline <del> spans put
+        the first one's closing tag and the second one's opening tag on one
+        offset, and one of the two orders emits
+        `<del>Curated<del></del>, not</del>`, which does not even parse.
+
+        There is no order this class can be resolved in that is right for both,
+        so it is refused. The author writes one span instead of two, and gets
+        told so rather than getting a mangled file half the time.
+        """
         out = []
         ordered = sorted(self.edits, key=lambda e: (e[0], e[1]))
         for a, b in zip(ordered, ordered[1:]):
-            if b[0] < a[1]:
+            if b[0] < a[1] or b[0] == a[0]:
                 out.append("overlapping edits at offsets %d-%d and %d-%d"
                            % (a[0], a[1], b[0], b[1]))
         return out
@@ -1105,9 +1140,17 @@ def node_span(node, text):
 
 
 def top_replacement(node, text, mode):
+    """A block tag owns whole lines, so what replaces it has to end one.
+
+    Unless the span it replaces did not: a block tag on the last line of a file
+    that has no trailing newline must not add one, or every resolve pass
+    returns the file a byte longer than it was.
+    """
     out = resolved(node, text, mode)
     if out and is_block_form(node, text) and not out.endswith("\n"):
-        out += "\n"
+        _, end = node_span(node, text)
+        if text.s[end - 1:end] == "\n":
+            out += "\n"
     return out
 
 
@@ -1203,6 +1246,14 @@ def resolve_file(path, relpath, mode, dry_run=False):
 INSERTABLE = ("ins", "del", "repl", "q", "alt")
 UNSAFE_SPAN_KINDS = ("frontmatter", "fence", "heading", "table")
 
+# <q> and <alt> go in as a whole new line above the one they ask about, so they
+# are governed by a different rule than a span is. Above a heading is fine:
+# the heading itself is untouched. Inside anything with structure is not: the
+# new line lands in the middle of it, and inside a fence it is worse than broken,
+# because the scanner then shields it as code and no later strip ever removes
+# it. That is a tag the author cannot get rid of, so refuse instead.
+UNSAFE_INSERT_KINDS = ("frontmatter", "fence", "blockquote", "table")
+
 
 def attr_text(why):
     if not why:
@@ -1234,6 +1285,10 @@ def plan_one_insert(text, blocks, rec, path, qid):
     if kind in ("q", "alt"):
         if not body:
             raise InsertRefusal("<%s> needs text" % kind)
+        if blocks.kind(start_line) in UNSAFE_INSERT_KINDS:
+            raise InsertRefusal("line %d is a %s; a new line there would land "
+                                "inside it"
+                                % (start_line, blocks.kind(start_line)))
         ident = ' id="%s"' % qid if kind == "q" else ""
         at = text.offset(start_line, 0)
         return [(at, at, "%s<%s%s>%s</%s>\n" % (indent, kind, ident, body, kind))]
@@ -1246,8 +1301,26 @@ def plan_one_insert(text, blocks, rec, path, qid):
     col_start = int(rec.get("col_start", 0))
     last = text.bare(end_line)
     col_end = int(rec.get("col_end", len(last)))
+
+    # Columns are bounds-checked here because Text.offset does not check them:
+    # it validates the line and then adds the column blind. A col_end past the
+    # end of its line resolves to an offset further down the file, so the
+    # closing tag of a one-line edit lands wherever that offset happens to be -
+    # for a large enough column, the end of the document.
+    first_bare = text.bare(start_line)
+    if not 0 <= col_start <= len(first_bare):
+        raise InsertRefusal("col_start %d is outside line %d (%d characters)"
+                            % (col_start, start_line, len(first_bare)))
+    if not 0 <= col_end <= len(last):
+        raise InsertRefusal("col_end %d is outside line %d (%d characters)"
+                            % (col_end, end_line, len(last)))
+
     whole_lines = col_start == 0 and col_end == len(last)
     inline = start_line == end_line
+
+    if inline and col_end < col_start:
+        raise InsertRefusal("col_end %d is before col_start %d"
+                            % (col_end, col_start))
 
     if not inline and not whole_lines:
         raise InsertRefusal("a span that starts mid-line and ends on another "
@@ -1261,10 +1334,24 @@ def plan_one_insert(text, blocks, rec, path, qid):
         if not body:
             raise InsertRefusal("<ins> needs text")
         if inline:
+            # An inline tag that ends up alone on its line is indistinguishable
+            # from a block tag, and a block tag owns its whole line - so
+            # stripping it would take the author's blank line with it.
+            if not first_bare.strip():
+                raise InsertRefusal("line %d is blank; an <ins> alone on a "
+                                    "line reads as a block tag and would take "
+                                    "the line with it" % start_line)
             return [(a, a, "<ins>%s</ins>" % body)]
         raise InsertRefusal("<ins> inserts at a point; give one line")
 
     if inline:
+        # A zero-width span has no text in it to mark up, and the two tags it
+        # would emit share an offset - which EditEngine now refuses outright.
+        # Note this also catches an inline record aimed at a blank line, where
+        # both columns default to 0.
+        if col_start == col_end:
+            raise InsertRefusal("the span is empty; give a span with text in "
+                                "it, or whole lines")
         if why and '"' in why:
             raise InsertRefusal("a why containing a double quote needs block "
                                 "form; give whole lines")
@@ -1286,8 +1373,13 @@ def plan_one_insert(text, blocks, rec, path, qid):
     block_start = text.offset(start_line, 0)
     block_end = text.offset(end_line) + len(text.line(end_line))
     original = text.s[block_start:block_end]
-    if not original.endswith("\n"):
-        original += "\n"
+    if not original.strip():
+        raise InsertRefusal("the span is blank; there is nothing to tag")
+    # A file whose last line has no newline is an ordinary shape. The closing
+    # tag goes straight after the text in that case rather than on a line of
+    # its own, because a newline invented here is one strip would have to
+    # invent a reason to remove, and the file would come back a byte longer.
+    tail = "\n" if original.endswith("\n") else ""
     why_line = ""
     if why and '"' in why:
         why_line = "%s  <why>%s</why>\n" % (indent, why)
@@ -1295,8 +1387,8 @@ def plan_one_insert(text, blocks, rec, path, qid):
     attrs = attr_text(why)
 
     if kind == "del":
-        out = "%s<del%s>\n%s%s%s</del>\n" % (indent, attrs, why_line,
-                                             original, indent)
+        out = "%s<del%s>\n%s%s%s</del>%s" % (indent, attrs, why_line,
+                                            original, indent, tail)
         return [(block_start, block_end, out)]
 
     new = rec.get("with")
@@ -1304,9 +1396,9 @@ def plan_one_insert(text, blocks, rec, path, qid):
         raise InsertRefusal("<repl> needs a with value")
     new_block = "".join("%s%s\n" % (indent, x) for x in new.split("\n"))
 
-    out = ("%s<repl%s>\n%s%s<del>\n%s%s</del>\n%s<ins>\n%s%s</ins>\n%s</repl>\n"
+    out = ("%s<repl%s>\n%s%s<del>\n%s%s</del>\n%s<ins>\n%s%s</ins>\n%s</repl>%s"
            % (indent, attrs, why_line, indent, original, indent,
-              indent, new_block, indent, indent))
+              indent, new_block, indent, indent, tail))
     return [(block_start, block_end, out)]
 
 
@@ -1503,7 +1595,7 @@ def inferred_records(repo, rel, text, neutral, ref, ignore):
 def apply_inserts(text, blocks, records, path, qid_start):
     """Returns (engine, refusals, next_qid). The caller decides all-or-nothing."""
     engine = EditEngine(text)
-    refusals, qid = [], qid_start
+    refusals, qid, claimed = [], qid_start, []
     for n, rec in enumerate(records):
         try:
             edits = plan_one_insert(text, blocks, rec, path, qid)
@@ -1514,6 +1606,23 @@ def apply_inserts(text, blocks, records, path, qid_start):
         except (TypeError, ValueError) as exc:
             refusals.append("%s  record %d is malformed: %s" % (path, n + 1, exc))
             continue
+
+        # Each record marks up one region, and the regions have to be disjoint.
+        # Overlap is two judgements about one passage, which the markup has no
+        # way to express; nesting is worse, because an <ins> landing inside
+        # another record's <del> is a grammar the scanner rejects, and the file
+        # written would be one this tool's own `tags check` turns down.
+        # plan_one_insert cannot see this - it is handed one record at a time.
+        span = (min(a for a, _, _ in edits), max(b for _, b, _ in edits))
+        clash = next((c for c in claimed
+                      if span[0] < c[1][1] and c[1][0] < span[1]), None)
+        if clash:
+            refusals.append("%s:%s  record %d overlaps record %d; each record "
+                            "marks up its own passage"
+                            % (path, rec.get("start", "?"), n + 1, clash[0]))
+            continue
+        claimed.append((n + 1, span))
+
         if rec.get("kind") == "q":
             qid += 1
         for a, b, replacement in edits:
@@ -2056,8 +2165,19 @@ def cmd_apply(args):
                 rejected.append("%s:%d  is a %s; prose rules do not apply there"
                                 % (rel, line, blocks.kind(line)))
                 continue
-            a = text.offset(line, int(f.get("col_start", 0)))
-            b = text.offset(line, int(f.get("col_end", len(text.bare(line)))))
+            width = len(text.bare(line))
+            col_start = int(f.get("col_start", 0))
+            col_end = int(f.get("col_end", width))
+            # Text.offset validates the line and then adds the column blind, so
+            # a column past the end of its line resolves somewhere further down
+            # the file and this would rewrite a passage nobody approved.
+            if not 0 <= col_start <= col_end <= width:
+                rejected.append("%s:%d  columns %d-%d are outside the line "
+                                "(%d characters)"
+                                % (rel, line, col_start, col_end, width))
+                continue
+            a = text.offset(line, col_start)
+            b = text.offset(line, col_end)
             current = text.s[a:b]
             if f.get("text") is not None and current != f["text"]:
                 rejected.append("%s:%d  the text moved; expected %r, found %r. "

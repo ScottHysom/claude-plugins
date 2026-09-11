@@ -86,7 +86,11 @@ separate calls cannot work, which is what the first run discovered the hard way.
 
 The property that matters is a round trip: for any batch, insert then strip
 returns the file byte-identical. `scripts/tests/test_round_trip.py` asserts it
-span shape by span shape. See [Running the tests](../../README.md#running-the-tests).
+span shape by span shape, and
+`scripts/tests/test_properties_round_trip.py` asserts it for every record
+hypothesis can build - which is how eight ways of breaking it were found, all
+of them records `plan_one_insert` used to accept. See
+[Running the tests](../../README.md#running-the-tests).
 
 ## Editing the rules
 
