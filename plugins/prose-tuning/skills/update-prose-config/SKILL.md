@@ -5,9 +5,8 @@ description: Infer prose and style rules from the uncommitted markdown edits in 
 
 # Learn the house prose style from edits already made
 
-The author edits documents by hand. This skill reads those edits, works out what
-rule each one implies, and writes the rules into `prose-style.md` so every later
-agent applies them without being asked.
+When the author edits documents by hand to tailor the prose, this skill reads those 
+edits and works out what rule each one implies. It then writes the rules into `prose-style.md` so every later agent applies them without being asked.
 
 **Claude Code against a local checkout is the primary surface.** On Cowork this
 works only when the plugin is installed from the marketplace: `propose_skills`
