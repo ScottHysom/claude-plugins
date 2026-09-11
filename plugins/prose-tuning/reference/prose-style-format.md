@@ -45,7 +45,7 @@ the whole repo-relative path, so `prose-style.md` matches only at the root and
 ## A rule
 
 ```markdown
-### sentences-01: Every sentence carries its own subject
+### sentences-own-subject: Every sentence carries its own subject
 <!-- prose-rule: source=shipped -->
 
 A sentence that borrows its subject from the heading above it, from the
@@ -59,15 +59,38 @@ or what, its subject is missing.
 ```
 
 **The id is in the heading.** `### <id>: <Title>`, split on the first `: `. It
-renders, it greps, and a report reading `sentences-01 at landscape.md:42` can be
-checked by eye against the file. Ids are `<section>-<NN>`. Shipped sections are
-`standing`, `prose`, `decisions`, `sentences`, `headings` and `register`; a
-project adds its own, and `voice` is the usual name for the section where a
-project diverges.
+renders, it greps, and a report reading `sentences-own-subject at
+landscape.md:42` can be checked by eye against the file.
 
-Content-hash ids were rejected as unreadable in a report. Free-form slugs were
-rejected because they drift the moment a rule is reworded, which is exactly what
-a stable id exists to survive.
+**An id is `<section>-<name>`.** The section is one lower-case word. The name is
+one to four lower-case words joined by `-`, and no word may start with a digit.
+Shipped sections are `standing`, `decisions`, `sentences`, `headings` and
+`register`; a project adds its own, and `voice` is the usual name for the
+section where a project diverges.
+
+The name says what the rule means, which is the whole point of it:
+`sentences-count-needs-list` is legible in a report where `sentences-09` sends
+the reader back to the file. The four-word ceiling is there because a rule whose
+subject cannot be said in four words has not been decided yet.
+
+**A rule keeps its name for life.** This is the same discipline as the
+no-retired-rules rule below, and it has the same reason: the id is identity.
+Reword the body freely; the name survives, because the name is about the
+subject, not the wording. A rule whose subject moved far enough to want a
+different name is a different rule, and the one it replaced should have been
+rewritten in place.
+
+Two alternatives were rejected. Content-hash ids are unreadable in a report.
+Positional ids - `sentences-01`, allocated as the next free number - were what
+this file specified first, and they failed twice over: a report naming one says
+nothing without the file open, and two projects that each wrote three `register`
+rules collide on `register-03` for reasons of writing order alone, which is
+exactly the false collision `adopt-prose` then has to put to the author.
+
+Nothing enforces the naming discipline. `config lint` checks the grammar and the
+word count and stops there, the same way it cannot tell that two rules
+contradict each other. Both are judgement, and both are stated here so that the
+judgement is at least a shared one.
 
 **The metadata comment carries at most two keys.** `source` is one of `shipped`,
 `inferred`, `interview` or `adopted`. `origin=<project>` appears only on a rule
@@ -108,3 +131,25 @@ python3 "$PROSE" config list --file prose-style.md
 
 `lint` exits 1 on any error and prints one line per problem. `list` prints the
 rules and marks with `!` any rule carrying no worked example.
+
+Before adding a rule, have the script rule on the name:
+
+```sh
+python3 "$PROSE" config check-id --section sentences --name own-subject
+```
+
+It exits non-zero when the name is malformed or already taken. There is no
+allocator to pair with it, because with a positional id gone there is nothing
+left to allocate.
+
+## Migrating a file that still uses positional ids
+
+A `prose-style.md` written before this format change carries `sentences-01` and
+its kind, and `config lint` now reports every one of them as an error. There is
+no `config migrate`, and there should not be: naming a rule is a reading of what
+that rule means, which is the one thing in this file a script cannot do. Open
+the file, name each rule, and change the headings. Nothing else in a rule moves.
+
+Anything outside the file that quoted an old id - a report, a commit message, a
+cross-reference in another document - is stale afterwards. The cross-references
+are worth fixing. The reports are history, and history stays as it was written.

@@ -148,9 +148,16 @@ answers from either channel. Prefer the batch when the author is present.
 
 ## Step 7: write the rules
 
+Name the rule before writing it, and let the script rule on the name:
+
 ```sh
-python3 "$PROSE" config next-id --section sentences
+python3 "$PROSE" config check-id --section sentences --name own-subject
 ```
+
+The name is one to four words saying what the rule means, and there is nothing
+to allocate: an ordinal would only record which rule happened to be written
+first. `check-id` exits non-zero when the name is malformed or already taken,
+which is worth knowing before the file is edited rather than after.
 
 Read `reference/prose-style-format.md` for the shape. Every rule carries a
 worked before-and-after taken from the actual edit, because that example is the
@@ -162,9 +169,14 @@ the identity, the body is current truth, and `git log -p prose-style.md` holds
 what it used to say.
 
 **The script cannot detect a contradiction** and does not try. Nothing in
-`config lint` can tell that `sentences-04` and a new `register-03` disagree. That
-is why step 2 is mandatory and why a candidate touching covered ground goes to
-the author instead of into the file. Never reconcile two rules unilaterally.
+`config lint` can tell that `sentences-negation-earns-place` and a new
+`register-state-it-plainly` disagree. That is why step 2 is mandatory and why a
+candidate touching covered ground goes to the author instead of into the file.
+Never reconcile two rules unilaterally.
+
+Naming a rule is itself the check. A name that reads as a near-duplicate of one
+already in the file usually is one, and the fix is to rewrite that rule rather
+than add a second under a name split finely enough to be free.
 
 ```sh
 python3 "$PROSE" config lint

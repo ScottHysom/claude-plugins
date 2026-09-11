@@ -95,10 +95,11 @@ the content, and the count no longer had anything to count.
 
 What to check in the surviving prose on both sides of an edit:
 
-- **A count.** "Both", "the two", "three of these". `sentences-09` in
-  `prose-style.md` already requires a count to have its list. Editing is the usual way a count
-  loses its list, because the list and the count get separated by a replacement
-  that only touched one of them.
+- **A count.** "Both", "the two", "three of these".
+  `sentences-count-needs-list` in `prose-style.md` already requires a count to
+  have its list. Editing is the usual way a count loses its list, because the
+  list and the count get separated by a replacement that only touched one of
+  them.
 - **A demonstrative.** "These", "those", "that table", "the above".
 - **A word the deleted text defined.** The hardest case, because the word is
   still ordinary English and the sentence still parses. It has simply changed
@@ -142,10 +143,10 @@ The house prose style lives in `prose-style.md` at the root of this repo, not
 in this skill. Read it before editing any document, and do not work from a
 remembered version of it.
 
-Each rule there has a stable id, so a note about a passage can name the rule it
-breaks: `sentences-01 at landscape.md:42`. A rule that gets reworded keeps its
-id, and `git log -p prose-style.md` holds what it used to say. Nothing in that
-file is ever marked retired.
+Each rule there has a stable id naming what the rule means, so a note about a
+passage can name the rule it breaks: `sentences-own-subject at landscape.md:42`.
+A rule that gets reworded keeps its id, and `git log -p prose-style.md` holds
+what it used to say. Nothing in that file is ever marked retired.
 
 This skill owns document mechanics - front matter, TODO markers, diagrams,
 cross-references, commit format. `prose-style.md` owns how the sentences read.

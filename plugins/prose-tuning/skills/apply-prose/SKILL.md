@@ -106,7 +106,7 @@ Write the findings to a file for step 6:
 
 ```json
 [{"file":"landscape.md","line":42,"col_start":0,"col_end":74,
-  "rule":"sentences-01","text":"<the current text>",
+  "rule":"sentences-own-subject","text":"<the current text>",
   "replacement":"<the rewrite>"}]
 ```
 
@@ -118,8 +118,10 @@ Batch it; do not ask per finding.
 ## Step 6: apply
 
 ```sh
-python3 "$PROSE" apply --findings findings.json --only sentences-01,headings-01 --dry-run
-python3 "$PROSE" apply --findings findings.json --only sentences-01,headings-01
+python3 "$PROSE" apply --findings findings.json \
+  --only sentences-own-subject,headings-noun-phrase --dry-run
+python3 "$PROSE" apply --findings findings.json \
+  --only sentences-own-subject,headings-noun-phrase
 ```
 
 All-or-nothing by default, so a partial pass cannot leave half the addresses
