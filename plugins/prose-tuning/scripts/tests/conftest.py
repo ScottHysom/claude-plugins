@@ -10,6 +10,8 @@ edit anywhere but its own directory.
 pytest is a contributor dependency only. Nothing under scripts/ imports it, and
 nothing a user installs sees it.
 """
+import json
+import subprocess
 import sys
 from pathlib import Path
 
@@ -81,6 +83,124 @@ def round_trip():
         back, _ = prose.resolve_text(tagged, prose.REJECT, None, "sample.md")
         assert back == source, "strip did not restore the original"
     return run
+
+
+# A document with one line of every kind the block classifier separates, used
+# by the tests that drive a whole command rather than a function. TARGET_LINES
+# is the map from kind to line number; test_blocks.py asserts the map against
+# what Blocks actually says, so editing the document below fails there loudly
+# rather than quietly pointing these tests at the wrong line.
+TARGET = """---
+title: target
+---
+
+# Heading
+
+Curated, not collected. A resource earns a place here only after it has been
+used for something.
+
+> A quotation carries someone else's voice, not this document's.
+
+| Term | Meaning |
+|---|---|
+| model | a large file of numbers |
+
+```python
+x = 1
+```
+
+Final paragraph.
+"""
+
+TARGET_LINES = {
+    "frontmatter": 2,
+    "heading": 5,
+    "paragraph": 8,
+    "blockquote": 10,
+    "table": 14,
+    "fence": 17,
+    "last-paragraph": 20,
+}
+
+# The one rule the throwaway repo's rule file defines. apply rejects a finding
+# naming anything else, so every test record has to cite this.
+RULE_ID = "sentences-own-subject"
+
+STYLE = """---
+name: Probe
+---
+
+## Sentences
+
+### sentences-own-subject: Carries its own subject
+
+A sentence that borrows its subject from the heading above it is incomplete.
+
+> **Before.** Curated, not collected.
+> **After.** The list is curated, not collected.
+"""
+
+
+class ProseRepo:
+    """A throwaway repo: a rule file, one document, and a way to run a command.
+
+    `git init` and nothing more. apply reads the working tree and never reads a
+    ref, so there is no commit here and no git identity to configure - which
+    also keeps the fixture from failing on a machine whose global git config
+    signs commits.
+    """
+
+    def __init__(self, root, capsys):
+        self.root = root
+        self._capsys = capsys
+
+    def read(self, rel="target.md"):
+        return (self.root / rel).read_text()
+
+    def finding(self, line, **overrides):
+        """One approved rewrite. Defaults to a rewrite that would succeed, so
+        a test names only the field whose guard it is aiming at.
+        """
+        record = {"rule": RULE_ID, "file": "target.md", "line": line,
+                  "replacement": "rewritten"}
+        record.update(overrides)
+        return record
+
+    def apply(self, findings, *flags):
+        """Run `prose.py apply`. Returns (exit code, parsed envelope).
+
+        Driven through main() rather than cmd_apply() so the argparse defaults
+        are the real ones - a flag added later reaches these tests instead of
+        needing a hand-built Namespace kept in step by hand.
+        """
+        path = self.root / "findings.json"
+        path.write_text(json.dumps(findings))
+        self._capsys.readouterr()          # drop anything already buffered
+        code = prose.main(["apply", "-C", str(self.root),
+                           "--findings", str(path), "--json"] + list(flags))
+        return code, json.loads(self._capsys.readouterr().out)
+
+
+@pytest.fixture
+def target():
+    return TARGET
+
+
+@pytest.fixture
+def target_lines():
+    return dict(TARGET_LINES)
+
+
+@pytest.fixture
+def prose_repo(tmp_path, capsys):
+    root = tmp_path / "repo"
+    root.mkdir()
+    # capture_output so git's default-branch hint stays out of the CI log.
+    subprocess.run(["git", "init", "-q", str(root)],
+                   check=True, capture_output=True)
+    (root / "prose-style.md").write_text(STYLE)
+    (root / "target.md").write_text(TARGET)
+    return ProseRepo(root, capsys)
 
 
 @pytest.fixture
