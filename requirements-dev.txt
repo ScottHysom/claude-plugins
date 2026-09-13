@@ -8,3 +8,10 @@ pytest>=7.0
 # must stay on strategies that existed in 6.141.1 - the 3.9 leg fails loudly if
 # one does not. Do not "upgrade" this to >=6.142 without also dropping 3.9.
 hypothesis>=6.100,<7
+
+# The formatter, pinned exactly. Ruff's formatting output can change between
+# releases, and a contributor on a different version would reformat lines nobody
+# touched, or fail CI's check on code that is correct for their version. Bump it
+# on its own, in a commit that also carries whatever reformatting the new
+# version asks for. Configured in ruff.toml.
+ruff==0.16.7
