@@ -86,6 +86,12 @@ jobs:
       - name: Install test dependencies
         run: pip install -r requirements-dev.txt
 
+      # Formatting is checked here rather than trusted to editors and the Claude
+      # Code hook, which only run where someone set them up. Formatter output
+      # does not depend on the Python running it, so both legs agree.
+      - name: Check formatting
+        run: ruff format --check --diff .
+
       # prose.py parses a markup grammar and rewrites files in place. Its
       # round-trip property - insert then strip returns the file byte-identical
       # - is the only thing standing between a tagging pass and a mangled
