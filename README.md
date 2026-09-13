@@ -143,14 +143,12 @@ whoever wrote it. Two things format as you go so that rarely happens:
 - **Claude Code** runs `.claude/hooks/ruff-format.py` after every edit to a
   `.py` file, set up in `.claude/settings.json`. It needs ruff installed in
   `.venv` or on `PATH`, and tells Claude when it is not.
-- **Your editor** is up to you, since `.vscode/` is not committed. In VS Code,
-  install the Ruff extension (`charliermarsh.ruff`) and add to your settings:
-  ```json
-  "[python]": {
-    "editor.defaultFormatter": "charliermarsh.ruff",
-    "editor.formatOnSave": true
-  }
-  ```
+- **VS Code** formats Python on save using the committed `.vscode/settings.json`.
+  Accept the prompt to install the recommended Ruff extension when you open the
+  folder. The extension uses the ruff installed in the selected Python
+  interpreter and falls back to a copy of its own, which may be a different
+  version from the pin. Select `.venv` as the interpreter so saving formats
+  exactly as CI checks. Other editors need their own Ruff integration.
 
 The formatter's version bump is a commit of its own, carrying whatever
 reformatting the new version produces. A commit that only reformats goes in

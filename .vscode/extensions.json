@@ -1,0 +1,5 @@
+{
+  // VS Code offers to install these when the folder is opened.
+  // settings.json names the Ruff extension as the Python formatter.
+  "recommendations": ["charliermarsh.ruff", "ms-python.python"]
+}
