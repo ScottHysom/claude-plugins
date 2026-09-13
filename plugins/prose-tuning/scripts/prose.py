@@ -2264,8 +2264,11 @@ def cmd_tags(args):
     if args.batch == "-":
         raw = sys.stdin.read()
     else:
-        with open(args.batch, encoding="utf-8") as fh:
-            raw = fh.read()
+        try:
+            with open(args.batch, encoding="utf-8") as fh:
+                raw = fh.read()
+        except OSError as exc:
+            raise Fatal("cannot read batch: %s" % exc) from exc
     try:
         records = json.loads(raw)
     except ValueError as exc:

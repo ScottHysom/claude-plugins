@@ -5,6 +5,8 @@ round trip, so the planner turns those down at plan time with a reason the
 author can act on.
 """
 
+import json
+
 import pytest
 
 import prose
@@ -242,3 +244,57 @@ class TestRefusalsTheRoundTripPropertyFound:
         )
         assert not refusals
         assert engine.conflicts() == []
+
+
+class TestInsertCommand:
+    """`tags insert` driven the way the skills drive it, with the batch in a
+    file. The planner tests above hand records straight to apply_inserts, so
+    nothing there reads a batch, parses it, or writes the result back.
+    """
+
+    def insert(self, prose_repo, batch_text, *flags):
+        batch = prose_repo.root / "batch.json"
+        batch.write_text(batch_text)
+        return prose_repo.run("tags", "insert", "--batch", str(batch), *flags)
+
+    def test_a_batch_file_is_read_and_its_tags_written(self, prose_repo, target):
+        record = {"file": "target.md", "kind": "q", "start": 8, "text": "earned?"}
+        code, envelope = self.insert(prose_repo, json.dumps([record]))
+        assert code == prose.OK, envelope["errors"]
+        assert envelope["data"] == {"target.md": {"tags": [{"kind": "q", "line": 8}]}}
+        lines = target.split("\n")
+        lines.insert(7, '<q id="1">earned?</q>')
+        assert prose_repo.read() == "\n".join(lines)
+
+    def test_dry_run_leaves_the_file_alone(self, prose_repo, target):
+        record = {"file": "target.md", "kind": "q", "start": 8, "text": "earned?"}
+        code, _ = self.insert(prose_repo, json.dumps([record]), "--dry-run")
+        assert code == prose.OK
+        assert prose_repo.read() == target
+
+    @pytest.mark.parametrize(
+        ("batch_text", "problem"),
+        [
+            pytest.param("not json", "not valid JSON", id="not-json"),
+            pytest.param('{"kind": "q"}', "must be a JSON array", id="not-an-array"),
+        ],
+    )
+    def test_a_batch_that_cannot_be_used_stops_the_run(
+        self, prose_repo, target, batch_text, problem
+    ):
+        code, envelope = self.insert(prose_repo, batch_text)
+        assert code == prose.CANNOT_RUN
+        assert envelope is None
+        assert problem in prose_repo.err
+        assert prose_repo.read() == target
+
+    def test_a_missing_batch_file_stops_the_run_with_a_message(self, prose_repo):
+        """The skills write the batch and then name it, so a wrong path is a
+        typo away. apply reports a missing findings file as a message and exit
+        2; insert has to do the same rather than end in a traceback.
+        """
+        missing = prose_repo.root / "no-such-batch.json"
+        code, envelope = prose_repo.run("tags", "insert", "--batch", str(missing))
+        assert code == prose.CANNOT_RUN
+        assert envelope is None
+        assert "cannot read batch" in prose_repo.err
