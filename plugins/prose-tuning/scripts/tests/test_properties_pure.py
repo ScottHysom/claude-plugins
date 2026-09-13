@@ -11,6 +11,7 @@ The difference matters most when the function changes. A new branch that
 changes the answer for inputs no example happened to use passes every example
 test; it cannot pass these without the rule here being changed too.
 """
+
 from hypothesis import assume, example, given
 from hypothesis import strategies as st
 
@@ -36,10 +37,8 @@ class TestValidateRuleName:
     @example("a-b-c-d-e")
     @example("Own_Subject")
     @example("")
-    def test_a_name_is_accepted_exactly_when_it_is_short_and_lower_case(self,
-                                                                       name):
-        ok = bool(prose.RULE_NAME.match(name)) and \
-            len(name.split("-")) <= prose.MAX_NAME_WORDS
+    def test_a_name_is_accepted_exactly_when_it_is_short_and_lower_case(self, name):
+        ok = bool(prose.RULE_NAME.match(name)) and len(name.split("-")) <= prose.MAX_NAME_WORDS
         assert (prose.validate_rule_name(name) is None) is ok
 
     @given(st.text(alphabet=NAME_CHARS, max_size=12))
@@ -64,8 +63,10 @@ class TestGlobTranslation:
         assume("*" not in path and "?" not in path)
         assert bool(prose.glob_to_regex(path).match(path))
 
-    @given(st.text(alphabet=PATH_CHARS, max_size=8),
-           st.text(alphabet=PATH_CHARS, min_size=1, max_size=8))
+    @given(
+        st.text(alphabet=PATH_CHARS, max_size=8),
+        st.text(alphabet=PATH_CHARS, min_size=1, max_size=8),
+    )
     def test_matching_is_anchored_at_both_ends(self, pattern, extra):
         """A pattern matches whole paths. If it matched prefixes, every rule
         scoped to `README.md` would also govern `README.md.bak`.
@@ -91,13 +92,11 @@ class TestClassifySignal:
         assert prose.classify_signal(line, line) == "whitespace-only"
 
     @given(st.text(max_size=20), st.text(max_size=20))
-    def test_the_answer_does_not_depend_on_which_side_is_which(self, before,
-                                                               after):
+    def test_the_answer_does_not_depend_on_which_side_is_which(self, before, after):
         """evidence computes old-to-new; a caller comparing the other way round
         must not get a different verdict about whether this was prose.
         """
-        assert prose.classify_signal(before, after) == \
-            prose.classify_signal(after, before)
+        assert prose.classify_signal(before, after) == prose.classify_signal(after, before)
 
 
 class TestRuleSimilarity:
@@ -113,14 +112,12 @@ class TestRuleSimilarity:
 
     @given(BODIES)
     def test_a_rule_is_identical_to_itself(self, body):
-        same = prose.rule_similarity(self.rule("thing", body),
-                                     self.rule("thing", body))
+        same = prose.rule_similarity(self.rule("thing", body), self.rule("thing", body))
         assert same == (1.0, 1.0, 1.0)
 
     @given(BODIES, BODIES)
     def test_every_score_is_a_proportion(self, one, two):
-        body, name, score = prose.rule_similarity(self.rule("a", one),
-                                                  self.rule("b", two))
+        body, name, score = prose.rule_similarity(self.rule("a", one), self.rule("b", two))
         assert 0.0 <= body <= 1.0 and 0.0 <= name <= 1.0
         assert score == max(body, name)
 
@@ -145,19 +142,18 @@ class TestBodyKey:
     whatever the line wrapping and whatever FILL markers are outstanding.
     """
 
-    WORDS = st.lists(st.text(alphabet="abc", min_size=1, max_size=4),
-                     min_size=1, max_size=8)
+    WORDS = st.lists(st.text(alphabet="abc", min_size=1, max_size=4), min_size=1, max_size=8)
 
     @given(WORDS, st.integers(1, 4))
     def test_rewrapping_a_body_does_not_change_its_key(self, words, width):
         flat = TestRuleSimilarity.rule("thing", [" ".join(words)])
-        wrapped = TestRuleSimilarity.rule("thing", [
-            " ".join(words[i:i + width]) for i in range(0, len(words), width)])
+        wrapped = TestRuleSimilarity.rule(
+            "thing", [" ".join(words[i : i + width]) for i in range(0, len(words), width)]
+        )
         assert flat.body_key() == wrapped.body_key()
 
     @given(WORDS, st.text(alphabet="abc ", max_size=10))
     def test_a_comment_does_not_change_its_key(self, words, note):
         plain = TestRuleSimilarity.rule("thing", [" ".join(words)])
-        marked = TestRuleSimilarity.rule("thing", [
-            " ".join(words), "<!-- FILL: %s -->" % note, ""])
+        marked = TestRuleSimilarity.rule("thing", [" ".join(words), "<!-- FILL: %s -->" % note, ""])
         assert plain.body_key() == marked.body_key()

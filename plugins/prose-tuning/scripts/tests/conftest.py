@@ -10,6 +10,7 @@ edit anywhere but its own directory.
 pytest is a contributor dependency only. Nothing under scripts/ imports it, and
 nothing a user installs sees it.
 """
+
 import json
 import os
 import subprocess
@@ -83,20 +84,20 @@ def round_trip():
     is where the failure actually is - a refusal, a parse error and a corrupted
     strip are three different bugs.
     """
+
     def run(records, source=SAMPLE):
         text = prose.Text(source)
         blocks = prose.Blocks(text)
-        engine, refusals, _ = prose.apply_inserts(
-            text, blocks, records, "sample.md", 1)
+        engine, refusals, _ = prose.apply_inserts(text, blocks, records, "sample.md", 1)
         assert not refusals, "insert refused: %s" % (refusals[0],)
 
         tagged = prose.Text(engine.result())
         scanner = prose.TagScanner(tagged, None, "sample.md")
-        assert not scanner.errors, \
-            "tagged text does not parse: %s" % (scanner.errors[0],)
+        assert not scanner.errors, "tagged text does not parse: %s" % (scanner.errors[0],)
 
         back, _ = prose.resolve_text(tagged, prose.REJECT, None, "sample.md")
         assert back == source, "strip did not restore the original"
+
     return run
 
 
@@ -176,8 +177,7 @@ class ProseRepo:
         """One approved rewrite. Defaults to a rewrite that would succeed, so
         a test names only the field whose guard it is aiming at.
         """
-        record = {"rule": RULE_ID, "file": "target.md", "line": line,
-                  "replacement": "rewritten"}
+        record = {"rule": RULE_ID, "file": "target.md", "line": line, "replacement": "rewritten"}
         record.update(overrides)
         return record
 
@@ -190,9 +190,10 @@ class ProseRepo:
         """
         path = self.root / "findings.json"
         path.write_text(json.dumps(findings))
-        self._capsys.readouterr()          # drop anything already buffered
-        code = prose.main(["apply", "-C", str(self.root),
-                           "--findings", str(path), "--json"] + list(flags))
+        self._capsys.readouterr()  # drop anything already buffered
+        code = prose.main(
+            ["apply", "-C", str(self.root), "--findings", str(path), "--json"] + list(flags)
+        )
         return code, json.loads(self._capsys.readouterr().out)
 
 
@@ -211,8 +212,7 @@ def prose_repo(tmp_path, capsys):
     root = tmp_path / "repo"
     root.mkdir()
     # capture_output so git's default-branch hint stays out of the CI log.
-    subprocess.run(["git", "init", "-q", str(root)],
-                   check=True, capture_output=True)
+    subprocess.run(["git", "init", "-q", str(root)], check=True, capture_output=True)
     (root / "prose-style.md").write_text(STYLE)
     (root / "target.md").write_text(TARGET)
     return ProseRepo(root, capsys)
@@ -225,8 +225,10 @@ def config_from(tmp_path):
     Config reads from a path rather than a string, so a test that exercises
     the parser has to put its source on disk first.
     """
+
     def build(src, name="prose-style.md"):
         path = tmp_path / name
         prose.Text(src).write(str(path))
         return prose.Config(str(path))
+
     return build

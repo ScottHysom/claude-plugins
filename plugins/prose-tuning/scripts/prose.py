@@ -39,6 +39,7 @@ Two things in here look like bugs and are not:
 
 Python 3.9 is the floor. No match statements, no X | Y unions.
 """
+
 import argparse
 import difflib
 import json
@@ -70,6 +71,7 @@ class Fatal(Exception):
 # output
 # --------------------------------------------------------------------------
 
+
 def envelope(command, repo, data, errors=None, warnings=None):
     errors = errors or []
     return {
@@ -88,8 +90,7 @@ def emit(args, command, repo, data, errors=None, warnings=None, human=None):
     errors = errors or []
     warnings = warnings or []
     if getattr(args, "json", False):
-        print(json.dumps(envelope(command, repo, data, errors, warnings),
-                         indent=2, sort_keys=True))
+        print(json.dumps(envelope(command, repo, data, errors, warnings), indent=2, sort_keys=True))
     else:
         if human:
             human()
@@ -106,6 +107,7 @@ def emit(args, command, repo, data, errors=None, warnings=None, human=None):
 # fnmatch does not understand "**", and PurePath.match anchors from the right.
 # Both would silently mis-scope, so the translation is spelled out here.
 # --------------------------------------------------------------------------
+
 
 def glob_to_regex(pattern):
     out, i, n = ["(?s:"], 0, len(pattern)
@@ -146,6 +148,7 @@ class Matcher:
 # --------------------------------------------------------------------------
 # text and edits
 # --------------------------------------------------------------------------
+
 
 class Text:
     """A file's text, addressable by 1-indexed line and 0-indexed column.
@@ -201,8 +204,7 @@ class Text:
 
     def offset(self, line, col=0):
         if line < 1 or line > len(self.lines):
-            raise Fatal("line %d out of range (file has %d lines)"
-                        % (line, len(self.lines)))
+            raise Fatal("line %d out of range (file has %d lines)" % (line, len(self.lines)))
         return self.starts[line - 1] + col
 
     def line_of(self, offset):
@@ -261,8 +263,9 @@ class EditEngine:
         ordered = sorted(self.edits, key=lambda e: (e[0], e[1]))
         for a, b in zip(ordered, ordered[1:]):
             if b[0] < a[1] or b[0] == a[0]:
-                out.append("overlapping edits at offsets %d-%d and %d-%d"
-                           % (a[0], a[1], b[0], b[1]))
+                out.append(
+                    "overlapping edits at offsets %d-%d and %d-%d" % (a[0], a[1], b[0], b[1])
+                )
         return out
 
     def result(self):
@@ -270,8 +273,7 @@ class EditEngine:
         if bad:
             raise Fatal("; ".join(bad))
         s = self.text.s
-        for start, end, replacement, _ in sorted(
-                self.edits, key=lambda e: e[0], reverse=True):
+        for start, end, replacement, _ in sorted(self.edits, key=lambda e: e[0], reverse=True):
             s = s[:start] + replacement + s[end:]
         return s
 
@@ -279,6 +281,7 @@ class EditEngine:
 # --------------------------------------------------------------------------
 # git, read-only
 # --------------------------------------------------------------------------
+
 
 class Repo:
     def __init__(self, start=None):
@@ -288,7 +291,10 @@ class Repo:
         try:
             out = subprocess.run(
                 ["git", "-C", start, "rev-parse", "--show-toplevel"],
-                capture_output=True, text=True, check=False)
+                capture_output=True,
+                text=True,
+                check=False,
+            )
         except FileNotFoundError:
             raise Fatal("git is not installed, or not on PATH")
         if out.returncode != 0:
@@ -296,8 +302,9 @@ class Repo:
         self.root = out.stdout.strip()
 
     def git(self, *args):
-        out = subprocess.run(["git", "-C", self.root] + list(args),
-                             capture_output=True, text=True, check=False)
+        out = subprocess.run(
+            ["git", "-C", self.root] + list(args), capture_output=True, text=True, check=False
+        )
         return out.returncode, out.stdout, out.stderr
 
     def _lines(self, *args):
@@ -310,8 +317,7 @@ class Repo:
         return self._lines("ls-files", "--", "*.md")
 
     def untracked_md(self):
-        return self._lines("ls-files", "--others", "--exclude-standard",
-                           "--", "*.md")
+        return self._lines("ls-files", "--others", "--exclude-standard", "--", "*.md")
 
     def all_md(self):
         seen, out = set(), []
@@ -381,19 +387,24 @@ def validate_rule_name(name):
     one typo teaches the author to skim its output.
     """
     if POSITIONAL.match(name):
-        return ("rule id is positional; expected "
-                "'### <section>-<name>: <Title>', where the name is one to "
-                "%d words saying what the rule means" % MAX_NAME_WORDS)
+        return (
+            "rule id is positional; expected "
+            "'### <section>-<name>: <Title>', where the name is one to "
+            "%d words saying what the rule means" % MAX_NAME_WORDS
+        )
     words = name.split("-")
     if any(w[:1].isdigit() for w in words):
-        return ("rule name %r carries a number; a name says what a rule "
-                "means, not where it was written" % name)
+        return (
+            "rule name %r carries a number; a name says what a rule "
+            "means, not where it was written" % name
+        )
     if not RULE_NAME.match(name):
         return "rule name %r is not lower-case words joined by '-'" % name
     if len(words) > MAX_NAME_WORDS:
-        return ("rule name %r has %d words; at most %d. A name that needs "
-                "more is a rule that has not been decided yet"
-                % (name, len(words), MAX_NAME_WORDS))
+        return (
+            "rule name %r has %d words; at most %d. A name that needs "
+            "more is a rule that has not been decided yet" % (name, len(words), MAX_NAME_WORDS)
+        )
     return None
 
 
@@ -446,12 +457,20 @@ class Rule:
 
     def as_dict(self):
         return {
-            "id": self.id, "section": self.section, "name": self.name,
-            "title": self.title, "line": self.line, "group": self.group,
-            "meta": self.meta, "body": self.body_text(),
+            "id": self.id,
+            "section": self.section,
+            "name": self.name,
+            "title": self.title,
+            "line": self.line,
+            "group": self.group,
+            "meta": self.meta,
+            "body": self.body_text(),
             "body_key": self.body_key(),
-            "example": (None if self.before is None and self.after is None
-                        else {"before": self.before, "after": self.after}),
+            "example": (
+                None
+                if self.before is None and self.after is None
+                else {"before": self.before, "after": self.after}
+            ),
         }
 
 
@@ -493,8 +512,9 @@ class Config:
 
     def _parse_front(self, lines):
         if not lines or lines[0].strip() != "---":
-            self.errors.append("%s:1  no front matter; the file must open "
-                               "with a --- fence" % self.rel())
+            self.errors.append(
+                "%s:1  no front matter; the file must open with a --- fence" % self.rel()
+            )
             return 0
         close = None
         for i in range(1, len(lines)):
@@ -505,7 +525,7 @@ class Config:
             self.errors.append("%s:1  front matter is never closed" % self.rel())
             return 0
 
-        target = None       # None at top level, else the list being filled
+        target = None  # None at top level, else the list being filled
         in_scope = False
         for i in range(1, close):
             raw, num = lines[i], i + 1
@@ -516,8 +536,7 @@ class Config:
                 if not in_scope:
                     self._err(num, "%s: is only valid inside scope:" % sub.group(1))
                     continue
-                target = (self.scope_include if sub.group(1) == "include"
-                          else self.scope_exclude)
+                target = self.scope_include if sub.group(1) == "include" else self.scope_exclude
                 continue
             item = FM_ITEM.match(raw)
             if item:
@@ -527,8 +546,7 @@ class Config:
                 target.append(unquote(item.group(1)))
                 continue
             if raw[0] in " \t":
-                self._err(num, "indented line is not a scope key or list item: %r"
-                          % raw)
+                self._err(num, "indented line is not a scope key or list item: %r" % raw)
                 continue
             key = FM_KEY.match(raw)
             if not key:
@@ -537,8 +555,7 @@ class Config:
             name, value = key.group(1), key.group(2)
             if name == "scope":
                 if value:
-                    self._err(num, "scope: takes no value; put include: and "
-                                   "exclude: beneath it")
+                    self._err(num, "scope: takes no value; put include: and exclude: beneath it")
                 in_scope, target = True, None
                 continue
             in_scope, target = False, None
@@ -558,11 +575,13 @@ class Config:
                 m = RULE_HEADING.match(raw)
                 if not m:
                     current = None
-                    self._err(num, "rule heading carries no id; expected "
-                                   "'### <section>-<name>: <Title>'")
+                    self._err(
+                        num, "rule heading carries no id; expected '### <section>-<name>: <Title>'"
+                    )
                     continue
-                current = Rule(("%s-%s" % (m.group(1), m.group(2))),
-                               m.group(1), m.group(2), m.group(3), num)
+                current = Rule(
+                    ("%s-%s" % (m.group(1), m.group(2))), m.group(1), m.group(2), m.group(3), num
+                )
                 current.group = group
                 self.rules.append(current)
                 continue
@@ -588,33 +607,45 @@ class Config:
         seen = {}
         for rule in self.rules:
             if rule.id in seen:
-                self._err(rule.line, "duplicate rule id %s; first defined at "
-                                     "line %d" % (rule.id, seen[rule.id]))
+                self._err(
+                    rule.line,
+                    "duplicate rule id %s; first defined at line %d" % (rule.id, seen[rule.id]),
+                )
             else:
                 seen[rule.id] = rule.line
             bad = validate_rule_name(rule.name)
             if bad:
                 self._err(rule.line, bad)
             elif rule.name.split("-")[0] == rule.section:
-                self._warn(rule.line, "rule name %s opens with its own "
-                                      "section; the id already says %s"
-                           % (rule.name, rule.section))
+                self._warn(
+                    rule.line,
+                    "rule name %s opens with its own "
+                    "section; the id already says %s" % (rule.name, rule.section),
+                )
             for k, v in rule.meta.items():
                 if k not in META_KEYS:
-                    self._err(rule.line, "unknown metadata key %r; allowed: %s"
-                              % (k, ", ".join(sorted(META_KEYS))))
+                    self._err(
+                        rule.line,
+                        "unknown metadata key %r; allowed: %s" % (k, ", ".join(sorted(META_KEYS))),
+                    )
                 elif k == "source" and v not in META_SOURCES:
-                    self._err(rule.line, "source=%s is not one of %s"
-                              % (v, ", ".join(sorted(META_SOURCES))))
+                    self._err(
+                        rule.line,
+                        "source=%s is not one of %s" % (v, ", ".join(sorted(META_SOURCES))),
+                    )
             if not rule.body_text():
                 self._err(rule.line, "rule %s has no body" % rule.id)
             if rule.before is None and rule.after is None:
-                self._warn(rule.line, "rule %s has no worked example; a rule "
-                                      "with no example does not survive contact"
-                           % rule.id)
+                self._warn(
+                    rule.line,
+                    "rule %s has no worked example; a rule "
+                    "with no example does not survive contact" % rule.id,
+                )
             elif rule.before is None or rule.after is None:
-                self._err(rule.line, "rule %s has half an example; Before and "
-                                     "After come as a pair" % rule.id)
+                self._err(
+                    rule.line,
+                    "rule %s has half an example; Before and After come as a pair" % rule.id,
+                )
         if self.exists and "name" not in self.front:
             self._warn(1, "front matter has no name:")
 
@@ -634,8 +665,10 @@ class Config:
             return rid, bad
         taken = self.by_id().get(rid)
         if taken:
-            return rid, ("%s is already the id of the rule at %s:%d - %s"
-                         % (rid, self.rel(), taken.line, taken.title))
+            return rid, (
+                "%s is already the id of the rule at %s:%d - %s"
+                % (rid, self.rel(), taken.line, taken.title)
+            )
         return rid, None
 
     def by_id(self):
@@ -643,13 +676,13 @@ class Config:
 
 
 def config_path(repo, override=None):
-    return os.path.abspath(override) if override \
-        else os.path.join(repo.root, CONFIG_NAME)
+    return os.path.abspath(override) if override else os.path.join(repo.root, CONFIG_NAME)
 
 
 # --------------------------------------------------------------------------
 # which files the rules govern
 # --------------------------------------------------------------------------
+
 
 class Scope:
     """File selection, with the config's scope: block overriding the defaults.
@@ -670,28 +703,25 @@ class Scope:
         self.overridden = bool(config.scope_include or config.scope_exclude)
         self._inc = Matcher(self.include)
         self._exc = Matcher(self.exclude)
-        self._config_rel = os.path.relpath(config.path, repo.root) \
-            if config.path.startswith(repo.root) else None
+        self._config_rel = (
+            os.path.relpath(config.path, repo.root) if config.path.startswith(repo.root) else None
+        )
 
     def verdicts(self):
         out = []
         for rel in self.repo.all_md():
             if self._config_rel and rel == self._config_rel:
-                out.append({"path": rel, "included": False,
-                            "reason": "the config itself"})
+                out.append({"path": rel, "included": False, "reason": "the config itself"})
                 continue
             hit = self._inc.match(rel)
             if not hit:
-                out.append({"path": rel, "included": False,
-                            "reason": "no include pattern matched"})
+                out.append({"path": rel, "included": False, "reason": "no include pattern matched"})
                 continue
             bad = self._exc.match(rel)
             if bad:
-                out.append({"path": rel, "included": False,
-                            "reason": "excluded by %s" % bad})
+                out.append({"path": rel, "included": False, "reason": "excluded by %s" % bad})
                 continue
-            out.append({"path": rel, "included": True,
-                        "reason": "included by %s" % hit})
+            out.append({"path": rel, "included": True, "reason": "included by %s" % hit})
         return out
 
     def files(self):
@@ -758,8 +788,7 @@ class Blocks:
                 while j < n:
                     self.kinds[j] = "fence"
                     self.info[j] = info
-                    close = re.match(r"^\s{0,3}(%s{%d,})\s*$"
-                                     % (re.escape(char), width), lines[j])
+                    close = re.match(r"^\s{0,3}(%s{%d,})\s*$" % (re.escape(char), width), lines[j])
                     if close:
                         break
                     j += 1
@@ -778,8 +807,12 @@ class Blocks:
                 i += 1
                 continue
 
-            if "|" in line and i + 1 < n and TABLE_DELIM.match(lines[i + 1]) \
-                    and "|" in lines[i + 1]:
+            if (
+                "|" in line
+                and i + 1 < n
+                and TABLE_DELIM.match(lines[i + 1])
+                and "|" in lines[i + 1]
+            ):
                 j = i
                 while j < n and "|" in lines[j] and lines[j].strip():
                     self.kinds[j] = "table"
@@ -808,8 +841,11 @@ class Blocks:
         tags check, and so does any project document quoting HTML.
         """
         out = []
-        runs = [m for m in re.finditer(r"`+", self.text.s)
-                if not any(a <= m.start() < b for a, b in fences)]
+        runs = [
+            m
+            for m in re.finditer(r"`+", self.text.s)
+            if not any(a <= m.start() < b for a, b in fences)
+        ]
         i = 0
         while i < len(runs):
             width = len(runs[i].group(0))
@@ -836,8 +872,7 @@ class Blocks:
                 if start is None:
                     start = i
             elif start is not None:
-                out.append((self.text.offset(start + 1),
-                            self.text.offset(i + 1)))
+                out.append((self.text.offset(start + 1), self.text.offset(i + 1)))
                 start = None
         if start is not None:
             out.append((self.text.offset(start + 1), self.text.end))
@@ -880,8 +915,15 @@ ATTR_RE = re.compile(r"""([A-Za-z_][-A-Za-z0-9_]*)\s*=\s*("([^"]*)"|'([^']*)')""
 
 EDIT_KINDS = {"ins", "del", "repl"}
 COMMENT_KINDS = {"why", "alt"}
-ALLOWED_ATTRS = {"ins": {"why"}, "del": {"why"}, "repl": {"why"},
-                 "q": {"id"}, "a": set(), "why": set(), "alt": set()}
+ALLOWED_ATTRS = {
+    "ins": {"why"},
+    "del": {"why"},
+    "repl": {"why"},
+    "q": {"id"},
+    "a": set(),
+    "why": set(),
+    "alt": set(),
+}
 ALLOWED_CHILDREN = {
     "ins": COMMENT_KINDS,
     "del": COMMENT_KINDS,
@@ -906,7 +948,7 @@ class Tag:
         self.parent = None
 
     def inner(self, text):
-        return text.s[self.open_end:self.close_start]
+        return text.s[self.open_end : self.close_start]
 
     def span(self):
         return (self.open_start, self.close_end)
@@ -927,8 +969,7 @@ class Tag:
         return out
 
     def alts(self, text):
-        return [strip_tags(c.inner(text)).strip()
-                for c in self.children if c.kind == "alt"]
+        return [strip_tags(c.inner(text)).strip() for c in self.children if c.kind == "alt"]
 
 
 def strip_tags(s):
@@ -954,12 +995,10 @@ class TagScanner:
         self._scan()
 
     def _err(self, offset, msg):
-        self.errors.append("%s:%d  %s"
-                           % (self.path, self.text.line_of(offset), msg))
+        self.errors.append("%s:%d  %s" % (self.path, self.text.line_of(offset), msg))
 
     def _warn(self, offset, msg):
-        self.warnings.append("%s:%d  %s"
-                             % (self.path, self.text.line_of(offset), msg))
+        self.warnings.append("%s:%d  %s" % (self.path, self.text.line_of(offset), msg))
 
     def _scan(self):
         protected = self.blocks.shielded_offsets()
@@ -974,7 +1013,7 @@ class TagScanner:
                 continue
             kind = m.group(1)
             raw_attrs = m.group(2) or ""
-            closing = self.text.s[start:start + 2] == "</"
+            closing = self.text.s[start : start + 2] == "</"
 
             if closing:
                 if not stack:
@@ -984,15 +1023,15 @@ class TagScanner:
                 if node.kind != kind:
                     # Close it anyway. One typo should produce one message,
                     # not a mismatch now and an "unclosed" later.
-                    self._err(start, "</%s> closes <%s> opened at line %d"
-                              % (kind, node.kind, node.line))
+                    self._err(
+                        start, "</%s> closes <%s> opened at line %d" % (kind, node.kind, node.line)
+                    )
                 node.close_start, node.close_end = start, end
                 continue
 
             attrs = {}
             for am in ATTR_RE.finditer(raw_attrs):
-                attrs[am.group(1)] = am.group(3) if am.group(3) is not None \
-                    else am.group(4)
+                attrs[am.group(1)] = am.group(3) if am.group(3) is not None else am.group(4)
             leftover = ATTR_RE.sub("", raw_attrs).strip()
 
             # <a href="..."> is an HTML anchor, not an answer. Skipping it is
@@ -1003,20 +1042,23 @@ class TagScanner:
             allowed = ALLOWED_ATTRS[kind]
             for name in attrs:
                 if name not in allowed:
-                    self._err(start, "<%s> has no %r attribute; allowed: %s"
-                              % (kind, name,
-                                 ", ".join(sorted(allowed)) or "none"))
+                    self._err(
+                        start,
+                        "<%s> has no %r attribute; allowed: %s"
+                        % (kind, name, ", ".join(sorted(allowed)) or "none"),
+                    )
             if leftover:
-                self._err(start, "<%s> has unparseable attribute text %r; "
-                                 "attribute values need quotes"
-                          % (kind, leftover))
+                self._err(
+                    start,
+                    "<%s> has unparseable attribute text %r; "
+                    "attribute values need quotes" % (kind, leftover),
+                )
 
             node = Tag(kind, attrs, start, end, self.text.line_of(start))
             if stack:
                 parent = stack[-1]
                 if kind not in ALLOWED_CHILDREN[parent.kind]:
-                    self._err(start, "<%s> is not allowed inside <%s>"
-                              % (kind, parent.kind))
+                    self._err(start, "<%s> is not allowed inside <%s>" % (kind, parent.kind))
                 node.parent = parent
                 parent.children.append(node)
             else:
@@ -1037,23 +1079,24 @@ class TagScanner:
                 dels = [c for c in node.children if c.kind == "del"]
                 inss = [c for c in node.children if c.kind == "ins"]
                 if len(dels) != 1 or len(inss) != 1:
-                    self._err(node.open_start,
-                              "<repl> holds %d <del> and %d <ins>; it takes "
-                              "exactly one of each, <del> first"
-                              % (len(dels), len(inss)))
+                    self._err(
+                        node.open_start,
+                        "<repl> holds %d <del> and %d <ins>; it takes "
+                        "exactly one of each, <del> first" % (len(dels), len(inss)),
+                    )
                 elif dels[0].open_start > inss[0].open_start:
-                    self._err(node.open_start,
-                              "<repl> has <ins> before <del>; the old prose "
-                              "comes first")
+                    self._err(
+                        node.open_start, "<repl> has <ins> before <del>; the old prose comes first"
+                    )
             if node.kind == "q":
                 qid = node.attrs.get("id")
                 if qid is None:
-                    self._warn(node.open_start,
-                               "<q> has no id; run tags insert to number it")
+                    self._warn(node.open_start, "<q> has no id; run tags insert to number it")
                 elif qid in qids:
-                    self._err(node.open_start,
-                              "duplicate question id %s; first at line %d"
-                              % (qid, qids[qid]))
+                    self._err(
+                        node.open_start,
+                        "duplicate question id %s; first at line %d" % (qid, qids[qid]),
+                    )
                 else:
                     qids[qid] = node.line
 
@@ -1067,8 +1110,11 @@ class TagScanner:
         """Top-level <del> immediately followed by <ins>: a bare replacement."""
         out, used = [], set()
         for a, b in zip(self.roots, self.roots[1:]):
-            if a.kind == "del" and b.kind == "ins" \
-                    and not self.text.s[a.close_end:b.open_start].strip():
+            if (
+                a.kind == "del"
+                and b.kind == "ins"
+                and not self.text.s[a.close_end : b.open_start].strip()
+            ):
                 out.append((a, b))
                 used.add(id(a))
                 used.add(id(b))
@@ -1099,10 +1145,10 @@ def _line_bounds(text, offset):
 
 def is_block_form(node, text):
     start, _ = _line_bounds(text, node.open_start)
-    if text.s[start:node.open_start].strip():
+    if text.s[start : node.open_start].strip():
         return False
     _, end = _line_bounds(text, max(node.close_end - 1, 0))
-    return not text.s[node.close_end:end].strip()
+    return not text.s[node.close_end : end].strip()
 
 
 def tidy_block(s):
@@ -1149,7 +1195,7 @@ def top_replacement(node, text, mode):
     out = resolved(node, text, mode)
     if out and is_block_form(node, text) and not out.endswith("\n"):
         _, end = node_span(node, text)
-        if text.s[end - 1:end] == "\n":
+        if text.s[end - 1 : end] == "\n":
             out += "\n"
     return out
 
@@ -1158,10 +1204,10 @@ def resolved_inner(node, text, mode):
     parts, cursor = [], node.open_end
     for child in node.children:
         start, end = node_span(child, text)
-        parts.append(text.s[cursor:max(start, cursor)])
+        parts.append(text.s[cursor : max(start, cursor)])
         parts.append(top_replacement(child, text, mode))
         cursor = max(end, cursor)
-    parts.append(text.s[cursor:node.close_start])
+    parts.append(text.s[cursor : node.close_start])
     out = "".join(parts)
     return tidy_block(out) if is_block_form(node, text) else out
 
@@ -1210,9 +1256,10 @@ def resolve_warnings(scanner, text):
         if not is_block_form(node, text):
             continue
         if scanner.blocks.continuation_indent(node.line) > 0:
-            out.append("%s:%d  block-form <%s> resolved inside a list; check "
-                       "the list still reads as one list"
-                       % (scanner.path, node.line, node.kind))
+            out.append(
+                "%s:%d  block-form <%s> resolved inside a list; check "
+                "the list still reads as one list" % (scanner.path, node.line, node.kind)
+            )
     return out
 
 
@@ -1269,12 +1316,12 @@ def plan_one_insert(text, blocks, rec, path, qid):
     """Return a list of (start, end, replacement). Raises InsertRefusal."""
     kind = rec.get("kind")
     if kind not in INSERTABLE:
-        raise InsertRefusal("kind %r is not one of %s"
-                            % (kind, ", ".join(INSERTABLE)))
+        raise InsertRefusal("kind %r is not one of %s" % (kind, ", ".join(INSERTABLE)))
     start_line = int(rec.get("start", 0))
     if start_line < 1 or start_line > text.line_count():
-        raise InsertRefusal("line %d is outside the file (%d lines)"
-                            % (start_line, text.line_count()))
+        raise InsertRefusal(
+            "line %d is outside the file (%d lines)" % (start_line, text.line_count())
+        )
     end_line = int(rec.get("end", start_line))
     if end_line < start_line or end_line > text.line_count():
         raise InsertRefusal("end line %d is outside the span" % end_line)
@@ -1286,17 +1333,19 @@ def plan_one_insert(text, blocks, rec, path, qid):
         if not body:
             raise InsertRefusal("<%s> needs text" % kind)
         if blocks.kind(start_line) in UNSAFE_INSERT_KINDS:
-            raise InsertRefusal("line %d is a %s; a new line there would land "
-                                "inside it"
-                                % (start_line, blocks.kind(start_line)))
+            raise InsertRefusal(
+                "line %d is a %s; a new line there would land "
+                "inside it" % (start_line, blocks.kind(start_line))
+            )
         ident = ' id="%s"' % qid if kind == "q" else ""
         at = text.offset(start_line, 0)
         return [(at, at, "%s<%s%s>%s</%s>\n" % (indent, kind, ident, body, kind))]
 
     for line in range(start_line, end_line + 1):
         if blocks.kind(line) in UNSAFE_SPAN_KINDS:
-            raise InsertRefusal("line %d is a %s; markup there would break it"
-                                % (line, blocks.kind(line)))
+            raise InsertRefusal(
+                "line %d is a %s; markup there would break it" % (line, blocks.kind(line))
+            )
 
     col_start = int(rec.get("col_start", 0))
     last = text.bare(end_line)
@@ -1309,23 +1358,27 @@ def plan_one_insert(text, blocks, rec, path, qid):
     # for a large enough column, the end of the document.
     first_bare = text.bare(start_line)
     if not 0 <= col_start <= len(first_bare):
-        raise InsertRefusal("col_start %d is outside line %d (%d characters)"
-                            % (col_start, start_line, len(first_bare)))
+        raise InsertRefusal(
+            "col_start %d is outside line %d (%d characters)"
+            % (col_start, start_line, len(first_bare))
+        )
     if not 0 <= col_end <= len(last):
-        raise InsertRefusal("col_end %d is outside line %d (%d characters)"
-                            % (col_end, end_line, len(last)))
+        raise InsertRefusal(
+            "col_end %d is outside line %d (%d characters)" % (col_end, end_line, len(last))
+        )
 
     whole_lines = col_start == 0 and col_end == len(last)
     inline = start_line == end_line
 
     if inline and col_end < col_start:
-        raise InsertRefusal("col_end %d is before col_start %d"
-                            % (col_end, col_start))
+        raise InsertRefusal("col_end %d is before col_start %d" % (col_end, col_start))
 
     if not inline and not whole_lines:
-        raise InsertRefusal("a span that starts mid-line and ends on another "
-                            "line straddles blocks; give whole lines, or keep "
-                            "it inside one line")
+        raise InsertRefusal(
+            "a span that starts mid-line and ends on another "
+            "line straddles blocks; give whole lines, or keep "
+            "it inside one line"
+        )
 
     a = text.offset(start_line, col_start)
     b = text.offset(end_line, col_end)
@@ -1338,9 +1391,11 @@ def plan_one_insert(text, blocks, rec, path, qid):
             # from a block tag, and a block tag owns its whole line - so
             # stripping it would take the author's blank line with it.
             if not first_bare.strip():
-                raise InsertRefusal("line %d is blank; an <ins> alone on a "
-                                    "line reads as a block tag and would take "
-                                    "the line with it" % start_line)
+                raise InsertRefusal(
+                    "line %d is blank; an <ins> alone on a "
+                    "line reads as a block tag and would take "
+                    "the line with it" % start_line
+                )
             return [(a, a, "<ins>%s</ins>" % body)]
         raise InsertRefusal("<ins> inserts at a point; give one line")
 
@@ -1350,19 +1405,21 @@ def plan_one_insert(text, blocks, rec, path, qid):
         # Note this also catches an inline record aimed at a blank line, where
         # both columns default to 0.
         if col_start == col_end:
-            raise InsertRefusal("the span is empty; give a span with text in "
-                                "it, or whole lines")
+            raise InsertRefusal("the span is empty; give a span with text in it, or whole lines")
         if why and '"' in why:
-            raise InsertRefusal("a why containing a double quote needs block "
-                                "form; give whole lines")
+            raise InsertRefusal(
+                "a why containing a double quote needs block form; give whole lines"
+            )
         if kind == "del":
             return [(a, a, "<del%s>" % attr_text(why)), (b, b, "</del>")]
         new = rec.get("with")
         if new is None:
             raise InsertRefusal("<repl> needs a with value")
         if why:
-            return [(a, a, '<repl%s><del>' % attr_text(why)),
-                    (b, b, "</del><ins>%s</ins></repl>" % new)]
+            return [
+                (a, a, "<repl%s><del>" % attr_text(why)),
+                (b, b, "</del><ins>%s</ins></repl>" % new),
+            ]
         return [(a, a, "<del>"), (b, b, "</del><ins>%s</ins>" % new)]
 
     # Block form. The span is replaced wholesale so the opening and closing
@@ -1387,8 +1444,7 @@ def plan_one_insert(text, blocks, rec, path, qid):
     attrs = attr_text(why)
 
     if kind == "del":
-        out = "%s<del%s>\n%s%s%s</del>%s" % (indent, attrs, why_line,
-                                            original, indent, tail)
+        out = "%s<del%s>\n%s%s%s</del>%s" % (indent, attrs, why_line, original, indent, tail)
         return [(block_start, block_end, out)]
 
     new = rec.get("with")
@@ -1396,9 +1452,19 @@ def plan_one_insert(text, blocks, rec, path, qid):
         raise InsertRefusal("<repl> needs a with value")
     new_block = "".join("%s%s\n" % (indent, x) for x in new.split("\n"))
 
-    out = ("%s<repl%s>\n%s%s<del>\n%s%s</del>\n%s<ins>\n%s%s</ins>\n%s</repl>%s"
-           % (indent, attrs, why_line, indent, original, indent,
-              indent, new_block, indent, indent, tail))
+    out = "%s<repl%s>\n%s%s<del>\n%s%s</del>\n%s<ins>\n%s%s</ins>\n%s</repl>%s" % (
+        indent,
+        attrs,
+        why_line,
+        indent,
+        original,
+        indent,
+        indent,
+        new_block,
+        indent,
+        indent,
+        tail,
+    )
     return [(block_start, block_end, out)]
 
 
@@ -1432,8 +1498,15 @@ def segments_for(text, blocks):
         if kind == "heading":
             m = HEADING_PREFIX.match(raw)
             start = len(m.group(1)) if m else 0
-            out.append({"line": line, "col_start": start, "col_end": len(raw),
-                        "kind": "heading", "text": raw[start:]})
+            out.append(
+                {
+                    "line": line,
+                    "col_start": start,
+                    "col_end": len(raw),
+                    "kind": "heading",
+                    "text": raw[start:],
+                }
+            )
         elif kind == "table":
             if TABLE_DELIM.match(raw):
                 continue
@@ -1441,19 +1514,39 @@ def segments_for(text, blocks):
             for cell in raw.split("|"):
                 if cell.strip():
                     lead = len(cell) - len(cell.lstrip())
-                    out.append({"line": line, "col_start": col + lead,
-                                "col_end": col + len(cell.rstrip()),
-                                "kind": "table-cell", "text": cell.strip()})
+                    out.append(
+                        {
+                            "line": line,
+                            "col_start": col + lead,
+                            "col_end": col + len(cell.rstrip()),
+                            "kind": "table-cell",
+                            "text": cell.strip(),
+                        }
+                    )
                 col += len(cell) + 1
         elif kind == "list-item":
             m = LIST_ITEM.match(raw)
             start = len(m.group(0)) if m else 0
-            out.append({"line": line, "col_start": start, "col_end": len(raw),
-                        "kind": "list-item", "text": raw[start:]})
+            out.append(
+                {
+                    "line": line,
+                    "col_start": start,
+                    "col_end": len(raw),
+                    "kind": "list-item",
+                    "text": raw[start:],
+                }
+            )
         else:
             lead = len(raw) - len(raw.lstrip())
-            out.append({"line": line, "col_start": lead, "col_end": len(raw),
-                        "kind": "paragraph", "text": raw.strip()})
+            out.append(
+                {
+                    "line": line,
+                    "col_start": lead,
+                    "col_end": len(raw),
+                    "kind": "paragraph",
+                    "text": raw.strip(),
+                }
+            )
     return out
 
 
@@ -1508,23 +1601,31 @@ def explicit_records(scanner, text, blocks, rel):
     out = []
     pairs, paired = scanner.pairs()
     for a, b in pairs:
-        out.append({
-            "file": rel, "kind": "repl", "start": a.line, "end": b.line,
-            "old_text": tidy_block(strip_tags(a.inner(text))).strip(),
-            "new_text": tidy_block(strip_tags(b.inner(text))).strip(),
-            "why": a.whys(text) + b.whys(text),
-            "alt": a.alts(text) + b.alts(text),
-            "heading_path": blocks.heading_path(a.line),
-            "block_kind": blocks.kind(a.line),
-            "form": "pair",
-        })
+        out.append(
+            {
+                "file": rel,
+                "kind": "repl",
+                "start": a.line,
+                "end": b.line,
+                "old_text": tidy_block(strip_tags(a.inner(text))).strip(),
+                "new_text": tidy_block(strip_tags(b.inner(text))).strip(),
+                "why": a.whys(text) + b.whys(text),
+                "alt": a.alts(text) + b.alts(text),
+                "heading_path": blocks.heading_path(a.line),
+                "block_kind": blocks.kind(a.line),
+                "form": "pair",
+            }
+        )
     for node in scanner.roots:
         if id(node) in paired or node.kind not in EDIT_KINDS:
             continue
         rec = {
-            "file": rel, "kind": node.kind, "start": node.line,
+            "file": rel,
+            "kind": node.kind,
+            "start": node.line,
             "end": text.line_of(max(node.close_end - 1, 0)),
-            "why": node.whys(text), "alt": node.alts(text),
+            "why": node.whys(text),
+            "alt": node.alts(text),
             "heading_path": blocks.heading_path(node.line),
             "block_kind": blocks.kind(node.line),
             "form": "block" if is_block_form(node, text) else "inline",
@@ -1550,16 +1651,21 @@ def question_records(scanner, text, rel):
         if node.kind != "q":
             continue
         answer = None
-        for later in roots[n + 1:]:
+        for later in roots[n + 1 :]:
             if later.kind == "a":
                 answer = strip_tags(later.inner(text)).strip()
                 break
             if later.kind == "q":
                 break
-        out.append({"file": rel, "line": node.line,
-                    "id": node.attrs.get("id"),
-                    "question": strip_tags(node.inner(text)).strip(),
-                    "answer": answer})
+        out.append(
+            {
+                "file": rel,
+                "line": node.line,
+                "id": node.attrs.get("id"),
+                "question": strip_tags(node.inner(text)).strip(),
+                "answer": answer,
+            }
+        )
     return out
 
 
@@ -1572,8 +1678,7 @@ def inferred_records(repo, rel, text, neutral, ref, ignore):
     work_lines = [text.bare(i + 1) for i in range(text.line_count())]
     to_work = line_map(neutral_lines, work_lines)
     out = []
-    sm = difflib.SequenceMatcher(None, base_lines, neutral_lines,
-                                 autojunk=False)
+    sm = difflib.SequenceMatcher(None, base_lines, neutral_lines, autojunk=False)
     for tag, i1, i2, j1, j2 in sm.get_opcodes():
         if tag == "equal":
             continue
@@ -1582,13 +1687,17 @@ def inferred_records(repo, rel, text, neutral, ref, ignore):
         line = nearest(to_work, j1, j1) + 1
         if "%s:%d" % (rel, line) in ignore:
             continue
-        out.append({
-            "file": rel, "start": line,
-            "end": nearest(to_work, max(j2 - 1, j1), j2) + 1,
-            "change": tag,
-            "old_lines": old, "new_lines": new,
-            "signal": classify_signal("\n".join(old), "\n".join(new)),
-        })
+        out.append(
+            {
+                "file": rel,
+                "start": line,
+                "end": nearest(to_work, max(j2 - 1, j1), j2) + 1,
+                "change": tag,
+                "old_lines": old,
+                "new_lines": new,
+                "signal": classify_signal("\n".join(old), "\n".join(new)),
+            }
+        )
     return out, False
 
 
@@ -1600,8 +1709,9 @@ def apply_inserts(text, blocks, records, path, qid_start):
         try:
             edits = plan_one_insert(text, blocks, rec, path, qid)
         except InsertRefusal as exc:
-            refusals.append("%s:%s  record %d refused: %s"
-                            % (path, rec.get("start", "?"), n + 1, exc))
+            refusals.append(
+                "%s:%s  record %d refused: %s" % (path, rec.get("start", "?"), n + 1, exc)
+            )
             continue
         except (TypeError, ValueError) as exc:
             refusals.append("%s  record %d is malformed: %s" % (path, n + 1, exc))
@@ -1614,12 +1724,12 @@ def apply_inserts(text, blocks, records, path, qid_start):
         # written would be one this tool's own `tags check` turns down.
         # plan_one_insert cannot see this - it is handed one record at a time.
         span = (min(a for a, _, _ in edits), max(b for _, b, _ in edits))
-        clash = next((c for c in claimed
-                      if span[0] < c[1][1] and c[1][0] < span[1]), None)
+        clash = next((c for c in claimed if span[0] < c[1][1] and c[1][0] < span[1]), None)
         if clash:
-            refusals.append("%s:%s  record %d overlaps record %d; each record "
-                            "marks up its own passage"
-                            % (path, rec.get("start", "?"), n + 1, clash[0]))
+            refusals.append(
+                "%s:%s  record %d overlaps record %d; each record "
+                "marks up its own passage" % (path, rec.get("start", "?"), n + 1, clash[0])
+            )
             continue
         claimed.append((n + 1, span))
 
@@ -1633,6 +1743,7 @@ def apply_inserts(text, blocks, records, path, qid_start):
 # --------------------------------------------------------------------------
 # commands
 # --------------------------------------------------------------------------
+
 
 def load(args):
     """repo, config, scope for one invocation.
@@ -1650,19 +1761,22 @@ def cmd_scope(args):
     repo, config, scope = load(args)
     verdicts = scope.verdicts()
     shown = verdicts if args.all else [v for v in verdicts if v["included"]]
-    data = {"include": scope.include, "exclude": scope.exclude,
-            "overridden": scope.overridden, "files": shown,
-            "count": sum(1 for v in verdicts if v["included"])}
+    data = {
+        "include": scope.include,
+        "exclude": scope.exclude,
+        "overridden": scope.overridden,
+        "files": shown,
+        "count": sum(1 for v in verdicts if v["included"]),
+    }
 
     def human():
         for v in shown:
             if args.all:
-                print("%s %-62s %s" % ("+" if v["included"] else "-",
-                                       v["path"], v["reason"]))
+                print("%s %-62s %s" % ("+" if v["included"] else "-", v["path"], v["reason"]))
             else:
                 print(v["path"])
-        print("\n%d file(s) in scope of %d markdown file(s)"
-              % (data["count"], len(verdicts)))
+        print("\n%d file(s) in scope of %d markdown file(s)" % (data["count"], len(verdicts)))
+
     return emit(args, "scope", repo.root, data, human=human)
 
 
@@ -1684,36 +1798,44 @@ def cmd_status(args):
                 unanswered += 1
     dirty = repo.dirty_md()
     data = {
-        "config": {"path": config.rel(), "exists": config.exists,
-                   "rules": len(config.rules),
-                   "errors": config.errors, "warnings": config.warnings},
+        "config": {
+            "path": config.rel(),
+            "exists": config.exists,
+            "rules": len(config.rules),
+            "errors": config.errors,
+            "warnings": config.warnings,
+        },
         "scope": {"count": len(files), "overridden": scope.overridden},
         "dirty": [{"status": s, "path": p} for s, p in dirty],
-        "tags": tags, "unanswered_questions": unanswered,
+        "tags": tags,
+        "unanswered_questions": unanswered,
         "markup_errors": errors,
     }
 
     def human():
         print("repo    %s" % repo.root)
-        print("config  %s  %s"
-              % (config.rel(), "%d rule(s)" % len(config.rules)
-                 if config.exists else "MISSING - run config init"))
-        print("scope   %d file(s)%s"
-              % (len(files), " (overridden)" if scope.overridden else ""))
+        print(
+            "config  %s  %s"
+            % (
+                config.rel(),
+                "%d rule(s)" % len(config.rules) if config.exists else "MISSING - run config init",
+            )
+        )
+        print("scope   %d file(s)%s" % (len(files), " (overridden)" if scope.overridden else ""))
         print("dirty   %d markdown file(s)" % len(dirty))
         for s, p in dirty:
             print("          %-2s %s" % (s, p))
         if tags:
             print("markup")
             for rel in sorted(tags):
-                counts = ", ".join("%d %s" % (v, k)
-                                   for k, v in sorted(tags[rel].items()))
+                counts = ", ".join("%d %s" % (v, k) for k, v in sorted(tags[rel].items()))
                 print("          %s  %s" % (rel, counts))
             print("        %d unanswered question(s)" % unanswered)
         else:
             print("markup  none")
         for e in errors:
             print("!! %s" % e)
+
     # status reports; it does not judge. Tags present is a normal mid-run
     # state for update-prose-config, so this never exits 1.
     return emit(args, "status", repo.root, data, human=human)
@@ -1724,12 +1846,10 @@ def cmd_preflight(args):
     want = args.for_target
     blockers = []
     if sys.version_info < (3, 9):
-        blockers.append("python3 is %d.%d; this script needs 3.9 or newer"
-                        % sys.version_info[:2])
+        blockers.append("python3 is %d.%d; this script needs 3.9 or newer" % sys.version_info[:2])
     if not config.exists:
         if want in ("apply", "adopt"):
-            blockers.append("%s  no config; run: prose.py config init"
-                            % config.rel())
+            blockers.append("%s  no config; run: prose.py config init" % config.rel())
     else:
         blockers += config.errors
 
@@ -1752,18 +1872,25 @@ def cmd_preflight(args):
         # refuse the conformance pass that validates it.
         in_scope = set(files)
         for rel, line in tagged:
-            blockers.append("%s:%d  markup is present; an update-prose-config "
-                            "run is in progress" % (rel, line))
+            blockers.append(
+                "%s:%d  markup is present; an update-prose-config run is in progress" % (rel, line)
+            )
         for status, rel in repo.dirty_md():
             if rel in in_scope:
-                blockers.append("%s  uncommitted (%s); commit or stash before "
-                                "conforming prose" % (rel, status))
+                blockers.append(
+                    "%s  uncommitted (%s); commit or stash before conforming prose" % (rel, status)
+                )
         if blockers and not args.force:
             hints.append("pass --force only if the author asked for it by name")
 
-    data = {"for": want, "blockers": blockers, "hints": hints,
-            "tagged_files": [r for r, _ in tagged],
-            "config_exists": config.exists, "scope_count": len(files)}
+    data = {
+        "for": want,
+        "blockers": blockers,
+        "hints": hints,
+        "tagged_files": [r for r, _ in tagged],
+        "config_exists": config.exists,
+        "scope_count": len(files),
+    }
 
     def human():
         if not blockers:
@@ -1773,8 +1900,7 @@ def cmd_preflight(args):
 
     if args.force and want == "apply":
         blockers = []
-    return emit(args, "preflight", repo.root, data, errors=blockers,
-                warnings=hints, human=human)
+    return emit(args, "preflight", repo.root, data, errors=blockers, warnings=hints, human=human)
 
 
 def cmd_segments(args):
@@ -1790,14 +1916,16 @@ def cmd_segments(args):
         blocks = Blocks(text)
         segs = segments_for(text, blocks)
         protected = sum(1 for k in blocks.kinds if k in PROTECTED_KINDS)
-        data[rel] = {"segments": segs, "protected_lines": protected,
-                     "lines": text.line_count()}
+        data[rel] = {"segments": segs, "protected_lines": protected, "lines": text.line_count()}
 
     def human():
         for rel in sorted(data):
             d = data[rel]
-            print("%s  %d segment(s), %d protected line(s) of %d"
-                  % (rel, len(d["segments"]), d["protected_lines"], d["lines"]))
+            print(
+                "%s  %d segment(s), %d protected line(s) of %d"
+                % (rel, len(d["segments"]), d["protected_lines"], d["lines"])
+            )
+
     return emit(args, "segments", repo.root, data, errors=errors, human=human)
 
 
@@ -1828,35 +1956,46 @@ def cmd_evidence(args):
 
     unanswered = sum(1 for q in questions if q["answer"] is None)
     data = {
-        "base_ref": ref, "explicit": explicit, "inferred": inferred,
-        "questions": questions, "new_files": new_files,
-        "counts": {"explicit": len(explicit), "inferred": len(inferred),
-                   "questions": len(questions), "unanswered": unanswered,
-                   "files": len(scope.files())},
+        "base_ref": ref,
+        "explicit": explicit,
+        "inferred": inferred,
+        "questions": questions,
+        "new_files": new_files,
+        "counts": {
+            "explicit": len(explicit),
+            "inferred": len(inferred),
+            "questions": len(questions),
+            "unanswered": unanswered,
+            "files": len(scope.files()),
+        },
     }
 
     def human():
         print("base %s" % ref)
         for rec in explicit:
-            print("  explicit %s:%d [%s] %s"
-                  % (rec["file"], rec["start"], rec["kind"],
-                     (rec["why"] or [""])[0]))
+            print(
+                "  explicit %s:%d [%s] %s"
+                % (rec["file"], rec["start"], rec["kind"], (rec["why"] or [""])[0])
+            )
         for rec in inferred:
             flag = " (%s)" % rec["signal"] if rec["signal"] else ""
-            print("  inferred %s:%d [%s]%s"
-                  % (rec["file"], rec["start"], rec["change"], flag))
+            print("  inferred %s:%d [%s]%s" % (rec["file"], rec["start"], rec["change"], flag))
         for q in questions:
-            print("  question %s:%d #%s %s"
-                  % (q["file"], q["line"], q["id"],
-                     "answered" if q["answer"] else "OPEN"))
-        print("\nexplicit: %d  inferred: %d  unanswered: %d"
-              % (len(explicit), len(inferred), unanswered))
+            print(
+                "  question %s:%d #%s %s"
+                % (q["file"], q["line"], q["id"], "answered" if q["answer"] else "OPEN")
+            )
+        print(
+            "\nexplicit: %d  inferred: %d  unanswered: %d"
+            % (len(explicit), len(inferred), unanswered)
+        )
         if new_files:
             print("untracked at %s: %s" % (ref, ", ".join(new_files)))
+
     return emit(args, "evidence", repo.root, data, errors=errors, human=human)
 
 
-CONFIG_SKELETON = '''---
+CONFIG_SKELETON = """---
 name: {name} prose style
 scope:
   include:
@@ -1881,7 +2020,7 @@ nothing here is ever marked retired.
 <!-- One "### standing-<name>: Title" per rule, as in
      "### standing-us-spelling: Use US spelling". Run update-prose-config to
      fill this in from edits rather than writing rules from scratch. -->
-'''
+"""
 
 
 def cmd_config(args):
@@ -1897,26 +2036,36 @@ def cmd_config(args):
             Text(Text.read(args.source).s).write(config.path)
         else:
             fmt = lambda xs: "\n".join('    - "%s"' % x for x in xs)
-            Text(CONFIG_SKELETON.format(
-                name=os.path.basename(repo.root),
-                include=fmt(DEFAULT_INCLUDE),
-                exclude=fmt(DEFAULT_EXCLUDE))).write(config.path)
-        return emit(args, "config init", repo.root, {"path": config.path},
-                    human=lambda: print("wrote %s" % config.path))
+            Text(
+                CONFIG_SKELETON.format(
+                    name=os.path.basename(repo.root),
+                    include=fmt(DEFAULT_INCLUDE),
+                    exclude=fmt(DEFAULT_EXCLUDE),
+                )
+            ).write(config.path)
+        return emit(
+            args,
+            "config init",
+            repo.root,
+            {"path": config.path},
+            human=lambda: print("wrote %s" % config.path),
+        )
 
     if not config.exists:
-        raise Fatal("%s does not exist; run: prose.py config init"
-                    % config.path)
+        raise Fatal("%s does not exist; run: prose.py config init" % config.path)
 
     if which == "check-id":
         rid, problem = config.check_id(args.section, args.name)
-        return emit(args, "config check-id", repo.root,
-                    {"id": rid, "section": args.section, "name": args.name,
-                     "free": problem is None},
-                    errors=([problem] if problem else []),
-                    # The id goes to stdout only when it is usable, so that
-                    # ID=$(... check-id ...) cannot capture a refused one.
-                    human=lambda: problem or print(rid))
+        return emit(
+            args,
+            "config check-id",
+            repo.root,
+            {"id": rid, "section": args.section, "name": args.name, "free": problem is None},
+            errors=([problem] if problem else []),
+            # The id goes to stdout only when it is usable, so that
+            # ID=$(... check-id ...) cannot capture a refused one.
+            human=lambda: problem or print(rid),
+        )
 
     if which == "similar":
         other = Config(os.path.abspath(args.to))
@@ -1932,44 +2081,66 @@ def cmd_config(args):
                     continue
                 body, name, score = rule_similarity(a, b)
                 if score >= args.threshold:
-                    pairs.append({"source": a.id, "target": b.id,
-                                  "score": round(score, 2),
-                                  "body": round(body, 2),
-                                  "name": round(name, 2)})
+                    pairs.append(
+                        {
+                            "source": a.id,
+                            "target": b.id,
+                            "score": round(score, 2),
+                            "body": round(body, 2),
+                            "name": round(name, 2),
+                        }
+                    )
         pairs.sort(key=lambda p: (-p["score"], p["source"], p["target"]))
 
         def human():
             w = max([len(p["source"]) for p in pairs] + [8])
             for p in pairs:
-                print("%.2f  %-*s  %s   (body %.2f, name %.2f)"
-                      % (p["score"], w, p["source"], p["target"],
-                         p["body"], p["name"]))
-            print("\n%d candidate pair(s) at or above %.2f; each is a question"
-                  " for the author, not a decision."
-                  % (len(pairs), args.threshold))
-        return emit(args, "config similar", repo.root,
-                    {"source": config.path,
-                     "target": os.path.abspath(args.to),
-                     "threshold": args.threshold, "pairs": pairs},
-                    human=human)
+                print(
+                    "%.2f  %-*s  %s   (body %.2f, name %.2f)"
+                    % (p["score"], w, p["source"], p["target"], p["body"], p["name"])
+                )
+            print(
+                "\n%d candidate pair(s) at or above %.2f; each is a question"
+                " for the author, not a decision." % (len(pairs), args.threshold)
+            )
+
+        return emit(
+            args,
+            "config similar",
+            repo.root,
+            {
+                "source": config.path,
+                "target": os.path.abspath(args.to),
+                "threshold": args.threshold,
+                "pairs": pairs,
+            },
+            human=human,
+        )
 
     if which == "lint":
+
         def human():
-            print("%s: %d rule(s), %d error(s), %d warning(s)"
-                  % (config.rel(), len(config.rules), len(config.errors),
-                     len(config.warnings)))
-        return emit(args, "config lint", repo.root,
-                    {"rules": len(config.rules)},
-                    errors=config.errors, warnings=config.warnings,
-                    human=human)
+            print(
+                "%s: %d rule(s), %d error(s), %d warning(s)"
+                % (config.rel(), len(config.rules), len(config.errors), len(config.warnings))
+            )
+
+        return emit(
+            args,
+            "config lint",
+            repo.root,
+            {"rules": len(config.rules)},
+            errors=config.errors,
+            warnings=config.warnings,
+            human=human,
+        )
 
     rules = config.rules
     if args.rule:
         rules = [r for r in rules if r.id == args.rule]
         if not rules:
             raise Fatal("no rule with id %s in %s" % (args.rule, config.rel()))
-    data = {"path": config.rel(), "front": config.front,
-            "rules": [r.as_dict() for r in rules]}
+    data = {"path": config.rel(), "front": config.front, "rules": [r.as_dict() for r in rules]}
 
     def human():
         if args.ids:
@@ -1979,12 +2150,17 @@ def cmd_config(args):
         w = max([len(r.id) for r in rules] + [16])
         for r in rules:
             mark = " " if (r.before or r.after) else "!"
-            print("%s %-*s %-10s %s" % (mark, w, r.id,
-                                        r.meta.get("source", "-"), r.title))
-        print("\n%d rule(s)%s" % (len(rules),
-                                  "; ! marks one with no worked example"
-                                  if any(not (r.before or r.after)
-                                         for r in rules) else ""))
+            print("%s %-*s %-10s %s" % (mark, w, r.id, r.meta.get("source", "-"), r.title))
+        print(
+            "\n%d rule(s)%s"
+            % (
+                len(rules),
+                "; ! marks one with no worked example"
+                if any(not (r.before or r.after) for r in rules)
+                else "",
+            )
+        )
+
     # list reads the rules; lint checks the file. Repeating lint's warnings
     # here would bury the listing under them on every call.
     return emit(args, "config list", repo.root, data, human=human)
@@ -2007,12 +2183,20 @@ def cmd_tags(args):
             errors += scanner.errors
             warnings += scanner.warnings
             if scanner.all:
-                data[rel] = {"counts": scanner.counts(), "tags": [
-                    {"kind": n.kind, "line": n.line,
-                     "form": "block" if is_block_form(n, text) else "inline",
-                     "why": n.whys(text), "alt": n.alts(text),
-                     "text": strip_tags(n.inner(text)).strip()[:200]}
-                    for n in scanner.roots]}
+                data[rel] = {
+                    "counts": scanner.counts(),
+                    "tags": [
+                        {
+                            "kind": n.kind,
+                            "line": n.line,
+                            "form": "block" if is_block_form(n, text) else "inline",
+                            "why": n.whys(text),
+                            "alt": n.alts(text),
+                            "text": strip_tags(n.inner(text)).strip()[:200],
+                        }
+                        for n in scanner.roots
+                    ],
+                }
 
         def human():
             total = 0
@@ -2022,12 +2206,15 @@ def cmd_tags(args):
                     total += 1
                     if which == "list":
                         why = ("  %s" % tag["why"][0]) if tag["why"] else ""
-                        print("  %4d  %-5s %-6s %s%s"
-                              % (tag["line"], tag["kind"], tag["form"],
-                                 tag["text"][:60], why))
+                        print(
+                            "  %4d  %-5s %-6s %s%s"
+                            % (tag["line"], tag["kind"], tag["form"], tag["text"][:60], why)
+                        )
             print("\n%d tag(s) in %d file(s)" % (total, len(data)))
-        return emit(args, "tags " + which, repo.root, data,
-                    errors=errors, warnings=warnings, human=human)
+
+        return emit(
+            args, "tags " + which, repo.root, data, errors=errors, warnings=warnings, human=human
+        )
 
     if which in ("resolve", "strip"):
         mode = ACCEPT if which == "resolve" else REJECT
@@ -2053,8 +2240,7 @@ def cmd_tags(args):
             warnings += resolve_warnings(scanner, text)
         if errors:
             errors.append("nothing was written; fix the markup and re-run")
-            return emit(args, "tags " + which, repo.root, {}, errors=errors,
-                        warnings=warnings)
+            return emit(args, "tags " + which, repo.root, {}, errors=errors, warnings=warnings)
         for path, rel, new, count in pending:
             data[rel] = {"tags": count}
             if not args.dry_run:
@@ -2062,17 +2248,17 @@ def cmd_tags(args):
 
         def human():
             for rel in sorted(data):
-                print("%s  %d tag(s) %s" % (rel, data[rel]["tags"],
-                                            "would be " + which if args.dry_run
-                                            else which + "d"))
+                print(
+                    "%s  %d tag(s) %s"
+                    % (rel, data[rel]["tags"], "would be " + which if args.dry_run else which + "d")
+                )
             if not data:
                 print("no markup found")
-        return emit(args, "tags " + which, repo.root, data,
-                    warnings=warnings, human=human)
+
+        return emit(args, "tags " + which, repo.root, data, warnings=warnings, human=human)
 
     # insert
-    raw = sys.stdin.read() if args.batch == "-" else open(
-        args.batch, encoding="utf-8").read()
+    raw = sys.stdin.read() if args.batch == "-" else open(args.batch, encoding="utf-8").read()
     try:
         records = json.loads(raw)
     except ValueError as exc:
@@ -2103,29 +2289,27 @@ def cmd_tags(args):
             refusals.append("%s  %s" % (rel, exc))
 
     if refusals and not args.partial:
-        refusals.append("nothing was written; a half-applied batch leaves "
-                        "every later line number wrong. Fix the batch and "
-                        "re-run, or pass --partial.")
-        return emit(args, "tags insert", repo.root, {"refused": len(refusals)},
-                    errors=refusals)
+        refusals.append(
+            "nothing was written; a half-applied batch leaves "
+            "every later line number wrong. Fix the batch and "
+            "re-run, or pass --partial."
+        )
+        return emit(args, "tags insert", repo.root, {"refused": len(refusals)}, errors=refusals)
 
     data = {}
     for path, rel, new in staged:
         if not args.dry_run:
             Text(new).write(path)
         scanner = TagScanner(Text(new), None, rel)
-        data[rel] = {"tags": [{"kind": n.kind, "line": n.line}
-                              for n in scanner.roots]}
+        data[rel] = {"tags": [{"kind": n.kind, "line": n.line} for n in scanner.roots]}
 
     def human():
         for rel in sorted(data):
             for tag in data[rel]["tags"]:
                 print("%s:%d  %s" % (rel, tag["line"], tag["kind"]))
-        print("\n%d file(s) %s" % (len(data),
-                                   "unchanged (dry run)" if args.dry_run
-                                   else "written"))
-    return emit(args, "tags insert", repo.root, data, errors=refusals,
-                human=human)
+        print("\n%d file(s) %s" % (len(data), "unchanged (dry run)" if args.dry_run else "written"))
+
+    return emit(args, "tags insert", repo.root, data, errors=refusals, human=human)
 
 
 def cmd_apply(args):
@@ -2142,8 +2326,10 @@ def cmd_apply(args):
         if only and f.get("rule") not in only:
             continue
         if f.get("rule") not in known:
-            rejected.append("finding %d names rule %r, which is not in %s"
-                            % (n + 1, f.get("rule"), config.rel()))
+            rejected.append(
+                "finding %d names rule %r, which is not in %s"
+                % (n + 1, f.get("rule"), config.rel())
+            )
             continue
         by_file.setdefault(f.get("file"), []).append(f)
 
@@ -2162,8 +2348,10 @@ def cmd_apply(args):
                 rejected.append("%s:%s  line is outside the file" % (rel, line))
                 continue
             if blocks.is_protected(line):
-                rejected.append("%s:%d  is a %s; prose rules do not apply there"
-                                % (rel, line, blocks.kind(line)))
+                rejected.append(
+                    "%s:%d  is a %s; prose rules do not apply there"
+                    % (rel, line, blocks.kind(line))
+                )
                 continue
             width = len(text.bare(line))
             col_start = int(f.get("col_start", 0))
@@ -2172,26 +2360,28 @@ def cmd_apply(args):
             # a column past the end of its line resolves somewhere further down
             # the file and this would rewrite a passage nobody approved.
             if not 0 <= col_start <= col_end <= width:
-                rejected.append("%s:%d  columns %d-%d are outside the line "
-                                "(%d characters)"
-                                % (rel, line, col_start, col_end, width))
+                rejected.append(
+                    "%s:%d  columns %d-%d are outside the line "
+                    "(%d characters)" % (rel, line, col_start, col_end, width)
+                )
                 continue
             a = text.offset(line, col_start)
             b = text.offset(line, col_end)
             current = text.s[a:b]
             if f.get("text") is not None and current != f["text"]:
-                rejected.append("%s:%d  the text moved; expected %r, found %r. "
-                                "Re-run the report."
-                                % (rel, line, f["text"][:60], current[:60]))
+                rejected.append(
+                    "%s:%d  the text moved; expected %r, found %r. "
+                    "Re-run the report." % (rel, line, f["text"][:60], current[:60])
+                )
                 continue
             new = f.get("replacement", "")
             if blocks.kind(line) == "table" and ("|" in new or "\n" in new):
-                rejected.append("%s:%d  a table cell cannot contain | or a "
-                                "newline" % (rel, line))
+                rejected.append("%s:%d  a table cell cannot contain | or a newline" % (rel, line))
                 continue
             if "\n" in new and blocks.kind(line) != "paragraph":
-                rejected.append("%s:%d  a %s replacement cannot span lines"
-                                % (rel, line, blocks.kind(line)))
+                rejected.append(
+                    "%s:%d  a %s replacement cannot span lines" % (rel, line, blocks.kind(line))
+                )
                 continue
             engine.replace(a, b, new)
             applied.append({"file": rel, "line": line, "rule": f["rule"]})
@@ -2211,8 +2401,11 @@ def cmd_apply(args):
     per_rule = {}
     for a in applied:
         per_rule[a["rule"]] = per_rule.get(a["rule"], 0) + 1
-    data = {"applied": applied, "per_rule": per_rule,
-            "files": sorted(set(a["file"] for a in applied))}
+    data = {
+        "applied": applied,
+        "per_rule": per_rule,
+        "files": sorted(set(a["file"] for a in applied)),
+    }
 
     def human():
         for rel in data["files"]:
@@ -2220,9 +2413,11 @@ def cmd_apply(args):
             print("%s  %d edit(s)" % (rel, n))
         for rid in sorted(per_rule):
             print("  %-16s %d" % (rid, per_rule[rid]))
-        print("\n%d edit(s) %s" % (len(applied),
-                                   "not written (dry run)" if args.dry_run
-                                   else "written"))
+        print(
+            "\n%d edit(s) %s"
+            % (len(applied), "not written (dry run)" if args.dry_run else "written")
+        )
+
     return emit(args, "apply", repo.root, data, errors=rejected, human=human)
 
 
@@ -2235,93 +2430,119 @@ def cmd_restore(args):
     # git show into the file, rather than git checkout, because the bridge
     # cannot unlink and checkout fails there.
     Text(content).write(repo.abspath(rel))
-    return emit(args, "restore", repo.root, {"path": rel, "ref": args.ref},
-                human=lambda: print("restored %s from %s" % (rel, args.ref)))
+    return emit(
+        args,
+        "restore",
+        repo.root,
+        {"path": rel, "ref": args.ref},
+        human=lambda: print("restored %s from %s" % (rel, args.ref)),
+    )
 
 
 # --------------------------------------------------------------------------
 # argument parsing
 # --------------------------------------------------------------------------
 
+
 def build_parser():
     common = argparse.ArgumentParser(add_help=False)
-    common.add_argument("--json", action="store_true",
-                        help="machine-readable envelope on stdout")
-    common.add_argument("-C", "--repo", metavar="PATH", default=None,
-                        help="a path inside the repository (default: cwd)")
+    common.add_argument("--json", action="store_true", help="machine-readable envelope on stdout")
+    common.add_argument(
+        "-C",
+        "--repo",
+        metavar="PATH",
+        default=None,
+        help="a path inside the repository (default: cwd)",
+    )
 
     ap = argparse.ArgumentParser(
-        prog="prose.py",
-        description="Deterministic half of the prose-tuning skills.")
+        prog="prose.py", description="Deterministic half of the prose-tuning skills."
+    )
     sub = ap.add_subparsers(dest="command", required=True)
 
-    p = sub.add_parser("preflight", parents=[common],
-                       help="refuse-to-run check for one skill")
-    p.add_argument("--for", dest="for_target", required=True,
-                   choices=["config", "apply", "adopt"])
-    p.add_argument("--force", action="store_true",
-                   help="apply only: proceed despite blockers")
+    p = sub.add_parser("preflight", parents=[common], help="refuse-to-run check for one skill")
+    p.add_argument("--for", dest="for_target", required=True, choices=["config", "apply", "adopt"])
+    p.add_argument("--force", action="store_true", help="apply only: proceed despite blockers")
     p.set_defaults(func=cmd_preflight)
 
-    p = sub.add_parser("status", parents=[common],
-                       help="what is in the working tree right now")
+    p = sub.add_parser("status", parents=[common], help="what is in the working tree right now")
     p.set_defaults(func=cmd_status)
 
-    p = sub.add_parser("scope", parents=[common],
-                       help="which files the prose rules govern")
-    p.add_argument("--all", action="store_true",
-                   help="every candidate, with the reason for each verdict")
+    p = sub.add_parser("scope", parents=[common], help="which files the prose rules govern")
+    p.add_argument(
+        "--all", action="store_true", help="every candidate, with the reason for each verdict"
+    )
     p.set_defaults(func=cmd_scope)
 
-    p = sub.add_parser("segments", parents=[common],
-                       help="the prose-eligible spans of a file")
+    p = sub.add_parser("segments", parents=[common], help="the prose-eligible spans of a file")
     p.add_argument("paths", nargs="*")
     p.set_defaults(func=cmd_segments)
 
-    p = sub.add_parser("evidence", parents=[common],
-                       help="explicit tags, inferred edits and open questions")
+    p = sub.add_parser(
+        "evidence", parents=[common], help="explicit tags, inferred edits and open questions"
+    )
     p.add_argument("--since", default="HEAD", metavar="REF")
-    p.add_argument("--ignore", action="append", metavar="FILE:LINE",
-                   help="suppress one inferred hunk (repeatable)")
+    p.add_argument(
+        "--ignore",
+        action="append",
+        metavar="FILE:LINE",
+        help="suppress one inferred hunk (repeatable)",
+    )
     p.set_defaults(func=cmd_evidence)
 
     p = sub.add_parser("config", parents=[common], help="the rule file")
     csub = p.add_subparsers(dest="config_cmd", required=True)
-    for name, helptext in [("list", "the rules"), ("lint", "check the file"),
-                           ("check-id", "is this id well-formed and free"),
-                           ("similar", "rules two files state twice"),
-                           ("init", "write a skeleton")]:
+    for name, helptext in [
+        ("list", "the rules"),
+        ("lint", "check the file"),
+        ("check-id", "is this id well-formed and free"),
+        ("similar", "rules two files state twice"),
+        ("init", "write a skeleton"),
+    ]:
         c = csub.add_parser(name, parents=[common], help=helptext)
-        c.add_argument("--file", dest="config_file", metavar="PATH",
-                       help="a prose-style.md other than this repo's")
+        c.add_argument(
+            "--file",
+            dest="config_file",
+            metavar="PATH",
+            help="a prose-style.md other than this repo's",
+        )
         if name == "list":
             c.add_argument("--rule", metavar="ID")
             c.add_argument("--ids", action="store_true")
         if name == "check-id":
             c.add_argument("--section", required=True)
-            c.add_argument("--name", required=True,
-                           help="one to four lower-case words joined by -")
+            c.add_argument("--name", required=True, help="one to four lower-case words joined by -")
         if name == "similar":
-            c.add_argument("--to", required=True, metavar="PATH",
-                           help="the prose-style.md to compare against")
+            c.add_argument(
+                "--to", required=True, metavar="PATH", help="the prose-style.md to compare against"
+            )
             c.add_argument("--threshold", type=float, default=0.6, metavar="N")
         if name == "init":
-            c.add_argument("--from", dest="source", metavar="PATH",
-                           help="copy an existing config instead")
+            c.add_argument(
+                "--from", dest="source", metavar="PATH", help="copy an existing config instead"
+            )
     p.set_defaults(func=cmd_config)
 
     p = sub.add_parser("tags", parents=[common], help="the markup")
     tsub = p.add_subparsers(dest="tags_cmd", required=True)
-    for name, helptext in [("check", "validate"), ("list", "report"),
-                           ("insert", "add markup"),
-                           ("resolve", "accept the edits and remove markup"),
-                           ("strip", "abandon the edits and remove markup")]:
+    for name, helptext in [
+        ("check", "validate"),
+        ("list", "report"),
+        ("insert", "add markup"),
+        ("resolve", "accept the edits and remove markup"),
+        ("strip", "abandon the edits and remove markup"),
+    ]:
         t = tsub.add_parser(name, parents=[common], help=helptext)
         if name == "insert":
-            t.add_argument("--batch", required=True, metavar="FILE",
-                           help="JSON array of records, or - for stdin")
-            t.add_argument("--partial", action="store_true",
-                           help="apply what is valid instead of nothing")
+            t.add_argument(
+                "--batch",
+                required=True,
+                metavar="FILE",
+                help="JSON array of records, or - for stdin",
+            )
+            t.add_argument(
+                "--partial", action="store_true", help="apply what is valid instead of nothing"
+            )
             t.add_argument("--dry-run", action="store_true")
         else:
             t.add_argument("paths", nargs="*")
@@ -2329,16 +2550,14 @@ def build_parser():
             t.add_argument("--dry-run", action="store_true")
     p.set_defaults(func=cmd_tags)
 
-    p = sub.add_parser("apply", parents=[common],
-                       help="apply approved rewrites")
+    p = sub.add_parser("apply", parents=[common], help="apply approved rewrites")
     p.add_argument("--findings", required=True, metavar="FILE")
     p.add_argument("--only", metavar="ID,ID", help="only these rule ids")
     p.add_argument("--partial", action="store_true")
     p.add_argument("--dry-run", action="store_true")
     p.set_defaults(func=cmd_apply)
 
-    p = sub.add_parser("restore", parents=[common],
-                       help="put a file back to its committed state")
+    p = sub.add_parser("restore", parents=[common], help="put a file back to its committed state")
     p.add_argument("--file", dest="target", required=True, metavar="PATH")
     p.add_argument("--ref", default="HEAD")
     p.set_defaults(func=cmd_restore)
