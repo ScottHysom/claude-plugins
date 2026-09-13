@@ -126,6 +126,37 @@ is a generator producing nothing interesting. And watch for vacuity with
 `--hypothesis-show-statistics` - a round-trip generator whose inputs are all
 refused proves only that refusing works.
 
+## Formatting
+
+Python is formatted by [ruff](https://docs.astral.sh/ruff/formatter/), the
+same idea as Prettier: one style, applied by a tool, never argued about in
+review. Settings are in `ruff.toml`, and `requirements-dev.txt` pins the
+version. It comes with the test dependencies above, so from the venv:
+
+```sh
+ruff format .
+```
+
+CI runs `ruff format --check`, so unformatted code fails a pull request
+whoever wrote it. Two things format as you go so that rarely happens:
+
+- **Claude Code** runs `.claude/hooks/ruff-format.py` after every edit to a
+  `.py` file, set up in `.claude/settings.json`. It needs ruff installed in
+  `.venv` or on `PATH`, and tells Claude when it is not.
+- **Your editor** is up to you, since `.vscode/` is not committed. In VS Code,
+  install the Ruff extension (`charliermarsh.ruff`) and add to your settings:
+  ```json
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true
+  }
+  ```
+
+The formatter's version bump is a commit of its own, carrying whatever
+reformatting the new version produces. A commit that only reformats goes in
+`.git-blame-ignore-revs` once it is on `main`, so `git blame` looks past it;
+that file says how to make local blame read it.
+
 ## Editing this repo from Cowork
 
 Cowork's device bridge cannot delete files, so a commit it attempts strands a
