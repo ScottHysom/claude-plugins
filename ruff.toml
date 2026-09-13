@@ -1,0 +1,15 @@
+# Formatter settings for every Python file in the repo. README.md, under
+# "Formatting", says how it runs and what enforces it.
+
+line-length = 100
+
+# The floor prose.py and the plugin scripts promise. The formatter reads this to
+# avoid writing syntax that only newer Pythons accept, such as parenthesised
+# context managers.
+target-version = "py39"
+
+# Ruff also formats Python code blocks inside Markdown. The Markdown here is
+# prose - skills, templates, references - and a code block in it is an example
+# written for a reader, so leave it as written. This also keeps CI checking the
+# same files the Claude Code hook formats.
+extend-exclude = ["*.md"]
