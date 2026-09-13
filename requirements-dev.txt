@@ -1,3 +1,10 @@
 # Contributor tooling only. See pytest.ini - no plugin depends on this, and
 # nothing here reaches a user who installs a plugin.
 pytest>=7.0
+
+# Property-based tests, pinned below 7 on purpose. Hypothesis dropped Python
+# 3.9 in 6.142.0 (2025-10-16), so pip resolves 6.141.1 on the 3.9 leg and the
+# current release on 3.13. Both run the same properties, which means the tests
+# must stay on strategies that existed in 6.141.1 - the 3.9 leg fails loudly if
+# one does not. Do not "upgrade" this to >=6.142 without also dropping 3.9.
+hypothesis>=6.100,<7

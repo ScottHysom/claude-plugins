@@ -11,6 +11,7 @@ pytest is a contributor dependency only. Nothing under scripts/ imports it, and
 nothing a user installs sees it.
 """
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -20,8 +21,22 @@ if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
 
 import pytest  # noqa: E402
+from hypothesis import settings  # noqa: E402
 
 import prose  # noqa: E402  - must follow the sys.path insert above
+
+
+# Property tests explore a different set of inputs on every run, which is the
+# point of them locally and a liability in CI: a seed that happens to find an
+# old bug turns an unrelated pull request red, and the next run may not
+# reproduce it. So CI runs a fixed seed - a red build there is always caused by
+# the diff - and a developer machine explores. A counterexample found while
+# exploring is pinned with @example so CI checks it from then on.
+#
+# GitHub Actions sets CI itself, so the workflow needs no flag for this.
+settings.register_profile("dev", max_examples=50)
+settings.register_profile("ci", derandomize=True, max_examples=200)
+settings.load_profile("ci" if os.environ.get("CI") else "dev")
 
 
 # A document with one of everything the parser has to tell apart: front

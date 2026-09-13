@@ -110,6 +110,26 @@ class TestGuards:
             "target.md:%d  a table cell cannot contain | or a newline"
             % target_lines["table"]]
 
+    @pytest.mark.parametrize("cols", [
+        pytest.param((0, 900), id="past-the-end"),
+        pytest.param((-4, 6), id="negative"),
+        pytest.param((9, 3), id="inverted"),
+    ])
+    def test_columns_outside_the_line_are_refused(self, prose_repo,
+                                                  target_lines, cols):
+        """Text.offset checks the line and then adds the column blind, so an
+        out-of-range column lands somewhere else in the file. col_end=900 on a
+        short line put a rewrite at the end of the document.
+        """
+        line = target_lines["paragraph"]
+        before = prose_repo.read()
+        code, envelope = prose_repo.apply([
+            prose_repo.finding(line, col_start=cols[0], col_end=cols[1]),
+        ])
+        assert code == prose.PROBLEMS
+        assert "are outside the line" in errors_of(envelope)[0]
+        assert prose_repo.read() == before
+
     def test_a_multi_line_replacement_outside_a_paragraph_is_refused(
             self, prose_repo, target_lines):
         code, envelope = prose_repo.apply([
