@@ -180,7 +180,7 @@ class Text:
 
     @classmethod
     def read(cls, path):
-        with open(path, "r", encoding="utf-8", newline="") as fh:
+        with open(path, encoding="utf-8", newline="") as fh:
             return cls(fh.read())
 
     def write(self, path):
@@ -295,15 +295,15 @@ class Repo:
                 text=True,
                 check=False,
             )
-        except FileNotFoundError:
-            raise Fatal("git is not installed, or not on PATH")
+        except FileNotFoundError as exc:
+            raise Fatal("git is not installed, or not on PATH") from exc
         if out.returncode != 0:
             raise Fatal("%s is not inside a git repository" % start)
         self.root = out.stdout.strip()
 
     def git(self, *args):
         out = subprocess.run(
-            ["git", "-C", self.root] + list(args), capture_output=True, text=True, check=False
+            ["git", "-C", self.root, *args], capture_output=True, text=True, check=False
         )
         return out.returncode, out.stdout, out.stderr
 
@@ -1578,7 +1578,7 @@ def line_map(src_lines, dst_lines):
     """src line index -> dst line index, for lines that survived unchanged."""
     out = {}
     sm = difflib.SequenceMatcher(None, src_lines, dst_lines, autojunk=False)
-    for tag, i1, i2, j1, j2 in sm.get_opcodes():
+    for tag, i1, i2, j1, _j2 in sm.get_opcodes():
         if tag == "equal":
             for k in range(i2 - i1):
                 out[i1 + k] = j1 + k
@@ -1845,7 +1845,7 @@ def cmd_preflight(args):
     repo, config, scope = load(args)
     want = args.for_target
     blockers = []
-    if sys.version_info < (3, 9):
+    if sys.version_info < (3, 9):  # noqa: UP036 - the message a user on an older Python sees
         blockers.append("python3 is %d.%d; this script needs 3.9 or newer" % sys.version_info[:2])
     if not config.exists:
         if want in ("apply", "adopt"):
@@ -2035,7 +2035,10 @@ def cmd_config(args):
                 raise Fatal("%s does not exist" % args.source)
             Text(Text.read(args.source).s).write(config.path)
         else:
-            fmt = lambda xs: "\n".join('    - "%s"' % x for x in xs)
+
+            def fmt(xs):
+                return "\n".join('    - "%s"' % x for x in xs)
+
             Text(
                 CONFIG_SKELETON.format(
                     name=os.path.basename(repo.root),
@@ -2258,11 +2261,18 @@ def cmd_tags(args):
         return emit(args, "tags " + which, repo.root, data, warnings=warnings, human=human)
 
     # insert
-    raw = sys.stdin.read() if args.batch == "-" else open(args.batch, encoding="utf-8").read()
+    if args.batch == "-":
+        raw = sys.stdin.read()
+    else:
+        try:
+            with open(args.batch, encoding="utf-8") as fh:
+                raw = fh.read()
+        except OSError as exc:
+            raise Fatal("cannot read batch: %s" % exc) from exc
     try:
         records = json.loads(raw)
     except ValueError as exc:
-        raise Fatal("batch is not valid JSON: %s" % exc)
+        raise Fatal("batch is not valid JSON: %s" % exc) from exc
     if not isinstance(records, list):
         raise Fatal("batch must be a JSON array of records")
 
@@ -2315,9 +2325,10 @@ def cmd_tags(args):
 def cmd_apply(args):
     repo, config, scope = load(args)
     try:
-        findings = json.loads(open(args.findings, encoding="utf-8").read())
-    except (IOError, ValueError) as exc:
-        raise Fatal("cannot read findings: %s" % exc)
+        with open(args.findings, encoding="utf-8") as fh:
+            findings = json.load(fh)
+    except (OSError, ValueError) as exc:
+        raise Fatal("cannot read findings: %s" % exc) from exc
     only = set(x.strip() for x in args.only.split(",")) if args.only else None
     known = config.by_id()
 
@@ -2394,7 +2405,7 @@ def cmd_apply(args):
         rejected.append("nothing was written; pass --partial to apply the rest")
         return emit(args, "apply", repo.root, {"applied": []}, errors=rejected)
 
-    for path, rel, new in staged:
+    for path, _rel, new in staged:
         if not args.dry_run:
             Text(new).write(path)
 

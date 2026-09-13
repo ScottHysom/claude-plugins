@@ -118,7 +118,8 @@ class TestRuleSimilarity:
     @given(BODIES, BODIES)
     def test_every_score_is_a_proportion(self, one, two):
         body, name, score = prose.rule_similarity(self.rule("a", one), self.rule("b", two))
-        assert 0.0 <= body <= 1.0 and 0.0 <= name <= 1.0
+        assert 0.0 <= body <= 1.0
+        assert 0.0 <= name <= 1.0
         assert score == max(body, name)
 
     def test_the_body_score_is_not_symmetric(self):

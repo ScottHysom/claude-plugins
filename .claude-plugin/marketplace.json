@@ -31,7 +31,7 @@
       "source": "./plugins/prose-tuning",
       "displayName": "Prose Tuning",
       "description": "Learns a project's house prose style from edits already made, records it as prose-style.md with stable rule ids, and conforms the rest of the documents to it.",
-      "version": "0.2.0",
+      "version": "0.2.1",
       "category": "productivity",
       "tags": [
         "prose",

@@ -5,7 +5,7 @@
 ._*
 
 # Editor cruft. .vscode/ is committed on purpose: it carries the repo's
-# formatter setup to everyone who clones it. README.md, under "Formatting".
+# ruff setup to everyone who clones it. README.md, under "Formatting and linting".
 *.swp
 *~
 .idea/

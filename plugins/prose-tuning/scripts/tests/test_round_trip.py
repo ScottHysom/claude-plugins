@@ -29,7 +29,7 @@ def test_block_del(round_trip):
 
 
 @pytest.mark.parametrize(
-    "start,end",
+    ("start", "end"),
     [
         pytest.param(7, 9, id="ends-on-blank"),
         pytest.param(9, 12, id="starts-on-blank"),
