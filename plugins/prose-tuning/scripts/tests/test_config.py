@@ -106,7 +106,7 @@ class TestRuleSimilarity:
     person to judge, not a decision the script makes.
     """
 
-    SHARED = ["A sentence that borrows its subject from the heading above", "it is incomplete."]
+    SHARED = ("A sentence that borrows its subject from the heading above", "it is incomplete.")
 
     def rule(self, rid, section, name, body):
         r = prose.Rule(rid, section, name, "T", 1)

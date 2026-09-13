@@ -21,7 +21,7 @@ import prose
 # git and every editor do not. Before the fix, a document containing one of
 # these made Text count more lines than the author's editor showed, and every
 # line number reported after it was wrong.
-EXOTIC_BREAKS = "\v\f\x1c\x1d\x1e\x85  "
+EXOTIC_BREAKS = "\v\f\x1c\x1d\x1e\x85\u2028\u2029"
 
 
 @given(st.text())
@@ -37,7 +37,7 @@ def test_lines_rejoin_to_the_original(source):
 
 @given(st.text())
 @example("a\fb")
-@example("a b")
+@example("a\u2028b")
 @example("a\x85b")
 def test_only_newlines_start_a_new_line(source):
     """A line break is \\n, and nothing else.
