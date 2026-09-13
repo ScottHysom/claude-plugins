@@ -38,7 +38,7 @@ def test_a_bare_del_ins_pair_reads_as_one_replacement():
 
 
 @pytest.mark.parametrize(
-    "src,expected",
+    ("src", "expected"),
     [
         pytest.param("<del>unclosed\n", "never closed", id="unclosed"),
         pytest.param("</del>\n", "stray", id="stray-close"),

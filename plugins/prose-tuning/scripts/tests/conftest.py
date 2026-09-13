@@ -26,7 +26,6 @@ from hypothesis import settings  # noqa: E402
 
 import prose  # noqa: E402  - must follow the sys.path insert above
 
-
 # Property tests explore a different set of inputs on every run, which is the
 # point of them locally and a liability in CI: a seed that happens to find an
 # old bug turns an unrelated pull request red, and the next run may not
@@ -192,7 +191,7 @@ class ProseRepo:
         path.write_text(json.dumps(findings))
         self._capsys.readouterr()  # drop anything already buffered
         code = prose.main(
-            ["apply", "-C", str(self.root), "--findings", str(path), "--json"] + list(flags)
+            ["apply", "-C", str(self.root), "--findings", str(path), "--json", *flags]
         )
         return code, json.loads(self._capsys.readouterr().out)
 

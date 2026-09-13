@@ -9,7 +9,7 @@ import prose
 
 
 @pytest.mark.parametrize(
-    "before,after,signal",
+    ("before", "after", "signal"),
     [
         pytest.param("we saw 3 things", "we saw 4 things", "numeric-only", id="numeric"),
         pytest.param("a  b", "a b", "whitespace-only", id="whitespace"),

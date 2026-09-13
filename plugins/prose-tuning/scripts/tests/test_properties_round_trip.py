@@ -16,11 +16,10 @@ correct outcome - most of prose.py's safety is refusal - so the test says
 nothing about which records ought to be refused. test_inserts.py does that.
 """
 
-from hypothesis import HealthCheck, assume, event, example, given, settings
+from hypothesis import HealthCheck, event, example, given, settings
 from hypothesis import strategies as st
 
 import prose
-
 from conftest import SAMPLE
 
 LINES = prose.Text(SAMPLE).line_count()

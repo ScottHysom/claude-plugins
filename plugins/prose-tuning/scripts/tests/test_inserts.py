@@ -11,7 +11,7 @@ import prose
 
 
 @pytest.mark.parametrize(
-    "record,reason",
+    ("record", "reason"),
     [
         pytest.param({"kind": "del", "start": 5}, "heading", id="heading"),
         pytest.param({"kind": "del", "start": 19}, "fence", id="inside-a-fence"),

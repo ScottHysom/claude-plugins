@@ -9,7 +9,7 @@ import prose
 
 
 @pytest.mark.parametrize(
-    "pattern,path,matches",
+    ("pattern", "path", "matches"),
     [
         ("**/*.md", "a.md", True),
         ("**/*.md", "x/y/a.md", True),

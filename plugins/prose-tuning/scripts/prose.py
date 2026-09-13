@@ -180,7 +180,7 @@ class Text:
 
     @classmethod
     def read(cls, path):
-        with open(path, "r", encoding="utf-8", newline="") as fh:
+        with open(path, encoding="utf-8", newline="") as fh:
             return cls(fh.read())
 
     def write(self, path):
@@ -303,7 +303,7 @@ class Repo:
 
     def git(self, *args):
         out = subprocess.run(
-            ["git", "-C", self.root] + list(args), capture_output=True, text=True, check=False
+            ["git", "-C", self.root, *args], capture_output=True, text=True, check=False
         )
         return out.returncode, out.stdout, out.stderr
 
@@ -2316,7 +2316,7 @@ def cmd_apply(args):
     repo, config, scope = load(args)
     try:
         findings = json.loads(open(args.findings, encoding="utf-8").read())
-    except (IOError, ValueError) as exc:
+    except (OSError, ValueError) as exc:
         raise Fatal("cannot read findings: %s" % exc)
     only = set(x.strip() for x in args.only.split(",")) if args.only else None
     known = config.by_id()
