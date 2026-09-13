@@ -10,6 +10,7 @@ byte property over strings a person chose; this asserts it over whatever
 hypothesis can build, which is how the line-splitting divergence below was
 found.
 """
+
 import pytest
 from hypothesis import assume, example, given
 from hypothesis import strategies as st
@@ -47,8 +48,9 @@ def test_only_newlines_start_a_new_line(source):
     the wrong passage - which is the whole reason the line number is in the
     report.
     """
-    assert prose.Text(source).line_count() == source.count("\n") + \
-        (1 if source and not source.endswith("\n") else 0)
+    assert prose.Text(source).line_count() == source.count("\n") + (
+        1 if source and not source.endswith("\n") else 0
+    )
 
 
 @given(st.text())
@@ -57,7 +59,7 @@ def test_a_line_is_its_own_bytes(source):
     text = prose.Text(source)
     for n in range(1, text.line_count() + 1):
         start = text.offset(n)
-        assert text.s[start:start + len(text.line(n))] == text.line(n)
+        assert text.s[start : start + len(text.line(n))] == text.line(n)
 
 
 @given(st.text())
@@ -84,7 +86,7 @@ def test_bare_is_the_line_without_its_ending(source):
     for n in range(1, text.line_count() + 1):
         raw, bare = text.line(n), text.bare(n)
         assert raw.startswith(bare)
-        assert raw[len(bare):] in ("", "\n", "\r\n")
+        assert raw[len(bare) :] in ("", "\n", "\r\n")
 
 
 @given(st.text(alphabet=EXOTIC_BREAKS, min_size=1))

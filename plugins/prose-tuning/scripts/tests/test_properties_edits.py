@@ -12,6 +12,7 @@ The domain here is a string and a list of spans, so there is nothing to
 generate but integers. That makes this the cheapest property in the suite and
 the one guarding the most subtle code.
 """
+
 import pytest
 from hypothesis import assume, given
 from hypothesis import strategies as st
@@ -40,7 +41,7 @@ def conflicting(edits):
     the same offset - where which one lands first decides the answer.
     """
     for i, (a0, a1, _) in enumerate(edits):
-        for (b0, b1, _) in edits[i + 1:]:
+        for b0, b1, _ in edits[i + 1 :]:
             if a0 < b1 and b0 < a1:
                 return True
             if a0 == b0:
@@ -113,8 +114,9 @@ def test_the_result_does_not_depend_on_insertion_order(source, data):
     assume(not conflicting(edits))
     # Coincident zero-width inserts are the one exception, pinned below.
     assume(len({e[0] for e in edits}) == len(edits))
-    assert engine_with(source, edits).result() == \
-        engine_with(source, list(reversed(edits))).result()
+    assert (
+        engine_with(source, edits).result() == engine_with(source, list(reversed(edits))).result()
+    )
 
 
 def test_two_inserts_at_one_point_are_a_conflict():

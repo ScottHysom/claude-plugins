@@ -5,6 +5,7 @@ This is the classifier the apply guard consults. Asserting it here means a
 change to what counts as a fence fails against the classifier itself, rather
 than surfacing as one confusing case in test_apply.py.
 """
+
 import pytest
 
 import prose

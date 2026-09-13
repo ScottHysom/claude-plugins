@@ -4,18 +4,25 @@ A tag opened inside a code fence or across a table row does not survive a
 round trip, so the planner turns those down at plan time with a reason the
 author can act on.
 """
+
 import pytest
 
 import prose
 
 
-@pytest.mark.parametrize("record,reason", [
-    pytest.param({"kind": "del", "start": 5}, "heading", id="heading"),
-    pytest.param({"kind": "del", "start": 19}, "fence", id="inside-a-fence"),
-    pytest.param({"kind": "del", "start": 14}, "table", id="table-row"),
-    pytest.param({"kind": "del", "start": 7, "col_start": 5, "end": 8,
-                  "col_end": 3}, "straddles", id="straddles-two-lines"),
-])
+@pytest.mark.parametrize(
+    "record,reason",
+    [
+        pytest.param({"kind": "del", "start": 5}, "heading", id="heading"),
+        pytest.param({"kind": "del", "start": 19}, "fence", id="inside-a-fence"),
+        pytest.param({"kind": "del", "start": 14}, "table", id="table-row"),
+        pytest.param(
+            {"kind": "del", "start": 7, "col_start": 5, "end": 8, "col_end": 3},
+            "straddles",
+            id="straddles-two-lines",
+        ),
+    ],
+)
 def test_unsafe_spans_are_refused(sample, record, reason):
     text = prose.Text(sample)
     blocks = prose.Blocks(text)
@@ -56,8 +63,7 @@ class TestRefusalsTheRoundTripPropertyFound:
     def plan(self, sample, record):
         text = prose.Text(sample)
         with pytest.raises(prose.InsertRefusal) as caught:
-            prose.plan_one_insert(text, prose.Blocks(text), record,
-                                  "sample.md", 1)
+            prose.plan_one_insert(text, prose.Blocks(text), record, "sample.md", 1)
         return str(caught.value)
 
     def test_a_question_inside_a_fence(self, sample):
@@ -66,8 +72,9 @@ class TestRefusalsTheRoundTripPropertyFound:
         shields it as code and no strip ever removes it - a tag the author
         cannot delete.
         """
-        assert "fence" in self.plan(sample, {
-            "kind": "q", "start": 19, "text": "does this belong here?"})
+        assert "fence" in self.plan(
+            sample, {"kind": "q", "start": 19, "text": "does this belong here?"}
+        )
 
     def test_a_question_above_a_heading_is_still_allowed(self, sample):
         """The other side of that fix. A new line above a heading leaves the
@@ -75,29 +82,37 @@ class TestRefusalsTheRoundTripPropertyFound:
         """
         text = prose.Text(sample)
         assert prose.plan_one_insert(
-            text, prose.Blocks(text),
+            text,
+            prose.Blocks(text),
             {"kind": "q", "start": 5, "text": "is this the right title?"},
-            "sample.md", 1)
+            "sample.md",
+            1,
+        )
 
-    @pytest.mark.parametrize("cols", [
-        pytest.param((0, 900), id="past-the-end"),
-        pytest.param((-2, 6), id="negative"),
-        pytest.param((9, 3), id="inverted"),
-    ])
+    @pytest.mark.parametrize(
+        "cols",
+        [
+            pytest.param((0, 900), id="past-the-end"),
+            pytest.param((-2, 6), id="negative"),
+            pytest.param((9, 3), id="inverted"),
+        ],
+    )
     def test_columns_outside_the_line(self, sample, cols):
         """col_end=900 on a 76-character line put the closing tag at the end of
         the document, so a one-line edit wrapped the whole file.
         """
-        problem = self.plan(sample, {"kind": "del", "start": 7,
-                                     "col_start": cols[0], "col_end": cols[1]})
+        problem = self.plan(
+            sample, {"kind": "del", "start": 7, "col_start": cols[0], "col_end": cols[1]}
+        )
         assert "col_start" in problem or "col_end" in problem
 
     def test_a_zero_width_inline_span(self, sample):
         """Both tags land on one offset, and EditEngine applies them in the
         order they were added: Curat</del><del>ed, not collected.
         """
-        assert "empty" in self.plan(sample, {"kind": "del", "start": 7,
-                                             "col_start": 5, "col_end": 5})
+        assert "empty" in self.plan(
+            sample, {"kind": "del", "start": 7, "col_start": 5, "col_end": 5}
+        )
 
     def test_a_tag_over_a_blank_line(self, sample):
         """Line 9 is blank. Wrapping it produced text that does not parse -
@@ -106,8 +121,7 @@ class TestRefusalsTheRoundTripPropertyFound:
         A one-line span is inline, and on a blank line both columns default to
         0, so the empty-span guard is the one that turns this down.
         """
-        assert "empty" in self.plan(sample, {"kind": "del", "start": 9,
-                                             "end": 9})
+        assert "empty" in self.plan(sample, {"kind": "del", "start": 9, "end": 9})
 
     def test_a_block_tag_over_nothing_but_blank_lines(self):
         """The multi-line form of the same thing, which needs a document with
@@ -115,9 +129,9 @@ class TestRefusalsTheRoundTripPropertyFound:
         """
         text = prose.Text("Alpha.\n\n\n\nOmega.\n")
         with pytest.raises(prose.InsertRefusal) as caught:
-            prose.plan_one_insert(text, prose.Blocks(text),
-                                  {"kind": "del", "start": 2, "end": 4},
-                                  "t.md", 1)
+            prose.plan_one_insert(
+                text, prose.Blocks(text), {"kind": "del", "start": 2, "end": 4}, "t.md", 1
+            )
         assert "blank" in str(caught.value)
 
     def test_an_insertion_alone_on_a_blank_line(self, sample):
@@ -125,17 +139,19 @@ class TestRefusalsTheRoundTripPropertyFound:
         block tag, and a block tag owns its line - so the strip took the
         author's blank line with it.
         """
-        assert "blank" in self.plan(sample, {"kind": "ins", "start": 4,
-                                             "text": "a new sentence"})
+        assert "blank" in self.plan(sample, {"kind": "ins", "start": 4, "text": "a new sentence"})
 
-    @pytest.mark.parametrize("record", [
-        pytest.param({"kind": "del", "start": 23, "end": 23}, id="inline"),
-        pytest.param({"kind": "del", "start": 22, "end": 23}, id="block"),
-        pytest.param({"kind": "repl", "start": 22, "end": 23,
-                      "with": "New ending."}, id="block-repl"),
-    ])
-    def test_the_last_line_of_a_file_with_no_trailing_newline(self, sample,
-                                                              record):
+    @pytest.mark.parametrize(
+        "record",
+        [
+            pytest.param({"kind": "del", "start": 23, "end": 23}, id="inline"),
+            pytest.param({"kind": "del", "start": 22, "end": 23}, id="block"),
+            pytest.param(
+                {"kind": "repl", "start": 22, "end": 23, "with": "New ending."}, id="block-repl"
+            ),
+        ],
+    )
+    def test_the_last_line_of_a_file_with_no_trailing_newline(self, sample, record):
         """Not a refusal - a fix, and two of them, because a span ending on the
         last line reaches that line by two different routes.
 
@@ -151,10 +167,10 @@ class TestRefusalsTheRoundTripPropertyFound:
         assert not edits[-1][2].endswith("\n")
 
         engine, refusals, _ = prose.apply_inserts(
-            text, blocks, [dict(record, file="sample.md")], "sample.md", 1)
+            text, blocks, [dict(record, file="sample.md")], "sample.md", 1
+        )
         assert not refusals
-        back, _ = prose.resolve_text(prose.Text(engine.result()), prose.REJECT,
-                                     None, "sample.md")
+        back, _ = prose.resolve_text(prose.Text(engine.result()), prose.REJECT, None, "sample.md")
         assert back == sample
 
     def test_two_records_whose_edits_share_an_offset(self, sample):
@@ -164,10 +180,15 @@ class TestRefusalsTheRoundTripPropertyFound:
         """
         text = prose.Text(sample)
         engine, refusals, _ = prose.apply_inserts(
-            text, prose.Blocks(text),
-            [{"file": "sample.md", "kind": "q", "start": 10, "text": "why?"},
-             {"file": "sample.md", "kind": "del", "start": 10, "end": 12}],
-            "sample.md", 1)
+            text,
+            prose.Blocks(text),
+            [
+                {"file": "sample.md", "kind": "q", "start": 10, "text": "why?"},
+                {"file": "sample.md", "kind": "del", "start": 10, "end": 12},
+            ],
+            "sample.md",
+            1,
+        )
         assert not refusals
         assert engine.conflicts()
         with pytest.raises(prose.Fatal):
@@ -185,12 +206,22 @@ class TestRefusalsTheRoundTripPropertyFound:
         """
         text = prose.Text(sample)
         _, refusals, _ = prose.apply_inserts(
-            text, prose.Blocks(text),
-            [{"file": "sample.md", "kind": "del", "start": 7,
-              "col_start": 0, "col_end": 7},
-             {"file": "sample.md", "kind": "ins", "start": 7,
-              "col_start": 3, "col_end": 3, "text": "a word"}],
-            "sample.md", 1)
+            text,
+            prose.Blocks(text),
+            [
+                {"file": "sample.md", "kind": "del", "start": 7, "col_start": 0, "col_end": 7},
+                {
+                    "file": "sample.md",
+                    "kind": "ins",
+                    "start": 7,
+                    "col_start": 3,
+                    "col_end": 3,
+                    "text": "a word",
+                },
+            ],
+            "sample.md",
+            1,
+        )
         assert len(refusals) == 1
         assert "overlaps record 1" in refusals[0]
 
@@ -200,11 +231,14 @@ class TestRefusalsTheRoundTripPropertyFound:
         """
         text = prose.Text(sample)
         engine, refusals, _ = prose.apply_inserts(
-            text, prose.Blocks(text),
-            [{"file": "sample.md", "kind": "del", "start": 7,
-              "col_start": 0, "col_end": 7},
-             {"file": "sample.md", "kind": "del", "start": 8,
-              "col_start": 0, "col_end": 4}],
-            "sample.md", 1)
+            text,
+            prose.Blocks(text),
+            [
+                {"file": "sample.md", "kind": "del", "start": 7, "col_start": 0, "col_end": 7},
+                {"file": "sample.md", "kind": "del", "start": 8, "col_start": 0, "col_end": 4},
+            ],
+            "sample.md",
+            1,
+        )
         assert not refusals
         assert engine.conflicts() == []
