@@ -1,13 +1,11 @@
 """The property the whole plugin rests on, stated for every record shape rather
-than for the seven somebody wrote down.
+than for the ones somebody wrote down.
 
 README.md puts it plainly: for any batch, insert then strip returns the file
 byte-identical. That is a claim about all inputs, and test_round_trip.py checks
-it against seven. The gap between those two is where four separate guard bugs
-lived - a <q> accepted inside a code fence, unchecked columns that wrapped a
-closing tag around the whole document, zero-width spans emitting </del><del>,
-and block tags that ate a blank line. Of the records the planner accepted,
-roughly a third broke the round trip.
+it against a handful. The gap between the two is where the planner's guard bugs
+lived - records it accepted and then mangled, none of them among the examples.
+test_inserts.py names each one this has found.
 
 The key move is generating the *records* against a fixed document rather than
 generating markdown. plan_one_insert's contract is about records; SAMPLE is
@@ -118,11 +116,9 @@ def insert_then_strip(batch):
 def test_insert_then_strip_is_the_identity(batch):
     """Either the planner refuses the batch, or stripping gives the file back.
 
-    The six pinned examples are the bugs this found, smallest first: a <q>
-    inside a fence, a column past the end of its line, a zero-width span, a
-    block tag over a lone blank line, a block tag on the unterminated final
-    line - inline and block form both, because they reach it through different
-    code - and two records whose edits land on the same offset.
+    Each @example above is a batch this property once failed on, pinned so it
+    is checked on every run rather than only when the seed happens to find it.
+    The matching test in test_inserts.py says what was wrong with it.
     """
     outcome, back = insert_then_strip(batch)
     event(outcome)
@@ -179,8 +175,9 @@ def test_a_well_formed_record_is_accepted_and_round_trips(record):
     vacuous.
 
     "Refuse or round-trip" is satisfied by a planner that refuses everything.
-    Four new refusals went in with these tests; this is what says they did not
-    reach past the malformed records they were aimed at.
+    Every refusal added to make the property pass is a way to over-correct;
+    this is what says none of them reached past the malformed records it was
+    aimed at.
     """
     text = prose.Text(SAMPLE)
     _, refusals, _ = prose.apply_inserts(
@@ -202,11 +199,11 @@ def test_a_well_formed_record_is_accepted_and_round_trips(record):
 def test_a_batch_of_well_formed_records_refuses_or_round_trips(batch):
     """Records that are each fine, together.
 
-    This is where the last two bugs were, and neither is reachable one record
-    at a time: a <q> on the first line of a block <del> shares an offset with
-    it, and two neighbouring inline <del> spans put one's closing tag on the
-    other's opening offset. Both produced a different file depending on the
-    order the records arrived in, and one of the orders did not parse.
+    Some failures are not reachable one record at a time. A <q> on the first
+    line of a block <del> shares an offset with it; two neighbouring inline
+    <del> spans put one's closing tag on the other's opening offset; an <ins>
+    inside another record's <del> is a grammar the scanner rejects. Each record
+    passes every guard on its own, and the batch is still wrong.
 
     The adversarial generator above mostly gets turned down at the first guard,
     which says nothing about what happens after two records are both accepted.

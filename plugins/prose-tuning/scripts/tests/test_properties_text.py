@@ -6,7 +6,7 @@ somebody thought to write down: the bytes survive the trip, and the two ways of
 naming a position agree with each other.
 
 "For any text at all" is the part examples cannot say. test_text.py asserts the
-byte property over seven strings a person chose; this asserts it over whatever
+byte property over strings a person chose; this asserts it over whatever
 hypothesis can build, which is how the line-splitting divergence below was
 found.
 """

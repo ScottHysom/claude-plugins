@@ -85,11 +85,9 @@ markup goes in as one batch applied bottom-up from a single snapshot. Twenty
 separate calls cannot work, which is what the first run discovered the hard way.
 
 The property that matters is a round trip: for any batch, insert then strip
-returns the file byte-identical. `scripts/tests/test_round_trip.py` asserts it
-span shape by span shape, and
-`scripts/tests/test_properties_round_trip.py` asserts it for every record
-hypothesis can build - which is how eight ways of breaking it were found, all
-of them records `plan_one_insert` used to accept. See
+returns the file byte-identical. `scripts/tests/test_properties_round_trip.py`
+asserts it for every batch of records hypothesis can build, and
+`scripts/tests/test_round_trip.py` pins particular span shapes by example. See
 [Running the tests](../../README.md#running-the-tests).
 
 ## Editing the rules

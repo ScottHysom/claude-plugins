@@ -1,10 +1,15 @@
-"""The small pure predicates, characterised rather than sampled.
+"""Short functions that larger decisions rest on: which files the rules
+govern, whether a rule id is well formed, whether an edit was a prose decision
+at all.
 
-Each of these is a handful of branches that some larger decision rests on:
-which files the rules govern, whether a rule id is well formed, whether an edit
-was a prose decision at all. Examples check the branches somebody thought of.
-A characterisation says what the function computes, so a new branch that
-changes the answer has to change this file too.
+An example test picks an input and checks the output for that input. These
+state a rule the output has to follow for every input - "a rule name is
+accepted if and only if it is lower-case words joined by hyphens, at most
+MAX_NAME_WORDS of them" - and hypothesis tries to find an input that breaks it.
+
+The difference matters most when the function changes. A new branch that
+changes the answer for inputs no example happened to use passes every example
+test; it cannot pass these without the rule here being changed too.
 """
 from hypothesis import assume, example, given
 from hypothesis import strategies as st
@@ -16,12 +21,13 @@ PATH_CHARS = "ab/.-"
 
 
 class TestValidateRuleName:
-    """Four branches, one predicate.
+    """Several refusal branches, one rule for what they add up to.
 
-    validate_rule_name refuses a name four ways and its docstring promises at
-    most one message per mistake. That promise is only checkable if the four
-    branches collapse to a single statement of what a good name is - which they
-    do, and this is it.
+    validate_rule_name refuses bad names in several distinct ways, and its
+    docstring promises at most one message per mistake. The test below states
+    the single rule those branches are supposed to implement between them, so
+    a branch that starts refusing a good name - or letting a bad one through -
+    fails here whichever branch it is.
     """
 
     @given(st.text(alphabet=NAME_CHARS, max_size=12))

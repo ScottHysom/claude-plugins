@@ -103,11 +103,9 @@ repo root needs editing for CI to pick it up.
 
 CI runs the suite on Python 3.9 and 3.13. The floor is not decoration - the
 scripts have to run under whatever Python is already on the machine, which on
-macOS is still 3.9, so no walrus in a comprehension and no `X | Y` unions. It
-binds the test dependencies too: hypothesis dropped 3.9 in 6.142.0, so pip
-resolves 6.141.1 on that leg and the current release on 3.13. The properties
-run on both, which means they have to stay on strategies 6.141.1 already had -
-requirements-dev.txt says so, and the 3.9 leg fails if one does not.
+macOS is still 3.9, so no walrus in a comprehension and no `X | Y` unions. The
+floor constrains the test dependencies as well; `requirements-dev.txt` says
+how, next to the pins it applies to.
 
 ### Properties
 

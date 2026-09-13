@@ -43,13 +43,14 @@ def test_segments_include_table_cells_and_headings(sample):
 
 
 class TestRefusalsTheRoundTripPropertyFound:
-    """Six records the planner used to accept, each of which broke the round
-    trip in its own way.
+    """Records the planner used to accept that broke the round trip, and the
+    cases each fix still has to allow.
 
-    The property in test_properties_round_trip.py asserts that no record does
-    this, for every record it can build. These say which six they were, because
-    a shrunk counterexample in a failure message is not a reason - and the
-    reason is what stops someone relaxing the guard later.
+    The property in test_properties_round_trip.py asserts that no record breaks
+    the round trip, for every record it can build. These name the particular
+    cases it has found, one test each, because a shrunk counterexample in a
+    failure message is not a reason - and the reason is what stops someone
+    relaxing the guard later. When the property finds another, it goes here.
     """
 
     def plan(self, sample, record):
