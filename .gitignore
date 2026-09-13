@@ -4,10 +4,10 @@
 .LSOverride
 ._*
 
-# Editor cruft
+# Editor cruft. .vscode/ is committed on purpose: it carries the repo's
+# formatter setup to everyone who clones it. README.md, under "Formatting".
 *.swp
 *~
-.vscode/
 .idea/
 
 # Build output

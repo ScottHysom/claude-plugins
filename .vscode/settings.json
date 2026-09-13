@@ -1,0 +1,10 @@
+// Shared with everyone who clones the repo. Keep to settings that make edits
+// match what CI checks; personal preferences belong in your user settings.
+{
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.formatOnSave": true,
+    // Matches line-length in ruff.toml.
+    "editor.rulers": [100]
+  }
+}
