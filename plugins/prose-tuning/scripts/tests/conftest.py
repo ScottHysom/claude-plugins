@@ -180,20 +180,46 @@ class ProseRepo:
         record.update(overrides)
         return record
 
-    def apply(self, findings, *flags):
-        """Run `prose.py apply`. Returns (exit code, parsed envelope).
+    def commit(self):
+        """Commit everything, for a command that compares against a ref.
 
-        Driven through main() rather than cmd_apply() so the argparse defaults
-        are the real ones - a flag added later reaches these tests instead of
-        needing a hand-built Namespace kept in step by hand.
+        Identity and signing are set on the command line, so the commit works
+        whatever the machine's global git config says.
         """
+        git = [
+            "git",
+            "-C",
+            str(self.root),
+            "-c",
+            "user.name=test",
+            "-c",
+            "user.email=test@example.com",
+            "-c",
+            "commit.gpgsign=false",
+        ]
+        subprocess.run([*git, "add", "-A"], check=True, capture_output=True)
+        subprocess.run([*git, "commit", "-q", "-m", "base"], check=True, capture_output=True)
+
+    def run(self, *argv):
+        """Run a prose.py command with --json. Returns (exit code, envelope).
+
+        Driven through main() rather than a cmd_* function so the argparse
+        defaults are the real ones - a flag added later reaches these tests
+        instead of needing a hand-built Namespace kept in step by hand. The
+        envelope is None when the command printed no JSON, as when it cannot
+        run at all; what it wrote to stderr instead is kept in self.err.
+        """
+        self._capsys.readouterr()  # drop anything already buffered
+        code = prose.main([*argv, "-C", str(self.root), "--json"])
+        captured = self._capsys.readouterr()
+        self.err = captured.err
+        return code, json.loads(captured.out) if captured.out else None
+
+    def apply(self, findings, *flags):
+        """Run `prose.py apply` on these findings. Returns what run() does."""
         path = self.root / "findings.json"
         path.write_text(json.dumps(findings))
-        self._capsys.readouterr()  # drop anything already buffered
-        code = prose.main(
-            ["apply", "-C", str(self.root), "--findings", str(path), "--json", *flags]
-        )
-        return code, json.loads(self._capsys.readouterr().out)
+        return self.run("apply", "--findings", str(path), *flags)
 
 
 @pytest.fixture
