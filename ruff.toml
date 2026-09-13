@@ -13,3 +13,32 @@ target-version = "py39"
 # written for a reader, so leave it as written. This also keeps CI checking the
 # same files the Claude Code hook formats.
 extend-exclude = ["*.md"]
+
+# Where the repo's own modules live, so import sorting groups `import prose` and
+# `from conftest import ...` as first-party rather than as installed packages.
+# Each tests/conftest.py puts these directories on sys.path at run time; ruff
+# cannot see that, so it is told here.
+src = ["plugins/*/scripts", "plugins/*/scripts/tests"]
+
+[lint]
+# Listed in full, not left to ruff's defaults, because the defaults change
+# between releases just as formatting does.
+select = [
+    "F",  # pyflakes: undefined names, unused imports and variables
+    "E4", "E7", "E9",  # pycodestyle errors the formatter cannot fix
+    "W",  # pycodestyle warnings
+    "B",  # bugbear: likely bugs, such as a mutable default argument
+    "I",  # import order, which `ruff format` does not sort
+    "UP",  # older syntax with a newer form, never newer than target-version
+    "PT",  # pytest idioms
+    "RUF",  # ruff's own, including noqa comments that suppress nothing
+    "SIM115",  # a file opened outside `with`, left open until garbage collection
+]
+ignore = [
+    # %-formatting is the house style throughout prose.py and its tests, and
+    # works on 3.9. Converting to f-strings would be churn with nothing gained.
+    "UP031",
+    # Every prose.py command opens with `repo, config, scope = load(args)`, used
+    # or not. Renaming the unused ones would make the commands differ for nothing.
+    "RUF059",
+]
