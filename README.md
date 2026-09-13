@@ -126,34 +126,45 @@ is a generator producing nothing interesting. And watch for vacuity with
 `--hypothesis-show-statistics` - a round-trip generator whose inputs are all
 refused proves only that refusing works.
 
-## Formatting
+## Formatting and linting
 
-Python is formatted by [ruff](https://docs.astral.sh/ruff/formatter/), the
-same idea as Prettier: one style, applied by a tool, never argued about in
-review. Settings are in `ruff.toml`, and `requirements-dev.txt` pins the
-version. It comes with the test dependencies above, so from the venv:
+Python is formatted and linted by [ruff](https://docs.astral.sh/ruff/). The
+formatter is the same idea as Prettier: one style, applied by a tool, never
+argued about in review. The linter catches what formatting cannot, such as an
+unused import or an exception that loses its cause. Settings, including which
+lint rules are on and why some are off, are in `ruff.toml`, and
+`requirements-dev.txt` pins the version. Ruff comes with the test dependencies
+above, so from the venv:
 
 ```sh
 ruff format .
+ruff check --fix .
 ```
 
-CI runs `ruff format --check`, so unformatted code fails a pull request
-whoever wrote it. Two things format as you go so that rarely happens:
+CI runs both as checks, so a pull request fails on unformatted code or a lint
+problem whoever wrote it. Two things run ruff as you go so that rarely happens:
 
-- **Claude Code** runs `.claude/hooks/ruff-format.py` after every edit to a
-  `.py` file, set up in `.claude/settings.json`. It needs ruff installed in
-  `.venv` or on `PATH`, and tells Claude when it is not.
-- **VS Code** formats Python on save using the committed `.vscode/settings.json`.
-  Accept the prompt to install the recommended Ruff extension when you open the
-  folder. The extension uses the ruff installed in the selected Python
-  interpreter and falls back to a copy of its own, which may be a different
-  version from the pin. Select `.venv` as the interpreter so saving formats
-  exactly as CI checks. Other editors need their own Ruff integration.
+- **Claude Code** runs `.claude/hooks/ruff.py` after every edit to a `.py`
+  file, set up in `.claude/settings.json`. It sorts imports, formats, and hands
+  any remaining lint problem back to Claude. The hook's docstring says why it
+  fixes nothing else. It needs ruff installed in `.venv` or on `PATH`, and tells
+  Claude when it is not.
+- **VS Code** formats and sorts imports on save, and shows lint problems as you
+  type, using the committed `.vscode/settings.json`. Accept the prompt to install
+  the recommended Ruff extension when you open the folder. The extension uses
+  the ruff installed in the selected Python interpreter and falls back to a copy
+  of its own, which may be a different version from the pin. Select `.venv` as
+  the interpreter so the editor agrees with CI. Other editors need their own
+  Ruff integration.
 
-The formatter's version bump is a commit of its own, carrying whatever
-reformatting the new version produces. A commit that only reformats goes in
-`.git-blame-ignore-revs` once it is on `main`, so `git blame` looks past it;
-that file says how to make local blame read it.
+A lint finding that is deliberate gets a `# noqa: <code>` comment saying why,
+on the line itself. A rule that is wrong for the whole repo goes in `ignore`
+in `ruff.toml`, with the reason beside it.
+
+Bumping ruff's version is a commit of its own, carrying whatever reformatting
+or new lint findings the new version produces. A commit that only reformats
+goes in `.git-blame-ignore-revs` once it is on `main`, so `git blame` looks past
+it; that file says how to make local blame read it.
 
 ## Editing this repo from Cowork
 

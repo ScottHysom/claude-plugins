@@ -4,6 +4,10 @@
   "[python]": {
     "editor.defaultFormatter": "charliermarsh.ruff",
     "editor.formatOnSave": true,
+    // Formatting does not sort imports; CI's lint step checks their order.
+    "editor.codeActionsOnSave": {
+      "source.organizeImports.ruff": "explicit"
+    },
     // Matches line-length in ruff.toml.
     "editor.rulers": [100]
   }

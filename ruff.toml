@@ -1,5 +1,5 @@
-# Formatter settings for every Python file in the repo. README.md, under
-# "Formatting", says how it runs and what enforces it.
+# Formatter and linter settings for every Python file in the repo. README.md,
+# under "Formatting and linting", says how they run and what enforces them.
 
 line-length = 100
 
