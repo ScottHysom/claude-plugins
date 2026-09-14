@@ -159,12 +159,10 @@ Changing the prose rules is its own job, and the `prose-tuning` plugin does it:
 by hand is fine for a one-line fix and loses the worked example that makes a
 rule survive contact.
 
-
-## Diagrams
-
 <!-- OPTIONAL SECTION. Keep it only if the owner wants diagrams doing real work
-     in the documents. Ask; it is a fact about how the owner reads, not something the
-     project's subject implies. If not, delete through END OPTIONAL SECTION. -->
+     in the documents. Ask; it is a fact about how the owner reads, not something
+     the project's subject implies. -->
+## Diagrams
 
 The project owner is a visual learner. A diagram is not decoration here. It is
 often the explanation, and the prose is the support. `{{ANCHOR_DOC}}` owns that fact
@@ -289,9 +287,10 @@ citation and leaves no error behind.
      repeating sections that must all carry the same slots (one per genre, one
      per vendor, one per candidate). Delete the whole section otherwise, rather
      than leaving an empty template behind. -->
-## Section template for `<document>.md`
+## Section template
 
-Repeating sections are **named, not numbered**, and run **alphabetically**.
+The repeating sections in <!-- FILL: the document that holds them, as `name.md` --> are
+**named, not numbered**, and run **alphabetically**.
 
 <!-- FILL: the slot table. Canonical headings are Title Case and their wording
      does not vary, because they are what a reader scans for.

@@ -9,13 +9,14 @@ the same file.
 
 ---
 
-<!-- Who you are, for this project, and what you are trying to learn or produce. -->
+<!-- FILL: who you are, for this project, and what you are trying to learn or
+     produce. -->
 
 Treat these as settled unless I say otherwise. Don't re-litigate them:
 
-<!-- The short form of the constraints. current-state.md holds the full version
-     and wins on conflicts. Keep this list to the handful an agent needs in
-     every conversation. -->
+<!-- FILL: the short form of the constraints. current-state.md holds the full
+     version and wins on conflicts. Keep this list to the handful an agent needs
+     in every conversation. -->
 
 How I want you to work with me:
 
