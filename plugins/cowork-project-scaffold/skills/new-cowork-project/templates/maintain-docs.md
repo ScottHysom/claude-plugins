@@ -21,7 +21,7 @@ before using a path. The commands below assume `$HOME/mnt/{{PROJECT_MOUNT}}`.
    an editorial rule needs to change, change it here. Do not write it into a
    document in the folder.
 3. Stage the current file before revising it. The user edits these documents
-   directly, and a stale container copy will silently clobber his work. Run
+   directly, and a stale container copy will silently clobber their work. Run
    `device_stage_files` on the device path, then work from the staged copy.
 4. If this session will change **this skill**, run the drift check under
    **Skill provenance** below before touching it.
@@ -72,7 +72,7 @@ The distinction that looks identical and isn't:
 
 - **Uncertainty is content.** Keep gaps sections, confidence flags, "could not
   verify" notes, and conflicting-source warnings. A reader needs these to
-  calibrate trust in what he is reading.
+  calibrate trust in what they are reading.
 - **History is metadata.** Move "I corrected X to Y", "this section was added
   on DATE" and "sections were renumbered" into the commit body.
 
@@ -163,12 +163,12 @@ rule survive contact.
 ## Diagrams
 
 <!-- OPTIONAL SECTION. Keep it only if the owner wants diagrams doing real work
-     in the documents. Ask; it is a fact about how he reads, not something the
+     in the documents. Ask; it is a fact about how the owner reads, not something the
      project's subject implies. If not, delete through END OPTIONAL SECTION. -->
 
 The project owner is a visual learner. A diagram is not decoration here. It is
 often the explanation, and the prose is the support. `{{ANCHOR_DOC}}` owns that fact
-about him. This section owns what to do about it.
+about the owner. This section owns what to do about it.
 
 - **Lead with the diagram.** Draw the thing, then write the prose around it. A
   diagram appended beneath a finished explanation is decoration, and decoration
@@ -189,7 +189,7 @@ about him. This section owns what to do about it.
   ```
 
   Look at the PNG, then discard it. It is never committed, never referenced from
-  a document, and never sent to the owner. He previews the Mermaid in the file.
+  a document, and never sent to the owner, who previews the Mermaid in the file.
 - **Watch the aspect ratio.** A `flowchart TB` chain of ten or more nodes renders
   as a column thousands of pixels tall, and nobody scrolls that. For a stack or a
   pipeline, use `flowchart LR` at the top level with `direction TB` inside each
@@ -324,7 +324,7 @@ Repeating sections are **named, not numbered**, and run **alphabetically**.
 This project treats estimator data as ordinal, never cardinal. Flag every
 non-obvious figure:
 
-<!-- FILL: the flag vocabulary. The four below are the default set and cover
+<!-- FILL: the flag vocabulary. The flags below are the default set and cover
      most research projects. Add or drop, but keep the last one: the distinction
      between a sourced number and your own judgement is the whole point. -->
 
@@ -355,7 +355,7 @@ the document.
    what it is now, and the source.>
    MSG
    ```
-3. Tell the user to run `./commit.sh` from his own terminal. Do not attempt
+3. Tell the user to run `./commit.sh` from their own terminal. Do not attempt
    `git commit` from the bridge.
 
 Read-only git works fine from the bridge and should be used freely:
@@ -463,10 +463,9 @@ rather than as an all-clear.
 
 `commit.sh`, `setup.sh`, `.gitignore`, `project-instructions.md`,
 `prose-style.md`, `skills/` and this skill are the entire process apparatus.
-Two of those are deliberate additions rather than oversights:
-`skills/README.md` documents the mirror convention, and `prose-style.md` holds
-the house prose style, which is read on every edit and is too long to live
-inside this file. Nothing further:
+`skills/README.md` documents the mirror convention. `prose-style.md` holds the
+house prose style, which is read on every edit and is too long to live inside
+this file. Nothing further:
 
 - no CHANGELOG.md
 - no third document about how the research itself is written
