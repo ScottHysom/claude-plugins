@@ -98,6 +98,16 @@ jobs:
       - name: Lint
         run: ruff check --output-format=github .
 
+      # Shell has no compiler to complain, and its common bugs - an unquoted
+      # variable that splits a path with a space in it, bash-only syntax under
+      # #!/bin/sh - work on the machine that wrote them. `sh -n` checks each
+      # script parses; shellcheck catches the rest. The scaffold's templates are
+      # copied into every new project, so a bug there reaches all of them.
+      - name: Lint shell scripts
+        run: |
+          git ls-files -z '*.sh' | xargs -0 -r -n1 sh -n
+          git ls-files -z '*.sh' | xargs -0 -r shellcheck
+
       # prose.py parses a markup grammar and rewrites files in place. Its
       # round-trip property - insert then strip returns the file byte-identical
       # - is the only thing standing between a tagging pass and a mangled
