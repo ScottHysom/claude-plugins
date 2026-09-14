@@ -239,8 +239,8 @@ lead-in to a bullet.
 ### register-no-presuming-adjectives: An adjective that presumes the reader's state is cut
 <!-- prose-rule: source=shipped -->
 
-"The non-obvious result is in the bolded column" tells the reader what he has
-already found obvious, or has not. Leave the judgement to him.
+"The non-obvious result is in the bolded column" tells the reader what they have
+already found obvious, or have not. Leave the judgement to them.
 
 > **Before.** The non-obvious result is in the bolded column.
 > **After.** The result in the bolded column:

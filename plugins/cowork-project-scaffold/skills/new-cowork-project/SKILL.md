@@ -13,17 +13,21 @@ reach.
 
 ## What this produces
 
-Three things, in this order. The third is the one that is easy to get wrong.
+In this order, and the last is the one that is easy to get wrong:
 
 1. A **git-backed project folder** with the process apparatus written in.
 2. A **per-project maintenance skill**, written into that repo at
    `skills/<skill-name>/SKILL.md`. That file is the versioned original.
 3. The **same text registered on the account**, via the `propose_skills` tool.
 
-Cowork has no project-scoped skills. Writing the file in step 2 does not
-install anything: the synced copy on disk is a read-only cache. Step 3 is what
-makes the skill run. Skipping it fails silently, which is the whole reason it
-is called out here.
+Writing the file in step 2 does not install anything: the synced copy on disk
+is a read-only cache. Step 3 is what makes the skill run, and skipping it fails
+silently. The plugin's README, under "The rules", says why skills work this way
+in Cowork.
+
+The generated skill is a single `SKILL.md` with no scripts of its own, because
+`propose_skills` accepts nothing else. The by-hand `grep` and `shasum` checks
+in `templates/maintain-docs.md` stay by hand for that reason.
 
 ## The templates
 
@@ -71,8 +75,8 @@ rather than holding them all to the end.
 5. **The phases.** The names of the work buckets. Reused verbatim as the
    `TODO(phase)` vocabulary, so they should be short and stable.
 6. **Standing prose instructions.** Whether the user has their own. The
-   answer fills `prose-style.md`, not the skill. The template ships 24 rules
-   with ids; the `FILL` markers in them want a real before-and-after from this
+   answer fills `prose-style.md`, not the skill. The template ships rules with
+   ids; the `FILL` markers in them want a real before-and-after from this
    project, because a rule with no example does not survive contact. Leaving
    them unfilled is allowed and weakens every rule that carries one.
 7. **Sourced claims?** Whether the project makes factual claims that need
@@ -83,7 +87,7 @@ rather than holding them all to the end.
    nobody needs yet.
 9. **Diagrams?** Whether the owner wants diagrams carrying real weight in the
    documents rather than turning up occasionally. Yes keeps the Diagrams
-   section, no deletes it. Ask directly. It is a fact about how he reads, and
+   section, no deletes it. Ask directly. It is a fact about how the owner reads, and
    nothing about the project's subject predicts it.
 
 If the user is not present to answer, do not guess at 3 and 4. Scaffold the
@@ -145,7 +149,7 @@ the only scoping mechanism a globally-enabled skill has.
 ## Step 4: generate the maintenance skill
 
 `templates/maintain-docs.md` becomes `<project>/skills/<skill-name>/SKILL.md`.
-Substitute, then resolve every marker. Two kinds:
+Substitute, then resolve every marker:
 
 - `<!-- FILL: ... -->`. Replace with real content from the interview. The
   comment explains what belongs there and is deleted with it.
@@ -171,7 +175,7 @@ cd "$DST"
 grep -rn '{{' . ; grep -rn 'FILL:' . ; grep -rn 'OPTIONAL SECTION' .
 ```
 
-All three must come back empty.
+Every one must come back empty.
 
 ## Step 5: register the skill
 
@@ -188,9 +192,9 @@ later grows reference files has to be uploaded as a folder under
 
 ## Step 6: hand off
 
-The bridge cannot complete a `git commit`. It cannot delete the
-`.git/HEAD.lock` it strands, and that lock blocks every later write to the
-repo. So finish by telling the user to run, from their own terminal:
+The bridge cannot complete a `git commit`; the plugin's README, under "Why
+`commit.sh` exists", says why. So finish by telling the user to run, from their
+own terminal:
 
 ```
 cd "<project folder>" && ./setup.sh
@@ -198,7 +202,7 @@ cd "<project folder>" && ./setup.sh
 
 Do not run `git init` and then attempt the commit from here. Do not offer to.
 
-Then name the two other things the bridge cannot do:
+Then name what else the bridge cannot do:
 
 - Save the proposed skill from the review card.
 - Paste `project-instructions.md` into the Project's custom-instructions field.

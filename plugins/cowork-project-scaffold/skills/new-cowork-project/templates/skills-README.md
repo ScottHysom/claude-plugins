@@ -65,8 +65,8 @@ authoritative, and the account copy is what actually runs. Each skill's
 
 This file is boilerplate, copied in by the `new-cowork-project` skill from the
 `cowork-project-scaffold` plugin, from
-`skills/new-cowork-project/templates/skills-README.md`. Two things make it work,
-and both are easy to leave out:
+`skills/new-cowork-project/templates/skills-README.md`. What makes it work is
+easy to leave out:
 
 1. The direction-of-truth rule, stated once and not negotiable.
 2. The drift check living *inside each skill*, where an agent will actually read

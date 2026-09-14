@@ -16,7 +16,7 @@ and nobody can tell what is currently true.
 
 Git already records all of that, better, and out of the way.
 
-## The two rules
+## The rules
 
 **1. Documents state what is currently true. Git states how they got that way.**
 
@@ -44,7 +44,7 @@ UI leaves no commit and no diff, and the two copies drift silently.
   setup.sh                     one time: git init and the first commit
   current-state.md             the anchor document. Wins on every conflict
   project-instructions.md      mirror of the Project's custom-instructions field
-  prose-style.md               the house prose style, 24 rules with stable ids
+  prose-style.md               the house prose style, rules with stable ids
   skills/
     README.md                  the repo-is-source convention, and the drift check
     update-<project>-docs/
@@ -62,9 +62,9 @@ read it and not all of them load the skill, and because a project is expected
 to diverge from the shipped default. Its rules carry stable ids, so a note can
 name the rule a passage breaks. The `prose-tuning` plugin maintains it.
 
-Two sections are optional and get deleted outright when they do not apply: a
-template for repeating sections, and source-quality flags for projects that
-make sourced factual claims.
+Some sections are optional, and the interview decides whether each one stays
+or is deleted outright. `SKILL.md` lists them with the question that decides
+each.
 
 ## Using it
 
@@ -72,7 +72,7 @@ Ask Claude to start a new Cowork project, or to set up a project folder. The
 skill runs a short interview, writes the folder, and proposes the generated
 maintenance skill for you to save.
 
-Three things it deliberately leaves to you, because the bridge cannot do them:
+It leaves to you what the bridge cannot do:
 
 1. Run `./setup.sh` from your own terminal to create the repo.
 2. Save the proposed skill from the review card.
@@ -89,7 +89,7 @@ from the bridge, so Claude can still run `log`, `diff`, `blame` and `show`.
 
 Everything the scaffolder writes lives in
 `skills/new-cowork-project/templates/`. Change a file there, bump the version
-in `.claude-plugin/plugin.json`, and reinstall.
+as the repo's [README](../../README.md#versioning) describes, and reinstall.
 
 Changing a template does not change projects already scaffolded. That is
 deliberate. Each project's skill gets hand-tuned during the interview, and
