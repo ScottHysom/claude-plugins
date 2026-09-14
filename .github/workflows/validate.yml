@@ -35,10 +35,12 @@ jobs:
       - name: Report version
         run: claude --version
 
-      # Exits 0 on pass and on warnings-only, 1 on error. Warnings do not fail
-      # the build.
+      # --strict fails on warnings as well as errors. Without it, a SKILL.md with
+      # no frontmatter at all passes: Claude Code loads it, but with no
+      # description to decide when to use the skill. Validating a plugin
+      # directory also checks the skills inside it.
       - name: Validate the marketplace manifest
-        run: claude plugin validate .
+        run: claude plugin validate --strict .
 
       - name: Validate every plugin manifest
         run: |
@@ -48,7 +50,7 @@ jobs:
             [ -f "${dir}.claude-plugin/plugin.json" ] || continue
             found=1
             echo "::group::${dir}"
-            claude plugin validate "$dir" || rc=1
+            claude plugin validate --strict "$dir" || rc=1
             echo "::endgroup::"
           done
           if [ "$found" -eq 0 ]; then
