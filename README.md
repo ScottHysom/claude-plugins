@@ -74,12 +74,15 @@ directory under `plugins/` and one new entry in the catalog.
    sentence of the description.
 4. Validate, then push:
    ```sh
-   claude plugin validate .
+   claude plugin validate --strict .
+   claude plugin validate --strict plugins/<name>
    python3 .github/scripts/check-manifest-consistency.py
    pytest
    ```
 
-   CI runs all three on every pull request. The second one catches what
+   CI runs these on every pull request, on every plugin. `--strict` fails on
+   warnings too, and validating the plugin directory checks its skills as well
+   as its manifest. The consistency script catches what
    `claude plugin validate` cannot: two manifests that each validate but
    disagree with each other, such as a version bumped in one and not the other.
 
