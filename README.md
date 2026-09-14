@@ -169,6 +169,24 @@ or new lint findings the new version produces. A commit that only reformats
 goes in `.git-blame-ignore-revs` once it is on `main`, so `git blame` looks past
 it; that file says how to make local blame read it.
 
+### Shell scripts
+
+Shell scripts are linted by [shellcheck](https://www.shellcheck.net/), which
+catches the bugs shell hides until someone else runs the script: an unquoted
+variable that splits a path containing a space, bash-only syntax under
+`#!/bin/sh`, a failed `cd` the script carries on past. It comes with the test
+dependencies, pinned in `requirements-dev.txt`, so from the venv:
+
+```sh
+git ls-files -z '*.sh' | xargs -0 shellcheck
+```
+
+CI runs that, and checks each script parses with `sh -n`. VS Code shows the same
+warnings as you type once the recommended ShellCheck extension is installed; the
+Claude Code hook does not run it. A warning that is deliberate is turned off on
+its line with `# shellcheck disable=SC<code>` and the reason beside it. Each
+code has a page on the shellcheck wiki saying what it guards against.
+
 ## Editing this repo from Cowork
 
 Cowork's device bridge cannot delete files, so a commit it attempts strands a
