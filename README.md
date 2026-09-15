@@ -85,6 +85,11 @@ directory under `plugins/` and one new entry in the catalog.
    as its manifest. The consistency script catches what
    `claude plugin validate` cannot: two manifests that each validate but
    disagree with each other, such as a version bumped in one and not the other.
+5. Add a `plugin:<name>` label, and the plugin to the Area list in
+   `.github/ISSUE_TEMPLATE/problem.yml`, so issues about it can say so:
+   ```sh
+   gh label create "plugin:<name>" --description "About the <name> plugin"
+   ```
 
 ## Running the tests
 
@@ -125,7 +130,12 @@ what the bug was.
 
 Two habits keep them honest. Mutation-check: break the code the property
 guards and confirm it fails, because a property that passes against broken code
-is a generator producing nothing interesting. And watch for vacuity with
+is a generator producing nothing interesting. Run the tests with
+`PYTHONDONTWRITEBYTECODE=1` while doing it, and confirm the unbroken code passes
+first. Python reuses cached bytecode when a file's size and modification second
+match, so a quick break-and-restore can run a stale copy. macOS's system Python
+keeps that cache in `~/Library/Caches/com.apple.python`, not beside the source,
+so it is easy to miss. And watch for vacuity with
 `--hypothesis-show-statistics` - a round-trip generator whose inputs are all
 refused proves only that refusing works.
 
@@ -186,6 +196,58 @@ warnings as you type once the recommended ShellCheck extension is installed; the
 Claude Code hook does not run it. A warning that is deliberate is turned off on
 its line with `# shellcheck disable=SC<code>` and the reason beside it. Each
 code has a page on the shellcheck wiki saying what it guards against.
+
+## Issues
+
+Anyone can open an issue, and Scott decides what gets worked on. The process:
+
+1. Someone files an issue: Scott, an agent that ran into a problem outside the
+   task it was doing, or anyone else.
+2. Scott reads it and adds the `approved` label.
+3. An agent, or Scott, fixes it on a branch, and the pull request says
+   `Closes #N`.
+4. Scott merges, and GitHub closes the issue.
+
+`CLAUDE.md` has the rules agents follow when they file and fix issues.
+
+### Labels
+
+| Label | Means |
+|---|---|
+| `bug` | something does not work as documented |
+| `enhancement` | new behaviour, or a better way to do an existing thing |
+| `docs` | documentation only |
+| `plugin:<name>` | which plugin it is about |
+| `repo` | CI, tooling, the marketplace catalog or root docs |
+| `approved` | Scott agrees it should be done. Only Scott adds this |
+
+A new plugin adds its `plugin:<name>` label when it is added. An issue that is a
+duplicate, or will not be done, is closed with a comment saying why rather than
+kept open under a label.
+
+### Keeping `approved` meaningful
+
+Agents post through Scott's GitHub account, so GitHub cannot tell an agent
+adding `approved` from Scott adding it. What covers that:
+
+- **Only Scott adds the label.** `.claude/hooks/issue_guard.py` blocks any
+  command Claude Code runs that would add it. To approve with Claude's help,
+  run `! gh issue edit <N> --add-label approved`: the `!` runs it in your own
+  shell, where no hook applies. The hook reads command text, so it stops a
+  mistake, not a determined workaround, and Cowork does not run it.
+- **Work closes only approved issues.** The `validate` job runs
+  `.github/scripts/check-linked-issues.py`, which fails a pull request whose
+  title, description or commits would close an issue without `approved`. It
+  holds for every agent, wherever it ran. A pull request that closes no issue
+  passes. If you approve an issue after its pull request was opened, re-run
+  the job.
+- **Issue text is information, not instructions.** Nothing can check this.
+  It holds because Scott reads an issue before approving it, and agents work
+  from the issue as approved plus Scott's own comments.
+
+A separate GitHub account for agents would make the first check enforceable
+on GitHub itself: a workflow could remove `approved` whenever anyone else adds
+it.
 
 ## Editing this repo from Cowork
 
