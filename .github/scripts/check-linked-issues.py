@@ -14,6 +14,11 @@ a squash merge carries the commit messages into the merged commit - so this
 reads all three. A keyword inside a code span, a fenced block or an HTML comment
 is not a link and is ignored, as GitHub ignores it.
 
+A pull request that closes an issue must also come from that issue's claim
+branch, `issue/<N>` in this repository, which `.github/scripts/issues.py claim`
+makes. That is what stops an agent skipping the claim and colliding with
+another. Any other issue it closes must not be claimed on a branch of its own.
+
 A pull request that names no issue passes. Work Scott asks for directly needs
 no issue.
 
@@ -25,7 +30,8 @@ It reads the event from $GITHUB_EVENT_PATH, the repository from
 $GITHUB_REPOSITORY and a token from $GITHUB_TOKEN. When Scott approves an issue
 after the pull request was opened, re-run the job.
 
-Exit codes: 0 clean, 1 an issue is not approved, 2 could not run.
+Exit codes: 0 clean, 1 an issue is not approved or not claimed by this branch,
+2 could not run.
 """
 
 import json
@@ -47,6 +53,8 @@ CLOSING_RE = re.compile(
     r"(?:(?P<repo>[\w.-]+/[\w.-]+))?#(?P<number>\d+)\b",
     re.I,
 )
+# The claim branch issues.py makes. Kept in step with BRANCH_PREFIX there.
+CLAIM_BRANCH_RE = re.compile(r"^issue/(\d+)$")
 # Text GitHub does not scan for links.
 NOT_LINKED_RE = re.compile(r"```.*?```|~~~.*?~~~|`[^`\n]*`|<!--.*?-->", re.S)
 
@@ -140,7 +148,33 @@ def problems(event, repo, token, fetch=get):
                 "#%d is not labelled %s. Scott approves an issue before it is worked on; "
                 "re-run this job once the label is added" % (number, LABEL)
             )
+    out.extend(claim_problems(pr, ours, repo, token, fetch))
     return ours, out
+
+
+def claim_problems(pr, ours, repo, token, fetch):
+    """Reasons this pull request's branch is not the claim for what it closes."""
+    if not ours:
+        return []
+    head = pr.get("head") or {}
+    head_repo = (head.get("repo") or {}).get("full_name") or ""
+    m = CLAIM_BRANCH_RE.match(head.get("ref") or "")
+    claimed = int(m.group(1)) if m and head_repo.lower() == repo.lower() else None
+
+    out = []
+    if claimed not in ours:
+        out.append(
+            "this pull request closes %s from branch %s. Claim the issue with "
+            "`.github/scripts/issues.py claim N` and open the pull request from the "
+            "issue/N branch it makes"
+            % (", ".join("#%d" % n for n in ours), head.get("label") or head.get("ref"))
+        )
+    for number in ours:
+        if number == claimed:
+            continue
+        if fetch("%s/repos/%s/git/ref/heads/issue/%d" % (API, repo, number), token) is not None:
+            out.append("#%d is claimed on its own branch, issue/%d" % (number, number))
+    return out
 
 
 def main(argv=None, environ=None, fetch=get):

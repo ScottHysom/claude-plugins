@@ -211,8 +211,8 @@ Anyone can open an issue, and Scott decides what gets worked on. The process:
 1. Someone files an issue: Scott, an agent that ran into a problem outside the
    task it was doing, or anyone else.
 2. Scott reads it and adds the `approved` label.
-3. An agent, or Scott, fixes it on a branch, and the pull request says
-   `Closes #N`.
+3. An agent, or Scott, claims it, fixes it on the `issue/N` branch the claim
+   makes, and the pull request says `Closes #N`.
 4. Scott merges, and GitHub closes the issue.
 
 `CLAUDE.md` has the rules agents follow when they file and fix issues.
@@ -227,10 +227,36 @@ Anyone can open an issue, and Scott decides what gets worked on. The process:
 | `plugin:<name>` | which plugin it is about |
 | `repo` | CI, tooling, the marketplace catalog or root docs |
 | `approved` | Scott agrees it should be done. Only Scott adds this |
+| `in-progress` | someone has claimed it; see below |
 
 A new plugin adds its `plugin:<name>` label when it is added. An issue that is a
 duplicate, or will not be done, is closed with a comment saying why rather than
 kept open under a label.
+
+### Claiming an issue
+
+Two agents can be told to "take the next issue" at the same time. Claiming is
+what stops them picking the same one, and `.github/scripts/issues.py` does it:
+
+```sh
+python3 .github/scripts/issues.py next         # the oldest approved issue nobody holds
+python3 .github/scripts/issues.py claim 12     # take it, and switch to branch issue/12
+python3 .github/scripts/issues.py release 12   # give it up without a pull request
+python3 .github/scripts/issues.py stale        # claims nobody seems to be working on
+```
+
+The claim is the branch `issue/N` on GitHub. `claim` pushes it in a way only one
+agent can win, then adds the `in-progress` label and a comment so the claim
+shows in the issue list. When the label and the branch disagree, the branch is
+right, and `stale` lists the disagreement. The script's docstring covers the
+details, including why `release` will not delete a branch that has commits on
+it.
+
+The `validate` job backs this up: a pull request that closes #N must come from
+`issue/N`, so an agent that skipped the claim is caught before it merges.
+
+Claiming writes to git, which Cowork cannot do (see "Editing this repo from
+Cowork"), so a Cowork session asks Scott to claim for it.
 
 ### Keeping `approved` meaningful
 

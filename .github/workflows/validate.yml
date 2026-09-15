@@ -70,11 +70,12 @@ jobs:
       - name: Check manifests agree with each other
         run: python3 .github/scripts/check-manifest-consistency.py
 
-      # A pull request may close only issues Scott has labelled approved.
-      # Agents post as Scott, so GitHub cannot tell their work apart; this job is
-      # required, so the rule holds whichever surface an agent ran on. README.md,
-      # under "Issues", describes the process.
-      - name: Check linked issues are approved
+      # A pull request may close only issues Scott has labelled approved, and
+      # only from the issue/N branch that claiming the issue makes. Agents post
+      # as Scott, so GitHub cannot tell their work apart; this job is required,
+      # so the rules hold whichever surface an agent ran on. README.md, under
+      # "Issues", describes the process.
+      - name: Check linked issues are approved and claimed
         if: github.event_name == 'pull_request'
         env:
           GITHUB_TOKEN: ${{ github.token }}

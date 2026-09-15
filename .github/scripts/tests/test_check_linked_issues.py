@@ -69,9 +69,10 @@ def test_a_link_to_another_repository_is_kept_apart():
 class FakeGitHub:
     """Canned API responses, keyed by URL. Records what was asked for."""
 
-    def __init__(self, issues=None, commits=None):
+    def __init__(self, issues=None, commits=None, branches=()):
         self.issues = issues or {}
         self.commits = commits or []
+        self.branches = set(branches)
         self.urls = []
 
     def __call__(self, url, token):
@@ -80,6 +81,9 @@ class FakeGitHub:
             page = int(url.rsplit("page=", 1)[1])
             start = (page - 1) * cli.PER_PAGE
             return [{"commit": {"message": m}} for m in self.commits[start : start + cli.PER_PAGE]]
+        if "/git/ref/heads/" in url:
+            name = url.split("/git/ref/heads/", 1)[1]
+            return {"ref": "refs/heads/" + name} if name in self.branches else None
         number = int(url.rsplit("/", 1)[1])
         return self.issues.get(number)
 
@@ -91,8 +95,15 @@ def issue(*labels, pr=False):
     return data
 
 
-def event(title="t", body=""):
-    return {"pull_request": {"number": 99, "title": title, "body": body}}
+def event(title="t", body="", head="issue/12", head_repo=REPO):
+    return {
+        "pull_request": {
+            "number": 99,
+            "title": title,
+            "body": body,
+            "head": {"ref": head, "repo": {"full_name": head_repo}},
+        }
+    }
 
 
 def test_an_approved_issue_passes():
@@ -141,6 +152,49 @@ def test_another_repository_fails_without_being_fetched():
     _, found = cli.problems(event(body="Fixes other/repo#3"), REPO, "tok", gh)
     assert "another repository" in found[0]
     assert not any("/issues/" in u for u in gh.urls)
+
+
+def test_closing_an_issue_from_its_claim_branch_passes():
+    gh = FakeGitHub(issues={12: issue("approved")}, branches={"issue/12"})
+    assert cli.problems(event(body="Closes #12"), REPO, "tok", gh) == ([12], [])
+
+
+@pytest.mark.parametrize(
+    ("head", "head_repo"),
+    [
+        ("feat/thing", REPO),
+        ("issue/13", REPO),
+        ("issue/12-slug", REPO),
+        ("issue/12", "someone/fork"),
+    ],
+)
+def test_closing_an_issue_from_any_other_branch_fails(head, head_repo):
+    gh = FakeGitHub(issues={12: issue("approved")})
+    _, found = cli.problems(
+        event(body="Closes #12", head=head, head_repo=head_repo), REPO, "tok", gh
+    )
+    assert len(found) == 1
+    assert "closes #12 from branch" in found[0]
+    assert "issues.py claim N" in found[0]
+
+
+def test_a_second_issue_claimed_by_someone_else_fails():
+    gh = FakeGitHub(issues={12: issue("approved"), 13: issue("approved")}, branches={"issue/13"})
+    _, found = cli.problems(event(body="Closes #12, closes #13"), REPO, "tok", gh)
+    assert found == ["#13 is claimed on its own branch, issue/13"]
+
+
+def test_a_second_unclaimed_issue_passes():
+    gh = FakeGitHub(issues={12: issue("approved"), 13: issue("approved")}, branches={"issue/12"})
+    assert cli.problems(event(body="Closes #12, closes #13"), REPO, "tok", gh)[1] == []
+
+
+def test_a_pull_request_closing_nothing_needs_no_claim_branch():
+    gh = FakeGitHub()
+    assert cli.problems(event(body="Just a change.", head="feat/thing"), REPO, "tok", gh) == (
+        [],
+        [],
+    )
 
 
 def test_no_link_passes():
