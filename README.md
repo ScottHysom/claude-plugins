@@ -109,6 +109,13 @@ directory. A new plugin adding a script adds `scripts/tests/conftest.py`
 alongside it, which puts its own script directory on `sys.path`; nothing at the
 repo root needs editing for CI to pick it up.
 
+Every plugin's `conftest.py` is imported under the same module name, so a test
+never imports from `conftest` by name: when one run loads more than one plugin's
+suite, the name can resolve to the wrong plugin's file. Hand a helper to tests
+as a fixture. A value a test needs when its module loads, such as the input a
+Hypothesis strategy is built from, goes in a helper module named after the
+plugin, like `prose_samples.py`. `ruff check` fails on a `conftest` import.
+
 CI runs the suite on Python 3.9 and 3.13. The floor is not decoration - the
 scripts have to run under whatever Python is already on the machine, which on
 macOS is still 3.9, so no walrus in a comprehension and no `X | Y` unions. The

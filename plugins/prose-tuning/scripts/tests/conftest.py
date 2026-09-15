@@ -25,6 +25,7 @@ import pytest  # noqa: E402
 from hypothesis import settings  # noqa: E402
 
 import prose  # noqa: E402  - must follow the sys.path insert above
+from prose_samples import SAMPLE  # noqa: E402  - pytest puts this directory on sys.path
 
 # Property tests explore a different set of inputs on every run, which is the
 # point of them locally and a liability in CI: a seed that happens to find an
@@ -37,36 +38,6 @@ import prose  # noqa: E402  - must follow the sys.path insert above
 settings.register_profile("dev", max_examples=50)
 settings.register_profile("ci", derandomize=True, max_examples=200)
 settings.load_profile("ci" if os.environ.get("CI") else "dev")
-
-
-# A document with one of everything the parser has to tell apart: front
-# matter, a heading, a paragraph, a list, a table, a fenced block containing
-# something that looks like markup but is not, and a final line with no
-# trailing newline. Line numbers are load-bearing - tests address spans in it
-# by line - so edit it only by appending.
-SAMPLE = """---
-title: sample
----
-
-# Heading
-
-Curated, not collected. A resource earns a place here only after it has been
-used for something. A bookmark list is not this document.
-
-- first item
-- second item with more words in it
-- third
-
-| Term | Meaning |
-|---|---|
-| model | a large file of numbers |
-
-```python
-# <del>this is not markup</del>
-x = 1
-```
-
-Final paragraph."""
 
 
 @pytest.fixture

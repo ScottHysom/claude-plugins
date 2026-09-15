@@ -120,8 +120,7 @@ def runner(tmp_path, capsys):
 
 
 # Helpers reach the tests as fixtures, never as `from conftest import ...`.
-# prose-tuning has a conftest.py too, and when pytest collects both suites in
-# one run the second `import conftest` can get the other plugin's module.
+# README.md, under "Running the tests", says why.
 
 
 @pytest.fixture

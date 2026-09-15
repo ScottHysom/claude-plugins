@@ -15,9 +15,9 @@ target-version = "py39"
 extend-exclude = ["*.md"]
 
 # Where the repo's own modules live, so import sorting groups `import prose` and
-# `from conftest import ...` as first-party rather than as installed packages.
-# Each tests/conftest.py puts these directories on sys.path at run time; ruff
-# cannot see that, so it is told here.
+# a test helper such as `from prose_samples import ...` as first-party rather
+# than as installed packages. Each tests/conftest.py puts these directories on
+# sys.path at run time; ruff cannot see that, so it is told here.
 src = ["plugins/*/scripts", "plugins/*/scripts/tests"]
 
 [lint]
@@ -33,6 +33,7 @@ select = [
     "PT",  # pytest idioms
     "RUF",  # ruff's own, including noqa comments that suppress nothing
     "SIM115",  # a file opened outside `with`, left open until garbage collection
+    "TID251",  # imports banned below
 ]
 ignore = [
     # %-formatting is the house style throughout prose.py and its tests, and
@@ -42,3 +43,12 @@ ignore = [
     # or not. Renaming the unused ones would make the commands differ for nothing.
     "RUF059",
 ]
+
+[lint.flake8-tidy-imports.banned-api]
+# Every plugin's tests have a conftest.py, and all of them are imported under
+# the one module name. When a single pytest run loads more than one, `conftest`
+# can resolve to another plugin's, and collection fails - but only for some
+# orders of the files, so a plain `pytest` can pass while the bug is there.
+# Hand tests a helper as a fixture, or import it from a module named after the
+# plugin. README.md, under "Running the tests", says more.
+"conftest".msg = "import a plugin-named helper module or use a fixture; README.md, Running the tests"
