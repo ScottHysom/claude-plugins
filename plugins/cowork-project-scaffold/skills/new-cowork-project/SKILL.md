@@ -1,6 +1,6 @@
 ---
 name: new-cowork-project
-description: Scaffold a new Cowork Project folder as a git repo - commit.sh, setup.sh, .gitignore, a project-instructions.md mirror, a seeded current-state.md, and a generated per-project document-maintenance skill that is written into the repo and then proposed to the account. Use when starting a new Cowork Project, setting up a project folder, asking for the project boilerplate or template, or asking to give a project git-backed documents where history lives in commits rather than in the content. Also covers regenerating an existing project's maintenance skill after the template changes.
+description: Scaffold a new Cowork Project folder as a git repo - commit.sh, setup.sh, .gitignore, a project-instructions.md mirror, a seeded current-state.md, and a generated per-project document-maintenance skill that is written into the repo and then proposed to the account. Use when starting a new Cowork Project, setting up a project folder, asking for the project boilerplate or template, or asking to give a project git-backed documents where history lives in commits rather than in the content. Also covers checking whether an existing project's maintenance skill has fallen behind the template.
 ---
 
 # Scaffolding a new Cowork Project
@@ -29,137 +29,114 @@ The generated skill is a single `SKILL.md` with no scripts of its own, because
 `propose_skills` accepts nothing else. The by-hand `grep` and `shasum` checks
 in `templates/maintain-docs.md` stay by hand for that reason.
 
-## The templates
+## Where things run
 
-They ship with this skill, at `${CLAUDE_SKILL_DIR}/templates/`:
+`scaffold.py` does everything that should come out the same on every run:
+reading the templates, checking your answers, filling them in, laying the files
+out for the bridge, and checking they arrived. It runs in **your own shell**,
+the container, which can read the plugin but cannot see the user's folder.
+`device_bash` can see the folder but cannot read the plugin. The commands
+`render` prints bridge the two; do not retype file contents across them.
 
-| File | Becomes | Treatment |
+## Locate the script
+
+```sh
+SCAFFOLD="${CLAUDE_PLUGIN_ROOT:-${CLAUDE_SKILL_DIR}/../..}/scripts/scaffold.py"
+python3 "$SCAFFOLD" preflight
+```
+
+- **0**: the templates are complete. Go on.
+- **1**: a template is malformed. This is a bug in the plugin; show the user
+  the errors and stop.
+- **No such file**: the skill was installed without its plugin, for example
+  through `propose_skills`. It needs a marketplace install. Say so and stop.
+
+## Step 1: list what needs answering
+
+```sh
+mkdir -p /tmp/scaffold
+python3 "$SCAFFOLD" markers --json > /tmp/scaffold/markers.json
+```
+
+`data.markers` is every place a template needs a decision from the interview.
+Each has an `id`, the `heading` it sits under, and the `text` of its comment,
+which says what belongs there. `data.skeleton` is the answers file with every
+marker listed: write it to `/tmp/scaffold/answers.json` and fill it in as the
+interview goes. Never change an `id` or a `digest`; they are how `render` knows
+your answer was written against the template as it is now.
+
+Each marker takes one resolution:
+
+| Kind | `action` | Effect |
 |---|---|---|
-| `gitignore` | `.gitignore` | verbatim |
-| `commit.sh` | `commit.sh` | verbatim, `chmod +x` |
-| `setup.sh` | `setup.sh` | verbatim, `chmod +x` |
-| `skills-README.md` | `skills/README.md` | verbatim |
-| `current-state.md` | `current-state.md` | seeded, filled from the interview |
-| `project-instructions.md` | `project-instructions.md` | seeded, filled from the interview |
-| `prose-style.md` | `prose-style.md` | substituted, then every marker resolved |
-| `maintain-docs.md` | `skills/<skill-name>/SKILL.md` | substituted, then every marker resolved |
+| FILL | `fill`, with `text` | the comment is replaced by `text`; `""` removes it |
+| FILL | `leave` | the comment stays, and `render` warns about it |
+| OPTIONAL | `keep` | the section stays, without its marker comments |
+| OPTIONAL | `delete` | the whole section goes, heading included |
 
-**Read `templates/maintain-docs.md` and `templates/prose-style.md` in full
-before generating from either.** Do not work from a remembered version. They
-are the universal half of the rules and they change.
+A FILL inside a deleted section takes no resolution; leave it out.
 
-The two split cleanly. `maintain-docs.md` becomes the skill and owns document
-mechanics: front matter, TODO markers, diagrams, commits. `prose-style.md`
-becomes a document in the repo and owns how the sentences read. It is a
-separate file because a project diverges from it - one project's register is
-not another's - and because every agent touching the repo has to read it,
-including agents that never load the skill.
-
-## Step 1: the interview
+## Step 2: the interview
 
 Ask before touching the filesystem. Use `AskUserQuestion` where the answers are
 a small closed set, plain questions otherwise. Ask a few at a time, not all at
-once, and write each answer into the draft `current-state.md` as it arrives
-rather than holding them all to the end.
+once, and write each answer into `answers.json` as it arrives rather than
+holding them all to the end. Find markers by `heading`; the ids are not worth
+memorising.
 
-1. **Project name and folder.** Confirm against `ls "$HOME/mnt/"`, which lists
-   the folders actually connected this session.
+1. **Project name and folder.** Call `get_device_info`. `connected_folder` is
+   one of its `connectedFolders`, exactly as listed. `project_folder` is the
+   project's folder inside it, or `null` when the project is the connected
+   folder itself.
 2. **What the project is for.** The goal, and what counts as a bonus rather
-   than a gating criterion. This becomes `## Goal`.
-3. **The constraints.** Budget, milestone, stack, what is out of scope. This
-   becomes `## Current Constraints`, the section the maintenance skill points
-   every proposal at. It has to be real, not a placeholder.
+   than a gating criterion. Fills `current-state.md` under Goal, and its
+   Status and Feeds lines.
+3. **The constraints.** Budget, milestone, stack, what is out of scope. Fills
+   Current Constraints in `current-state.md`, the section the maintenance skill
+   points every proposal at, and the short form in `project-instructions.md`.
+   It has to be real, not a placeholder.
 4. **The document roster.** Which documents will exist, and what each owns.
    Two or three is a normal start. `current-state.md` is always one of them and
-   is always the anchor unless the user says otherwise.
+   is always the anchor unless the user says otherwise. Fills The documents in
+   `maintain-docs.md`.
 5. **The phases.** The names of the work buckets. Reused verbatim as the
-   `TODO(phase)` vocabulary, so they should be short and stable.
+   `TODO(phase)` vocabulary, so they should be short and stable. Fills TODO
+   markers in `maintain-docs.md` and Schedule in `current-state.md`.
 6. **Standing prose instructions.** Whether the user has their own. The
-   answer fills `prose-style.md`, not the skill. The template ships rules with
-   ids; the `FILL` markers in them want a real before-and-after from this
-   project, because a rule with no example does not survive contact. Leaving
-   them unfilled is allowed and weakens every rule that carries one.
+   answer fills the markers in `prose-style.md`, not the skill. Those markers
+   want a real before-and-after from this project, because a rule with no
+   example does not survive contact. `fill` with `""` drops the marker, which
+   is allowed and weakens the rule that carries it.
 7. **Sourced claims?** Whether the project makes factual claims that need
-   provenance flags. Yes keeps the source-quality section, no deletes it.
+   provenance flags. `keep` or `delete` the Source-quality flags section.
 8. **Repeating sections?** Whether any document will hold many sections that
    must all carry the same slots, one per candidate or vendor or option. Almost
-   always no at the start. Say so and move on rather than inventing a template
-   nobody needs yet.
+   always no at the start: `delete` the Section template section, and say so
+   rather than inventing a template nobody needs yet.
 9. **Diagrams?** Whether the owner wants diagrams carrying real weight in the
-   documents rather than turning up occasionally. Yes keeps the Diagrams
-   section, no deletes it. Ask directly. It is a fact about how the owner reads, and
+   documents rather than turning up occasionally. `keep` or `delete` the
+   Diagrams section. Ask directly. It is a fact about how the owner reads, and
    nothing about the project's subject predicts it.
 
-If the user is not present to answer, do not guess at 3 and 4. Scaffold the
-folder, leave those sections marked, and say plainly what is unanswered.
+If the user is not present to answer, do not guess at 3 and 4: `leave` those
+markers, and say plainly what is unanswered.
 
-## Step 2: write the files onto the device
+Fill text may use `{{PROJECT_NAME}}`, `{{ANCHOR_DOC}}` and the other
+placeholders; `render` substitutes them.
 
-The templates live wherever this skill is installed, which is usually the cloud
-container. The project folder is on the user's device. So this is a transfer,
-not a copy. Check first:
+## Step 3: name the skill and write its description
 
-```sh
-ls "${CLAUDE_SKILL_DIR}/templates/"          # container side
-```
+In `answers.json`, under `values`:
 
-**If that path is also reachable from `device_bash`** (a device-installed
-plugin, under a connected folder), copy directly:
+- `PROJECT_NAME`: the project's display name, such as `Foo Research`.
+- `SKILL_NAME`: **the project's name, with a verb.** `update-<project>-docs` is
+  the shape. A generic name invites a generic description.
+- `ANCHOR_DOC`: `current-state.md` unless the user said otherwise.
+- `DESCRIPTION`: the skill's description.
 
-```sh
-cp "<templates>/gitignore" "$DST/.gitignore"
-```
-
-**Otherwise, the normal case:** read each verbatim template in the container,
-then write it to the device with a `device_bash` heredoc. Use a quoted
-delimiter so nothing expands:
-
-```sh
-cat > "$DST/.gitignore" <<'END'
-<contents>
-END
-```
-
-Then:
-
-```sh
-chmod +x "$DST/commit.sh" "$DST/setup.sh"
-mkdir -p "$DST/skills/<skill-name>"
-```
-
-Do not `git init`. Step 6 covers why.
-
-## Step 3: substitute
-
-Every placeholder, in every file written:
-
-| Placeholder | Value | Example |
-|---|---|---|
-| `{{PROJECT_NAME}}` | the project's display name | `Foo Research` |
-| `{{PROJECT_PATH}}` | its path on the device | `~/Documents/Claude Projects/Foo Research` |
-| `{{PROJECT_MOUNT}}` | its path under `$HOME/mnt/` | `Claude Projects/Foo Research` |
-| `{{SKILL_NAME}}` | the maintenance skill's name | `update-foo-research-docs` |
-| `{{ANCHOR_DOC}}` | the document that wins conflicts | `current-state.md` |
-| `{{DESCRIPTION}}` | the skill description, see step 4 | |
-
-**Name the skill after the project, with a verb.** `update-<project>-docs` is
-the shape. A generic name invites a generic description, and the description is
-the only scoping mechanism a globally-enabled skill has.
-
-## Step 4: generate the maintenance skill
-
-`templates/maintain-docs.md` becomes `<project>/skills/<skill-name>/SKILL.md`.
-Substitute, then resolve every marker:
-
-- `<!-- FILL: ... -->`. Replace with real content from the interview. The
-  comment explains what belongs there and is deleted with it.
-- `<!-- OPTIONAL SECTION ... -->`. Keep and fill, or delete the whole section
-  including both marker comments. Never leave an empty template section behind.
-  An unfilled section teaches the next agent that the rules are decorative.
-
-Then write the `description:`. It is the only part of a skill that costs
-context in every session whether or not it fires, and the only thing that keeps
-it from firing in unrelated conversations. So:
+The description is the only part of a skill that costs context in every
+session whether or not it fires, and the only thing that keeps it from firing
+in unrelated conversations. So:
 
 - Name the project and list the actual filenames.
 - Name what it covers, in the words a user would use: house style, recording a
@@ -168,18 +145,45 @@ it from firing in unrelated conversations. So:
 - No generic verbs on their own. "update docs" and "commit changes" will fire
   everywhere.
 
-**Before finishing, prove nothing was left behind:**
+`PROJECT_PATH` and `PROJECT_MOUNT` are worked out from the folders. Do not
+pass them.
+
+## Step 4: render
 
 ```sh
-cd "$DST"
-grep -rn '{{' . ; grep -rn 'FILL:' . ; grep -rn 'OPTIONAL SECTION' .
+python3 "$SCAFFOLD" render --answers /tmp/scaffold/answers.json --json
 ```
 
-Every one must come back empty.
+- **0**: every file is staged under `/mnt/user-data/outputs/`. `warnings` names
+  any marker you left; tell the user about each one in the hand-off.
+- **1**: `errors` names every problem - a stale digest, a missing resolution, a
+  skill name or description that breaks a rule. Nothing was written. Fix
+  `answers.json` and run it again. A stale digest means the templates changed
+  since step 1: run `markers` again.
+- **2**: the stage directory holds files from something else. Pass
+  `--stage /mnt/user-data/outputs/<new directory>`.
 
-## Step 5: register the skill
+`--dry-run` checks the answers without writing.
 
-Call `propose_skills` with the exact text of the generated `SKILL.md`. Same
+## Step 5: copy the files onto the device
+
+Take each value from `render`'s `data`, as printed:
+
+1. Run `precheck_command` through `device_bash`. It prints `clear` when nothing
+   would be overwritten. If it prints `exists:` lines instead, stop and ask the
+   user: the folder already holds a project, or part of one.
+2. Call `device_commit_files` with `files` set to `commit_files`. Its
+   `rejected` list must come back empty.
+3. Run `check_command` through `device_bash`. Every line must end `OK`. A line
+   ending `FAILED` means that file did not arrive intact: copy it again with
+   `device_commit_files`, never by editing it on the device.
+
+Do not `git init`. Step 7 covers why.
+
+## Step 6: register the skill
+
+Read the staged skill, the entry in `files` whose `file` ends in `SKILL.md`,
+from its `staged_path`. Call `propose_skills` with exactly that text. Same
 name, same description, same body. The user saves it from the review card.
 
 The two copies have to match. If they diverge, the repo looks authoritative and
@@ -190,17 +194,19 @@ documents that convention, and the generated skill carries its own drift check.
 later grows reference files has to be uploaded as a folder under
 **Customize → Skills**, or moved into a plugin.
 
-## Step 6: hand off
+## Step 7: hand off
 
 The bridge cannot complete a `git commit`; the plugin's README, under "Why
 `commit.sh` exists", says why. So finish by telling the user to run, from their
 own terminal:
 
 ```
-cd "<project folder>" && ./setup.sh
+cd "<project folder>" && sh setup.sh
 ```
 
-Do not run `git init` and then attempt the commit from here. Do not offer to.
+`sh`, because files arrive from the bridge without their execute bit.
+`setup.sh` sets it on both scripts. Do not run `git init` and then attempt the
+commit from here. Do not offer to.
 
 Then name what else the bridge cannot do:
 
@@ -223,6 +229,17 @@ So when a rule changes:
 - **Project-specific.** Edit that project's `skills/<name>/SKILL.md`, commit it
   in that repo, and re-upload it. Nothing in the plugin changes.
 
-To check whether a project has fallen behind, diff the universal sections by
-heading rather than by line. A project's copy will legitimately differ
-everywhere a `FILL` block was resolved.
+To check whether a project has fallen behind, stage its skill with
+`device_stage_files`, then:
+
+```sh
+python3 "$SCAFFOLD" drift --skill <staged SKILL.md> --json
+```
+
+- **0**: every universal section matches the template. Filled markers,
+  substituted names, deleted optional sections and rewrapped lines do not
+  count.
+- **1**: `data.sections` marks each `changed` section with a `diff`, and each
+  `missing` one. Show the user those, and carry across only what they agree is
+  universal. A `project-only` section is the project's own and is not a
+  problem.

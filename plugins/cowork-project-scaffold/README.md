@@ -72,9 +72,14 @@ Ask Claude to start a new Cowork project, or to set up a project folder. The
 skill runs a short interview, writes the folder, and proposes the generated
 maintenance skill for you to save.
 
+Install the plugin from the marketplace. The skill calls `scripts/scaffold.py`,
+which a skill saved on its own through the review card would not have.
+
 It leaves to you what the bridge cannot do:
 
-1. Run `./setup.sh` from your own terminal to create the repo.
+1. Run `sh setup.sh` from your own terminal to create the repo. `sh`, because
+   files written through the bridge lose their execute bit; `setup.sh` restores
+   it.
 2. Save the proposed skill from the review card.
 3. Paste `project-instructions.md` into the Project's custom-instructions field.
 
@@ -90,6 +95,13 @@ from the bridge, so Claude can still run `log`, `diff`, `blame` and `show`.
 Everything the scaffolder writes lives in
 `skills/new-cowork-project/templates/`. Change a file there, bump the version
 as the repo's [README](../../README.md#versioning) describes, and reinstall.
+
+Places the interview fills in are `<!-- FILL: ... -->` comments, and sections it
+may drop sit between `<!-- OPTIONAL SECTION ... -->` and
+`<!-- END OPTIONAL SECTION -->`. `{{NAME}}` is a placeholder. A new template file
+also needs a line in `MANIFEST` in `scripts/scaffold.py`, which says where it
+lands in the project. `python3 scripts/scaffold.py preflight` checks all of it,
+and CI runs the same check through the tests.
 
 Changing a template does not change projects already scaffolded. That is
 deliberate. Each project's skill gets hand-tuned during the interview, and

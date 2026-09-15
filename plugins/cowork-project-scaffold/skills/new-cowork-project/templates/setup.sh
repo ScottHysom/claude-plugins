@@ -1,12 +1,18 @@
 #!/bin/sh
 # One-time bootstrap for a Cowork project folder. Run it once, from your own
-# terminal, after Claude has scaffolded the folder.
+# terminal, after Claude has scaffolded the folder:
+#
+#   sh setup.sh
 #
 # The bridge cannot complete a git commit (it cannot delete the HEAD.lock it
 # strands), so the repo has to be created from here.
 #
+# Files arrive from the bridge without their execute bit, which is why this is
+# run with `sh` and why it sets the bit on both scripts before git records them.
+#
 set -e
 cd "$(dirname "$0")"
+chmod +x setup.sh commit.sh
 
 if [ -d .git ]; then
     echo "Already a git repo. Nothing to do."
