@@ -8,12 +8,18 @@ name: validate
 
 on:
   pull_request:
+    # edited, so changing a pull request's description re-runs the linked-issue
+    # check below.
+    types: [opened, edited, synchronize, reopened]
   push:
     branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: read
+  # Read by the linked-issue check: issue labels, and a pull request's commits.
+  issues: read
+  pull-requests: read
 
 concurrency:
   group: validate-${{ github.ref }}
@@ -63,6 +69,16 @@ jobs:
       # manifests disagreeing with each other. This catches that.
       - name: Check manifests agree with each other
         run: python3 .github/scripts/check-manifest-consistency.py
+
+      # A pull request may close only issues Scott has labelled approved.
+      # Agents post as Scott, so GitHub cannot tell their work apart; this job is
+      # required, so the rule holds whichever surface an agent ran on. README.md,
+      # under "Issues", describes the process.
+      - name: Check linked issues are approved
+        if: github.event_name == 'pull_request'
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 .github/scripts/check-linked-issues.py
 
   # Kept separate from `validate` so it starts immediately rather than queueing
   # behind the Claude Code install, and so a red X says which kind of thing

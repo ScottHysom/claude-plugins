@@ -1,0 +1,37 @@
+name: Problem
+description: Something is wrong, missing, or could be better
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Name the problem in the title, not the fix. Scott reads new issues and
+        labels the ones that will be worked on `approved`.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - cowork-project-scaffold
+        - prose-tuning
+        - repo (CI, tooling, catalog, root docs)
+    validations:
+      required: true
+  - type: textarea
+    id: wrong
+    attributes:
+      label: What's wrong
+      description: What happens, and a command or steps that show it.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: File and line, commit, pull request, error output.
+  - type: textarea
+    id: done
+    attributes:
+      label: Done when
+      description: What a fix has to make true.
+    validations:
+      required: true
