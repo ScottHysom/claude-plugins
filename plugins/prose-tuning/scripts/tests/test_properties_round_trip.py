@@ -20,7 +20,7 @@ from hypothesis import HealthCheck, event, example, given, settings
 from hypothesis import strategies as st
 
 import prose
-from conftest import SAMPLE
+from prose_samples import SAMPLE
 
 LINES = prose.Text(SAMPLE).line_count()
 
