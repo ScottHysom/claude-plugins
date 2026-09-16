@@ -12,13 +12,13 @@ MARKED = (
 )
 
 
-def test_accept_keeps_the_insertion():
-    got, scanner = prose.resolve_text(prose.Text(MARKED), prose.ACCEPT, None, "t.md")
-    assert scanner.errors == []
-    assert got == "Keep keep this here.\nnew\n"
+class DescribeResolveText:
+    def it_keeps_the_insertion_on_accept(self):
+        got, scanner = prose.resolve_text(prose.Text(MARKED), prose.ACCEPT, None, "t.md")
+        assert scanner.errors == []
+        assert got == "Keep keep this here.\nnew\n"
 
-
-def test_reject_restores_the_original():
-    got, scanner = prose.resolve_text(prose.Text(MARKED), prose.REJECT, None, "t.md")
-    assert scanner.errors == []
-    assert got == "Keep cut this here.\nold\n"
+    def it_restores_the_original_on_reject(self):
+        got, scanner = prose.resolve_text(prose.Text(MARKED), prose.REJECT, None, "t.md")
+        assert scanner.errors == []
+        assert got == "Keep cut this here.\nold\n"

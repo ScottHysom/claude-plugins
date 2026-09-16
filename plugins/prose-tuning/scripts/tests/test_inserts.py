@@ -12,46 +12,49 @@ import pytest
 import prose
 
 
-@pytest.mark.parametrize(
-    ("record", "reason"),
-    [
-        pytest.param({"kind": "del", "start": 5}, "heading", id="heading"),
-        pytest.param({"kind": "del", "start": 19}, "fence", id="inside-a-fence"),
-        pytest.param({"kind": "del", "start": 14}, "table", id="table-row"),
-        pytest.param(
-            {"kind": "del", "start": 7, "col_start": 5, "end": 8, "col_end": 3},
-            "straddles",
-            id="straddles-two-lines",
-        ),
-    ],
-)
-def test_unsafe_spans_are_refused(sample, record, reason):
-    text = prose.Text(sample)
-    blocks = prose.Blocks(text)
-    with pytest.raises(prose.InsertRefusal) as caught:
-        prose.plan_one_insert(text, blocks, record, "sample.md", 1)
-    assert reason in str(caught.value)
+class DescribePlanOneInsert:
+    @pytest.mark.parametrize(
+        ("record", "reason"),
+        [
+            pytest.param({"kind": "del", "start": 5}, "heading", id="heading"),
+            pytest.param({"kind": "del", "start": 19}, "fence", id="inside-a-fence"),
+            pytest.param({"kind": "del", "start": 14}, "table", id="table-row"),
+            pytest.param(
+                {"kind": "del", "start": 7, "col_start": 5, "end": 8, "col_end": 3},
+                "straddles",
+                id="straddles-two-lines",
+            ),
+        ],
+    )
+    def it_refuses_an_unsafe_span(self, sample, record, reason):
+        text = prose.Text(sample)
+        blocks = prose.Blocks(text)
+        with pytest.raises(prose.InsertRefusal) as caught:
+            prose.plan_one_insert(text, blocks, record, "sample.md", 1)
+        assert reason in str(caught.value)
 
 
-def test_segments_skip_protected_regions(sample):
-    """Front matter and code are not prose. Offering them for review invites
-    a rewrite of a config key or a variable name.
-    """
-    text = prose.Text(sample)
-    segments = prose.segments_for(text, prose.Blocks(text))
-    bodies = [s["text"] for s in segments]
-    assert not any("x = 1" in b for b in bodies)
-    assert not any("title: sample" in b for b in bodies)
+class DescribeSegmentsFor:
+    """Which spans of a document are offered up for review at all."""
+
+    def it_skips_protected_regions(self, sample):
+        """Front matter and code are not prose. Offering them for review invites
+        a rewrite of a config key or a variable name.
+        """
+        text = prose.Text(sample)
+        segments = prose.segments_for(text, prose.Blocks(text))
+        bodies = [s["text"] for s in segments]
+        assert not any("x = 1" in b for b in bodies)
+        assert not any("title: sample" in b for b in bodies)
+
+    def it_includes_table_cells_and_headings(self, sample):
+        text = prose.Text(sample)
+        kinds = {s["kind"] for s in prose.segments_for(text, prose.Blocks(text))}
+        assert "table-cell" in kinds
+        assert "heading" in kinds
 
 
-def test_segments_include_table_cells_and_headings(sample):
-    text = prose.Text(sample)
-    kinds = {s["kind"] for s in prose.segments_for(text, prose.Blocks(text))}
-    assert "table-cell" in kinds
-    assert "heading" in kinds
-
-
-class TestRefusalsTheRoundTripPropertyFound:
+class DescribeRefusalsTheRoundTripPropertyFound:
     """Records the planner used to accept that broke the round trip, and the
     cases each fix still has to allow.
 
@@ -68,7 +71,7 @@ class TestRefusalsTheRoundTripPropertyFound:
             prose.plan_one_insert(text, prose.Blocks(text), record, "sample.md", 1)
         return str(caught.value)
 
-    def test_a_question_inside_a_fence(self, sample):
+    def it_refuses_a_question_inside_a_fence(self, sample):
         """A <q> goes in as a new line, so it skipped the span check that
         refuses a <del> on the same line. Inside a fence the scanner then
         shields it as code and no strip ever removes it - a tag the author
@@ -78,7 +81,7 @@ class TestRefusalsTheRoundTripPropertyFound:
             sample, {"kind": "q", "start": 19, "text": "does this belong here?"}
         )
 
-    def test_a_question_above_a_heading_is_still_allowed(self, sample):
+    def it_allows_a_question_above_a_heading(self, sample):
         """The other side of that fix. A new line above a heading leaves the
         heading alone, so refusing it would be over-correction.
         """
@@ -99,7 +102,7 @@ class TestRefusalsTheRoundTripPropertyFound:
             pytest.param((9, 3), id="inverted"),
         ],
     )
-    def test_columns_outside_the_line(self, sample, cols):
+    def it_refuses_columns_outside_the_line(self, sample, cols):
         """col_end=900 on a 76-character line put the closing tag at the end of
         the document, so a one-line edit wrapped the whole file.
         """
@@ -108,7 +111,7 @@ class TestRefusalsTheRoundTripPropertyFound:
         )
         assert "col_start" in problem or "col_end" in problem
 
-    def test_a_zero_width_inline_span(self, sample):
+    def it_refuses_a_zero_width_inline_span(self, sample):
         """Both tags land on one offset, and EditEngine applies them in the
         order they were added: Curat</del><del>ed, not collected.
         """
@@ -116,7 +119,7 @@ class TestRefusalsTheRoundTripPropertyFound:
             sample, {"kind": "del", "start": 7, "col_start": 5, "col_end": 5}
         )
 
-    def test_a_tag_over_a_blank_line(self, sample):
+    def it_refuses_a_tag_over_a_blank_line(self, sample):
         """Line 9 is blank. Wrapping it produced text that does not parse -
         `stray </del> closing nothing`.
 
@@ -125,7 +128,7 @@ class TestRefusalsTheRoundTripPropertyFound:
         """
         assert "empty" in self.plan(sample, {"kind": "del", "start": 9, "end": 9})
 
-    def test_a_block_tag_over_nothing_but_blank_lines(self):
+    def it_refuses_a_block_tag_over_nothing_but_blank_lines(self):
         """The multi-line form of the same thing, which needs a document with
         two blank lines in a row - SAMPLE has none.
         """
@@ -136,7 +139,7 @@ class TestRefusalsTheRoundTripPropertyFound:
             )
         assert "blank" in str(caught.value)
 
-    def test_an_insertion_alone_on_a_blank_line(self, sample):
+    def it_refuses_an_insertion_alone_on_a_blank_line(self, sample):
         """<ins>x</ins> as a line's whole content is indistinguishable from a
         block tag, and a block tag owns its line - so the strip took the
         author's blank line with it.
@@ -153,7 +156,7 @@ class TestRefusalsTheRoundTripPropertyFound:
             ),
         ],
     )
-    def test_the_last_line_of_a_file_with_no_trailing_newline(self, sample, record):
+    def it_adds_no_newline_to_a_file_that_ends_without_one(self, sample, record):
         """Not a refusal - a fix, and two of them, because a span ending on the
         last line reaches that line by two different routes.
 
@@ -175,7 +178,7 @@ class TestRefusalsTheRoundTripPropertyFound:
         back, _ = prose.resolve_text(prose.Text(engine.result()), prose.REJECT, None, "sample.md")
         assert back == sample
 
-    def test_two_records_whose_edits_share_an_offset(self, sample):
+    def it_reports_a_conflict_when_two_records_share_an_offset(self, sample):
         """A <q> on the first line of a block <del> is an ordinary thing to
         ask for. The two edits land on one offset, EditEngine reported no
         conflict, and the splice dropped whichever went first.
@@ -196,7 +199,7 @@ class TestRefusalsTheRoundTripPropertyFound:
         with pytest.raises(prose.Fatal):
             engine.result()
 
-    def test_an_insertion_inside_another_record_s_deletion(self, sample):
+    def it_refuses_an_insertion_inside_another_records_deletion(self, sample):
         """The one defect plan_one_insert cannot see, because it is handed one
         record at a time.
 
@@ -227,7 +230,7 @@ class TestRefusalsTheRoundTripPropertyFound:
         assert len(refusals) == 1
         assert "overlaps record 1" in refusals[0]
 
-    def test_records_marking_up_separate_passages_are_both_kept(self, sample):
+    def it_keeps_records_marking_up_separate_passages(self, sample):
         """The other side of that fix: disjoint regions still compose, which is
         the whole reason insertion takes a batch.
         """
@@ -246,7 +249,7 @@ class TestRefusalsTheRoundTripPropertyFound:
         assert engine.conflicts() == []
 
 
-class TestInsertCommand:
+class DescribeInsertCommand:
     """`tags insert` driven the way the skills drive it, with the batch in a
     file. The planner tests above hand records straight to apply_inserts, so
     nothing there reads a batch, parses it, or writes the result back.
@@ -257,7 +260,7 @@ class TestInsertCommand:
         batch.write_text(batch_text)
         return prose_repo.run("tags", "insert", "--batch", str(batch), *flags)
 
-    def test_a_batch_file_is_read_and_its_tags_written(self, prose_repo, target):
+    def it_reads_a_batch_file_and_writes_its_tags(self, prose_repo, target):
         record = {"file": "target.md", "kind": "q", "start": 8, "text": "earned?"}
         code, envelope = self.insert(prose_repo, json.dumps([record]))
         assert code == prose.OK, envelope["errors"]
@@ -266,7 +269,7 @@ class TestInsertCommand:
         lines.insert(7, '<q id="1">earned?</q>')
         assert prose_repo.read() == "\n".join(lines)
 
-    def test_dry_run_leaves_the_file_alone(self, prose_repo, target):
+    def it_leaves_the_file_alone_on_a_dry_run(self, prose_repo, target):
         record = {"file": "target.md", "kind": "q", "start": 8, "text": "earned?"}
         code, _ = self.insert(prose_repo, json.dumps([record]), "--dry-run")
         assert code == prose.OK
@@ -279,16 +282,14 @@ class TestInsertCommand:
             pytest.param('{"kind": "q"}', "must be a JSON array", id="not-an-array"),
         ],
     )
-    def test_a_batch_that_cannot_be_used_stops_the_run(
-        self, prose_repo, target, batch_text, problem
-    ):
+    def it_stops_the_run_on_a_batch_it_cannot_use(self, prose_repo, target, batch_text, problem):
         code, envelope = self.insert(prose_repo, batch_text)
         assert code == prose.CANNOT_RUN
         assert envelope is None
         assert problem in prose_repo.err
         assert prose_repo.read() == target
 
-    def test_a_missing_batch_file_stops_the_run_with_a_message(self, prose_repo):
+    def it_stops_the_run_with_a_message_on_a_missing_batch_file(self, prose_repo):
         """The skills write the batch and then name it, so a wrong path is a
         typo away. apply reports a missing findings file as a message and exit
         2; insert has to do the same rather than end in a traceback.

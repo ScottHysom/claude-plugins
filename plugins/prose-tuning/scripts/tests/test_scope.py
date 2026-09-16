@@ -8,18 +8,19 @@ import pytest
 import prose
 
 
-@pytest.mark.parametrize(
-    ("pattern", "path", "matches"),
-    [
-        ("**/*.md", "a.md", True),
-        ("**/*.md", "x/y/a.md", True),
-        ("*.md", "x/a.md", False),
-        ("skills/**", "skills/a/b.md", True),
-        ("skills/**", "skill/a.md", False),
-        ("**/README.md", "README.md", True),
-        ("**/README.md", "docs/README.md", True),
-        ("prose-style.md", "a/prose-style.md", False),
-    ],
-)
-def test_glob_translation(pattern, path, matches):
-    assert bool(prose.glob_to_regex(pattern).match(path)) is matches
+class DescribeGlobToRegex:
+    @pytest.mark.parametrize(
+        ("pattern", "path", "matches"),
+        [
+            ("**/*.md", "a.md", True),
+            ("**/*.md", "x/y/a.md", True),
+            ("*.md", "x/a.md", False),
+            ("skills/**", "skills/a/b.md", True),
+            ("skills/**", "skill/a.md", False),
+            ("**/README.md", "README.md", True),
+            ("**/README.md", "docs/README.md", True),
+            ("prose-style.md", "a/prose-style.md", False),
+        ],
+    )
+    def it_matches_a_path_against_a_pattern(self, pattern, path, matches):
+        assert bool(prose.glob_to_regex(pattern).match(path)) is matches
