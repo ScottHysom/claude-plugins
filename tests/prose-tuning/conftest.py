@@ -1,14 +1,19 @@
 """Shared fixtures for the prose.py suite.
 
-prose.py is a standalone script, not an installed package. It ships inside a
-plugin, lands wherever `/plugin marketplace add` puts it, and runs against the
-standard library alone - so there is no package to install and import by name.
-The tests put the scripts directory on sys.path here rather than in a
-root-level config, so a second plugin adding its own scripts/tests needs no
-edit anywhere but its own directory.
+The suite sits here, outside plugins/, because everything under plugins/<name>/
+is copied verbatim into every install. A test file beside the script would ship
+to everyone who installs the plugin, carrying pytest and hypothesis imports
+into a plugin whose scripts are standard-library-only on purpose.
+`.github/scripts/check-tests.py placement` fails the build if one moves back.
 
-pytest is a contributor dependency only. Nothing under scripts/ imports it, and
-nothing a user installs sees it.
+prose.py is a standalone script, not an installed package. It lands wherever
+`/plugin marketplace add` puts it and runs against the standard library alone,
+so there is no package to install and import by name - this file reaches across
+to the plugin's scripts directory and puts it on sys.path. A new plugin adds
+tests/<plugin>/conftest.py doing the same; pytest.ini already collects tests/,
+so nothing at the repo root needs editing.
+
+pytest is a contributor dependency only. Nothing under plugins/ imports it.
 """
 
 import json
@@ -17,7 +22,17 @@ import subprocess
 import sys
 from pathlib import Path
 
-SCRIPTS = Path(__file__).resolve().parent.parent
+# tests/<plugin>/ mirrors plugins/<plugin>/scripts. The check is not
+# decoration: with the suite in a different tree from its subject, a wrong depth
+# surfaces as `ModuleNotFoundError: No module named 'prose'` at collection, which
+# reads as a missing dependency and sends the reader to pip.
+PLUGIN, SCRIPT = "prose-tuning", "prose.py"
+SCRIPTS = Path(__file__).resolve().parents[2] / "plugins" / PLUGIN / "scripts"
+if not (SCRIPTS / SCRIPT).is_file():
+    raise RuntimeError(
+        "%s is not where %s lives. This file assumes tests/<plugin>/conftest.py, "
+        "two directories below the repo root." % (SCRIPTS, SCRIPT)
+    )
 if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
 

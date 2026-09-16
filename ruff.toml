@@ -16,9 +16,11 @@ extend-exclude = ["*.md"]
 
 # Where the repo's own modules live, so import sorting groups `import prose` and
 # a test helper such as `from prose_samples import ...` as first-party rather
-# than as installed packages. Each tests/conftest.py puts these directories on
-# sys.path at run time; ruff cannot see that, so it is told here.
-src = ["plugins/*/scripts", "plugins/*/scripts/tests"]
+# than as installed packages. Each tests/<plugin>/conftest.py puts these
+# directories on sys.path at run time; ruff cannot see that, so it is told here.
+# Both entries are needed: the first makes `import prose` first-party, the
+# second does the same for a suite's own helper module.
+src = ["plugins/*/scripts", "tests/*"]
 
 [lint]
 # Listed in full, not left to ruff's defaults, because the defaults change
