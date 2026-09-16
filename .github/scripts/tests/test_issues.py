@@ -134,212 +134,186 @@ def run_json(capsys, repo, *argv):
     return code, json.loads(out.out)
 
 
-# --------------------------------------------------------------------------
-# claim
-# --------------------------------------------------------------------------
+class DescribeClaim:
+    def it_pushes_the_branch_switches_to_it_and_says_so(self, capsys, remote, clone, github):
+        a = clone("a")
+        gh = github(make_issue(12, "approved"))
+        code, out = run(capsys, a, "claim", "12")
+        assert code == cli.OK
+        assert out.out == "Claimed #12 on branch issue/12\n"
+        assert "issue/12" in remote_branches(remote)
+        assert git(a, "branch", "--show-current") == "issue/12"
+        assert git(a, "rev-parse", "HEAD") == git(remote, "rev-parse", cli.BASE)
+        assert ("issue", "edit", "12", "--add-label", cli.IN_PROGRESS) in gh.calls
+        assert any(c[1] == "comment" and cli.CLAIM_MARK in c[-1] for c in gh.calls)
 
+    @pytest.mark.parametrize("main_moved", [False, True], ids=["same-main", "main-moved"])
+    def it_lets_only_one_of_two_agents_claiming_at_once_win(
+        self, capsys, remote, clone, github, monkeypatch, main_moved
+    ):
+        """B read the branch list before A pushed, so only the push can stop it.
 
-def test_claim_pushes_the_branch_switches_to_it_and_says_so(capsys, remote, clone, github):
-    a = clone("a")
-    gh = github(make_issue(12, "approved"))
-    code, out = run(capsys, a, "claim", "12")
-    assert code == cli.OK
-    assert out.out == "Claimed #12 on branch issue/12\n"
-    assert "issue/12" in remote_branches(remote)
-    assert git(a, "branch", "--show-current") == "issue/12"
-    assert git(a, "rev-parse", "HEAD") == git(remote, "rev-parse", cli.BASE)
-    assert ("issue", "edit", "12", "--add-label", cli.IN_PROGRESS) in gh.calls
-    assert any(c[1] == "comment" and cli.CLAIM_MARK in c[-1] for c in gh.calls)
+        Off the same main, B's push is "up to date"; after main moves, it is a
+        different commit. Git reports those two differently, and both must lose.
+        """
+        a, b = clone("a"), clone("b")
+        github(make_issue(12, "approved"))
+        assert run(capsys, a, "claim", "12")[0] == cli.OK
+        before = git(remote, "rev-parse", "issue/12")
+        if main_moved:
+            seed = remote.parent / "seed"
+            git(seed, "commit", "--quiet", "--allow-empty", "-m", "later")
+            git(seed, "push", "--quiet", cli.REMOTE, "HEAD:" + cli.BASE)
 
+        real, calls = cli.claims, []
 
-@pytest.mark.parametrize("main_moved", [False, True], ids=["same-main", "main-moved"])
-def test_two_agents_claiming_at_once_cannot_both_win(
-    capsys, remote, clone, github, monkeypatch, main_moved
-):
-    """B read the branch list before A pushed, so only the push can stop it.
+        def stale_first_view(repo):
+            calls.append(repo)
+            return {} if len(calls) == 1 else real(repo)
 
-    Off the same main, B's push is "up to date"; after main moves, it is a
-    different commit. Git reports those two differently, and both must lose.
-    """
-    a, b = clone("a"), clone("b")
-    github(make_issue(12, "approved"))
-    assert run(capsys, a, "claim", "12")[0] == cli.OK
-    before = git(remote, "rev-parse", "issue/12")
-    if main_moved:
-        seed = remote.parent / "seed"
-        git(seed, "commit", "--quiet", "--allow-empty", "-m", "later")
-        git(seed, "push", "--quiet", cli.REMOTE, "HEAD:" + cli.BASE)
+        monkeypatch.setattr(cli, "claims", stale_first_view)
+        gh = github(make_issue(12, "approved"))
+        code, out = run(capsys, b, "claim", "12")
 
-    real, calls = cli.claims, []
+        assert code == cli.PROBLEMS
+        assert "#12 is held" in out.err
+        assert git(remote, "rev-parse", "issue/12") == before
+        assert gh.writes() == []
 
-    def stale_first_view(repo):
-        calls.append(repo)
-        return {} if len(calls) == 1 else real(repo)
+    def it_refuses_a_held_issue_before_pushing(self, capsys, remote, clone, github):
+        a, b = clone("a"), clone("b")
+        github(make_issue(12, "approved"))
+        run(capsys, a, "claim", "12")
+        gh = github(make_issue(12, "approved", "in-progress"))
+        code, out = run(capsys, b, "claim", "12")
+        assert code == cli.PROBLEMS
+        assert "#12 is held: branch issue/12 already exists" in out.err
+        assert out.out == ""
+        assert gh.writes() == []
+        assert git(b, "branch", "--show-current") == cli.BASE
 
-    monkeypatch.setattr(cli, "claims", stale_first_view)
-    gh = github(make_issue(12, "approved"))
-    code, out = run(capsys, b, "claim", "12")
-
-    assert code == cli.PROBLEMS
-    assert "#12 is held" in out.err
-    assert git(remote, "rev-parse", "issue/12") == before
-    assert gh.writes() == []
-
-
-def test_a_held_issue_is_refused_before_pushing(capsys, remote, clone, github):
-    a, b = clone("a"), clone("b")
-    github(make_issue(12, "approved"))
-    run(capsys, a, "claim", "12")
-    gh = github(make_issue(12, "approved", "in-progress"))
-    code, out = run(capsys, b, "claim", "12")
-    assert code == cli.PROBLEMS
-    assert "#12 is held: branch issue/12 already exists" in out.err
-    assert out.out == ""
-    assert gh.writes() == []
-    assert git(b, "branch", "--show-current") == cli.BASE
-
-
-@pytest.mark.parametrize(
-    ("item", "message"),
-    [
-        (make_issue(12), "#12 is not labelled approved"),
-        (make_issue(12, "approved", state="CLOSED"), "#12 is closed"),
-    ],
-)
-def test_claim_refuses_an_issue_that_may_not_be_worked_on(
-    capsys, remote, clone, github, item, message
-):
-    gh = github(item)
-    code, out = run(capsys, clone("a"), "claim", "12")
-    assert code == cli.PROBLEMS
-    assert message in out.err
-    assert remote_branches(remote) == {cli.BASE}
-    assert gh.writes() == []
-
-
-def test_claim_dry_run_changes_nothing(capsys, remote, clone, github):
-    a = clone("a")
-    gh = github(make_issue(12, "approved"))
-    code, out = run(capsys, a, "claim", "12", "--dry-run")
-    assert code == cli.OK
-    assert out.out == "Would claim #12 on branch issue/12\n"
-    assert remote_branches(remote) == {cli.BASE}
-    assert gh.writes() == []
-
-
-def test_a_failed_label_after_the_push_is_a_warning(capsys, remote, clone, github):
-    github(make_issue(12, "approved"), fail=("--add-label",))
-    code, out = run(capsys, clone("a"), "claim", "12")
-    assert code == cli.OK
-    assert "warning: claimed, but could not add the in-progress label" in out.err
-    assert "issue/12" in remote_branches(remote)
-
-
-def test_a_push_refused_for_another_reason_cannot_run(capsys, remote, clone, github):
-    """Only a branch that now exists means someone else holds the issue."""
-    hook = remote / "hooks" / "pre-receive"
-    hook.write_text("#!/bin/sh\necho 'no pushes today' >&2\nexit 1\n")
-    hook.chmod(0o755)
-    gh = github(make_issue(12, "approved"))
-    code, out = run(capsys, clone("a"), "claim", "12")
-    assert code == cli.CANNOT_RUN
-    assert out.err.startswith("issues.py: could not push issue/12")
-    assert gh.writes() == []
-
-
-# --------------------------------------------------------------------------
-# next
-# --------------------------------------------------------------------------
-
-
-def test_next_skips_labelled_and_branch_held_issues(capsys, remote, clone, github):
-    a = clone("a")
-    github(make_issue(10, "approved"))
-    run(capsys, a, "claim", "10")
-    github(
-        make_issue(10, "approved"),  # held by branch, label not added yet
-        make_issue(11, "approved", "in-progress"),
-        make_issue(12),
-        make_issue(14, "approved"),
-        make_issue(13, "approved"),
+    @pytest.mark.parametrize(
+        ("item", "message"),
+        [
+            (make_issue(12), "#12 is not labelled approved"),
+            (make_issue(12, "approved", state="CLOSED"), "#12 is closed"),
+        ],
     )
-    code, data = run_json(capsys, a, "next")
-    assert code == cli.OK
-    assert data["data"]["issue"] == {"number": 13, "title": "issue 13"}
+    def it_refuses_an_issue_that_may_not_be_worked_on(
+        self, capsys, remote, clone, github, item, message
+    ):
+        gh = github(item)
+        code, out = run(capsys, clone("a"), "claim", "12")
+        assert code == cli.PROBLEMS
+        assert message in out.err
+        assert remote_branches(remote) == {cli.BASE}
+        assert gh.writes() == []
+
+    def it_changes_nothing_on_a_dry_run(self, capsys, remote, clone, github):
+        a = clone("a")
+        gh = github(make_issue(12, "approved"))
+        code, out = run(capsys, a, "claim", "12", "--dry-run")
+        assert code == cli.OK
+        assert out.out == "Would claim #12 on branch issue/12\n"
+        assert remote_branches(remote) == {cli.BASE}
+        assert gh.writes() == []
+
+    def it_warns_when_the_label_fails_after_the_push(self, capsys, remote, clone, github):
+        github(make_issue(12, "approved"), fail=("--add-label",))
+        code, out = run(capsys, clone("a"), "claim", "12")
+        assert code == cli.OK
+        assert "warning: claimed, but could not add the in-progress label" in out.err
+        assert "issue/12" in remote_branches(remote)
+
+    def it_cannot_run_when_the_push_is_refused_for_another_reason(
+        self, capsys, remote, clone, github
+    ):
+        """Only a branch that now exists means someone else holds the issue."""
+        hook = remote / "hooks" / "pre-receive"
+        hook.write_text("#!/bin/sh\necho 'no pushes today' >&2\nexit 1\n")
+        hook.chmod(0o755)
+        gh = github(make_issue(12, "approved"))
+        code, out = run(capsys, clone("a"), "claim", "12")
+        assert code == cli.CANNOT_RUN
+        assert out.err.startswith("issues.py: could not push issue/12")
+        assert gh.writes() == []
 
 
-def test_next_with_nothing_free_is_not_a_problem(capsys, clone, github):
-    github(make_issue(11, "approved", "in-progress"))
-    code, out = run(capsys, clone("a"), "next")
-    assert code == cli.OK
-    assert out.out == "No approved issue is free.\n"
+class DescribeNext:
+    def it_skips_labelled_and_branch_held_issues(self, capsys, remote, clone, github):
+        a = clone("a")
+        github(make_issue(10, "approved"))
+        run(capsys, a, "claim", "10")
+        github(
+            make_issue(10, "approved"),  # held by branch, label not added yet
+            make_issue(11, "approved", "in-progress"),
+            make_issue(12),
+            make_issue(14, "approved"),
+            make_issue(13, "approved"),
+        )
+        code, data = run_json(capsys, a, "next")
+        assert code == cli.OK
+        assert data["data"]["issue"] == {"number": 13, "title": "issue 13"}
+
+    def it_is_not_a_problem_when_nothing_is_free(self, capsys, clone, github):
+        github(make_issue(11, "approved", "in-progress"))
+        code, out = run(capsys, clone("a"), "next")
+        assert code == cli.OK
+        assert out.out == "No approved issue is free.\n"
 
 
-# --------------------------------------------------------------------------
-# release
-# --------------------------------------------------------------------------
+class DescribeRelease:
+    def it_deletes_an_empty_branch_and_the_label(self, capsys, remote, clone, github):
+        a = clone("a")
+        github(make_issue(12, "approved"))
+        run(capsys, a, "claim", "12")
+        gh = github(make_issue(12, "approved", "in-progress"))
+        code, out = run(capsys, a, "release", "12", "--reason", "blocked on #9")
+        assert code == cli.OK
+        assert remote_branches(remote) == {cli.BASE}
+        assert ("issue", "edit", "12", "--remove-label", cli.IN_PROGRESS) in gh.calls
+        assert ("issue", "comment", "12", "--body", "Released issue/12. blocked on #9") in gh.calls
 
+    def it_never_deletes_work(self, capsys, remote, clone, github):
+        a = clone("a")
+        github(make_issue(12, "approved"))
+        run(capsys, a, "claim", "12")
+        (a / "work").write_text("work\n")
+        git(a, "add", "work")
+        git(a, "commit", "--quiet", "-m", "work")
+        git(a, "push", "--quiet")
+        gh = github(make_issue(12, "approved", "in-progress"))
+        code, out = run(capsys, clone("b"), "release", "12")
+        assert code == cli.PROBLEMS
+        assert "issue/12 has 1 commit(s) not on main" in out.err
+        assert "issue/12" in remote_branches(remote)
+        assert gh.writes() == []
 
-def test_release_deletes_an_empty_branch_and_the_label(capsys, remote, clone, github):
-    a = clone("a")
-    github(make_issue(12, "approved"))
-    run(capsys, a, "claim", "12")
-    gh = github(make_issue(12, "approved", "in-progress"))
-    code, out = run(capsys, a, "release", "12", "--reason", "blocked on #9")
-    assert code == cli.OK
-    assert remote_branches(remote) == {cli.BASE}
-    assert ("issue", "edit", "12", "--remove-label", cli.IN_PROGRESS) in gh.calls
-    assert ("issue", "comment", "12", "--body", "Released issue/12. blocked on #9") in gh.calls
+    def it_is_a_problem_on_an_unclaimed_issue(self, capsys, clone, github):
+        github(make_issue(12, "approved"))
+        code, out = run(capsys, clone("a"), "release", "12")
+        assert code == cli.PROBLEMS
+        assert "#12 is not claimed" in out.err
 
+    def it_changes_nothing_on_a_dry_run(self, capsys, remote, clone, github):
+        a = clone("a")
+        github(make_issue(12, "approved"))
+        run(capsys, a, "claim", "12")
+        gh = github(make_issue(12, "approved", "in-progress"))
+        code, out = run(capsys, a, "release", "12", "--dry-run")
+        assert code == cli.OK
+        assert out.out == "Would release #12\n"
+        assert "issue/12" in remote_branches(remote)
+        assert gh.writes() == []
 
-def test_release_never_deletes_work(capsys, remote, clone, github):
-    a = clone("a")
-    github(make_issue(12, "approved"))
-    run(capsys, a, "claim", "12")
-    (a / "work").write_text("work\n")
-    git(a, "add", "work")
-    git(a, "commit", "--quiet", "-m", "work")
-    git(a, "push", "--quiet")
-    gh = github(make_issue(12, "approved", "in-progress"))
-    code, out = run(capsys, clone("b"), "release", "12")
-    assert code == cli.PROBLEMS
-    assert "issue/12 has 1 commit(s) not on main" in out.err
-    assert "issue/12" in remote_branches(remote)
-    assert gh.writes() == []
-
-
-def test_release_of_an_unclaimed_issue_is_a_problem(capsys, clone, github):
-    github(make_issue(12, "approved"))
-    code, out = run(capsys, clone("a"), "release", "12")
-    assert code == cli.PROBLEMS
-    assert "#12 is not claimed" in out.err
-
-
-def test_release_dry_run_changes_nothing(capsys, remote, clone, github):
-    a = clone("a")
-    github(make_issue(12, "approved"))
-    run(capsys, a, "claim", "12")
-    gh = github(make_issue(12, "approved", "in-progress"))
-    code, out = run(capsys, a, "release", "12", "--dry-run")
-    assert code == cli.OK
-    assert out.out == "Would release #12\n"
-    assert "issue/12" in remote_branches(remote)
-    assert gh.writes() == []
-
-
-def test_a_released_issue_is_free_again(capsys, remote, clone, github):
-    a = clone("a")
-    github(make_issue(12, "approved"))
-    run(capsys, a, "claim", "12")
-    github(make_issue(12, "approved", "in-progress"))
-    run(capsys, a, "release", "12")
-    github(make_issue(12, "approved"))
-    assert run_json(capsys, a, "next")[1]["data"]["issue"]["number"] == 12
-
-
-# --------------------------------------------------------------------------
-# stale
-# --------------------------------------------------------------------------
+    def it_leaves_the_issue_free_again(self, capsys, remote, clone, github):
+        a = clone("a")
+        github(make_issue(12, "approved"))
+        run(capsys, a, "claim", "12")
+        github(make_issue(12, "approved", "in-progress"))
+        run(capsys, a, "release", "12")
+        github(make_issue(12, "approved"))
+        assert run_json(capsys, a, "next")[1]["data"]["issue"]["number"] == 12
 
 
 def claim_comment(when):
@@ -353,73 +327,68 @@ def claimed(capsys, clone, github):
     return a
 
 
-def test_an_idle_claim_is_stale(capsys, clone, github):
-    a = claimed(capsys, clone, github)
-    github(
-        make_issue(12, "approved", "in-progress", comments=[claim_comment("2026-02-01T00:00:00Z")])
+class DescribeStale:
+    def it_reports_an_idle_claim(self, capsys, clone, github):
+        a = claimed(capsys, clone, github)
+        github(
+            make_issue(
+                12, "approved", "in-progress", comments=[claim_comment("2026-02-01T00:00:00Z")]
+            )
+        )
+        code, out = run(capsys, a, "stale")
+        assert code == cli.PROBLEMS
+        assert "#12: issue/12 idle for 28 days" in out.err
+
+    def it_passes_a_recent_claim_on_an_old_main(self, capsys, clone, github):
+        a = claimed(capsys, clone, github)
+        github(
+            make_issue(
+                12, "approved", "in-progress", comments=[claim_comment("2026-02-28T00:00:00Z")]
+            )
+        )
+        code, out = run(capsys, a, "stale")
+        assert code == cli.OK
+        assert out.out == "No stale claims.\n"
+
+    def it_passes_a_claim_with_an_open_pull_request(self, capsys, clone, github):
+        a = claimed(capsys, clone, github)
+        github(make_issue(12, "approved", "in-progress"), pulls=["issue/12"])
+        assert run(capsys, a, "stale")[0] == cli.OK
+
+    def it_reports_a_branch_left_after_the_issue_closed(self, capsys, clone, github):
+        a = claimed(capsys, clone, github)
+        github(make_issue(12, "approved", state="CLOSED"))
+        code, out = run(capsys, a, "stale")
+        assert code == cli.PROBLEMS
+        assert "#12 is closed but issue/12 still exists" in out.err
+
+    def it_reports_a_label_without_a_branch(self, capsys, clone, github):
+        github(make_issue(12, "approved", "in-progress"))
+        code, out = run(capsys, clone("a"), "stale")
+        assert code == cli.PROBLEMS
+        assert "#12 is labelled in-progress but issue/12 does not exist" in out.err
+
+
+class DescribeMain:
+    @pytest.mark.parametrize(
+        "argv", [["next"], ["claim", "12", "--dry-run"], ["release", "12"], ["stale"]]
     )
-    code, out = run(capsys, a, "stale")
-    assert code == cli.PROBLEMS
-    assert "#12: issue/12 idle for 28 days" in out.err
+    def it_prints_the_same_envelope_for_every_command(self, capsys, clone, github, argv):
+        github(make_issue(12, "approved"))
+        _, data = run_json(capsys, clone("a"), *argv)
+        assert set(data) == {"version", "command", "ok", "errors", "warnings", "data"}
+        assert data["version"] == cli.ENVELOPE_VERSION
+        assert data["command"] == argv[0]
 
+    def it_cannot_run_when_gh_fails(self, capsys, clone, github):
+        github(fail=("view",))
+        code, out = run(capsys, clone("a"), "claim", "12")
+        assert code == cli.CANNOT_RUN
+        assert out.out == ""
+        assert out.err == "issues.py: gh view failed\n"
 
-def test_a_recent_claim_on_an_old_main_is_not_stale(capsys, clone, github):
-    a = claimed(capsys, clone, github)
-    github(
-        make_issue(12, "approved", "in-progress", comments=[claim_comment("2026-02-28T00:00:00Z")])
-    )
-    code, out = run(capsys, a, "stale")
-    assert code == cli.OK
-    assert out.out == "No stale claims.\n"
-
-
-def test_a_claim_with_an_open_pull_request_is_not_stale(capsys, clone, github):
-    a = claimed(capsys, clone, github)
-    github(make_issue(12, "approved", "in-progress"), pulls=["issue/12"])
-    assert run(capsys, a, "stale")[0] == cli.OK
-
-
-def test_a_branch_left_after_the_issue_closed_is_reported(capsys, clone, github):
-    a = claimed(capsys, clone, github)
-    github(make_issue(12, "approved", state="CLOSED"))
-    code, out = run(capsys, a, "stale")
-    assert code == cli.PROBLEMS
-    assert "#12 is closed but issue/12 still exists" in out.err
-
-
-def test_a_label_without_a_branch_is_reported(capsys, clone, github):
-    github(make_issue(12, "approved", "in-progress"))
-    code, out = run(capsys, clone("a"), "stale")
-    assert code == cli.PROBLEMS
-    assert "#12 is labelled in-progress but issue/12 does not exist" in out.err
-
-
-# --------------------------------------------------------------------------
-# main
-# --------------------------------------------------------------------------
-
-
-@pytest.mark.parametrize(
-    "argv", [["next"], ["claim", "12", "--dry-run"], ["release", "12"], ["stale"]]
-)
-def test_every_command_prints_the_same_envelope(capsys, clone, github, argv):
-    github(make_issue(12, "approved"))
-    _, data = run_json(capsys, clone("a"), *argv)
-    assert set(data) == {"version", "command", "ok", "errors", "warnings", "data"}
-    assert data["version"] == cli.ENVELOPE_VERSION
-    assert data["command"] == argv[0]
-
-
-def test_a_gh_failure_cannot_run(capsys, clone, github):
-    github(fail=("view",))
-    code, out = run(capsys, clone("a"), "claim", "12")
-    assert code == cli.CANNOT_RUN
-    assert out.out == ""
-    assert out.err == "issues.py: gh view failed\n"
-
-
-def test_outside_a_clone_cannot_run(capsys, tmp_path, github):
-    github()
-    code, out = run(capsys, tmp_path, "next")
-    assert code == cli.CANNOT_RUN
-    assert out.err.startswith("issues.py: ")
+    def it_cannot_run_outside_a_clone(self, capsys, tmp_path, github):
+        github()
+        code, out = run(capsys, tmp_path, "next")
+        assert code == cli.CANNOT_RUN
+        assert out.err.startswith("issues.py: ")

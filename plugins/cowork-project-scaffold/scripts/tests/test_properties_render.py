@@ -91,46 +91,47 @@ def run(argv):
     return code, json.loads(out.getvalue()) if out.getvalue() else None
 
 
-@settings(suppress_health_check=[HealthCheck.too_slow], deadline=None)
-@given(resolutions())
-@example(fence_left_open())
-def test_any_resolution_renders_clean_and_does_not_drift(markers):
-    left = [k for k, v in markers.items() if v["action"] == "leave"]
-    event("left %d" % min(len(left), 3))
-    event("deleted %d" % sum(1 for v in markers.values() if v["action"] == "delete"))
-    with tempfile.TemporaryDirectory() as tmp:
-        answers = os.path.join(tmp, "answers.json")
-        with open(answers, "w") as fh:
-            json.dump(
-                {
-                    "connected_folder": "/Users/owner/Documents/Projects",
-                    "values": VALUES,
-                    "markers": markers,
-                },
-                fh,
-            )
-        stage = os.path.join(tmp, "stage")
-        code, env = run(["render", "--answers", answers, "--stage", stage, "--json"])
-        if code == scaffold.PROBLEMS:
-            event("refused")
-            assert env["errors"], "refused with no reason"
-            for e in env["errors"]:
-                assert e.startswith("nothing was") or any(r in e for r in EXPECTED_REFUSALS), e
-            return
-        assert code == scaffold.OK, env and env["errors"]
-        assert sorted(x["id"] for x in env["data"]["left"]) == sorted(left)
+class DescribeRender:
+    @settings(suppress_health_check=[HealthCheck.too_slow], deadline=None)
+    @given(resolutions())
+    @example(fence_left_open())
+    def it_renders_any_resolution_clean_and_without_drift(self, markers):
+        left = [k for k, v in markers.items() if v["action"] == "leave"]
+        event("left %d" % min(len(left), 3))
+        event("deleted %d" % sum(1 for v in markers.values() if v["action"] == "delete"))
+        with tempfile.TemporaryDirectory() as tmp:
+            answers = os.path.join(tmp, "answers.json")
+            with open(answers, "w") as fh:
+                json.dump(
+                    {
+                        "connected_folder": "/Users/owner/Documents/Projects",
+                        "values": VALUES,
+                        "markers": markers,
+                    },
+                    fh,
+                )
+            stage = os.path.join(tmp, "stage")
+            code, env = run(["render", "--answers", answers, "--stage", stage, "--json"])
+            if code == scaffold.PROBLEMS:
+                event("refused")
+                assert env["errors"], "refused with no reason"
+                for e in env["errors"]:
+                    assert e.startswith("nothing was") or any(r in e for r in EXPECTED_REFUSALS), e
+                return
+            assert code == scaffold.OK, env and env["errors"]
+            assert sorted(x["id"] for x in env["data"]["left"]) == sorted(left)
 
-        fills = 0
-        for f in env["data"]["files"]:
-            with open(f["staged_path"], encoding="utf-8") as fh:
-                text = fh.read()
-            assert "OPTIONAL SECTION" not in text
-            assert "{{" not in text
-            fills += text.count("<!-- FILL:")
-        # Counted here rather than trusted from render's own check, so a render
-        # that miscounts its leftovers is caught by something other than itself.
-        assert fills == len(left)
+            fills = 0
+            for f in env["data"]["files"]:
+                with open(f["staged_path"], encoding="utf-8") as fh:
+                    text = fh.read()
+                assert "OPTIONAL SECTION" not in text
+                assert "{{" not in text
+                fills += text.count("<!-- FILL:")
+            # Counted here rather than trusted from render's own check, so a render
+            # that miscounts its leftovers is caught by something other than itself.
+            assert fills == len(left)
 
-        skill = os.path.join(stage, "skills", VALUES["SKILL_NAME"], "SKILL.md")
-        code, env = run(["drift", "--skill", skill, "--json"])
-        assert code == scaffold.OK, env["errors"]
+            skill = os.path.join(stage, "skills", VALUES["SKILL_NAME"], "SKILL.md")
+            code, env = run(["drift", "--skill", skill, "--json"])
+            assert code == scaffold.OK, env["errors"]

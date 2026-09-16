@@ -8,20 +8,21 @@ import pytest
 import prose
 
 
-@pytest.mark.parametrize(
-    ("before", "after", "signal"),
-    [
-        pytest.param("we saw 3 things", "we saw 4 things", "numeric-only", id="numeric"),
-        pytest.param("a  b", "a b", "whitespace-only", id="whitespace"),
-        pytest.param("see [x](/a)", "see [x](/b)", "link-only", id="link"),
-        pytest.param("short line", "a longer line", None, id="real-edit"),
-    ],
-)
-def test_signal_classification(before, after, signal):
-    assert prose.classify_signal(before, after) == signal
+class DescribeClassifySignal:
+    @pytest.mark.parametrize(
+        ("before", "after", "signal"),
+        [
+            pytest.param("we saw 3 things", "we saw 4 things", "numeric-only", id="numeric"),
+            pytest.param("a  b", "a b", "whitespace-only", id="whitespace"),
+            pytest.param("see [x](/a)", "see [x](/b)", "link-only", id="link"),
+            pytest.param("short line", "a longer line", None, id="real-edit"),
+        ],
+    )
+    def it_names_the_signal_an_edit_carries(self, before, after, signal):
+        assert prose.classify_signal(before, after) == signal
 
 
-class TestInferredEdits:
+class DescribeInferredEdits:
     """What `evidence` reports for edits the author made without tagging them.
 
     Those hunks are the evidence adopt-prose infers rules from, and each one
@@ -42,7 +43,7 @@ class TestInferredEdits:
         assert code == prose.OK, envelope["errors"]
         return envelope["data"]["inferred"]
 
-    def test_a_replacement_and_an_insertion_since_the_last_commit(self, prose_repo, target):
+    def it_reports_a_replacement_and_an_insertion_since_the_last_commit(self, prose_repo, target):
         prose_repo.commit()
         self.edit(
             prose_repo,
@@ -81,7 +82,7 @@ class TestInferredEdits:
             },
         ]
 
-    def test_lines_are_numbered_as_the_author_sees_the_file(self, prose_repo, target):
+    def it_numbers_lines_as_the_author_sees_the_file(self, prose_repo, target):
         """Markup is taken out before the diff, so a question the author has
         not answered is not reported as an edit. The line numbers still have
         to be the working file's, with the question's line counted, or every
@@ -100,7 +101,7 @@ class TestInferredEdits:
             (21, 21, ["Final paragraph, now longer."])
         ]
 
-    def test_ignore_suppresses_one_hunk_by_its_file_and_line(self, prose_repo, target):
+    def it_suppresses_one_hunk_by_its_file_and_line(self, prose_repo, target):
         prose_repo.commit()
         self.edit(
             prose_repo,

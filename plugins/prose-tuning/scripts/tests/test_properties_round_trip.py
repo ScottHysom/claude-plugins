@@ -97,43 +97,45 @@ def insert_then_strip(batch):
     return "round-tripped", back
 
 
-@settings(suppress_health_check=[HealthCheck.too_slow])
-@given(records())
-@example([{"file": "sample.md", "kind": "q", "start": 19, "text": "why?"}])
-@example([{"file": "sample.md", "kind": "del", "start": 7, "col_start": 0, "col_end": 900}])
-@example([{"file": "sample.md", "kind": "del", "start": 7, "col_start": 5, "col_end": 5}])
-@example([{"file": "sample.md", "kind": "del", "start": 9, "end": 9}])
-@example([{"file": "sample.md", "kind": "del", "start": 23, "end": 23}])
-@example([{"file": "sample.md", "kind": "del", "start": 22, "end": 23}])
-@example([{"file": "sample.md", "kind": "repl", "start": 22, "end": 23, "with": "New ending."}])
-@example(
-    [
-        {"file": "sample.md", "kind": "q", "start": 10, "text": "why?"},
-        {"file": "sample.md", "kind": "del", "start": 10, "end": 12},
-    ]
-)
-def test_insert_then_strip_is_the_identity(batch):
-    """Either the planner refuses the batch, or stripping gives the file back.
+class DescribeGeneratedRecords:
+    """Records shaped the way a skill emits them, miscounts included."""
 
-    Each @example above is a batch this property once failed on, pinned so it
-    is checked on every run rather than only when the seed happens to find it.
-    The matching test in test_inserts.py says what was wrong with it.
-    """
-    outcome, back = insert_then_strip(batch)
-    event(outcome)
-    if outcome == "round-tripped":
-        assert back == SAMPLE
+    @settings(suppress_health_check=[HealthCheck.too_slow])
+    @given(records())
+    @example([{"file": "sample.md", "kind": "q", "start": 19, "text": "why?"}])
+    @example([{"file": "sample.md", "kind": "del", "start": 7, "col_start": 0, "col_end": 900}])
+    @example([{"file": "sample.md", "kind": "del", "start": 7, "col_start": 5, "col_end": 5}])
+    @example([{"file": "sample.md", "kind": "del", "start": 9, "end": 9}])
+    @example([{"file": "sample.md", "kind": "del", "start": 23, "end": 23}])
+    @example([{"file": "sample.md", "kind": "del", "start": 22, "end": 23}])
+    @example([{"file": "sample.md", "kind": "repl", "start": 22, "end": 23, "with": "New ending."}])
+    @example(
+        [
+            {"file": "sample.md", "kind": "q", "start": 10, "text": "why?"},
+            {"file": "sample.md", "kind": "del", "start": 10, "end": 12},
+        ]
+    )
+    def it_returns_the_original_bytes_or_refuses_the_batch(self, batch):
+        """Either the planner refuses the batch, or stripping gives the file back.
 
+        Each @example above is a batch this property once failed on, pinned so it
+        is checked on every run rather than only when the seed happens to find it.
+        The matching test in test_inserts.py says what was wrong with it.
+        """
+        outcome, back = insert_then_strip(batch)
+        event(outcome)
+        if outcome == "round-tripped":
+            assert back == SAMPLE
 
-@settings(suppress_health_check=[HealthCheck.too_slow])
-@given(records())
-def test_a_refusal_names_a_reason(batch):
-    """A refusal is only a good outcome if the author can act on it."""
-    text = prose.Text(SAMPLE)
-    _, refusals, _ = prose.apply_inserts(text, prose.Blocks(text), batch, "sample.md", 1)
-    for refusal in refusals:
-        assert refusal.strip()
-        assert "sample.md" in refusal
+    @settings(suppress_health_check=[HealthCheck.too_slow])
+    @given(records())
+    def it_names_a_reason_for_every_refusal(self, batch):
+        """A refusal is only a good outcome if the author can act on it."""
+        text = prose.Text(SAMPLE)
+        _, refusals, _ = prose.apply_inserts(text, prose.Blocks(text), batch, "sample.md", 1)
+        for refusal in refusals:
+            assert refusal.strip()
+            assert "sample.md" in refusal
 
 
 @st.composite
@@ -166,53 +168,53 @@ def well_formed(draw):
     return rec
 
 
-@settings(suppress_health_check=[HealthCheck.too_slow])
-@given(well_formed())
-def test_a_well_formed_record_is_accepted_and_round_trips(record):
-    """The other half of the property above, and the guard against it going
-    vacuous.
+class DescribeWellFormedRecords:
+    @settings(suppress_health_check=[HealthCheck.too_slow])
+    @given(well_formed())
+    def it_accepts_a_well_formed_record_and_returns_the_original_bytes(self, record):
+        """The other half of the property above, and the guard against it going
+        vacuous.
 
-    "Refuse or round-trip" is satisfied by a planner that refuses everything.
-    Every refusal added to make the property pass is a way to over-correct;
-    this is what says none of them reached past the malformed records it was
-    aimed at.
-    """
-    text = prose.Text(SAMPLE)
-    _, refusals, _ = prose.apply_inserts(text, prose.Blocks(text), [record], "sample.md", 1)
-    assert not refusals, refusals[0]
-    outcome, back = insert_then_strip([record])
-    assert outcome == "round-tripped"
-    assert back == SAMPLE
-
-
-@settings(suppress_health_check=[HealthCheck.too_slow])
-@given(st.lists(well_formed(), min_size=2, max_size=3))
-@example(
-    [
-        {"file": "sample.md", "kind": "q", "start": 10, "text": "a"},
-        {"file": "sample.md", "kind": "del", "start": 10, "end": 12},
-    ]
-)
-@example(
-    [
-        {"file": "sample.md", "kind": "del", "start": 7, "col_start": 0, "col_end": 7},
-        {"file": "sample.md", "kind": "del", "start": 7, "col_start": 7, "col_end": 12},
-    ]
-)
-def test_a_batch_of_well_formed_records_refuses_or_round_trips(batch):
-    """Records that are each fine, together.
-
-    Some failures are not reachable one record at a time. A <q> on the first
-    line of a block <del> shares an offset with it; two neighbouring inline
-    <del> spans put one's closing tag on the other's opening offset; an <ins>
-    inside another record's <del> is a grammar the scanner rejects. Each record
-    passes every guard on its own, and the batch is still wrong.
-
-    The adversarial generator above mostly gets turned down at the first guard,
-    which says nothing about what happens after two records are both accepted.
-    This batch is well-formed by construction, so it gets there.
-    """
-    outcome, back = insert_then_strip(batch)
-    event("batch: %s" % outcome)
-    if outcome == "round-tripped":
+        "Refuse or round-trip" is satisfied by a planner that refuses everything.
+        Every refusal added to make the property pass is a way to over-correct;
+        this is what says none of them reached past the malformed records it was
+        aimed at.
+        """
+        text = prose.Text(SAMPLE)
+        _, refusals, _ = prose.apply_inserts(text, prose.Blocks(text), [record], "sample.md", 1)
+        assert not refusals, refusals[0]
+        outcome, back = insert_then_strip([record])
+        assert outcome == "round-tripped"
         assert back == SAMPLE
+
+    @settings(suppress_health_check=[HealthCheck.too_slow])
+    @given(st.lists(well_formed(), min_size=2, max_size=3))
+    @example(
+        [
+            {"file": "sample.md", "kind": "q", "start": 10, "text": "a"},
+            {"file": "sample.md", "kind": "del", "start": 10, "end": 12},
+        ]
+    )
+    @example(
+        [
+            {"file": "sample.md", "kind": "del", "start": 7, "col_start": 0, "col_end": 7},
+            {"file": "sample.md", "kind": "del", "start": 7, "col_start": 7, "col_end": 12},
+        ]
+    )
+    def it_returns_the_original_bytes_or_refuses_a_batch_of_them(self, batch):
+        """Records that are each fine, together.
+
+        Some failures are not reachable one record at a time. A <q> on the first
+        line of a block <del> shares an offset with it; two neighbouring inline
+        <del> spans put one's closing tag on the other's opening offset; an <ins>
+        inside another record's <del> is a grammar the scanner rejects. Each record
+        passes every guard on its own, and the batch is still wrong.
+
+        The adversarial generator above mostly gets turned down at the first guard,
+        which says nothing about what happens after two records are both accepted.
+        This batch is well-formed by construction, so it gets there.
+        """
+        outcome, back = insert_then_strip(batch)
+        event("batch: %s" % outcome)
+        if outcome == "round-tripped":
+            assert back == SAMPLE
