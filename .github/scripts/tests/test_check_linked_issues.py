@@ -1,7 +1,8 @@
 """The linked-issue check is what holds "work only on approved issues" for
-every agent, whatever surface it runs on. It fails in two directions: a link it
-misses lets unapproved work merge, and a link it invents blocks a PR for an
-issue it never named. Both are covered.
+every agent, whatever surface it runs on. It fails in three directions: a link
+it misses lets unapproved work merge, a link it invents blocks a PR for an issue
+it never named, and a lookup it could not make, read as an absence, turns half
+the check off while the job stays green. All three are covered.
 """
 
 import importlib.util
@@ -66,23 +67,37 @@ class DescribeLinkedIssues:
 
 
 class FakeGitHub:
-    """Canned API responses, keyed by URL. Records what was asked for."""
+    """Canned API responses, keyed by URL. Records what was asked for.
 
-    def __init__(self, issues=None, commits=None, branches=()):
+    `missing` names the lookups that answer 404 - "commits", "branches" - which
+    `get` turns into None. That is what an under-scoped token gets, and what
+    this check must not read as an empty answer.
+    """
+
+    def __init__(self, issues=None, commits=None, branches=(), missing=()):
         self.issues = issues or {}
         self.commits = commits or []
         self.branches = set(branches)
+        self.missing = set(missing)
         self.urls = []
 
     def __call__(self, url, token):
         self.urls.append(url)
         if "/pulls/" in url:
+            if "commits" in self.missing:
+                return None
             page = int(url.rsplit("page=", 1)[1])
             start = (page - 1) * cli.PER_PAGE
             return [{"commit": {"message": m}} for m in self.commits[start : start + cli.PER_PAGE]]
-        if "/git/ref/heads/" in url:
-            name = url.split("/git/ref/heads/", 1)[1]
-            return {"ref": "refs/heads/" + name} if name in self.branches else None
+        if "/git/matching-refs/heads/" in url:
+            if "branches" in self.missing:
+                return None
+            # The real endpoint matches by prefix, and answers 200 with an empty
+            # list when nothing matches.
+            prefix = url.split("/git/matching-refs/heads/", 1)[1]
+            return [
+                {"ref": "refs/heads/" + b} for b in sorted(self.branches) if b.startswith(prefix)
+            ]
         number = int(url.rsplit("/", 1)[1])
         return self.issues.get(number)
 
@@ -204,6 +219,40 @@ class DescribeTheClaimBranchRule:
         assert cli.problems(event(body="Just a change."), REPO, "tok", gh) == ([], [])
 
 
+class DescribeALookupThatFailed:
+    """GitHub answers 404 for a resource a token may not see as well as for one
+    that is not there. Both list endpoints read here answer 200 with a list when
+    there is nothing to return, so a 404 from either is a lookup that failed -
+    and reading it as "nothing there" is what let a closing keyword in a commit
+    message go unseen.
+    """
+
+    def it_stops_when_it_cannot_read_the_commits(self):
+        gh = FakeGitHub(issues={12: issue()}, missing={"commits"})
+        with pytest.raises(cli.Fatal, match="commit messages"):
+            cli.problems(event(), REPO, "tok", gh)
+
+    def it_stops_when_it_cannot_read_the_claim_branches(self):
+        gh = FakeGitHub(issues={12: issue("approved"), 13: issue("approved")}, missing={"branches"})
+        with pytest.raises(cli.Fatal, match="claim branches"):
+            cli.problems(event(body="Closes #12, closes #13"), REPO, "tok", gh)
+
+    def it_ends_the_commits_at_a_page_that_comes_back_empty(self):
+        """A page of exactly PER_PAGE asks for another, which is empty. That is
+        an ordinary end, not a failed lookup.
+        """
+        gh = FakeGitHub(commits=["chore: %d" % i for i in range(cli.PER_PAGE)])
+        assert cli.problems(event(head="feat/thing"), REPO, "tok", gh) == ([], [])
+        assert sum("/pulls/" in u for u in gh.urls) == 2
+
+    def it_counts_only_an_exactly_named_branch_as_a_claim(self):
+        gh = FakeGitHub(
+            issues={12: issue("approved"), 13: issue("approved")},
+            branches={"issue/130", "issue/13-slug"},
+        )
+        assert cli.problems(event(body="Closes #12, closes #13"), REPO, "tok", gh)[1] == []
+
+
 # --------------------------------------------------------------------------
 # main
 # --------------------------------------------------------------------------
@@ -232,6 +281,12 @@ class DescribeMain:
         assert code == cli.PROBLEMS
         assert "#12 linked" in out.out
         assert "not labelled approved" in out.err
+
+    def it_says_nothing_about_links_when_it_could_not_read_them(self, tmp_path, capsys):
+        code, out = run(tmp_path, capsys, event(), FakeGitHub(missing={"commits"}))
+        assert code == cli.CANNOT_RUN
+        assert out.out == ""
+        assert "commit messages" in out.err
 
     def it_cannot_run_without_its_environment(self, tmp_path, capsys):
         code, out = run(tmp_path, capsys, event(), FakeGitHub(), {"GITHUB_TOKEN": ""})

@@ -17,7 +17,8 @@ on:
 
 permissions:
   contents: read
-  # Read by the linked-issue check: issue labels, and a pull request's commits.
+  # Read by the linked-issue check: issue labels, a pull request's commits, and
+  # - under the contents: read above - the issue/N branch refs that claims make.
   issues: read
   pull-requests: read
 
