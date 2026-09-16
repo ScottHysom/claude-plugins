@@ -129,6 +129,14 @@ back them. What agents do:
 - A new test is not finished until it has failed. Break the code it guards and
   confirm the test notices; the Properties section of the README says how, and
   why a green first run proves little.
+- A test is named for the behaviour it checks, not the operation it performs:
+  `it_<does x>` in a `Describe<Subject>` class, a sentence in the active voice
+  with the unit under test as its subject, and never the word "should". A
+  failing test's name is the first line of the report, so it has to say which
+  promise broke rather than which function was touched. `pytest.ini` collects
+  only those two prefixes, which means a test named any other way is not run
+  and not reported; the naming check in `.github/workflows/validate.yml` is
+  what catches one.
 
 ## Comments and docs
 
