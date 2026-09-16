@@ -134,12 +134,9 @@ jobs:
 
       # pytest.ini collects only it_* functions and Describe* classes, so a
       # test left on the old names is collected by nothing: it fails nothing
-      # and the suite still passes. Grep is what notices. POSIX classes, not
-      # \s - git grep -E has no \s, and without this it misses every indented
-      # method, which is most of them.
+      # and the suite still passes. The script is what notices - and, unlike
+      # the grep it replaced, it fails when it has scanned nothing rather than
+      # passing. It runs in this job rather than in `validate` so the matrix
+      # also proves the script itself runs on the 3.9 floor.
       - name: Check test naming
-        run: |
-          if git grep -nE '^[[:space:]]*(def test_|class Test)' -- '*/tests/test_*.py'; then
-            echo "::error::name tests it_<does x> in Describe<Subject>; CLAUDE.md, Tests"
-            exit 1
-          fi
+        run: python3 .github/scripts/check-tests.py naming
