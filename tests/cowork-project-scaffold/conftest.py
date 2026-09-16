@@ -1,12 +1,19 @@
 """Shared fixtures for the scaffold.py suite.
 
-scaffold.py is a standalone script, not an installed package. It ships inside a
-plugin, lands wherever `/plugin marketplace add` puts it, and runs against the
-standard library alone - so the tests put its directory on sys.path here rather
-than in a root-level config.
+The suite sits here, outside plugins/, because everything under plugins/<name>/
+is copied verbatim into every install. A test file beside the script would ship
+to everyone who installs the plugin, carrying pytest and hypothesis imports
+into a plugin whose scripts are standard-library-only on purpose.
+`.github/scripts/check-tests.py placement` fails the build if one moves back.
 
-pytest and hypothesis are contributor dependencies only. Nothing under scripts/
-imports them, and nothing a user installs sees them.
+scaffold.py is a standalone script, not an installed package. It lands wherever
+`/plugin marketplace add` puts it and runs against the standard library alone,
+so this file reaches across to the plugin's scripts directory and puts it on
+sys.path. A new plugin adds tests/<plugin>/conftest.py doing the same;
+pytest.ini already collects tests/, so nothing at the repo root needs editing.
+
+pytest and hypothesis are contributor dependencies only. Nothing under plugins/
+imports them.
 """
 
 import json
@@ -15,7 +22,17 @@ import shutil
 import sys
 from pathlib import Path
 
-SCRIPTS = Path(__file__).resolve().parent.parent
+# tests/<plugin>/ mirrors plugins/<plugin>/scripts. The check is not
+# decoration: with the suite in a different tree from its subject, a wrong depth
+# surfaces as `ModuleNotFoundError: No module named 'scaffold'` at collection, which
+# reads as a missing dependency and sends the reader to pip.
+PLUGIN, SCRIPT = "cowork-project-scaffold", "scaffold.py"
+SCRIPTS = Path(__file__).resolve().parents[2] / "plugins" / PLUGIN / "scripts"
+if not (SCRIPTS / SCRIPT).is_file():
+    raise RuntimeError(
+        "%s is not where %s lives. This file assumes tests/<plugin>/conftest.py, "
+        "two directories below the repo root." % (SCRIPTS, SCRIPT)
+    )
 if str(SCRIPTS) not in sys.path:
     sys.path.insert(0, str(SCRIPTS))
 
