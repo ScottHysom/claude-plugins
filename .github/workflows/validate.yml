@@ -132,6 +132,13 @@ jobs:
       - name: Run the test suite
         run: pytest
 
+      # Everything under plugins/<name>/ is copied verbatim into every install,
+      # and nothing in the manifest can hold a file back - so a test file left
+      # beside a script ships to every user, and no diff says so. This is what
+      # keeps the next suite from landing there.
+      - name: Check tests stay out of plugins/
+        run: python3 .github/scripts/check-tests.py placement
+
       # pytest.ini collects only it_* functions and Describe* classes, so a
       # test left on the old names is collected by nothing: it fails nothing
       # and the suite still passes. The script is what notices - and, unlike
