@@ -22,6 +22,19 @@ another. Any other issue it closes must not be claimed on a branch of its own.
 A pull request that names no issue passes. Work Scott asks for directly needs
 no issue.
 
+A lookup that failed is not an absence. `get` answers None for a 404, and GitHub
+answers 404 rather than 403 for a resource this token may not see - so an
+under-scoped token could once turn the commit-message half of this check off
+while the job stayed green. The two list endpoints read here - a pull request's
+commits, and the claim branches - both answer 200 with a list when there is
+nothing to return, so None from either is a failure and stops the run with exit
+2. `must_get` is where that rule lives. It is also why the claim branches are
+read as one `git/matching-refs` listing rather than one `git/ref` lookup each:
+on a single ref, 404 means both "no such branch" and "cannot see refs", and
+those cannot be told apart. The one place a 404 is still read as an absence is
+the `issues/<N>` lookup, where it becomes the problem "#N does not exist" -
+which fails the pull request rather than passing it.
+
 Run by the validate workflow on pull_request events:
 
     python3 .github/scripts/check-linked-issues.py
@@ -54,7 +67,9 @@ CLOSING_RE = re.compile(
     re.I,
 )
 # The claim branch issues.py makes. Kept in step with BRANCH_PREFIX there.
-CLAIM_BRANCH_RE = re.compile(r"^issue/(\d+)$")
+CLAIM_BRANCH_PREFIX = "issue/"
+CLAIM_BRANCH_RE = re.compile(r"^%s(\d+)$" % re.escape(CLAIM_BRANCH_PREFIX))
+CLAIM_BRANCH_REF_RE = re.compile(r"^refs/heads/%s(\d+)$" % re.escape(CLAIM_BRANCH_PREFIX))
 # Text GitHub does not scan for links.
 NOT_LINKED_RE = re.compile(r"```.*?```|~~~.*?~~~|`[^`\n]*`|<!--.*?-->", re.S)
 
@@ -101,20 +116,57 @@ def get(url, token):
         raise Fatal("GET %s failed: %s" % (url, exc)) from exc
 
 
+def must_get(url, token, fetch, what):
+    """Fetch something whose absence would be an answer this check cannot give.
+
+    Never returns None. The module docstring says why a None here is a lookup
+    that failed rather than an empty collection.
+    """
+    data = fetch(url, token)
+    if data is None:
+        raise Fatal(
+            "cannot read %s: GET %s answered 404. This check cannot pass without it" % (what, url)
+        )
+    return data
+
+
 def commit_messages(repo, number, token, fetch):
     messages, page = [], 1
     while True:
-        batch = fetch(
+        batch = must_get(
             "%s/repos/%s/pulls/%d/commits?per_page=%d&page=%d"
             % (API, repo, number, PER_PAGE, page),
             token,
+            fetch,
+            "the commit messages of #%d" % number,
         )
-        if not batch:
-            return messages
         messages.extend(c["commit"]["message"] for c in batch)
+        # A short page is the last one, and a page that comes back empty ends a
+        # run of exactly-full ones.
         if len(batch) < PER_PAGE:
             return messages
         page += 1
+
+
+def claimed_issues(repo, token, fetch):
+    """Every issue number claimed on an `issue/<N>` branch, in one listing.
+
+    `git/matching-refs` matches by prefix, so the exact form is what decides
+    here: `issue/12-slug` is not the claim for #12. It is not paginated - it
+    answers with every match - so this asks once.
+    """
+    refs = must_get(
+        "%s/repos/%s/git/matching-refs/heads/%s" % (API, repo, CLAIM_BRANCH_PREFIX),
+        token,
+        fetch,
+        "the claim branches",
+    )
+    numbers = set()
+    for ref in refs:
+        m = CLAIM_BRANCH_REF_RE.match(ref.get("ref") or "")
+        if m:
+            numbers.add(int(m.group(1)))
+    return numbers
 
 
 def problems(event, repo, token, fetch=get):
@@ -169,11 +221,12 @@ def claim_problems(pr, ours, repo, token, fetch):
             "issue/N branch it makes"
             % (", ".join("#%d" % n for n in ours), head.get("label") or head.get("ref"))
         )
-    for number in ours:
-        if number == claimed:
-            continue
-        if fetch("%s/repos/%s/git/ref/heads/issue/%d" % (API, repo, number), token) is not None:
-            out.append("#%d is claimed on its own branch, issue/%d" % (number, number))
+    elsewhere = [n for n in ours if n != claimed]
+    if elsewhere:
+        others = claimed_issues(repo, token, fetch)
+        for number in elsewhere:
+            if number in others:
+                out.append("#%d is claimed on its own branch, issue/%d" % (number, number))
     return out
 
 
