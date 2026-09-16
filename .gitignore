@@ -10,9 +10,8 @@
 *~
 .idea/
 
-# Build output
-*.plugin
-*.zip
+# Nothing here builds: a plugin ships as its directory under plugins/, copied
+# verbatim by the marketplace. README.md, under "Layout".
 
 # Commit message drafted by Claude, consumed by commit.sh
 .commit-msg
