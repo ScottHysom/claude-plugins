@@ -94,14 +94,16 @@ from the bridge, so Claude can still run `log`, `diff`, `blame` and `show`.
 
 Everything the scaffolder writes lives in
 `skills/new-cowork-project/templates/`. Change a file there, bump the version
-as the repo's [README](../../README.md#versioning) describes, and reinstall.
+as the repo's
+[README](https://github.com/ScottHysom/claude-plugins#versioning) describes, and
+reinstall.
 
 Places the interview fills in are `<!-- FILL: ... -->` comments, and sections it
 may drop sit between `<!-- OPTIONAL SECTION ... -->` and
 `<!-- END OPTIONAL SECTION -->`. `{{NAME}}` is a placeholder. A new template file
 also needs a line in `MANIFEST` in `scripts/scaffold.py`, which says where it
 lands in the project. `python3 scripts/scaffold.py preflight` checks all of it,
-and CI runs the same check through the tests.
+and CI runs the same check on every change.
 
 Changing a template does not change projects already scaffolded. That is
 deliberate. Each project's skill gets hand-tuned during the interview, and

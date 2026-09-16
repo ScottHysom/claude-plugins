@@ -120,10 +120,17 @@ back them. What agents do:
 
 ### Tests
 
-- Every script has a pytest suite in `scripts/tests/`, with a `conftest.py` as
-  README.md describes. Tests drive commands through `main(argv)` so argparse
-  defaults are the real ones, and check the exit code against the script's
-  constants, not bare numbers, and which stream the output went to.
+- Every script has a pytest suite in `tests/<plugin>/` at the repo root, with a
+  `conftest.py` as README.md describes. Not beside the script: everything under
+  `plugins/` is copied into every install, so a test file there ships to every
+  user. `.github/scripts/check-tests.py placement` fails a pull request that
+  puts one back.
+- **A plugin's own README mentions tests nowhere** - not a path, not a link.
+  That README is what the desktop app shows someone who installed the plugin.
+  What a contributor needs to know about a suite goes here instead.
+- Tests drive commands through `main(argv)` so argparse defaults are the real
+  ones, and check the exit code against the script's constants, not bare
+  numbers, and which stream the output went to.
 - A change a script makes and can undo gets a property test that the round
   trip returns the original bytes.
 - A new test is not finished until it has failed. Break the code it guards and
@@ -135,8 +142,16 @@ back them. What agents do:
   failing test's name is the first line of the report, so it has to say which
   promise broke rather than which function was touched. `pytest.ini` collects
   only those two prefixes, which means a test named any other way is not run
-  and not reported; the naming check in `.github/workflows/validate.yml` is
-  what catches one.
+  and not reported; `.github/scripts/check-tests.py naming` is what catches
+  one. It fails when it has scanned nothing, because the grep it replaced went
+  blind the moment its pathspec stopped matching and stayed green.
+- **prose.py's round trip is the property that must never regress.** For any
+  batch, insert then strip returns the file byte-identical; it is the only
+  thing between a tagging pass and a mangled document.
+  `tests/prose-tuning/test_properties_round_trip.py` asserts it for every batch
+  hypothesis can build, and `test_round_trip.py` pins particular span shapes by
+  example. The plugin's README states the guarantee without naming either file,
+  since it ships.
 
 ## Comments and docs
 

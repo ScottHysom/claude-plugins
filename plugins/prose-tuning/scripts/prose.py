@@ -154,7 +154,7 @@ class Text:
     """A file's text, addressable by 1-indexed line and 0-indexed column.
 
     Lines keep their endings, so join(lines) == original text, including a
-    missing final newline. scripts/tests asserts that.
+    missing final newline.
 
     A line ends at "\n" and nowhere else. str.splitlines() would be the obvious
     way to cut them and is wrong here: it also breaks on \v, \f, \x1c, \x1d,
