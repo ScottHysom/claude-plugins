@@ -44,11 +44,13 @@ plugins/
       plugin.json          the plugin's own manifest
     README.md
     scripts/               optional. Shared by every skill in the plugin
-      tests/               optional. pytest suite for those scripts
     reference/             optional. Normative docs a skill points at
     skills/
       <skill-name>/
         SKILL.md           plus any files the skill bundles
+tests/
+  <plugin-name>/           optional. pytest suite for that plugin's scripts.
+                           Not under plugins/, which is copied into every install
 ```
 
 A plugin's `source` in `marketplace.json` is a path relative to the repo root,
@@ -77,6 +79,7 @@ directory under `plugins/` and one new entry in the catalog.
    claude plugin validate --strict .
    claude plugin validate --strict plugins/<name>
    python3 .github/scripts/check-manifest-consistency.py
+   python3 .github/scripts/check-tests.py placement
    pytest
    ```
 
@@ -85,6 +88,8 @@ directory under `plugins/` and one new entry in the catalog.
    as its manifest. The consistency script catches what
    `claude plugin validate` cannot: two manifests that each validate but
    disagree with each other, such as a version bumped in one and not the other.
+   The placement check catches a contributor-only file left under `plugins/`,
+   which would otherwise be copied into every install.
 5. Add a `plugin:<name>` label, and the plugin to the Area list in
    `.github/ISSUE_TEMPLATE/problem.yml`, so issues about it can say so:
    ```sh
@@ -95,8 +100,16 @@ directory under `plugins/` and one new entry in the catalog.
 
 The plugin scripts import nothing outside the standard library, because they
 run wherever `/plugin marketplace add` puts them. Their tests are a contributor
-tool and live outside that constraint: pytest and hypothesis are installed from
-a clone and never ship to anyone who installs a plugin.
+tool and live outside that constraint, on pytest and hypothesis installed from
+a clone.
+
+That is why the suites are not beside the scripts they test. **Everything under
+`plugins/<name>/` is copied verbatim into every install** - the manifest points
+each plugin at its own directory and the whole subtree is copied, with no
+`files` or `exclude` key, no `.claudeignore` and no build step to hold anything
+back. A test file there reaches every user.
+`python3 .github/scripts/check-tests.py placement` is what fails a pull request
+that puts one there; its docstring says what it rejects.
 
 ```sh
 python3 -m venv .venv && source .venv/bin/activate
@@ -104,17 +117,24 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-`pytest` from the repo root discovers every `plugins/*/scripts/tests/`
-directory. A new plugin adding a script adds `scripts/tests/conftest.py`
-alongside it, which puts its own script directory on `sys.path`; nothing at the
+`pytest` from the repo root discovers every `tests/<plugin-name>/` directory.
+A new plugin adding a script adds `tests/<name>/conftest.py`, which reaches
+across to its own script directory and puts it on `sys.path`; nothing at the
 repo root needs editing for CI to pick it up.
+
+Nothing under `tests/` gets an `__init__.py`. Without one, pytest puts each test
+file's own directory on `sys.path` and names the module by its bare stem, which
+is what lets a helper like `prose_samples.py` resolve and what keeps two
+`conftest.py` files from colliding. For the same reason test module basenames
+are unique across the whole repo, not just within a plugin.
 
 Every plugin's `conftest.py` is imported under the same module name, so a test
 never imports from `conftest` by name: when one run loads more than one plugin's
 suite, the name can resolve to the wrong plugin's file. Hand a helper to tests
 as a fixture. A value a test needs when its module loads, such as the input a
 Hypothesis strategy is built from, goes in a helper module named after the
-plugin, like `prose_samples.py`. `ruff check` fails on a `conftest` import.
+plugin, like `tests/prose-tuning/prose_samples.py`. `ruff check` fails on a
+`conftest` import.
 
 CI runs the suite on Python 3.9 and 3.13. The floor is not decoration - the
 scripts have to run under whatever Python is already on the machine, which on
