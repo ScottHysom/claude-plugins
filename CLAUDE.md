@@ -120,11 +120,20 @@ back them. What agents do:
 
 ### Tests
 
-- Every script has a pytest suite in `tests/<plugin>/` at the repo root, with a
-  `conftest.py` as README.md describes. Not beside the script: everything under
-  `plugins/` is copied into every install, so a test file there ships to every
-  user. `.github/scripts/check-tests.py placement` fails a pull request that
-  puts one back.
+- Every script has a pytest suite, and where it goes depends on where the
+  script lives:
+  - A plugin script: `tests/<plugin>/` at the repo root, with a `conftest.py`
+    as README.md describes. Not beside the script: everything under `plugins/`
+    is copied into every install, so a test file there ships to every user.
+  - A CI script in `.github/scripts/`: `.github/scripts/tests/`.
+  - A Claude Code hook in `.claude/hooks/`: `.claude/hooks/tests/`.
+
+  The last two sit directly beside their script, because the tests load it by
+  path with `importlib` from the directory above; the script names are
+  hyphenated, so a plain import cannot reach them. Root `pytest` collects every
+  one of these directories, and `.github/scripts/check-tests.py placement`
+  fails a pull request with a test file anywhere else, including under
+  `plugins/`. README.md, under "Running the tests", has the detail.
 - **A plugin's own README mentions tests nowhere** - not a path, not a link.
   That README is what the desktop app shows someone who installed the plugin.
   What a contributor needs to know about a suite goes here instead.
