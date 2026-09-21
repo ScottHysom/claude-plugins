@@ -1,0 +1,29 @@
+name: issue-closed
+
+# `issues.py claim` labels an issue in-progress, and `release` takes the label
+# off when a claim is given up. Most claims end another way: the pull request
+# merges and GitHub closes the issue, and nothing in the script runs. Without
+# this, every issue that was ever claimed keeps the label after it closes, and
+# the label stops meaning someone is working on it. Closing through a merge
+# counts as the person who merged, so this runs however the issue was closed.
+# `issues.py stale` reports a closed issue that still has the label, in case a
+# run fails or the issue closed before this workflow existed. README.md, under
+# "Claiming an issue", describes the process.
+
+on:
+  issues:
+    types: [closed]
+
+permissions:
+  issues: write
+
+jobs:
+  clear-in-progress:
+    if: contains(github.event.issue.labels.*.name, 'in-progress')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Remove the in-progress label
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ github.event.issue.number }}
+        run: gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" --remove-label in-progress

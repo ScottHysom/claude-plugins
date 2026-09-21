@@ -294,10 +294,13 @@ python3 .github/scripts/issues.py stale        # claims nobody seems to be worki
 
 The claim is the branch `issue/N` on GitHub. `claim` pushes it in a way only one
 agent can win, then adds the `in-progress` label and a comment so the claim
-shows in the issue list. When the label and the branch disagree, the branch is
-right, and `stale` lists the disagreement. The script's docstring covers the
-details, including why `release` will not delete a branch that has commits on
-it.
+shows in the issue list. Two things take the label off: `release`, when a claim
+is given up, and `.github/workflows/issue-closed.yml`, when the issue closes,
+whether a merged pull request closed it or someone closed it by hand. When the
+label and the branch disagree, the branch is right, and `stale` lists the
+disagreement. That includes a closed issue that still has the label. The
+script's docstring covers the details, including why `release` will not delete
+a branch that has commits on it.
 
 The `validate` job backs this up: a pull request that closes #N must come from
 `issue/N`, so an agent that skipped the claim is caught before it merges.

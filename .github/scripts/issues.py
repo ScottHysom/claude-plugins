@@ -7,7 +7,9 @@ keeps two agents off the same approved issue. The lock is a branch named
 when the branch already exists, so of two agents claiming at once exactly one
 wins. The `in-progress` label and a comment then say so where people look. The
 branch is the lock and the label is the signal: when they disagree the branch is
-right, and `stale` reports the disagreement.
+right, and `stale` reports the disagreement. `release` takes the label off a
+claim given up; `.github/workflows/issue-closed.yml` takes it off an issue that
+closes, which is how most claims end.
 
 Run from anywhere in a clone, with git and an authenticated gh on PATH:
 
@@ -22,7 +24,8 @@ Commands:
     release N   give issue N up: delete issue/N if it holds no work, remove the
                 label, comment.
     stale       claims idle for --days with no open pull request, and labels
-                and branches that disagree.
+                and branches that disagree, including a closed issue that
+                still has the label.
 
 Every command takes --json and -C/--repo; claim and release take --dry-run.
 
@@ -362,14 +365,15 @@ def cmd_stale(args, repo):
         "issue",
         "list",
         "--state",
-        "open",
+        "all",
         "--label",
         IN_PROGRESS,
         "--limit",
         str(LIST_LIMIT),
         "--json",
-        "number",
+        "number,state",
     )
+    closed = {i["number"] for i in labelled if i.get("state") != "OPEN"}
     pulls = gh_json(
         repo, "pr", "list", "--state", "open", "--limit", str(LIST_LIMIT), "--json", "headRefName"
     )
@@ -381,6 +385,11 @@ def cmd_stale(args, repo):
     for n in sorted(set(held) | {i["number"] for i in labelled}):
         row = {"number": n, "branch": branch(n), "pull_request": branch(n) in pr_branches}
         rows.append(row)
+        if n not in held and n in closed:
+            errors.append(
+                "#%d is closed but still labelled %s; run release %d" % (n, IN_PROGRESS, n)
+            )
+            continue
         if n not in held:
             errors.append(
                 "#%d is labelled %s but %s does not exist; run release %d"
