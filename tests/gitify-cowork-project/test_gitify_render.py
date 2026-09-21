@@ -119,8 +119,8 @@ class DescribeTheInstructions:
         assert "./commit.sh" in text
 
     def it_keeps_its_notes_for_people_out_of_claudes_context(self, runner, make_answers):
-        # Claude Code strips block-level HTML comments from CLAUDE.md before
-        # loading it, so the header costs Claude one line.
+        # Block-level HTML comments in CLAUDE.md are stripped before it is
+        # loaded, in Cowork as in Claude Code, so the header costs Claude one line.
         runner.render(make_answers())
         text = runner.staged("CLAUDE.md")
         loaded = re.sub(r"(?ms)^<!--.*?-->[ \t]*\n", "", text)
