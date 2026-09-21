@@ -87,11 +87,12 @@ class FakeGitHub:
             return json.dumps(self.issues[int(args[2])])
         if verb == "list":
             label = args[args.index("--label") + 1]
+            state = args[args.index("--state") + 1].upper()
             return json.dumps(
                 [
                     i
                     for _, i in sorted(self.issues.items())
-                    if i["state"] == "OPEN" and label in names(i)
+                    if state in ("ALL", i["state"]) and label in names(i)
                 ]
             )
         return ""
@@ -255,6 +256,10 @@ class DescribeNext:
         assert code == cli.OK
         assert data["data"]["issue"] == {"number": 13, "title": "issue 13"}
 
+    def it_never_offers_a_closed_issue(self, capsys, clone, github):
+        github(make_issue(12, "approved", state="CLOSED"))
+        assert run_json(capsys, clone("a"), "next")[1]["data"]["issue"] is None
+
     def it_is_not_a_problem_when_nothing_is_free(self, capsys, clone, github):
         github(make_issue(11, "approved", "in-progress"))
         code, out = run(capsys, clone("a"), "next")
@@ -367,6 +372,12 @@ class DescribeStale:
         code, out = run(capsys, clone("a"), "stale")
         assert code == cli.PROBLEMS
         assert "#12 is labelled in-progress but issue/12 does not exist" in out.err
+
+    def it_reports_a_closed_issue_that_kept_the_label(self, capsys, clone, github):
+        github(make_issue(12, "approved", "in-progress", state="CLOSED"))
+        code, out = run(capsys, clone("a"), "stale")
+        assert code == cli.PROBLEMS
+        assert "#12 is closed but still labelled in-progress; run release 12" in out.err
 
 
 class DescribeMain:
