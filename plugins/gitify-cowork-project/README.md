@@ -68,10 +68,14 @@ so there is nothing left to drift.
 
 Claude cannot write the field itself. That is why replacing it is your step.
 
-Whether Cowork reads a `CLAUDE.md` at the root of a connected folder by itself
-is not documented. It has not been tested yet either. Until it is, the pointer
-line tells Claude to read the file first, which works whether Cowork loads it or
-not.
+Cowork reads a `CLAUDE.md` at the root of a connected folder by itself.
+Checked in Cowork on 2026-09-20: an instruction in that file, with the field
+empty, was followed in a new conversation. So when the project is the connected
+folder, the pointer line only says where the instructions now live.
+
+That check did not cover a project in a folder inside the connected one. For
+that case the pointer line also tells Claude to read `CLAUDE.md` first, which
+works whether or not Cowork loads it from there.
 
 ## Prose and document rules
 

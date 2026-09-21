@@ -79,6 +79,17 @@ class DescribeACleanRender:
         assert project["project"] in pointer
         assert "\n" not in pointer
 
+    def it_leaves_reading_to_cowork_when_the_project_is_the_connected_folder(
+        self, runner, make_answers
+    ):
+        _, env = runner.render(make_answers(project_folder=None))
+        assert "Read that file" not in env["data"]["field_pointer"]
+
+    def it_says_to_read_the_file_when_the_project_is_a_subfolder(self, runner, make_answers):
+        # Cowork loading a CLAUDE.md below the connected folder is unchecked.
+        _, env = runner.render(make_answers())
+        assert env["data"]["field_pointer"].endswith("Read that file before anything else.")
+
     def it_reports_and_writes_nothing_on_a_dry_run(self, runner, make_answers):
         code, env = runner.render(make_answers(), "--dry-run")
         assert code == gitify.OK

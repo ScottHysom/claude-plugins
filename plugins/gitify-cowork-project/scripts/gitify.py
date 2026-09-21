@@ -112,12 +112,16 @@ INSTRUCTIONS_TEMPLATE = "CLAUDE.md"
 GITIGNORE_HEADING = "# This project"
 
 # What the user pastes into the Project Instructions field in place of what was
-# there. Worded to work whether or not Cowork loads CLAUDE.md by itself; the
-# plugin README says which it does.
+# there. Cowork loads a CLAUDE.md at the root of a connected folder by itself
+# (the plugin README records the check), so when the project is that folder the
+# pointer only says where instructions now live. A CLAUDE.md in a folder inside
+# the connected one has not been checked, so that pointer also tells Claude to
+# read the file.
 FIELD_POINTER = (
     "Standing instructions for this project are in CLAUDE.md at the root of {path}. "
-    "Read it before anything else. Change instructions there, not in this field."
+    "Change them there, not in this field."
 )
+FIELD_POINTER_SUBFOLDER = FIELD_POINTER + " Read that file before anything else."
 
 PLACEHOLDER_RE = re.compile(r"\{\{([A-Z_]+)\}\}")
 # Anything that means a placeholder survived into the output, or was mistyped.
@@ -623,7 +627,9 @@ def cmd_render(args):
         ],
         "precheck_command": precheck_command(folders.mount, [f["file"] for f in files]),
         "check_command": check_command(folders.mount, planned),
-        "field_pointer": FIELD_POINTER.format(path=folders.project),
+        "field_pointer": (FIELD_POINTER_SUBFOLDER if folders.sub else FIELD_POINTER).format(
+            path=folders.project
+        ),
     }
 
     def human():
