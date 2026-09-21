@@ -82,6 +82,16 @@ class DescribeSetup:
         assert "film.mov" not in files
         assert {"notes.md", "drafts/plan.md", "CLAUDE.md", ".gitignore"} <= files
 
+    def it_keeps_shared_editor_settings_in_history(self, folder):
+        (folder / ".vscode").mkdir()
+        (folder / ".vscode" / "settings.json").write_text("{}\n")
+        (folder / ".idea").mkdir()
+        (folder / ".idea" / "workspace.xml").write_text("<project/>\n")
+        sh(folder, "setup.sh", "commit")
+        files = committed(folder)
+        assert ".vscode/settings.json" in files
+        assert ".idea/workspace.xml" not in files
+
     def it_names_the_plugin_in_the_first_commit(self, folder):
         sh(folder, "setup.sh", "commit")
         subject = git(folder, "log", "-1", "--format=%s").stdout.strip()

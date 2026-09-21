@@ -7,8 +7,7 @@
 # Editor cruft
 *.swp
 *~
-.vscode/
-.idea/
+.idea/workspace.xml
 
 # Temp
 *.tmp
