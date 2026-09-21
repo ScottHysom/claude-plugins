@@ -224,6 +224,7 @@ FOLDER_CASES = [
     ({"connected_folder": ""}, "connected_folder is required"),
     ({"connected_folder": "Projects"}, "must be absolute"),
     ({"connected_folder": "/a/../b"}, ". or .. segments"),
+    ({"connected_folder": "/a\\b"}, "newline or backslash"),
     ({"connected_folder": "~", "project_folder": None}, "no folder name to mount"),
     ({"project_folder": "/elsewhere/Foo"}, "is not inside connected_folder"),
 ]
@@ -266,6 +267,27 @@ class DescribeRefusingToRun:
 
 
 class DescribeLeftovers:
+    def it_stops_render_when_a_template_placeholder_has_no_value(self, runner, make_answers):
+        # preflight names an unknown placeholder; this is what stops one that
+        # reached render anyway from landing in a project.
+        templates = runner.templates_copy()
+        with open(templates / "CLAUDE.md", "a") as fh:
+            fh.write("{{ANCHOR_DOC}}\n")
+        path = runner.tmp / "answers.json"
+        path.write_text(json.dumps(make_answers()))
+        code, env = runner.run(
+            "render",
+            "--answers",
+            str(path),
+            "--stage",
+            str(runner.stage),
+            "--templates",
+            str(templates),
+        )
+        assert code == gitify.PROBLEMS
+        assert "CLAUDE.md: output still contains {{, }}" in env["errors"]
+        assert_nothing_staged(runner)
+
     @pytest.mark.parametrize("text", ["{{PROJECT_NAME}}", "a }} b", "{{ x"])
     def it_names_a_surviving_placeholder_or_brace(self, text):
         assert gitify.leftovers(text)

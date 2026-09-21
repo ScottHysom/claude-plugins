@@ -46,6 +46,16 @@ class DescribeDrift:
         assert code == gitify.PROBLEMS
         assert "Dates: section missing from the project's skill" in env["errors"]
 
+    def it_does_not_take_a_longer_heading_for_the_template_one(
+        self, runner, make_answers, skill_rel
+    ):
+        skill = rendered_skill(runner, make_answers, skill_rel)
+        skill.write_text(skill.read_text().replace("## Dates", "## Dates we ignore"))
+        code, env = runner.run("drift", "--skill", str(skill))
+        assert code == gitify.PROBLEMS
+        assert {"heading": "Dates", "status": "missing"} in env["data"]["sections"]
+        assert {"heading": "Dates we ignore", "status": "project-only"} in env["data"]["sections"]
+
     def it_reports_a_project_only_section_without_calling_it_drift(
         self, runner, make_answers, skill_rel
     ):
