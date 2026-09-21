@@ -106,16 +106,13 @@ GITIGNORE_TEMPLATE = "gitignore"
 INSTRUCTIONS_TEMPLATE = "CLAUDE.md"
 GITIGNORE_HEADING = "# This project"
 
-# What the user pastes into the Project Instructions field in place of what was
-# there. Cowork loads a CLAUDE.md by itself only at the root of the connected
-# folder, so when the project is that folder the pointer only says where
-# instructions now live. It does not load one from a folder inside the connected
-# one, so that pointer also tells Claude to read the file.
-FIELD_POINTER = (
-    "Standing instructions for this project are in CLAUDE.md at the root of {path}. "
-    "Change them there, not in this field."
-)
-FIELD_POINTER_SUBFOLDER = FIELD_POINTER + " Read that file before anything else."
+# What the user puts in the Project Instructions field in place of what was
+# there. Cowork adds the field to every conversation in the project, so it
+# carries only what Claude needs. Cowork loads a CLAUDE.md by itself from the
+# root of the connected folder, so when the project is that folder the field is
+# left empty and render reports None. It does not load one from a folder inside
+# the connected one, so then the field tells Claude to read the file.
+FIELD_POINTER = "Before anything else, read CLAUDE.md at the root of {path}."
 
 PLACEHOLDER_RE = re.compile(r"\{\{([A-Z_]+)\}\}")
 # Anything that means a placeholder survived into the output, or was mistyped.
@@ -621,9 +618,7 @@ def cmd_render(args):
         ],
         "precheck_command": precheck_command(folders.mount, [f["file"] for f in files]),
         "check_command": check_command(folders.mount, planned),
-        "field_pointer": (FIELD_POINTER_SUBFOLDER if folders.sub else FIELD_POINTER).format(
-            path=folders.project
-        ),
+        "field_pointer": FIELD_POINTER.format(path=folders.project) if folders.sub else None,
     }
 
     def human():
@@ -635,7 +630,10 @@ def cmd_render(args):
         )
         print("\nprecheck, through device_bash:\n%s" % data["precheck_command"])
         print("\ncheck after copying, through device_bash:\n%s" % data["check_command"])
-        print("\nfor the Project Instructions field:\n%s" % data["field_pointer"])
+        print(
+            "\nfor the Project Instructions field:\n%s"
+            % (data["field_pointer"] or "(leave it empty)")
+        )
 
     return emit(args, "render", data, warnings=warnings, human=human)
 
