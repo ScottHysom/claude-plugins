@@ -86,9 +86,8 @@ Claude to read that file first.
 
 ## Prose and document rules
 
-This plugin writes none. A project that wants a house style can add one
-separately; the `prose-tuning` plugin learns one from edits you have already
-made.
+This plugin writes none. A project that wants a house style adds one
+separately.
 
 ## Why `commit.sh` exists
 
