@@ -1,0 +1,18 @@
+{
+  "name": "gitify-cowork-project",
+  "version": "0.1.0",
+  "description": "Cowork only. Puts an existing Cowork Project folder under git without touching its documents: commit helpers, a CLAUDE.md holding the Project Instructions, and a per-project history skill. Requires a connected folder on the Cowork device bridge.",
+  "author": {
+    "name": "Scott Hysom",
+    "url": "https://github.com/ScottHysom"
+  },
+  "homepage": "https://github.com/ScottHysom/claude-plugins/tree/main/plugins/gitify-cowork-project",
+  "repository": "https://github.com/ScottHysom/claude-plugins",
+  "license": "MIT",
+  "keywords": [
+    "cowork",
+    "git",
+    "history",
+    "project-setup"
+  ]
+}
