@@ -37,8 +37,14 @@ Custom marketplaces do not auto-update. To pick up new versions:
 ## Layout
 
 ```
+.claude/
+  hooks/                   the repo's own Claude Code hooks
+    tests/                 their pytest suite
 .claude-plugin/
   marketplace.json         the catalog. One entry per plugin
+.github/
+  scripts/                 the checks CI runs, and issues.py
+    tests/                 their pytest suite
 plugins/
   <plugin-name>/
     .claude-plugin/
@@ -118,10 +124,30 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-`pytest` from the repo root discovers every `tests/<plugin-name>/` directory.
+Where a suite goes depends on where the script it tests lives:
+
+| Script in | Suite in |
+|---|---|
+| `plugins/<name>/scripts/` | `tests/<name>/` |
+| `.github/scripts/` | `.github/scripts/tests/` |
+| `.claude/hooks/` | `.claude/hooks/tests/` |
+
+`pytest` from the repo root collects all of them, from the roots listed under
+`testpaths` in `pytest.ini`. A test file anywhere else is never run, and
+nothing reports it missing, so `check-tests.py placement` fails it.
+
 A new plugin adding a script adds `tests/<name>/conftest.py`, which reaches
 across to its own script directory and puts it on `sys.path`; nothing at the
 repo root needs editing for CI to pick it up.
+
+The CI scripts and hooks keep their suites directly beside them, because nothing
+under `.github/` or `.claude/` ships. Their tests load the script by path with
+`importlib.util.spec_from_file_location`, from the directory above the test
+file, since names like `check-tests.py` cannot be imported by name.
+`.github/scripts/tests/test_issues.py` shows the pattern. A new script in
+either directory needs no config edit. A new directory of scripts does need its
+`tests/` added to `testpaths`: pytest does not walk into directories whose
+names start with a dot, so these roots are listed by path.
 
 Nothing under `tests/` gets an `__init__.py`. Without one, pytest puts each test
 file's own directory on `sys.path` and names the module by its bare stem, which
