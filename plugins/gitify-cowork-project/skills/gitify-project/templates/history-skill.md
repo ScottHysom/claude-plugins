@@ -126,8 +126,9 @@ untouched, and body-only is the common case. Treat a match as no information
 rather than as an all-clear.
 
 The same rule covers `CLAUDE.md` and the Project Instructions field. The field
-holds one line pointing at `CLAUDE.md`. If anything else turns up in the field,
-copy it into `CLAUDE.md`, commit it, and ask the user to put the pointer back.
+is empty, or holds one line telling Claude to read `CLAUDE.md`. If anything
+else turns up in the field, copy it into `CLAUDE.md`, commit it, and ask the
+user to put the field back as it was.
 
 ## Scope
 

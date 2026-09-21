@@ -64,23 +64,30 @@ class DescribeACleanRender:
         assert env["data"]["project_mount"] == "Projects"
         assert env["data"]["files"][0]["device_path"] == project["connected"] + "/.gitignore"
 
-    def it_gives_the_field_pointer_naming_the_project_folder(self, runner, make_answers, project):
+    def it_leaves_the_field_empty_when_the_project_is_the_connected_folder(
+        self, runner, make_answers
+    ):
+        # Cowork loads the root CLAUDE.md itself; a pointer would only cost context.
+        _, env = runner.render(make_answers(project_folder=None))
+        assert env["data"]["field_pointer"] is None
+
+    def it_tells_claude_to_read_the_file_when_the_project_is_a_subfolder(
+        self, runner, make_answers, project
+    ):
+        # Cowork does not load a CLAUDE.md below the connected folder.
         _, env = runner.render(make_answers())
         pointer = env["data"]["field_pointer"]
-        assert "CLAUDE.md" in pointer
+        assert pointer.startswith("Before anything else, read CLAUDE.md")
         assert project["project"] in pointer
         assert "\n" not in pointer
 
-    def it_leaves_reading_to_cowork_when_the_project_is_the_connected_folder(
-        self, runner, make_answers
-    ):
-        _, env = runner.render(make_answers(project_folder=None))
-        assert "Read that file" not in env["data"]["field_pointer"]
-
-    def it_says_to_read_the_file_when_the_project_is_a_subfolder(self, runner, make_answers):
-        # Cowork does not load a CLAUDE.md below the connected folder.
-        _, env = runner.render(make_answers())
-        assert env["data"]["field_pointer"].endswith("Read that file before anything else.")
+    def it_says_to_leave_the_field_empty_in_its_plain_output(self, runner, make_answers):
+        path = runner.tmp / "answers.json"
+        path.write_text(json.dumps(make_answers(project_folder=None)))
+        args = ("render", "--answers", str(path), "--stage", str(runner.stage))
+        code, _ = runner.run(*args, json_output=False)
+        assert code == gitify.OK
+        assert "Project Instructions field:\n(leave it empty)" in runner.out
 
     def it_reports_and_writes_nothing_on_a_dry_run(self, runner, make_answers):
         code, env = runner.render(make_answers(), "--dry-run")
