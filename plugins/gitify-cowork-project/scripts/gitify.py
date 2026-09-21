@@ -108,10 +108,9 @@ GITIGNORE_HEADING = "# This project"
 
 # What the user pastes into the Project Instructions field in place of what was
 # there. Cowork loads a CLAUDE.md by itself only at the root of the connected
-# folder (the plugin README records the check), so when the project is that
-# folder the pointer only says where instructions now live. It does not load one
-# from a folder inside the connected one, so that pointer also tells Claude to
-# read the file.
+# folder, so when the project is that folder the pointer only says where
+# instructions now live. It does not load one from a folder inside the connected
+# one, so that pointer also tells Claude to read the file.
 FIELD_POINTER = (
     "Standing instructions for this project are in CLAUDE.md at the root of {path}. "
     "Change them there, not in this field."

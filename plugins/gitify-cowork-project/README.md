@@ -68,23 +68,15 @@ so there is nothing left to drift.
 
 The note at the top of `CLAUDE.md` says how the file works. It is an HTML
 comment on lines of its own, which Cowork leaves out when it loads the file, so
-it costs no context. Checked in Cowork on 2026-09-20: an instruction inside such
-a comment was not followed.
+it costs no context.
 
 Claude cannot write the field itself. That is why replacing it is your step.
 
-Cowork reads a `CLAUDE.md` by itself only at the root of the connected folder.
-Checked in Cowork on 2026-09-20, with the instructions field empty and a new
-conversation each time:
-
-- a `CLAUDE.md` at the root of the connected folder was followed
-- a `CLAUDE.md` in a folder inside the connected one was not
-- a `CLAUDE.md` in the folder above the connected one was not
-
-So when the project is the connected folder, the pointer line only says where
-the instructions now live. When the project is a folder inside the connected
-one, Cowork does not load its `CLAUDE.md`, and the pointer line also tells
-Claude to read that file first.
+Cowork loads a `CLAUDE.md` by itself only from the root of the connected
+folder, not from a folder inside it or above it. So when the project is the
+connected folder, the pointer line only says where the instructions now live.
+When the project is a folder inside the connected one, Cowork does not load its
+`CLAUDE.md`, and the pointer line also tells Claude to read that file first.
 
 ## Prose and document rules
 
