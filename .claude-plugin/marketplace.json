@@ -27,6 +27,25 @@
       "license": "MIT"
     },
     {
+      "name": "gitify-cowork-project",
+      "source": "./plugins/gitify-cowork-project",
+      "displayName": "Gitify Cowork Project",
+      "description": "Cowork only. Puts an existing Cowork Project folder under git without touching its documents: commit helpers, a CLAUDE.md holding the Project Instructions, and a per-project history skill.",
+      "version": "0.1.0",
+      "category": "productivity",
+      "tags": [
+        "cowork",
+        "git",
+        "history",
+        "project-setup"
+      ],
+      "author": {
+        "name": "Scott Hysom"
+      },
+      "homepage": "https://github.com/ScottHysom/claude-plugins/tree/main/plugins/gitify-cowork-project",
+      "license": "MIT"
+    },
+    {
       "name": "prose-tuning",
       "source": "./plugins/prose-tuning",
       "displayName": "Prose Tuning",

@@ -12,6 +12,7 @@ body:
       label: Area
       options:
         - cowork-project-scaffold
+        - gitify-cowork-project
         - prose-tuning
         - repo (CI, tooling, catalog, root docs)
     validations:
