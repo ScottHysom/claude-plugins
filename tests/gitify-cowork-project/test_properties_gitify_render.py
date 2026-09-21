@@ -3,7 +3,7 @@ only the few test_gitify_render.py spells out.
 
 The instructions are the user's own words, moved out of a field they are about
 to clear. So render must put them in CLAUDE.md byte for byte, whatever they
-contain - braces, marker-like comments, carriage returns, headings - and must
+contain - braces, HTML comments, carriage returns, headings - and must
 not let them leak into any other file. drift must still see the generated
 skill as the template it came from.
 """
@@ -70,7 +70,7 @@ def read(path):
 class DescribeRender:
     @settings(suppress_health_check=[HealthCheck.too_slow], deadline=None)
     @given(INSTRUCTIONS, st.lists(PATTERN, unique=True, max_size=4))
-    @example("{{PROJECT_NAME}}\r\n## Dates\n<!-- FILL: x -->", ["*.mov"])
+    @example("{{PROJECT_NAME}}\r\n## Dates\n<!-- a note -->", ["*.mov"])
     def it_copies_any_instructions_verbatim_and_nowhere_else(self, instructions, ignore):
         with tempfile.TemporaryDirectory() as tmp:
             bare, _ = render(os.path.join(tmp, "a"), None, [])

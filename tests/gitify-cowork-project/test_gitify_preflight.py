@@ -36,10 +36,10 @@ class DescribePreflight:
     def it_names_an_unknown_placeholder(self, runner):
         templates = runner.templates_copy()
         with open(templates / "CLAUDE.md", "a") as fh:
-            fh.write("{{ANCHOR_DOC}}\n")
+            fh.write("{{NOT_A_THING}}\n")
         code, env = runner.run("preflight", "--templates", str(templates))
         assert code == gitify.PROBLEMS
-        assert any("{{ANCHOR_DOC}}" in e for e in env["errors"])
+        assert any("{{NOT_A_THING}}" in e for e in env["errors"])
 
     def it_names_a_stray_brace_with_its_line(self, runner):
         templates = runner.templates_copy()

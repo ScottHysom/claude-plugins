@@ -97,14 +97,6 @@ from the bridge, so Claude can still run `log`, `diff`, `blame` and `show`.
 `commit.sh` refuses to make the first commit. That one is `setup.sh`'s, because
 it shows you what it is about to take.
 
-## Relation to cowork-project-scaffold
-
-The script and templates here started as a copy of the `cowork-project-scaffold`
-plugin's, adapted. That is deliberate: plugins install separately and cannot
-share code. The two will diverge. `cowork-project-scaffold` builds a new
-project and decides how its documents are written, and it is expected to be
-retired once this plugin has been run end to end.
-
 ## Editing the templates
 
 Everything this plugin writes lives in `skills/gitify-project/templates/`.

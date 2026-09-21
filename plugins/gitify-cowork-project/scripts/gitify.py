@@ -24,8 +24,7 @@ The device commands probe and render print have exit codes of their own, which
 SKILL.md reads: 0 go on, 1 the folder holds something this would overwrite or
 is already a git repo, 2 the folder is not there.
 
-Where this runs, and why the output is shaped the way it is. Checked in Cowork
-for cowork-project-scaffold, which this plugin was copied from:
+Where this runs, and why the output is shaped the way it is. Checked in Cowork:
 
 - The script runs in the cloud container. The container can read the plugin
   but has no view of the user's folder. The device side (`device_bash`) can see
@@ -57,10 +56,6 @@ Things that look like bugs and are not:
 4. `instructions` is copied into CLAUDE.md after placeholders are substituted
    and is never checked for them. It is the user's text, copied verbatim, and
    "{{" in it is theirs to keep.
-
-5. This is a copy of cowork-project-scaffold's scaffold.py, adapted, not an
-   import of it. Plugins install separately and cannot share code. The two are
-   expected to diverge.
 
 Python 3.9 is the floor. No match statements, no X | Y unions.
 """

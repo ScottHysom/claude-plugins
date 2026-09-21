@@ -34,15 +34,6 @@ class DescribeACleanRender:
             assert not gitify.LEFTOVER_RE.search(runner.staged(rel)), rel
         assert runner.staged(skill_rel).startswith("---\nname: foo-research-history\n")
 
-    def it_writes_nothing_about_document_content(self, runner, make_answers):
-        _, env = runner.render(make_answers())
-        rels = [f["file"] for f in env["data"]["files"]]
-        for rel in ("current-state.md", "prose-style.md", "project-instructions.md"):
-            assert rel not in rels
-        skill = runner.staged(rels[-1])
-        for word in ("ANCHOR", "TODO(", "current-state", "prose-style"):
-            assert word not in skill
-
     def it_checksums_the_bytes_it_staged(self, runner, make_answers):
         _, env = runner.render(make_answers())
         for f in env["data"]["files"]:
@@ -127,7 +118,7 @@ class DescribeTheInstructions:
         assert "`foo-research-history` skill" in text
 
     def it_copies_the_field_verbatim_after_the_header(self, runner, make_answers):
-        field = "I am a {{PROJECT_NAME}} fan.\n\n- Budget: $500 <!-- FILL: x -->\n"
+        field = "I am a {{PROJECT_NAME}} fan.\n\n- Budget: $500 <!-- a note -->\n"
         runner.render(make_answers())
         header = runner.staged("CLAUDE.md")
         runner.stage = runner.tmp / "stage2"
@@ -211,12 +202,12 @@ class DescribeValidatingAValue:
         code, env = runner.render(data)
         assert code == gitify.OK, env["errors"]
 
-    def it_no_longer_takes_an_anchor_document(self, runner, make_answers):
+    def it_names_an_unknown_value(self, runner, make_answers):
         data = make_answers()
-        data["values"]["ANCHOR_DOC"] = "current-state.md"
+        data["values"]["NOT_A_THING"] = "x"
         code, env = runner.render(data)
         assert code == gitify.PROBLEMS
-        assert "values.ANCHOR_DOC is not a placeholder" in errors_of(env)
+        assert "values.NOT_A_THING is not a placeholder" in errors_of(env)
 
     def it_refuses_a_computed_value(self, runner, make_answers):
         data = make_answers()
@@ -225,10 +216,10 @@ class DescribeValidatingAValue:
         assert code == gitify.PROBLEMS
         assert any("computed from the folders" in e for e in errors_of(env))
 
-    def it_refuses_marker_resolutions_from_the_scaffold(self, runner, make_answers):
-        code, env = runner.render(make_answers(markers={}))
+    def it_names_an_unknown_answers_key(self, runner, make_answers):
+        code, env = runner.render(make_answers(extra={}))
         assert code == gitify.PROBLEMS
-        assert "answers has unexpected keys: markers" in errors_of(env)
+        assert "answers has unexpected keys: extra" in errors_of(env)
 
 
 FOLDER_CASES = [
@@ -283,7 +274,7 @@ class DescribeLeftovers:
         # reached render anyway from landing in a project.
         templates = runner.templates_copy()
         with open(templates / "CLAUDE.md", "a") as fh:
-            fh.write("{{ANCHOR_DOC}}\n")
+            fh.write("{{NOT_A_THING}}\n")
         path = runner.tmp / "answers.json"
         path.write_text(json.dumps(make_answers()))
         code, env = runner.run(
