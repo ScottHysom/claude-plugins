@@ -86,7 +86,7 @@ class DescribeACleanRender:
         assert "Read that file" not in env["data"]["field_pointer"]
 
     def it_says_to_read_the_file_when_the_project_is_a_subfolder(self, runner, make_answers):
-        # Cowork loading a CLAUDE.md below the connected folder is unchecked.
+        # Cowork does not load a CLAUDE.md below the connected folder.
         _, env = runner.render(make_answers())
         assert env["data"]["field_pointer"].endswith("Read that file before anything else.")
 
