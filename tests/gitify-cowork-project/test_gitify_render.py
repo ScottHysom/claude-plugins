@@ -9,6 +9,7 @@ none.
 
 import hashlib
 import json
+import re
 
 import pytest
 
@@ -115,7 +116,15 @@ class DescribeTheInstructions:
         runner.render(make_answers())
         text = runner.staged("CLAUDE.md")
         assert text.startswith("# Foo Research\n")
-        assert "`foo-research-history` skill" in text
+        assert "./commit.sh" in text
+
+    def it_keeps_its_notes_for_people_out_of_claudes_context(self, runner, make_answers):
+        # Claude Code strips block-level HTML comments from CLAUDE.md before
+        # loading it, so the header costs Claude one line.
+        runner.render(make_answers())
+        text = runner.staged("CLAUDE.md")
+        loaded = re.sub(r"(?ms)^<!--.*?-->[ \t]*\n", "", text)
+        assert loaded.split() == ["#", "Foo", "Research"]
 
     def it_copies_the_field_verbatim_after_the_header(self, runner, make_answers):
         field = "I am a {{PROJECT_NAME}} fan.\n\n- Budget: $500 <!-- a note -->\n"
