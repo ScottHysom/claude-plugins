@@ -263,7 +263,7 @@ def run(tmp_path, capsys, payload, fetch, environ=None):
     path.write_text(json.dumps(payload))
     env = {"GITHUB_EVENT_PATH": str(path), "GITHUB_REPOSITORY": REPO, "GITHUB_TOKEN": "tok"}
     env.update(environ or {})
-    code = cli.main([], env, fetch)
+    code = cli.main(env, fetch)
     return code, capsys.readouterr()
 
 
