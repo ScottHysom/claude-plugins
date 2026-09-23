@@ -1,76 +1,96 @@
 # prose-tuning
 
-Learns a project's house prose style from edits already made, records it as
-`prose-style.md` with stable rule ids, and conforms the rest of the documents
-to it.
+prose-tuning teaches Claude how you want a project's documents to read. You
+edit a few passages by hand, and Claude works out the rules behind your edits
+and saves them in the project. From then on, Claude follows those rules in
+everything it writes there. Claude can also check the documents you already
+have against the rules and fix what breaks them, once you approve.
 
-**Claude Code, and Cowork by marketplace install only.** The skills call a
-bundled script, and Cowork's `propose_skills` takes a single `SKILL.md` with no
-bundled files. Proposing one of these skills gives you a skill that cannot run.
+prose-tuning works in Claude Code, and in Cowork when you install it from
+the marketplace.
 
-On Cowork, the skills copy that script and the plugin's shipped rules into the
-project, under `.prose-tuning/`, because your computer can see the project but
-not the plugin. The folder carries its own `.gitignore`, so nothing in it
-reaches your commits. It stays between runs, and you can delete it whenever you
-like.
+## When to use it
 
-## The problem it solves
+Reach for it when you keep correcting the same things in what Claude writes.
+Without it, Claude forgets your corrections when a conversation ends, and the
+next conversation makes the same mistakes. With it, each correction becomes a
+written rule that every later conversation in the project reads.
 
-Getting a set of documents to sound the way you want is easy to do once by hand
-and miserable to repeat. The first run of this workflow produced eleven good
-rules across six documents, and cost nine exchanges, a tag vocabulary invented
-halfway through, twenty hand-written anchor strings of which three missed, and
-five malformed tags that nothing caught because no parser existed yet.
+The plugin needs a project folder tracked by git, because it reads your edits
+as the difference from the last commit. A Cowork Project that is not under git
+yet can get there with the gitify-cowork-project plugin, from the same
+marketplace.
 
-The rules were the valuable part, and they evaporated at the end of the session.
-Every later agent editing those documents started from nothing.
+For a single edit to a single document, ask Claude directly. The plugin earns
+its place once the same correction comes up a second time.
 
-## The idea
+## What it adds to your project
 
-Prose style becomes a file in the repo, not a thing re-derived per session.
+The rules live in `.claude/rules/prose-style.md`. Claude Code and Cowork load
+every file in `.claude/rules/` into each conversation, so the rules apply to
+everything Claude writes in the project:
 
-`prose-style.md` sits in the project's `.claude/rules/` folder. Claude Code and
-Cowork both load every file there into each session, so an agent has the rules
-whether or not one of these skills is running. They cover everything written in
-the project, not only the documents: commit messages, pull request titles and
-descriptions, issues and code comments. The cost is the whole file, in the
-context of every session.
+- documents
+- commit messages
+- pull request titles and descriptions
+- issues
+- code comments
 
-Cowork does not load the folder for every part of a conversation. A line in
-the Project's Instructions field telling Claude to read
-`.claude/rules/prose-style.md` covers the gap.
-[Designing for Cowork](https://github.com/ScottHysom/claude-plugins/blob/main/COWORK.md#how-instruction-files-load)
-has what Cowork loads and when.
-Finder hides folders whose names start with a dot. Press Cmd-Shift-. to show
-them.
+The whole file goes into every conversation, so a longer rulebook takes up
+more of what Claude can hold in mind at once.
 
-A project set up before the rules moved has `prose-style.md` at its root, where
-nothing loads it. The skills stop there, offer to copy it into `.claude/rules/`,
-and leave the old copy for you to delete.
+Each rule has a short id that says what it means, such as
+`sentences-own-subject`. When Claude reports a passage that breaks a rule, it
+names the id, so you can find the rule and check the report yourself.
 
-Its rules carry stable ids that say what the rule means, so a note can read
-`sentences-own-subject at landscape.md:42` and be checkable without opening the
-file.
+On Cowork, a `.prose-tuning/` folder also appears in the project. It holds a
+copy of the plugin's script, which the skills need to run there. Git ignores
+the folder, so it never reaches your commits. You can delete it whenever you
+like, and the next run puts it back.
 
-The plugin ships a default set of rules, so a new project starts from those
-rather than from a blank file, and a project that wants to diverge edits its
-own copy.
+No skill in this plugin commits anything. Each one leaves its changes for you
+to review and commit your usual way.
 
-## The three skills
+## Setting up
 
-| Skill | Does |
-|---|---|
-| `update-prose-config` | Reads your uncommitted edits, works out what rule each implies, asks about the ambiguous ones, writes `.claude/rules/prose-style.md` |
-| `apply-prose` | Reports where the existing documents break those rules, and rewrites on approval |
-| `adopt-prose` | Copies rules between projects, or promotes one into the plugin's shipped rules |
+In Claude Code there is nothing to set up.
 
-None of them commits. How a project commits is settled wherever that project
-settles it, and a second source of truth for it helps nobody.
+In Cowork, add this line to the project's Instructions field:
 
-## Using it
+```
+Read .claude/rules/prose-style.md before writing anything in this project.
+```
 
-Edit some documents the way you want them to read. Leave the changes
-uncommitted. Then ask to update the prose config.
+Cowork does not load `.claude/rules/` for every part of a conversation, and
+the line covers the gap. Finder hides folders whose names start with a dot,
+such as `.claude`. Press Cmd-Shift-. to show them.
+
+The first time you run `update-prose-config` in a project, Claude offers to
+start the rules file from a default set the plugin ships. You can also start
+from another project's rules, or from an empty file.
+
+A project set up with an earlier version of this plugin keeps
+`prose-style.md` at its top level, where nothing loads it. The skills stop
+there and offer to copy it into `.claude/rules/`. They leave the old copy for
+you to delete.
+
+## The skills
+
+| Skill | What it does | Ask Claude to |
+|---|---|---|
+| `update-prose-config` | Learns rules from your uncommitted edits and writes them into `.claude/rules/prose-style.md` | "update the prose config" |
+| `apply-prose` | Reports where your documents break the rules, and rewrites the passages you approve | "apply the house style" |
+| `adopt-prose` | Copies rules from another project's `prose-style.md` into this one | "adopt the prose rules from ..." |
+
+## Teaching it your style
+
+1. Edit some documents the way you want them to read. Leave the changes
+   uncommitted.
+2. Ask Claude to update the prose config.
+3. Claude asks about any edit whose reason it cannot tell, all in one round of
+   questions.
+4. Claude writes the rules and leaves the changes for you to review and
+   commit.
 
 Where an edit needs explaining, say so in the document itself:
 
@@ -85,35 +105,44 @@ Where an edit needs explaining, say so in the document itself:
 </repl>
 ```
 
-`<del>` and `<ins>` are real HTML elements, so a markdown preview renders that
-as an edit while you write it. The markup never reaches a commit: the skill
-resolves it once the rules are written. `reference/tag-vocabulary.md` is the
-full grammar.
+`<del>` marks text to cut and `<ins>` text to add. Both are real HTML
+elements, so a markdown preview shows them as an edit while you write. `<repl>`
+swaps one for the other, `why` says why, and `<alt>` offers a rule or another
+way to write it. Claude removes all of this markup once the rules are written,
+so none of it reaches a commit. The
+[full list of tags](https://github.com/ScottHysom/claude-plugins/blob/main/plugins/prose-tuning/reference/tag-vocabulary.md)
+has every form they take.
 
-## Why a script
+## Checking your documents
 
-`scripts/prose.py` does everything deterministic - parsing the markup,
-selecting files, diffing, inserting and resolving tags, reading the config -
-and the model does only what needs judgment: inferring a rule, writing prose,
-deciding whether a passage conforms.
+Ask Claude to apply the house style. Claude lists each passage that breaks a
+rule, with the file, the line, the rule's id and a proposed rewrite. Nothing
+changes until you approve. You can approve the whole list, or only some rules,
+or only some files.
 
-Two parts of it carry the design.
+A rewrite changes how a sentence reads and never what it says. Numbers,
+names, dates and claims stay as they are.
 
-**The tag-neutral diff.** Once a question has been inserted into a document, the
-working tree differs from `HEAD` for two reasons at once: you edited prose, and
-the tool added markup. A plain `git diff` hands the tool its own tags back as
-your evidence. So `evidence` strips the markup in memory and diffs that instead.
+The `scope:` list at the top of `prose-style.md` decides which files are
+checked. If a file you expected was skipped, ask Claude why.
 
-**Batch-only insertion.** Every insertion shifts the line numbers below it, so
-markup goes in as one batch applied bottom-up from a single snapshot. Twenty
-separate calls cannot work, which is what the first run discovered the hard way.
+`apply-prose` will not start while you are partway through teaching it your
+style, because rewriting documents you are still editing would tangle the two
+sets of changes. Finish that run, or ask Claude to abandon it, first.
 
-The property that matters is a round trip: for any batch, insert then strip
-returns the file byte-identical. Every span shape the grammar allows holds to
-it, which is what makes a tagging pass safe to undo.
+## Sharing rules between projects
 
-## Editing the rules
+Ask Claude to adopt the prose rules from another project. Rules this project
+lacks are copied across, each with a note of where it came from. Claude asks
+you about two cases, side by side and in one round:
 
-The shipped rules live in `templates/prose-style.md`. Editing them changes
-what new projects get and changes nothing about existing ones, which do not
-update themselves.
+- The two projects have a rule with the same id but different wording.
+- Two rules say the same thing under different ids.
+
+On Cowork, both projects have to be in folders connected to Cowork.
+
+## Technical design
+
+Why the plugin is built the way it is, from the script behind the skills to
+why no skill commits, is in
+[DESIGN.md](https://github.com/ScottHysom/claude-plugins/blob/main/plugins/prose-tuning/DESIGN.md).
