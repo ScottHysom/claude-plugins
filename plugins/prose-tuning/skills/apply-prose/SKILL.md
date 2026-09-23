@@ -13,9 +13,12 @@ silently rewrites three hundred lines produces exactly the diff nobody reads,
 and a reader cannot tell a rule being applied correctly from a rule being
 misapplied without seeing which rule was claimed.
 
-**Claude Code against a local checkout is the primary surface.** On Cowork this
-needs a marketplace install, because `propose_skills` cannot carry
-`scripts/prose.py`.
+**Runs in Claude Code against a local checkout, and in Cowork.** On Cowork the
+plugin has to be installed from the marketplace: `propose_skills` takes a single
+`SKILL.md` and no bundled files, and this skill cannot run without
+`scripts/prose.py`. Cowork also keeps the script and the project apart, so
+`reference/cowork.md` copies the script into the project and says how every
+command below runs there.
 
 ## Locate the script
 
@@ -23,6 +26,8 @@ needs a marketplace install, because `propose_skills` cannot carry
 PROSE="${CLAUDE_PLUGIN_ROOT:-${CLAUDE_SKILL_DIR}/../..}/scripts/prose.py"
 ls "$PROSE" || echo "prose-tuning is not installed as a plugin here"
 ```
+
+On Cowork, follow `reference/cowork.md` now, before the first command below.
 
 ## Step 1: refuse early
 

@@ -1,0 +1,129 @@
+"""Running prose.py on Cowork's device: stage, and preflight's ignore check.
+
+prose.py's docstring, under "Where this runs", says why the script is copied
+into the project and why that copy has to be ignored.
+"""
+
+import hashlib
+import json
+import shutil
+
+import prose
+
+FOLDER = "/Users/someone/Claude Projects/Notes"
+
+
+def stage(capsys, *argv):
+    """Run `prose.py stage --json`. Returns (exit code, envelope, stderr)."""
+    capsys.readouterr()
+    code = prose.main(["stage", *argv, "--json"])
+    captured = capsys.readouterr()
+    return code, json.loads(captured.out) if captured.out else None, captured.err
+
+
+def entry(env, rel):
+    return next(f for f in env["data"]["files"] if f["file"] == rel)
+
+
+class DescribeStage:
+    def it_stages_a_byte_identical_copy_of_the_running_script(self, tmp_path, capsys):
+        code, env, _ = stage(capsys, "--folder", FOLDER, "--stage", str(tmp_path))
+        assert code == prose.OK
+        staged = entry(env, prose.DEVICE_SCRIPT)
+        with open(prose.SCRIPT_PATH, "rb") as fh:
+            original = fh.read()
+        with open(staged["staged_path"], "rb") as fh:
+            assert fh.read() == original
+        assert staged["sha256"] == hashlib.sha256(original).hexdigest()
+
+    def it_addresses_the_copy_to_the_project_folder_on_the_device(self, tmp_path, capsys):
+        _, env, _ = stage(capsys, "--folder", FOLDER + "/", "--stage", str(tmp_path))
+        assert env["data"]["commit_files"] == [
+            {
+                "stagedPath": entry(env, prose.DEVICE_SCRIPT)["staged_path"],
+                "devicePath": FOLDER + "/.prose-tuning/prose.py",
+            }
+        ]
+
+    def it_starts_device_commands_in_the_mounted_project(self, tmp_path, capsys):
+        _, env, _ = stage(capsys, "--folder", FOLDER, "--stage", str(tmp_path))
+        assert env["data"]["device_setup"] == (
+            'cd "$HOME/mnt"/Notes && PROSE=.prose-tuning/prose.py'
+        )
+
+    def it_mounts_a_project_below_the_connected_folder_under_its_path(self, tmp_path, capsys):
+        _, env, _ = stage(
+            capsys,
+            "--connected",
+            "/Users/someone/Claude Projects",
+            "--folder",
+            FOLDER,
+            "--stage",
+            str(tmp_path),
+        )
+        assert env["data"]["device_setup"].startswith("cd \"$HOME/mnt\"/'Claude Projects/Notes' ")
+
+    def it_checks_every_staged_file_by_checksum_on_the_device(self, tmp_path, capsys):
+        template = tmp_path / "prose-style.md"
+        template.write_text("---\nname: T\n---\n")
+        _, env, _ = stage(
+            capsys, "--folder", FOLDER, "--template", str(template), "--stage", str(tmp_path / "s")
+        )
+        lines = env["data"]["check_command"].split("\n")
+        assert lines[1:-1] == ["%s  %s" % (f["sha256"], f["file"]) for f in env["data"]["files"]]
+        assert [f["file"] for f in env["data"]["files"]] == [
+            prose.DEVICE_SCRIPT,
+            prose.DEVICE_TEMPLATE,
+        ]
+
+    def it_writes_nothing_on_a_dry_run(self, tmp_path, capsys):
+        code, _, _ = stage(capsys, "--folder", FOLDER, "--stage", str(tmp_path / "s"), "--dry-run")
+        assert code == prose.OK
+        assert not (tmp_path / "s").exists()
+
+    def it_warns_when_the_stage_is_where_device_commit_files_cannot_read(self, tmp_path, capsys):
+        _, env, _ = stage(capsys, "--folder", FOLDER, "--stage", str(tmp_path))
+        assert any(prose.OUTPUTS_ROOT in w for w in env["warnings"])
+
+    def it_refuses_a_project_outside_the_connected_folder(self, tmp_path, capsys):
+        code, env, err = stage(
+            capsys,
+            "--connected",
+            "/Users/someone/Other",
+            "--folder",
+            FOLDER,
+            "--stage",
+            str(tmp_path),
+        )
+        assert code == prose.CANNOT_RUN
+        assert env is None
+        assert "is not inside" in err
+
+    def it_refuses_a_relative_folder(self, tmp_path, capsys):
+        code, _, err = stage(capsys, "--folder", "Notes", "--stage", str(tmp_path))
+        assert code == prose.CANNOT_RUN
+        assert "absolute path" in err
+
+
+class DescribePreflightOnTheDevice:
+    def install_copy(self, prose_repo, monkeypatch):
+        copy = prose_repo.root / ".prose-tuning" / "prose.py"
+        copy.parent.mkdir()
+        shutil.copyfile(prose.SCRIPT_PATH, str(copy))
+        monkeypatch.setattr(prose, "SCRIPT_PATH", str(copy))
+
+    def it_blocks_a_copy_in_the_project_that_git_would_commit(self, prose_repo, monkeypatch):
+        self.install_copy(prose_repo, monkeypatch)
+        code, env = prose_repo.run("preflight", "--for", "config")
+        assert code == prose.PROBLEMS
+        assert any(e.startswith(".prose-tuning/prose.py  not ignored") for e in env["errors"])
+
+    def it_accepts_a_copy_the_gitignore_covers(self, prose_repo, monkeypatch):
+        self.install_copy(prose_repo, monkeypatch)
+        (prose_repo.root / ".gitignore").write_text(".prose-tuning/\n")
+        code, env = prose_repo.run("preflight", "--for", "config")
+        assert code == prose.OK, env["errors"]
+
+    def it_ignores_the_check_for_a_script_outside_the_project(self, prose_repo):
+        code, env = prose_repo.run("preflight", "--for", "config")
+        assert code == prose.OK, env["errors"]

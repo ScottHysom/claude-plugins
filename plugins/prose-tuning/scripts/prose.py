@@ -22,8 +22,26 @@ Commands:
     tags        check | list | insert | resolve | strip
     apply       apply approved rewrites
     restore     put a file back to its committed state
+    stage       copy this script into Cowork's outputs, ready for the device
 
 Exit codes: 0 clean, 1 ran and found problems, 2 could not run.
+
+Where this runs. In Claude Code, beside the checkout, and nothing below
+applies. In Cowork, probed for issue #17:
+
+- The container can read the plugin but not the user's folder. The device side
+  (`device_bash`, a Linux VM) sees the folder at $HOME/mnt/<folder name> and
+  has python3 and git, but gets Permission denied on the plugin. So the script
+  has to be copied onto the device and run there.
+- `device_commit_files` copies a file from under /mnt/user-data/outputs/ byte
+  for byte, but only into a connected folder, and never under .git. The copy
+  therefore lives in the project, at .prose-tuning/prose.py. `stage` puts it in
+  the outputs directory and prints the list that tool takes, the sha256 check,
+  and the `cd` every later device command starts with.
+- The project's commit.sh runs `git add -A`, so the copy must be ignored.
+  preflight refuses to run from a copy git would commit. The .gitignore
+  templates in cowork-project-scaffold and gitify-cowork-project carry the
+  line; an older project needs it added.
 
 Two things in here look like bugs and are not:
 
@@ -42,9 +60,12 @@ Python 3.9 is the floor. No match statements, no X | Y unions.
 
 import argparse
 import difflib
+import hashlib
 import json
 import os
+import posixpath
 import re
+import shlex
 import subprocess
 import sys
 
@@ -53,6 +74,15 @@ ENVELOPE_VERSION = 1
 OK, PROBLEMS, CANNOT_RUN = 0, 1, 2
 
 CONFIG_NAME = "prose-style.md"
+
+# Cowork. See "Where this runs" above.
+SCRIPT_PATH = os.path.abspath(__file__)
+OUTPUTS_ROOT = "/mnt/user-data/outputs"
+DEFAULT_STAGE = OUTPUTS_ROOT + "/prose-tuning"
+DEVICE_DIR = ".prose-tuning"
+DEVICE_SCRIPT = DEVICE_DIR + "/prose.py"
+DEVICE_TEMPLATE = DEVICE_DIR + "/prose-style.template.md"
+DEVICE_MOUNT_ROOT = "$HOME/mnt"
 
 DEFAULT_INCLUDE = ["**/*.md"]
 DEFAULT_EXCLUDE = [
@@ -1841,6 +1871,20 @@ def cmd_status(args):
     return emit(args, "status", repo.root, data, human=human)
 
 
+def unignored_device_copy(repo):
+    """This script's path in the repo when it is a device copy git would commit.
+
+    None when the script runs from anywhere but the repo's .prose-tuning/, as it
+    does in Claude Code, or when git ignores the copy.
+    """
+    rel = os.path.relpath(os.path.realpath(SCRIPT_PATH), os.path.realpath(repo.root))
+    rel = rel.replace(os.sep, "/")
+    if not rel.startswith(DEVICE_DIR + "/"):
+        return None
+    code, _, _ = repo.git("check-ignore", "-q", "--", rel)
+    return None if code == 0 else rel
+
+
 def cmd_preflight(args):
     repo, config, scope = load(args)
     want = args.for_target
@@ -1852,6 +1896,12 @@ def cmd_preflight(args):
             blockers.append("%s  no config; run: prose.py config init" % config.rel())
     else:
         blockers += config.errors
+    unignored = unignored_device_copy(repo)
+    if unignored:
+        blockers.append(
+            "%s  not ignored, so commit.sh's `git add -A` would commit it; "
+            "add a line %s/ to .gitignore and commit it" % (unignored, DEVICE_DIR)
+        )
 
     files = scope.files()
     tagged, markup_errors = [], []
@@ -2450,14 +2500,98 @@ def cmd_restore(args):
     )
 
 
+def normalise_folder(value, name):
+    """A device folder as get_device_info lists it, without a trailing slash."""
+    folder = (value or "").rstrip("/")
+    if not folder.startswith("/"):
+        raise Fatal(
+            "--%s must be an absolute path on the device, as get_device_info lists it" % name
+        )
+    return posixpath.normpath(folder)
+
+
+def cmd_stage(args):
+    folder = normalise_folder(args.folder, "folder")
+    connected = normalise_folder(args.connected or args.folder, "connected")
+    if folder == connected:
+        sub = ""
+    elif folder.startswith(connected + "/"):
+        sub = folder[len(connected) + 1 :]
+    else:
+        raise Fatal("--folder %s is not inside --connected %s" % (folder, connected))
+    mount = (
+        posixpath.join(posixpath.basename(connected), sub) if sub else posixpath.basename(connected)
+    )
+    if not mount:
+        raise Fatal("--connected %s has no folder name to mount" % connected)
+
+    sources = [(DEVICE_SCRIPT, SCRIPT_PATH)]
+    if args.template:
+        if not os.path.isfile(args.template):
+            raise Fatal("--template %s is not a file" % args.template)
+        sources.append((DEVICE_TEMPLATE, os.path.abspath(args.template)))
+
+    stage = os.path.abspath(args.stage)
+    warnings = []
+    if not (stage + "/").startswith(OUTPUTS_ROOT + "/"):
+        warnings.append(
+            "stage %s is outside %s; device_commit_files will reject it" % (stage, OUTPUTS_ROOT)
+        )
+    if os.path.exists(stage) and not os.path.isdir(stage):
+        raise Fatal("stage %s exists and is not a directory" % stage)
+
+    files = []
+    for rel, source in sources:
+        with open(source, "rb") as fh:
+            content = fh.read()
+        staged = os.path.join(stage, *rel.split("/"))
+        if not args.dry_run:
+            os.makedirs(os.path.dirname(staged), exist_ok=True)
+            # In place, on purpose. See the module docstring.
+            with open(staged, "wb") as fh:
+                fh.write(content)
+        files.append(
+            {
+                "file": rel,
+                "staged_path": staged,
+                "device_path": posixpath.join(folder, rel),
+                "sha256": hashlib.sha256(content).hexdigest(),
+            }
+        )
+
+    cd = 'cd "%s"/%s' % (DEVICE_MOUNT_ROOT, shlex.quote(mount))
+    check = [cd + " && sha256sum --check --strict - <<'SUMS'"]
+    check += ["%s  %s" % (f["sha256"], f["file"]) for f in files]
+    check.append("SUMS")
+    data = {
+        "dry_run": args.dry_run,
+        "stage": stage,
+        "files": files,
+        "commit_files": [
+            {"stagedPath": f["staged_path"], "devicePath": f["device_path"]} for f in files
+        ],
+        "check_command": "\n".join(check),
+        "device_setup": "%s && PROSE=%s" % (cd, DEVICE_SCRIPT),
+    }
+
+    def human():
+        for f in files:
+            print("%s  %s" % (f["sha256"][:12], f["device_path"]))
+        print("\ncheck after copying, through device_bash:\n%s" % data["check_command"])
+        print("\nstart every device command with:\n%s && " % data["device_setup"])
+
+    return emit(args, "stage", None, data, warnings=warnings, human=human)
+
+
 # --------------------------------------------------------------------------
 # argument parsing
 # --------------------------------------------------------------------------
 
 
 def build_parser():
-    common = argparse.ArgumentParser(add_help=False)
-    common.add_argument("--json", action="store_true", help="machine-readable envelope on stdout")
+    output = argparse.ArgumentParser(add_help=False)
+    output.add_argument("--json", action="store_true", help="machine-readable envelope on stdout")
+    common = argparse.ArgumentParser(add_help=False, parents=[output])
     common.add_argument(
         "-C",
         "--repo",
@@ -2572,6 +2706,30 @@ def build_parser():
     p.add_argument("--file", dest="target", required=True, metavar="PATH")
     p.add_argument("--ref", default="HEAD")
     p.set_defaults(func=cmd_restore)
+
+    # No -C: stage runs in Cowork's container, which has no repo to point at.
+    p = sub.add_parser(
+        "stage", parents=[output], help="copy this script into Cowork's outputs for the device"
+    )
+    p.add_argument(
+        "--folder",
+        required=True,
+        metavar="PATH",
+        help="the project folder on the device, as get_device_info lists it",
+    )
+    p.add_argument(
+        "--connected",
+        metavar="PATH",
+        help="the connected folder holding --folder, when that is not the project itself",
+    )
+    p.add_argument(
+        "--template",
+        metavar="PATH",
+        help="a prose-style.md to stage beside the script, for config init --from",
+    )
+    p.add_argument("--stage", default=DEFAULT_STAGE, metavar="DIR", help="default: %(default)s")
+    p.add_argument("--dry-run", action="store_true")
+    p.set_defaults(func=cmd_stage)
 
     return ap
 

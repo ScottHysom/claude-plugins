@@ -164,8 +164,9 @@ class DescribeTheInstructions:
 class DescribeTheIgnorePatterns:
     def it_appends_them_under_their_own_heading(self, runner, make_answers):
         runner.render(make_answers(ignore=["exports/", "*.mov"]))
+        template = (runner.templates_copy() / "gitignore").read_text()
         text = runner.staged(".gitignore")
-        assert text.endswith("Claude outputs/\n\n# This project\nexports/\n*.mov\n")
+        assert text == template + "\n# This project\nexports/\n*.mov\n"
 
     def it_leaves_the_template_as_it_is_when_there_are_none(self, runner, make_answers):
         runner.render(make_answers(ignore=[]))
