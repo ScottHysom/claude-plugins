@@ -44,8 +44,6 @@ work.
 
 `include` and `exclude` replace the defaults wholesale when present.
 
-
-
 The rules file is excluded whatever the override says. A conformance pass
 rewriting its own rulebook is not a thing anyone wants to debug.
 
@@ -91,13 +89,6 @@ Reword the body freely; the name survives, because the name is about the
 subject, not the wording. A rule whose subject moved far enough to want a
 different name is a different rule, and the one it replaced should have been
 rewritten in place.
-
-
-
-
-
-
-
 
 Nothing enforces the naming discipline. `config lint` checks the grammar and the
 word count and stops there, the same way it cannot tell that two rules

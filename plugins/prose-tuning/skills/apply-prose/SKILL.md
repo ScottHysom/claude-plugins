@@ -160,8 +160,6 @@ The engine rejects a finding rather than trusting it when:
 - a `table-cell` replacement contains a `|` or a newline, which would silently
   restructure the table
 
-
-
 ## Step 7: report and stop
 
 Say what changed, per file and per rule id. Leave the working tree dirty.
