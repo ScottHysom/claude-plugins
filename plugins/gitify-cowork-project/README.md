@@ -1,22 +1,32 @@
 # Gitify Cowork Project
 
-Puts a Cowork Project folder you have already been working in under git,
-without touching what is in it.
+Gitify Cowork Project gives a Cowork Project a version history with git,
+without touching the documents in it. A Cowork Project is a workspace in the Claude desktop app's
+Cowork mode, with its own instructions and a folder on your computer that
+Claude reads and writes.
 
-**Cowork only.** It writes to your computer through Cowork's device bridge and
-registers a skill through the in-conversation review card. Neither exists in
-Claude Code.
+**Cowork only.** The plugin needs a Cowork Project with a connected folder, and
+it does not run in Claude Code.
 
-## The problem it solves
+## When to use it
 
-A Cowork Project usually starts in the app. You work in it for a while, and
-only then want history: what a document said last week, why a figure changed,
-a way back from an edit that went wrong. By then the folder holds real work,
-and the project has settled how its documents are written.
+The plugin suits a project whether it is new or already under way:
 
-This plugin adds the history and nothing else. It writes no documents and no
-rules about what documents say or how they read. Those are the project's own,
-and it has already made them.
+- **A new project,** before anything is in the folder. History starts with the
+  first document.
+- **A project you have been working in for a while.** By then the folder holds
+  real work. History shows what a document said last week and why a figure
+  changed, and it gives a way back from an edit that went wrong.
+
+The plugin adds the history and nothing else. It writes no documents, and no
+rules about what documents say or how they read. Those belong to the project,
+and a project that wants a house style adds one separately.
+
+## When not to use it
+
+A folder that is already a git repository has a history of its own. The plugin
+starts history rather than taking over an existing one, so Claude stops when it
+finds one.
 
 ## What you get
 
@@ -24,86 +34,100 @@ and it has already made them.
 <Your Project>/
   (everything already there, untouched)
   .gitignore
-  commit.sh                    clears the lock the bridge strands, then commits
-  setup.sh                     one time: git init and the first commit
+  commit.sh                    makes each commit after the first
+  setup.sh                     one time: creates the repository and the first commit
   CLAUDE.md                    the Project Instructions, now under version control
   skills/
     <project>-history/
-      SKILL.md                 generated for this project, then registered
+      SKILL.md                 how Claude handles this project's history
 ```
 
-The generated skill is about history only: committing through a bridge that
-cannot delete files, Conventional Commit messages with the reasons in the body,
-ISO dates, and keeping the registered skill and the repo copy the same.
+A skill is a set of instructions Claude follows for one kind of task. The
+`<project>-history` skill is written for this project and saved to your
+account. Claude uses it whenever you ask about committing or about what changed.
+It covers history only:
 
-## Using it
+- how a commit is made from Cowork
+- commit messages in the Conventional Commits format, which opens each message
+  with the kind of change, such as `docs:` or `fix:`, and puts the reasons in
+  the body
+- ISO dates, such as `2026-08-20`
+- keeping the saved skill and the copy in the folder the same
 
-Install the plugin from the marketplace, then ask Claude to put the project
-under git. The skill calls `scripts/gitify.py`, which a skill saved on its own
-through the review card would not have.
+## Setting it up
 
-Claude checks the folder first. It stops if the folder is not there, is
-already a git repo, or already has a file with the same name as one of the five
-it would write. It lists what is in the folder and asks about anything that
+With the plugin installed, ask Claude to put the project under git.
+
+Claude checks the folder first. It stops in any of these cases:
+
+- The folder is not there.
+- The folder is already a git repository.
+- The folder already has a file with the same name as one Claude would write.
+
+Otherwise Claude lists what is in the folder and asks about anything that
 probably should not be in git, such as large media or exports.
 
-Then it leaves you what the bridge cannot do:
+Claude then writes the files and leaves you the steps it cannot take:
 
-1. **Run `sh setup.sh` from your own terminal.** This stages every file in the
-   folder and commits nothing. It lists what the first commit would take. Add
-   a pattern to `.gitignore` for anything that should stay out, run
-   `sh setup.sh` again to see the new list, and when the list is right run
-   `sh setup.sh commit`. `sh`, because files written through the bridge lose
-   their execute bit; `setup.sh` restores it.
-2. Save the proposed skill from the review card.
-3. Replace the Project Instructions field with the one line Claude gives you.
+1. **Run `sh setup.sh` from your own terminal, in the project folder.** The
+   first run commits nothing. It lists every file the first commit would take.
+   Add a pattern to `.gitignore` for anything that should stay out, and run
+   `sh setup.sh` again to see the new list. When the list is right, run
+   `sh setup.sh commit`.
+2. **Save the proposed skill from the review card.** The review card is the
+   card Cowork shows in the conversation when Claude proposes a skill for your
+   account.
+3. **Replace the Project Instructions field with the one line Claude gives
+   you.** Claude cannot write the field itself. Whatever the field held is now
+   in `CLAUDE.md`, copied exactly, and the line tells Claude to read it.
 
-## One place for standing instructions
+## Everyday use
 
-A Cowork Project's instructions field is not versioned, and a copy of it in the
-folder drifts from it the first time either is edited. So the field's content
-moves into `CLAUDE.md` at the root of the folder, copied exactly, and the field
-holds one line that points there. That line never needs to
-change, so there is nothing left to drift.
+### Committing a change
 
-The note at the top of `CLAUDE.md` says how the file works. It is an HTML
-comment on lines of its own, which Cowork leaves out when it loads the file, so
-it costs no context.
+Ask Claude to commit what changed. Claude writes the commit message into
+`.commit-msg` in the project folder and asks you to run `./commit.sh` from your
+own terminal, which makes the commit with that message. Claude cannot make a
+commit itself from Cowork.
 
-Claude cannot write the field itself. That is why replacing it is your step.
+`./commit.sh "docs: add the March figures"` commits with a message of your own
+instead.
 
-Cowork adds the field to every conversation in the project, so anything left
-in it costs context every time. The line stays even when the project is the
-connected folder, whose `CLAUDE.md` Cowork also loads by itself: the field
-reaches every conversation from its start, so the line gets `CLAUDE.md` read
-wherever Cowork's own loading does not. What Cowork loads, and when, is in
-[Designing for Cowork](https://github.com/ScottHysom/claude-plugins/blob/main/COWORK.md#how-instruction-files-load).
+### Looking back
 
-## Prose and document rules
+Claude can read the history at any time, with nothing for you to run. Ask it
+questions such as:
 
-This plugin writes none. A project that wants a house style adds one
-separately.
+- What did this document say last week?
+- When did this figure change, and why?
+- What corrections have been made to this file?
+- Show me the whole of the last change.
 
-## Why `commit.sh` exists
+The answer to "why" is only as good as the commit message, which is why the
+history skill has Claude put the reasons in the body.
 
-Cowork's bridge cannot delete files. Every `git commit` it attempts leaves a
-`.git/HEAD.lock` behind, and that lock blocks every later write to the repo.
-`commit.sh` clears the debris and makes the commit. Read-only git works fine
-from the bridge, so Claude can still run `log`, `diff`, `blame` and `show`.
+### Changing the standing instructions
 
-`commit.sh` refuses to make the first commit. That one is `setup.sh`'s, because
-it shows you what it is about to take.
+`CLAUDE.md` holds the project's standing instructions. Edit it, or ask Claude
+to, and commit it like any other file. The Project Instructions field keeps
+only its one line. If anything else turns up there, Claude copies it into
+`CLAUDE.md` and asks you to put the field back.
 
-## Editing the templates
+### Changing the history skill
 
-Everything this plugin writes lives in `skills/gitify-project/templates/`.
-Change a file there, bump the version as the repo's
-[README](https://github.com/ScottHysom/claude-plugins#versioning) describes, and
-reinstall.
+The copy of the skill in the project folder is the original, and the copy
+saved to your account is the one that runs. Edit the file in the folder, commit
+it, then upload it again under **Customize → Skills**. An edit made directly in
+Customize → Skills has no history and no way back.
 
-`{{NAME}}` is a placeholder. A new template file also needs a line in
-`MANIFEST` in `scripts/gitify.py`, which says where it lands in the project.
-`python3 scripts/gitify.py preflight` checks all of it.
+### Catching up with the plugin
 
-Changing a template does not change projects already set up. Each project's
-skill is its own copy from then on.
+Each project's history skill is its own copy, so updating the plugin does not
+change it. Ask Claude to check the project's history skill against the plugin.
+Claude shows you the sections that differ, and carries across only the ones you
+agree with.
+
+## Technical design
+
+Why the plugin is built the way it is, and how to change what it writes, is in
+[DESIGN.md](https://github.com/ScottHysom/claude-plugins/blob/main/plugins/gitify-cowork-project/DESIGN.md).
