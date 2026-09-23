@@ -125,7 +125,7 @@ Must pass.
 Three extra obligations, because the template is shipped code:
 
 ```sh
-python3 .github/scripts/check-manifest-consistency.py
+python3 .github/scripts/check-manifest-consistency.py check
 ```
 
 - **Bump `cowork-project-scaffold`** in both `.claude-plugin/plugin.json` and
