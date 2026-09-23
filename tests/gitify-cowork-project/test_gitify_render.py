@@ -197,6 +197,8 @@ VALUE_CASES = [
     ("DESCRIPTION", "- Foo Research history.", "would break the skill's front matter"),
     ("DESCRIPTION", "Git history. Use when committing.", "must name the project"),
     ("DESCRIPTION", "Foo Research " + "x" * 1024, "at most 1024"),
+    ("DESCRIPTION", "Foo Research history, <ins> and all.", "looks like an XML tag"),
+    ("DESCRIPTION", "Foo Research history</b>", "looks like an XML tag"),
 ]
 
 
@@ -215,6 +217,14 @@ class DescribeValidatingAValue:
     ):
         data = make_answers()
         data["values"]["DESCRIPTION"] = "Use foo-research-history when committing."
+        code, env = runner.render(data)
+        assert code == gitify.OK, env["errors"]
+
+    def it_accepts_a_description_with_a_less_than_sign_not_followed_by_a_name(
+        self, runner, make_answers
+    ):
+        data = make_answers()
+        data["values"]["DESCRIPTION"] = "Foo Research history, when a < b."
         code, env = runner.render(data)
         assert code == gitify.OK, env["errors"]
 

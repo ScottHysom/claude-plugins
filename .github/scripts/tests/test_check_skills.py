@@ -1,9 +1,15 @@
-"""A step copied between two of a plugin's skills, made loud.
+"""What check-skills.py says about a plugin's skills.
 
-The copy reads fine in either file, so the tests here assert that the check
-speaks up, that rewrapping or burying the copy in a list does not hide it, that
-its one exception stays narrow - and that it refuses to pass when it has
-scanned nothing.
+`repeats`: a step copied between two of a plugin's skills, made loud. The copy
+reads fine in either file, so the tests here assert that the check speaks up,
+that rewrapping or burying the copy in a list does not hide it, that its one
+exception stays narrow - and that it refuses to pass when it has scanned
+nothing.
+
+`descriptions`: Cowork's .plugin upload rejects a description holding an
+XML-like tag, and nothing else in CI notices. The check fails by absence - a
+pattern or a file selection that stops matching passes everything - so each
+rule gets a repo that breaks it and a test that the check says so.
 """
 
 import importlib.util
@@ -38,6 +44,16 @@ LOCATE = (
 
 def skill(name, body):
     return "---\nname: %s\ndescription: the %s skill\n---\n\n# %s\n\n%s" % (name, name, name, body)
+
+
+def described(description, body="# A skill\n"):
+    return "---\nname: foo\ndescription: %s\n---\n\n%s" % (description, body)
+
+
+def commit(root):
+    git = ["git", "-C", str(root), "-c", "user.name=t", "-c", "user.email=t@t"]
+    subprocess.run([*git, "add", "-A"], check=True, capture_output=True)
+    subprocess.run([*git, "commit", "-q", "-m", "x"], check=True, capture_output=True)
 
 
 @pytest.fixture(autouse=True)
@@ -201,8 +217,137 @@ class DescribeRepeats:
         assert code == cs.OK
 
 
+SKILL = "plugins/foo/skills/foo/SKILL.md"
+
+
+class DescribeDescriptions:
+    def it_passes_a_description_with_no_tag(self, make_repo, run):
+        root = make_repo({SKILL: described("Does foo. Use when asked to foo.")})
+        code, out, err = run("descriptions", "-C", str(root))
+        assert code == cs.OK
+        assert "1 skill description(s) clear" in out
+        assert err == ""
+
+    def it_fails_a_skill_whose_description_holds_a_tag(self, make_repo, run):
+        root = make_repo({SKILL: described("Reads explicit <ins> markup.")})
+        code, out, err = run("descriptions", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "%s:3: description contains an XML-like tag `<ins`" % SKILL in err
+        assert out == ""
+        assert 'COWORK.md, under "How skills load"' in err
+
+    def it_fails_a_tag_on_a_continuation_line(self, make_repo, run):
+        text = "---\nname: foo\ndescription: >\n  Does foo.\n  Reads <del> too.\n---\n"
+        root = make_repo({SKILL: text})
+        code, _, err = run("descriptions", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "%s:5:" % SKILL in err
+        assert "`<del`" in err
+
+    @pytest.mark.parametrize("tag", ["</del>", "<br/>", "<x:y>", "<Repl a='b'>"])
+    def it_fails_a_closing_self_closing_or_attributed_tag(self, make_repo, run, tag):
+        root = make_repo({SKILL: described("Handles %s markup." % tag)})
+        code, _, err = run("descriptions", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "XML-like tag" in err
+
+    @pytest.mark.parametrize("text", ["Runs when a < b.", "Loves prose <3.", "Uses << and <-"])
+    def it_passes_a_less_than_sign_not_followed_by_a_name(self, make_repo, run, text):
+        root = make_repo({SKILL: described(text)})
+        code, _, err = run("descriptions", "-C", str(root))
+        assert code == cs.OK, err
+
+    def it_checks_generated_skill_templates(self, make_repo, run):
+        path = "plugins/foo/skills/foo/templates/history-skill.md"
+        root = make_repo({SKILL: described("Does foo."), path: described("History for <b>it</b>.")})
+        code, out, err = run("descriptions", "--json", "-C", str(root))
+        assert code == cs.PROBLEMS
+        result = json.loads(out)
+        assert path in result["data"]["checked"]
+        assert any(e.startswith(path + ":3:") for e in result["errors"])
+
+    def it_ignores_front_matter_without_a_description(self, make_repo, run):
+        style = "plugins/foo/templates/prose-style.md"
+        root = make_repo({SKILL: described("Does foo."), style: "---\nname: <x>\n---\n"})
+        code, out, err = run("descriptions", "--json", "-C", str(root))
+        assert code == cs.OK, err
+        assert json.loads(out)["data"]["checked"] == [SKILL]
+
+    def it_ignores_a_tag_in_the_skill_body(self, make_repo, run):
+        text = described("Does foo.", body="Tag with <ins>.\ndescription: <del>\n")
+        root = make_repo({SKILL: text})
+        code, _, err = run("descriptions", "-C", str(root))
+        assert code == cs.OK, err
+
+    def it_stops_reading_at_the_end_of_the_front_matter(self, make_repo, run):
+        other = "plugins/foo/notes.md"
+        text = "---\nname: notes\n---\n\ndescription: <ins>\n"
+        root = make_repo({SKILL: described("Does foo."), other: text})
+        code, out, err = run("descriptions", "--json", "-C", str(root))
+        assert code == cs.OK, err
+        assert json.loads(out)["data"]["checked"] == [SKILL]
+
+    def it_ignores_markdown_outside_plugins(self, make_repo, run):
+        root = make_repo({SKILL: described("Does foo."), "docs/SKILL.md": described("<ins>")})
+        code, _, err = run("descriptions", "-C", str(root))
+        assert code == cs.OK, err
+
+    def it_checks_a_committed_file(self, make_repo, run):
+        root = make_repo({SKILL: described("Has <ins>.")})
+        commit(root)
+        code, _, err = run("descriptions", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert SKILL in err
+
+    def it_checks_a_file_git_is_not_yet_tracking(self, make_repo, run):
+        root = make_repo({SKILL: described("Does foo.")})
+        commit(root)
+        new = "plugins/foo/skills/bar/SKILL.md"
+        (root / new).parent.mkdir(parents=True)
+        (root / new).write_text(described("Has <ins>."))
+        code, _, err = run("descriptions", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert new in err
+
+    def it_skips_a_file_git_ignores(self, make_repo, run):
+        ignored = "plugins/foo/skills/scratch/SKILL.md"
+        root = make_repo(
+            {
+                SKILL: described("Does foo."),
+                ignored: described("Has <ins>."),
+                ".gitignore": "scratch/\n",
+            }
+        )
+        code, _, err = run("descriptions", "-C", str(root))
+        assert code == cs.OK, err
+
+    def it_fails_when_it_finds_no_descriptions(self, make_repo, run):
+        root = make_repo({"plugins/foo/README.md": "# Foo\n"})
+        code, _, err = run("descriptions", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "found no markdown under plugins/" in err
+
+    def it_reports_json_with_the_shared_envelope(self, make_repo, run):
+        root = make_repo({SKILL: described("Has <ins>.")})
+        code, out, err = run("descriptions", "--json", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert err == ""
+        result = json.loads(out)
+        assert set(result) == {"version", "command", "ok", "errors", "warnings", "data"}
+        assert result["version"] == cs.ENVELOPE_VERSION
+        assert result["command"] == "descriptions"
+        assert result["ok"] is False
+
+    def it_passes_the_repo_as_it_stands(self, run):
+        code, out, err = run("descriptions", "--json", "-C", str(REPO_ROOT))
+        assert code == cs.OK, err
+        checked = json.loads(out)["data"]["checked"]
+        assert any(p.endswith("/SKILL.md") for p in checked)
+        assert any("/templates/" in p for p in checked)
+
+
 class DescribeMain:
-    @pytest.mark.parametrize("command", ["repeats"])
+    @pytest.mark.parametrize("command", ["repeats", "descriptions"])
     def it_prints_the_same_envelope_for_every_command(self, make_repo, run, command):
         root = make_repo(DISTINCT)
         code, out, _ = run(command, "-C", str(root), "--json")
