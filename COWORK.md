@@ -70,13 +70,14 @@ known", added back when there is one.
   "SKILL.md description cannot contain XML tags", even where the marketplace
   installed the same skill without complaint. `claude plugin validate --strict`
   doesn't catch it either. `check-skills.py descriptions` does, in CI, for every
-  skill and generated-skill template under `plugins/`. The scaffold and gitify
-  scripts reject a tag in the description they are handed for a generated skill.
+  skill and generated-skill template under `plugins/`. A script that writes a
+  generated skill, as gitify's does, rejects a tag in the description it is
+  handed.
 
 ## What the design follows from this
 
 - **Do the logic where the files are.** Rendering new files works in the
-  container: `cowork-project-scaffold` stages them and the bridge copies them
+  container: `gitify-cowork-project` stages them and the bridge copies them
   across. Reading and changing an existing project works on the device:
   `prose-tuning` copies its script into the project and runs it there.
 - **Stage, copy, check.** A script writes what goes across under

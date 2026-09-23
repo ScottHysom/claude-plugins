@@ -31,8 +31,7 @@ python3 "$PROSE" where --json
    ```
 
    Add `--connected "<connected folder>"` when the project sits inside the
-   connected folder rather than being it. Add `--template <path>` when the
-   skill asks for a file on the device beside the script. Exit 0: staged.
+   connected folder rather than being it. Exit 0: staged.
    Exit 2: the message names the path that was wrong.
 
 3. Call `device_commit_files` with `files` set to `data.commit_files`. If it
@@ -41,8 +40,9 @@ python3 "$PROSE" where --json
 4. Run `data.check_command` through `device_bash`. Every line must end `OK`.
    If one doesn't, stage and copy again. Never edit the copy on the device.
 
-The folder `.prose-tuning/` now holds the script, and carries its own
-`.gitignore`, so it never reaches the project's commits. It stays in the
+The folder `.prose-tuning/` now holds the script and the rules the plugin
+ships, which `config init` starts from. It carries its own `.gitignore`, so it
+never reaches the project's commits. It stays in the
 project, and the next run's copy overwrites it.
 
 ## On Cowork: run each command on the device

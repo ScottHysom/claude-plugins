@@ -5,17 +5,16 @@ scope:
     - "**/*.md"
   exclude:
     - "prose-style.md"
-    - "project-instructions.md"
+    - "CLAUDE.md"
     - "**/README.md"
     - "skills/**"
 ---
 
 # {{PROJECT_NAME}}: prose style
 
-The house style for every document in this repo, including this one. The
-`{{SKILL_NAME}}` skill is authoritative on document mechanics - front matter,
-TODO markers, diagrams, commit format. This file is authoritative on how the
-sentences read. The two never overlap.
+The house style for every document in this repo, including this one. It
+covers how the sentences read. Document mechanics - front matter, TODO markers,
+diagrams, commit format - are out of its scope.
 
 Every rule has a stable id of the form `<section>-<name>`, where the name is
 one to four words saying what the rule means. A report names the id, so
@@ -188,8 +187,8 @@ Keep the sentence carrying the information.
 
 If a sentence counts something, the thing it counts is enumerated in the same
 document, and near enough to check. This rule is broken far more often by
-editing than by writing. See the `{{SKILL_NAME}}` skill,
-§ Re-reading after an edit.
+editing than by writing, so after an edit, re-read every count in the section
+against the list it counts.
 
 ### sentences-say-it-once: State a point once, in the place it lands hardest
 <!-- prose-rule: source=shipped -->

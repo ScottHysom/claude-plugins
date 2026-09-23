@@ -1,6 +1,6 @@
 """segments keeps HTML comments away from the model.
 
-A comment is a note for people, a FILL marker in a scaffolded project among
+A comment is a note for people, a FILL marker in the shipped rules among
 them, so a prose rule has nothing to say about it. segments leaves every line
 of one out, `<!--` and `-->` included, and hands out the prose either side of
 a comment that sits inside a paragraph. The apply guard that backs this up is

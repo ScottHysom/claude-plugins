@@ -8,10 +8,11 @@ to it.
 bundled script, and Cowork's `propose_skills` takes a single `SKILL.md` with no
 bundled files. Proposing one of these skills gives you a skill that cannot run.
 
-On Cowork, the skills copy that script into the project, at
-`.prose-tuning/prose.py`, because your computer can see the project but not the
-plugin. The folder carries its own `.gitignore`, so nothing in it reaches your
-commits. It stays between runs, and you can delete it whenever you like.
+On Cowork, the skills copy that script and the plugin's shipped rules into the
+project, under `.prose-tuning/`, because your computer can see the project but
+not the plugin. The folder carries its own `.gitignore`, so nothing in it
+reaches your commits. It stays between runs, and you can delete it whenever you
+like.
 
 ## The problem it solves
 
@@ -33,9 +34,9 @@ Its rules carry stable ids that say what the rule means, so a note can read
 `sentences-own-subject at landscape.md:42` and be checkable without opening the
 file.
 
-`cowork-project-scaffold` ships the default, so a new project starts with
-twenty-four rules rather than a blank file, and a project that wants to diverge
-adds a section instead of rewriting a template.
+The plugin ships a default set of rules, so a new project starts from those
+rather than from a blank file, and a project that wants to diverge edits its
+own copy.
 
 ## The three skills
 
@@ -43,10 +44,10 @@ adds a section instead of rewriting a template.
 |---|---|
 | `update-prose-config` | Reads your uncommitted edits, works out what rule each implies, asks about the ambiguous ones, writes `prose-style.md` |
 | `apply-prose` | Reports where the existing documents break those rules, and rewrites on approval |
-| `adopt-prose` | Copies rules between projects, or promotes one into the scaffold's shipped default |
+| `adopt-prose` | Copies rules between projects, or promotes one into the plugin's shipped rules |
 
-None of them commits. The project's own maintenance skill owns commit
-conventions, and a second source of truth for those helps nobody.
+None of them commits. How a project commits is settled wherever that project
+settles it, and a second source of truth for it helps nobody.
 
 ## Using it
 
@@ -95,7 +96,6 @@ it, which is what makes a tagging pass safe to undo.
 
 ## Editing the rules
 
-The shipped default lives in the other plugin, at
-`plugins/cowork-project-scaffold/skills/new-cowork-project/templates/prose-style.md`.
-Editing it changes what new projects get and changes nothing about existing
-ones, which do not update themselves.
+The shipped rules live in `templates/prose-style.md`. Editing them changes
+what new projects get and changes nothing about existing ones, which do not
+update themselves.

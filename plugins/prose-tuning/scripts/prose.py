@@ -23,16 +23,21 @@ Commands:
     apply       apply approved rewrites
     restore     put a file back to its committed state
     where       which surface this is running on: local or cowork
-    stage       copy this script into Cowork's outputs, ready for the device
+    stage       copy this script and the shipped rules into Cowork's outputs
 
 Exit codes: 0 clean, 1 ran and found problems, 2 could not run.
 
 Where this runs. In Claude Code, beside the checkout. In Cowork, on the device
 side, because only the device can see the project; COWORK.md at the root of
 the claude-plugins repo says what Cowork allows and why. `stage` copies this
-script into the project at .prose-tuning/, beside a .gitignore of `*` that keeps
-the whole folder out of the project's commits, and preflight refuses to run
-from a copy git would commit.
+script and the shipped rules into the project at .prose-tuning/, beside a
+.gitignore of `*` that keeps the whole folder out of the project's commits, and
+preflight refuses to run from a copy git would commit.
+
+The shipped rules. `config init` starts a project's prose-style.md from
+templates/prose-style.md in this plugin. The copy on the device has no plugin
+around it, so a copy in a .prose-tuning/ folder reads the rules `stage` put
+beside it, and never looks for a templates/ folder in the project.
 
 Two things in here look like bugs and are not:
 
@@ -73,6 +78,10 @@ DEFAULT_STAGE = OUTPUTS_ROOT + "/prose-tuning"
 DEVICE_DIR = ".prose-tuning"
 DEVICE_SCRIPT = DEVICE_DIR + "/prose.py"
 DEVICE_TEMPLATE = DEVICE_DIR + "/prose-style.template.md"
+# The rules a new prose-style.md starts from, relative to the plugin root, and
+# the placeholder in them that init fills with the project's name.
+SHIPPED_TEMPLATE = "templates/" + CONFIG_NAME
+PROJECT_NAME_SLOT = "{{PROJECT_NAME}}"
 # Ignores the folder it sits in, itself included, so the project's .gitignore
 # never has to know this plugin exists.
 DEVICE_IGNORE = DEVICE_DIR + "/.gitignore"
@@ -82,7 +91,7 @@ DEVICE_MOUNT_ROOT = "$HOME/mnt"
 DEFAULT_INCLUDE = ["**/*.md"]
 DEFAULT_EXCLUDE = [
     CONFIG_NAME,
-    "project-instructions.md",
+    "CLAUDE.md",
     "**/README.md",
     "skills/**",
 ]
@@ -767,7 +776,7 @@ COMMENT_CLOSE = "-->"
 COMMENT_BLOCK = re.compile(r"^\s{0,3}" + re.escape(COMMENT_OPEN))
 
 # Kinds that prose rules must never be applied inside. An HTML comment is a
-# note for people - a FILL marker in a scaffolded project is one - and not
+# note for people - a FILL marker in the shipped rules is one - and not
 # the document's prose.
 PROTECTED_KINDS = {"frontmatter", "fence", "blockquote", "comment"}
 
@@ -2190,9 +2199,9 @@ scope:
 
 # {name}: prose style
 
-The house style for every document in this repo. Document mechanics - front
-matter, TODO markers, commit format - live in the project's maintenance skill.
-This file is authoritative on how the sentences read. The two never overlap.
+The house style for every document in this repo. It covers how the sentences
+read. Document mechanics - front matter, TODO markers, commit format - are out
+of its scope.
 
 A rule here has a stable id of the form `<section>-<name>`, where the name is
 one to four words saying what the rule means. Reports name the id, and a rule
@@ -2207,6 +2216,18 @@ nothing here is ever marked retired.
 """
 
 
+def shipped_template():
+    """The shipped rules: beside the script on the device, else in the plugin."""
+    here = os.path.dirname(SCRIPT_PATH)
+    if os.path.basename(here) == DEVICE_DIR:
+        path = os.path.join(here, os.path.basename(DEVICE_TEMPLATE))
+    else:
+        path = os.path.join(os.path.dirname(here), *SHIPPED_TEMPLATE.split("/"))
+    if not os.path.isfile(path):
+        raise Fatal("shipped rules not found at %s" % path)
+    return path
+
+
 def cmd_config(args):
     repo, config, scope = load(args)
     which = args.config_cmd
@@ -2218,6 +2239,10 @@ def cmd_config(args):
             if not os.path.exists(args.source):
                 raise Fatal("%s does not exist" % args.source)
             Text(Text.read(args.source).s).write(config.path)
+        elif not args.empty:
+            shipped = Text.read(shipped_template()).s
+            name = os.path.basename(repo.root)
+            Text(shipped.replace(PROJECT_NAME_SLOT, name)).write(config.path)
         else:
 
             def fmt(xs):
@@ -2680,13 +2705,14 @@ def cmd_stage(args):
         raise Fatal("--connected %s has no folder name to mount" % connected)
 
     with open(SCRIPT_PATH, "rb") as fh:
-        sources = [(DEVICE_SCRIPT, fh.read()), (DEVICE_IGNORE, DEVICE_IGNORE_TEXT)]
-    if args.template:
-        try:
-            with open(args.template, "rb") as fh:
-                sources.append((DEVICE_TEMPLATE, fh.read()))
-        except OSError as exc:
-            raise Fatal("cannot read --template: %s" % exc) from exc
+        script = fh.read()
+    with open(shipped_template(), "rb") as fh:
+        template = fh.read()
+    sources = [
+        (DEVICE_SCRIPT, script),
+        (DEVICE_IGNORE, DEVICE_IGNORE_TEXT),
+        (DEVICE_TEMPLATE, template),
+    ]
 
     stage = os.path.abspath(args.stage)
     warnings = []
@@ -2797,7 +2823,7 @@ def build_parser():
         ("lint", "check the file"),
         ("check-id", "is this id well-formed and free"),
         ("similar", "rules two files state twice"),
-        ("init", "write a skeleton"),
+        ("init", "start one from the shipped rules"),
     ]:
         c = csub.add_parser(name, parents=[common], help=helptext)
         c.add_argument(
@@ -2818,8 +2844,12 @@ def build_parser():
             )
             c.add_argument("--threshold", type=float, default=0.6, metavar="N")
         if name == "init":
-            c.add_argument(
+            how = c.add_mutually_exclusive_group()
+            how.add_argument(
                 "--from", dest="source", metavar="PATH", help="copy an existing config instead"
+            )
+            how.add_argument(
+                "--empty", action="store_true", help="write a skeleton with no rules instead"
             )
     p.set_defaults(func=cmd_config)
 
@@ -2873,7 +2903,9 @@ def build_parser():
     p.set_defaults(func=cmd_where)
 
     p = sub.add_parser(
-        "stage", parents=[output], help="copy this script into Cowork's outputs for the device"
+        "stage",
+        parents=[output],
+        help="copy this script and the shipped rules into Cowork's outputs for the device",
     )
     p.add_argument(
         "--folder",
@@ -2885,11 +2917,6 @@ def build_parser():
         "--connected",
         metavar="PATH",
         help="the connected folder holding --folder, when that is not the project itself",
-    )
-    p.add_argument(
-        "--template",
-        metavar="PATH",
-        help="a prose-style.md to stage beside the script, for config init --from",
     )
     p.add_argument("--stage", default=DEFAULT_STAGE, metavar="DIR", help="default: %(default)s")
     p.add_argument("--dry-run", action="store_true")
