@@ -308,3 +308,133 @@ class DescribeDryRun:
         assert code == prose.OK
         assert len(envelope["data"]["applied"]) == 1
         assert prose_repo.read() == before
+
+
+# A second rule beside RULE_ID, so a filter by rule has something to leave out.
+OTHER_RULE = "sentences-plain-verbs"
+OTHER_RULE_TEXT = """
+### sentences-plain-verbs: Uses plain verbs
+
+A sentence says what happens in the plainest verb that fits.
+"""
+
+
+class DescribeFilters:
+    """--only and --file carry an approval by rule or by file.
+
+    Without them the model cut the findings file down by hand, and nothing
+    checked the cut. Each test runs the same four findings - two rules in two
+    files - and asserts which of them reached disk.
+    """
+
+    @pytest.fixture
+    def four(self, prose_repo, target_lines):
+        style = prose_repo.root / "prose-style.md"
+        style.write_text(style.read_text() + OTHER_RULE_TEXT)
+        (prose_repo.root / "other.md").write_text(prose_repo.read())
+        findings = []
+        for rel in ("target.md", "other.md"):
+            findings.append(
+                prose_repo.finding(
+                    target_lines["last-paragraph"],
+                    file=rel,
+                    col_start=0,
+                    col_end=16,
+                    text="Final paragraph.",
+                    replacement="The closing paragraph.",
+                )
+            )
+            findings.append(
+                prose_repo.finding(
+                    target_lines["paragraph"],
+                    file=rel,
+                    rule=OTHER_RULE,
+                    col_start=0,
+                    col_end=4,
+                    text="used",
+                    replacement="put to use",
+                )
+            )
+        return findings
+
+    def written(self, prose_repo):
+        """Which (file, rule) pairs reached disk."""
+        pairs = set()
+        for rel in ("target.md", "other.md"):
+            text = prose_repo.read(rel)
+            if "The closing paragraph." in text:
+                pairs.add((rel, "sentences-own-subject"))
+            if "put to use for something." in text:
+                pairs.add((rel, OTHER_RULE))
+        return pairs
+
+    def it_writes_every_finding_given_no_filter(self, prose_repo, four):
+        code, _ = prose_repo.apply(four)
+        assert code == prose.OK
+        assert len(self.written(prose_repo)) == 4
+
+    def it_writes_only_the_named_rules(self, prose_repo, four):
+        code, _ = prose_repo.apply(four, "--only", OTHER_RULE)
+        assert code == prose.OK
+        assert self.written(prose_repo) == {("target.md", OTHER_RULE), ("other.md", OTHER_RULE)}
+
+    def it_writes_only_the_named_files(self, prose_repo, four):
+        before = prose_repo.read("other.md")
+        code, _ = prose_repo.apply(four, "--file", "target.md")
+        assert code == prose.OK
+        assert self.written(prose_repo) == {
+            ("target.md", "sentences-own-subject"),
+            ("target.md", OTHER_RULE),
+        }
+        assert prose_repo.read("other.md") == before
+
+    def it_writes_every_file_named_by_a_repeated_flag(self, prose_repo, four):
+        code, _ = prose_repo.apply(four, "--file", "target.md", "--file", "other.md")
+        assert code == prose.OK
+        assert len(self.written(prose_repo)) == 4
+
+    def it_writes_only_findings_that_pass_both_filters(self, prose_repo, four):
+        code, envelope = prose_repo.apply(four, "--only", OTHER_RULE, "--file", "other.md")
+        assert code == prose.OK
+        assert self.written(prose_repo) == {("other.md", OTHER_RULE)}
+        assert len(envelope["data"]["applied"]) == 1
+
+    def it_matches_a_file_given_with_a_leading_dot_slash(self, prose_repo, four):
+        code, _ = prose_repo.apply(four, "--file", "./other.md")
+        assert code == prose.OK
+        assert {rel for rel, _ in self.written(prose_repo)} == {"other.md"}
+
+    @pytest.mark.parametrize(
+        ("flags", "error"),
+        [
+            pytest.param(
+                ("--only", "no-such-rule"), "--only no-such-rule matches no finding", id="rule"
+            ),
+            pytest.param(
+                ("--file", "nowhere.md"), "--file nowhere.md matches no finding", id="file"
+            ),
+        ],
+    )
+    def it_refuses_a_filter_that_matches_no_finding(self, prose_repo, four, flags, error):
+        """A typo in a filter used to select nothing, write nothing and exit
+        clean, which reads as a successful run.
+        """
+        code, envelope = prose_repo.apply(four, *flags)
+        assert code == prose.PROBLEMS
+        assert errors_of(envelope) == [error]
+        assert self.written(prose_repo) == set()
+
+    def it_refuses_filters_whose_combination_matches_no_finding(self, prose_repo, four):
+        """Each value matches some finding, so neither is a typo, but no
+        finding passes both. That is still a run that would write nothing.
+        """
+        target_first_rule, other_second_rule = four[0], four[3]
+        code, envelope = prose_repo.apply(
+            [target_first_rule, other_second_rule],
+            "--only",
+            "sentences-own-subject",
+            "--file",
+            "other.md",
+        )
+        assert code == prose.PROBLEMS
+        assert errors_of(envelope) == ["--only and --file together match no finding"]

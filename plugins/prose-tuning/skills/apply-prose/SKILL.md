@@ -126,12 +126,26 @@ Batch it; do not ask per finding.
 
 ## Step 6: apply
 
+Hand the approval to `apply` as flags. Never edit the findings file to match
+it; the flags do the selecting.
+
+| Approved | Flags |
+|---|---|
+| the whole set | none |
+| by rule id | `--only sentences-own-subject,headings-noun-phrase` |
+| by file | `--file landscape.md --file resources.md`, one per file |
+| rule ids in some files | both; a finding must pass each |
+
+Run it with `--dry-run` first, then without:
+
 ```sh
 python3 "$PROSE" apply --findings "${TMPDIR:-/tmp}/prose-findings.json" \
-  --only sentences-own-subject,headings-noun-phrase --dry-run
+  --only sentences-own-subject --file landscape.md --dry-run
 python3 "$PROSE" apply --findings "${TMPDIR:-/tmp}/prose-findings.json" \
-  --only sentences-own-subject,headings-noun-phrase
+  --only sentences-own-subject --file landscape.md
 ```
+
+A rule id or file that matches no finding is an error, not an empty run.
 
 All-or-nothing by default, so a partial pass cannot leave half the addresses
 stale. `--partial` applies what is valid and reports the rest.

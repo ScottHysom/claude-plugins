@@ -2499,11 +2499,17 @@ def cmd_apply(args):
     repo, config, scope = load(args)
     findings = read_json(args.findings, "findings")
     only = set(x.strip() for x in args.only.split(",")) if args.only else None
+    files = set(os.path.normpath(p) for p in args.file) if args.file else None
     known = config.by_id()
 
+    # The filters are how an approval by rule or by file reaches this command,
+    # so the model never trims the findings by hand. They combine: a finding
+    # is kept only if it passes both.
     by_file, rejected = {}, []
     for n, f in enumerate(findings):
         if only and f.get("rule") not in only:
+            continue
+        if files and os.path.normpath(f.get("file") or "") not in files:
             continue
         if f.get("rule") not in known:
             rejected.append(
@@ -2512,6 +2518,20 @@ def cmd_apply(args):
             )
             continue
         by_file.setdefault(f.get("file"), []).append(f)
+
+    # A filter that selects nothing is almost always a typo. Left alone it
+    # would write nothing and exit clean, which reads as success.
+    rules_seen = set(f.get("rule") for f in findings)
+    files_seen = set(os.path.normpath(f.get("file") or "") for f in findings)
+    unmatched = [
+        "--only %s matches no finding" % r for r in sorted(only or ()) if r not in rules_seen
+    ]
+    unmatched += [
+        "--file %s matches no finding" % p for p in sorted(files or ()) if p not in files_seen
+    ]
+    if not unmatched and (only or files) and not by_file and not rejected:
+        unmatched.append("--only and --file together match no finding")
+    rejected.extend(unmatched)
 
     staged, applied = [], []
     for rel in sorted(by_file):
@@ -2833,6 +2853,12 @@ def build_parser():
     p = sub.add_parser("apply", parents=[common], help="apply approved rewrites")
     p.add_argument("--findings", required=True, metavar="FILE", help="JSON array, or - for stdin")
     p.add_argument("--only", metavar="ID,ID", help="only these rule ids")
+    p.add_argument(
+        "--file",
+        action="append",
+        metavar="PATH",
+        help="only findings in this file; repeat for more",
+    )
     p.add_argument("--partial", action="store_true")
     p.add_argument("--dry-run", action="store_true")
     p.set_defaults(func=cmd_apply)
