@@ -15,7 +15,7 @@ In Claude Code:
 
 ```
 /plugin marketplace add ScottHysom/claude-plugins
-/plugin install cowork-project-scaffold@scott-claude-plugins
+/plugin install prose-tuning@scott-claude-plugins
 ```
 
 In Cowork, add the marketplace and install from the plugin browser.
@@ -30,9 +30,19 @@ Custom marketplaces do not auto-update. To pick up new versions:
 
 | Plugin | Surface | What it does |
 |---|---|---|
-| [cowork-project-scaffold](plugins/cowork-project-scaffold) | Cowork | Scaffolds a Cowork Project folder as a git repo, and generates a per-project skill that keeps its documents stating what is true while git holds the history |
 | [gitify-cowork-project](plugins/gitify-cowork-project) | Cowork | Puts an existing Cowork Project folder under git without touching its documents, moves the Project Instructions into a versioned `CLAUDE.md`, and generates a per-project history skill |
 | [prose-tuning](plugins/prose-tuning) | Claude Code, Cowork | Learns a project's house prose style from edits already made, records it as `prose-style.md` with stable rule ids, and conforms the rest of the documents to it |
+
+## Starting a new Cowork project
+
+To start a Cowork project with git history from day one:
+
+1. Create the Project in Cowork and connect its folder.
+2. Install `gitify-cowork-project` and ask Claude to put the project under
+   git. Its [README](plugins/gitify-cowork-project) covers the steps you run
+   yourself, such as `sh setup.sh`.
+3. For a house prose style, install `prose-tuning` and ask Claude to set up
+   `prose-style.md`. It starts from the rules the plugin ships.
 
 ## Layout
 
@@ -52,6 +62,7 @@ plugins/
     README.md
     scripts/               optional. Shared by every skill in the plugin
     reference/             optional. Normative docs a skill points at
+    templates/             optional. Files a script copies into a project
     skills/
       <skill-name>/
         SKILL.md           plus any files the skill bundles
@@ -61,7 +72,7 @@ tests/
 ```
 
 A plugin's `source` in `marketplace.json` is a path relative to the repo root,
-such as `./plugins/cowork-project-scaffold`. Adding a plugin means one new
+such as `./plugins/prose-tuning`. Adding a plugin means one new
 directory under `plugins/` and one new entry in the catalog.
 
 ## Adding a plugin

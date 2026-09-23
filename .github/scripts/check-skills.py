@@ -59,10 +59,10 @@ Things that look like bugs and are not, in `repeats`:
 Things that look like bugs and are not, in `descriptions`:
 
 - It reads every markdown file under plugins/ whose front matter has a
-  description, not only SKILL.md. The generated-skill templates in
-  cowork-project-scaffold and gitify-cowork-project are skills too, once
-  rendered. Their description is a placeholder the plugin script fills in and
-  checks at runtime; this check keeps the template itself clean.
+  description, not only SKILL.md. A generated-skill template, such as
+  gitify-cowork-project's, is a skill too, once rendered. Its description is a
+  placeholder the plugin script fills in and checks at runtime; this check
+  keeps the template itself clean.
 - A `<` on its own, as in `a < b` or `<3`, passes. Only `<` directly followed
   by a letter, or by `/` and a letter, reads as a tag.
 - It fails when it finds no descriptions at all, for the same reason as
