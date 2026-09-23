@@ -174,9 +174,11 @@ Then name what else only the user can do:
 - Change the Project Instructions field. You cannot write it. `CLAUDE.md` now
   holds what was there, and the field keeping a copy is how the two drift
   apart. They replace everything in the field with `data.field_pointer`,
-  exactly, even when the project is the connected folder. The field is the
-  only project text Cowork shows the first message of a conversation, so this
-  line is what gets `CLAUDE.md` read there.
+  exactly, even when the project is the connected folder. The field reaches
+  every conversation from its start, so this line gets `CLAUDE.md` read
+  wherever Cowork's own loading of the file does not reach. COWORK.md, in the
+  claude-plugins repo, under "How instruction files load", has what Cowork
+  loads and when.
 
 ## Checking a project's skill against the template
 

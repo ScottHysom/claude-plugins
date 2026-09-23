@@ -74,9 +74,9 @@ Claude cannot write the field itself. That is why replacing it is your step.
 
 Cowork adds the field to every conversation in the project, so anything left
 in it costs context every time. The line stays even when the project is the
-connected folder, whose `CLAUDE.md` Cowork loads by itself: the field is the
-only project text the first message of a conversation sees. What Cowork loads,
-and from which message, is in
+connected folder, whose `CLAUDE.md` Cowork also loads by itself: the field
+reaches every conversation from its start, so the line gets `CLAUDE.md` read
+wherever Cowork's own loading does not. What Cowork loads, and when, is in
 [Designing for Cowork](https://github.com/ScottHysom/claude-plugins/blob/main/COWORK.md#how-instruction-files-load).
 
 ## Prose and document rules
