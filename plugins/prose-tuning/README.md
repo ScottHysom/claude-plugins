@@ -120,6 +120,10 @@ rule, with the file, the line, the rule's id and a proposed rewrite. Nothing
 changes until you approve. You can approve the whole list, or only some rules,
 or only some files.
 
+Two proposed rewrites sometimes touch the same passage, such as a fix inside a
+paragraph that another rewrite cuts. Only one of them can apply. Claude shows
+you both and asks which to keep.
+
 A rewrite changes how a sentence reads and never what it says. Numbers,
 names, dates and claims stay as they are.
 

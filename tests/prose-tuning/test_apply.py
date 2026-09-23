@@ -234,21 +234,24 @@ class DescribeGuards:
         assert code == prose.OK
         assert prose_repo.read("notes.md") == after
 
-    def it_refuses_two_edits_on_the_same_span(self, prose_repo, target_lines):
+    def it_refuses_two_edits_on_the_same_span_and_names_both(self, prose_repo, target_lines):
         """EditEngine applies a batch from one snapshot. Overlapping spans have
         no defined result, so the batch is turned down rather than resolved by
-        whichever sorted first.
+        whichever sorted first. The refusal names each finding by its place in
+        the batch, its line and its rule, since byte offsets send the author
+        nowhere.
         """
         line = target_lines["paragraph"]
         before = prose_repo.read()
+        first = prose_repo.finding(line, col_start=0, col_end=10)
         code, envelope = prose_repo.apply(
-            [
-                prose_repo.finding(line, col_start=0, col_end=10),
-                prose_repo.finding(line, col_start=5, col_end=15),
-            ]
+            [first, prose_repo.finding(line, col_start=5, col_end=15)]
         )
         assert code == prose.PROBLEMS
-        assert "overlapping edits" in errors_of(envelope)[0]
+        assert errors_of(envelope) == [
+            "target.md  finding 1 (target.md:%d, %s) overlaps finding 2 (target.md:%d, %s)"
+            % (line, first["rule"], line, first["rule"])
+        ]
         assert prose_repo.read() == before
 
 

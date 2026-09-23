@@ -208,9 +208,17 @@ class ProseRepo:
 
     def apply(self, findings, *flags):
         """Run `prose.py apply` on these findings. Returns what run() does."""
+        return self.run("apply", "--findings", self.findings_file(findings), *flags)
+
+    def report(self, findings, *flags):
+        """Run `prose.py report` on these findings. Returns what run() does."""
+        return self.run("report", "--findings", self.findings_file(findings), *flags)
+
+    def findings_file(self, findings):
+        """Write findings where a command can read them, and return the path."""
         path = self.root / "findings.json"
         path.write_text(json.dumps(findings))
-        return self.run("apply", "--findings", str(path), *flags)
+        return str(path)
 
 
 @pytest.fixture

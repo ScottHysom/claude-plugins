@@ -3,10 +3,11 @@
 Two things about it are load-bearing and non-obvious. It applies edits
 bottom-up
 from a single snapshot, because any other order leaves later edits pointing at
-offsets that have already moved. And conflicts() decides overlap by comparing
-only *adjacent* pairs after a sort - which is sound and complete, but only
-because replace() refuses start > end. A future change to that sort key would
-break the overlap check silently, with no example test noticing.
+offsets that have already moved. And conflicts() finds every overlapping pair
+with a scan that stops early after a sort - which is sound and complete, but
+only because replace() refuses start > end. A future change to that sort key
+or that stopping rule would break the overlap check silently, with no example
+test noticing.
 
 The domain here is a string and a list of spans, so there is nothing to
 generate but integers. That makes this the cheapest property in the suite and
@@ -49,10 +50,24 @@ def conflicting(edits):
     return False
 
 
-def engine_with(source, edits):
+def conflicting_pairs(edits):
+    """Every pair conflicting() would stop at, by the edits' places in the list."""
+    out = set()
+    for i, (a0, a1, _) in enumerate(edits):
+        for j, (b0, b1, _) in enumerate(edits[i + 1 :], i + 1):
+            if (a0 < b1 and b0 < a1) or a0 == b0:
+                out.add(frozenset((i, j)))
+    return out
+
+
+def engine_with(source, edits, labeled=False):
+    """An engine holding these edits, each labeled with its place in the list
+    when `labeled` is set, so a reported pair can be told apart from a
+    duplicate of it.
+    """
     engine = prose.EditEngine(prose.Text(source))
-    for start, end, replacement in edits:
-        engine.replace(start, end, replacement)
+    for i, (start, end, replacement) in enumerate(edits):
+        engine.replace(start, end, replacement, i if labeled else None)
     return engine
 
 
@@ -62,6 +77,16 @@ class DescribeEditEngine:
         """conflicts() checks neighbors; the definition is pairwise."""
         edits = data.draw(spans(source))
         assert bool(engine_with(source, edits).conflicts()) is conflicting(edits)
+
+    @given(source=TEXT, data=st.data())
+    def it_reports_every_conflicting_pair_and_no_other(self, source, data):
+        """A report names each finding in a conflict, so finding that some pair
+        conflicts is not enough: every pair has to come back, once.
+        """
+        edits = data.draw(spans(source))
+        found = [frozenset((a[3], b[3])) for a, b in engine_with(source, edits, True).conflicts()]
+        assert len(found) == len(set(found))
+        assert set(found) == conflicting_pairs(edits)
 
     @given(source=TEXT, data=st.data())
     def it_refuses_exactly_the_batches_it_reports_as_conflicting(self, source, data):
