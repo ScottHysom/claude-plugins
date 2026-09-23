@@ -2654,19 +2654,92 @@ def cmd_tags(args):
     return emit(args, "tags insert", repo.root, data, errors=refusals, human=human)
 
 
-def plan_findings(text, blocks, rel, findings):
+# The kinds a finding may cross lines within. Anything else between two lines
+# of prose, such as a blank line, a heading or a table row, is structure that
+# a rewrite across it would erase.
+SPANNING_KINDS = ("paragraph", "list-item")
+
+
+def locate(text, line, f, n):
+    """The absolute (start, end) that finding n covers, or (None, why not).
+
+    With no columns, the finding's text is looked for among the places that
+    start on its line, and it has to start at exactly one of them. col_start
+    alone says which, and the span runs as far as the text does, onto a later
+    line if the text holds a newline. col_end pins the end on the same line,
+    which is the one form that needs no text; without text, the columns
+    default to the whole line.
+    """
+    width = len(text.bare(line))
+    base = text.offset(line)
+    want = f.get("text")
+    col_start, col_end = f.get("col_start"), f.get("col_end")
+    if want is None or col_end is not None:
+        col_start = int(col_start if col_start is not None else 0)
+        col_end = int(col_end if col_end is not None else width)
+        # Text.offset validates the line and then adds the column blind, so
+        # a column past the end of its line resolves somewhere further down
+        # the file and this would rewrite a passage nobody approved.
+        if not 0 <= col_start <= col_end <= width:
+            return None, "columns %d-%d are outside the line (%d characters)" % (
+                col_start,
+                col_end,
+                width,
+            )
+        a, b = base + col_start, base + col_end
+    elif col_start is not None:
+        col_start = int(col_start)
+        if not 0 <= col_start <= width:
+            return None, "column %d is outside the line (%d characters)" % (col_start, width)
+        a = base + col_start
+        b = a + len(want)
+    elif not want:
+        return None, "finding %d: an empty text needs col_start to say where it goes" % n
+    else:
+        # Up to and including the line's end, so a text that starts with the
+        # newline, to join this line to the next, still has a place to start.
+        starts = [c for c in range(width + 1) if text.s.startswith(want, base + c)]
+        if not starts:
+            return None, "finding %d: %r does not start on this line. Re-run the report." % (
+                n,
+                want[:60],
+            )
+        if len(starts) > 1:
+            return None, (
+                "finding %d: %r starts at columns %s on this line; add col_start to say which"
+                % (n, want[:60], ", ".join(str(c) for c in starts))
+            )
+        a = base + starts[0]
+        b = a + len(want)
+    current = text.s[a:b]
+    if want is not None and current != want:
+        return None, "the text moved; expected %r, found %r. Re-run the report." % (
+            want[:60],
+            current[:60],
+        )
+    return (a, b), None
+
+
+def plan_findings(text, blocks, rel, findings, numbers=None):
     """Plan one file's approved findings against one snapshot of it.
 
     Returns (new text or None, applied, rejected). The new text is None only
     when the batch as a whole cannot be applied, as when two findings overlap.
-    Nothing is written here; cmd_apply decides that.
+    Nothing is written here; cmd_apply decides that. `numbers` are the
+    findings' places in the whole batch, so a rejection can name one; they
+    default to counting from 1.
 
-    A finding is one line and a column range that stops at the line's end, so
-    on its own it can empty a line but not remove it. A line is cut when it has
-    characters, every finding on it replaces with nothing, and together they
-    cover the whole of it. Consecutive cut lines form a run, and the run is
-    removed with its newlines as one edit in place of its findings' own edits.
-    Without that, cutting a passage left a blank line for every line it had.
+    locate works out where each finding is. A finding whose span holds a
+    newline crosses lines, and every line it reaches has to be a paragraph or
+    a list item. Only such a finding, or one in a paragraph, may put a newline
+    in its replacement.
+
+    A line is cut when it has characters, every finding on it replaces with
+    nothing, and together they cover the whole of it. Consecutive cut lines
+    form a run, and the run is removed with its newlines as one edit in place
+    of its findings' own edits. Without that, cutting a passage left a blank
+    line for every line it had. cut_lines says when a finding keeps its own
+    edit instead.
 
     Removing a paragraph that stood between two blank lines would leave those
     two blank lines touching, so a blank line beside a cut goes too when the
@@ -2677,7 +2750,7 @@ def plan_findings(text, blocks, rel, findings):
     """
     engine = EditEngine(text)
     applied, rejected, accepted = [], [], []
-    for f in findings:
+    for n, f in zip(numbers or range(1, len(findings) + 1), findings):
         line = int(f.get("line", 0))
         if line < 1 or line > text.line_count():
             rejected.append("%s:%s  line is outside the file" % (rel, line))
@@ -2687,50 +2760,59 @@ def plan_findings(text, blocks, rel, findings):
                 "%s:%d  is a %s; prose rules do not apply there" % (rel, line, blocks.kind(line))
             )
             continue
-        width = len(text.bare(line))
-        col_start = int(f.get("col_start", 0))
-        col_end = int(f.get("col_end", width))
-        # Text.offset validates the line and then adds the column blind, so
-        # a column past the end of its line resolves somewhere further down
-        # the file and this would rewrite a passage nobody approved.
-        if not 0 <= col_start <= col_end <= width:
+        span, problem = locate(text, line, f, n)
+        if problem:
+            rejected.append("%s:%d  %s" % (rel, line, problem))
+            continue
+        a, b = span
+        crossing = "\n" in text.s[a:b]
+        reach = range(line, (text.line_of(b) if crossing else line) + 1)
+        guarded = [ln for ln in reach if blocks.is_protected(ln)]
+        if guarded:
             rejected.append(
-                "%s:%d  columns %d-%d are outside the line "
-                "(%d characters)" % (rel, line, col_start, col_end, width)
+                "%s:%d  is a %s; prose rules do not apply there"
+                % (rel, guarded[0], blocks.kind(guarded[0]))
             )
             continue
-        a = text.offset(line, col_start)
-        b = text.offset(line, col_end)
+        if crossing:
+            wrong = [ln for ln in reach if blocks.kind(ln) not in SPANNING_KINDS]
+            if wrong:
+                kind = blocks.kind(wrong[0])
+                rejected.append(
+                    "%s:%d  finding %d crosses line %d, which is %s; a finding can cross "
+                    "lines only within a paragraph or a list item"
+                    % (rel, line, n, wrong[0], "blank" if kind == "blank" else "a " + kind)
+                )
+                continue
         if blocks.comment_overlaps(a, b):
-            rejected.append(
-                "%s:%d  columns %d-%d touch an HTML comment; "
-                "prose rules do not apply there" % (rel, line, col_start, col_end)
+            where = (
+                "finding %d touches" % n
+                if crossing
+                else "columns %d-%d touch" % (a - text.offset(line), b - text.offset(line))
             )
-            continue
-        current = text.s[a:b]
-        if f.get("text") is not None and current != f["text"]:
             rejected.append(
-                "%s:%d  the text moved; expected %r, found %r. "
-                "Re-run the report." % (rel, line, f["text"][:60], current[:60])
+                "%s:%d  %s an HTML comment; prose rules do not apply there" % (rel, line, where)
             )
             continue
         new = f.get("replacement", "")
         if blocks.kind(line) == "table" and ("|" in new or "\n" in new):
             rejected.append("%s:%d  a table cell cannot contain | or a newline" % (rel, line))
             continue
-        if "\n" in new and blocks.kind(line) != "paragraph":
+        if "\n" in new and blocks.kind(line) != "paragraph" and not crossing:
             rejected.append(
                 "%s:%d  a %s replacement cannot span lines" % (rel, line, blocks.kind(line))
             )
             continue
-        accepted.append((line, col_start, col_end, a, b, new))
+        touched = set(range(line, (text.line_of(b - 1) if b > a else line) + 1))
+        accepted.append((a, b, new, touched))
         applied.append({"file": rel, "line": line, "rule": f["rule"]})
 
     cut = cut_lines(text, accepted)
-    for line, _cs, _ce, a, b, new in accepted:
-        if line not in cut:
+    for a, b, new, touched in accepted:
+        if not touched <= cut:
             engine.replace(a, b, new)
-    for start, end in cut_runs(text, blocks, cut, set(x[0] for x in accepted)):
+    marked = set().union(*(x[3] for x in accepted))
+    for start, end in cut_runs(text, blocks, cut, marked):
         engine.replace(start, end, "")
     try:
         return engine.result(), applied, rejected
@@ -2744,22 +2826,40 @@ def cut_lines(text, accepted):
 
     A line with any non-empty replacement on it is kept, even if deletions
     around it cover the rest, because the replacement has to land somewhere.
+
+    So is a line covered by a finding that also reaches into a line that is
+    kept. That finding's own edit removes the newline between the two, and a
+    run removing the covered line as well would overlap it. Keeping one line
+    can leave another finding in the same position, so this repeats until
+    nothing changes.
     """
-    spans = {}
-    for line, col_start, col_end, _a, _b, new in accepted:
-        spans.setdefault(line, []).append((col_start, col_end, new))
+    spans, kept = {}, set()
+    for a, b, new, touched in accepted:
+        if new:
+            kept |= touched
+        for line in touched:
+            start = text.offset(line)
+            end = start + len(text.bare(line))
+            spans.setdefault(line, []).append((max(a, start) - start, min(b, end) - start))
     out = set()
     for line, parts in spans.items():
         width = len(text.bare(line))
-        if not width or any(new for _s, _e, new in parts):
+        if not width or line in kept:
             continue
         reach = 0
-        for col_start, col_end, _new in sorted(parts):
+        for col_start, col_end in sorted(parts):
             if col_start > reach:
                 break
             reach = max(reach, col_end)
         if reach == width:
             out.add(line)
+    changed = True
+    while changed:
+        changed = False
+        for _a, _b, _new, touched in accepted:
+            if touched & out and not touched <= out:
+                out -= touched
+                changed = True
     return out
 
 
@@ -2810,6 +2910,38 @@ def cut_runs(text, blocks, cut, touched):
     return spans
 
 
+FINDINGS_HELP = """\
+findings:
+  Each finding is one JSON object with these fields.
+
+  file         the document, relative to the repository root
+  line         the 1-indexed line the finding starts on
+  rule         the one rule id it applies, from prose-style.md
+  text         the text as it stands, copied exactly. apply finds it among
+               the places that start on the line and refuses a finding
+               whose text starts at none of them, or at more than one. A
+               text holding a newline ends on a later line, so a wrapped
+               sentence is one finding
+  replacement  the rewrite; "" cuts the text, and a line cut whole goes
+               with its newline. Defaults to ""
+  col_start    optional: the 0-indexed column the text starts at, when it
+               starts at more than one place on the line
+  col_end      optional: the column the span ends at, on the same line.
+               With both columns, text may be left out, and without text
+               the columns default to the whole line
+
+  A replacement may hold a newline when the finding starts in a paragraph,
+  or when its span already crosses a line. A span can cross lines only
+  within paragraphs and list items. A table cell's replacement can hold
+  neither a newline nor a |.
+
+example:
+  [{"file": "notes.md", "line": 12, "rule": "sentences-own-subject",
+    "text": "Able to state\\n  what is inside the file.",
+    "replacement": "A reader can state what is inside the file."}]
+"""
+
+
 def cmd_apply(args):
     repo, config, scope = load(args)
     findings = read_json(args.findings, "findings")
@@ -2832,7 +2964,7 @@ def cmd_apply(args):
                 % (n + 1, f.get("rule"), config.rel())
             )
             continue
-        by_file.setdefault(f.get("file"), []).append(f)
+        by_file.setdefault(f.get("file"), []).append((n + 1, f))
 
     # A filter that selects nothing is almost always a typo. Left alone it
     # would write nothing and exit clean, which reads as success.
@@ -2855,7 +2987,9 @@ def cmd_apply(args):
             rejected.append("%s  no such file" % rel)
             continue
         text = Text.read(path)
-        new, done, refused = plan_findings(text, Blocks(text), rel, by_file[rel])
+        numbers = [n for n, _f in by_file[rel]]
+        mine = [f for _n, f in by_file[rel]]
+        new, done, refused = plan_findings(text, Blocks(text), rel, mine, numbers)
         applied.extend(done)
         rejected.extend(refused)
         if new is not None:
@@ -3123,8 +3257,20 @@ def build_parser():
             t.add_argument("--dry-run", action="store_true")
     p.set_defaults(func=cmd_tags)
 
-    p = sub.add_parser("apply", parents=[common], help="apply approved rewrites")
-    p.add_argument("--findings", required=True, metavar="FILE", help="JSON array, or - for stdin")
+    p = sub.add_parser(
+        "apply",
+        parents=[common],
+        help="apply approved rewrites",
+        description="Apply approved rewrites.",
+        epilog=FINDINGS_HELP,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p.add_argument(
+        "--findings",
+        required=True,
+        metavar="FILE",
+        help="JSON array of findings, described below, or - for stdin",
+    )
     p.add_argument("--only", metavar="ID,ID", help="only these rule ids")
     p.add_argument(
         "--file",
@@ -3132,8 +3278,12 @@ def build_parser():
         metavar="PATH",
         help="only findings in this file; repeat for more",
     )
-    p.add_argument("--partial", action="store_true")
-    p.add_argument("--dry-run", action="store_true")
+    p.add_argument(
+        "--partial",
+        action="store_true",
+        help="apply what is valid and report the rest, instead of writing nothing",
+    )
+    p.add_argument("--dry-run", action="store_true", help="report without writing")
     p.set_defaults(func=cmd_apply)
 
     p = sub.add_parser("restore", parents=[common], help="put a file back to its committed state")
