@@ -71,6 +71,13 @@ jobs:
       - name: Check manifests agree with each other
         run: python3 .github/scripts/check-manifest-consistency.py check
 
+      # Cowork's .plugin upload rejects a skill whose description holds anything
+      # that looks like an XML tag. A marketplace install accepts it, and so does
+      # `validate --strict` above, so without this the first sign is a failed
+      # upload. COWORK.md, under "How skills load", records the difference.
+      - name: Check skill descriptions pass Cowork's upload
+        run: python3 .github/scripts/check-skills.py descriptions
+
       # A pull request may close only issues Scott has labelled approved, and
       # only from the issue/N branch that claiming the issue makes. Agents post
       # as Scott, so GitHub cannot tell their work apart; this job is required,
