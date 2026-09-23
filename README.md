@@ -42,7 +42,8 @@ To start a Cowork project with git history from day one:
    git. Its [README](plugins/gitify-cowork-project) covers the steps you run
    yourself, such as `sh setup.sh`.
 3. For a house prose style, install `prose-tuning` and ask Claude to set up
-   `prose-style.md`. It starts from the rules the plugin ships.
+   `prose-style.md`. It starts from the rules the plugin ships, and lives in
+   `.claude/rules/`, so every session in the project loads it.
 
 ## Layout
 

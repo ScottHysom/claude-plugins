@@ -13,8 +13,8 @@ as something unrelated. In Cowork the plugin has to come from the marketplace.
 python3 "$PROSE" where --json
 ```
 
-- **`local`:** run every command exactly as the skill shows it. Nothing else on
-  this page applies.
+- **`local`:** run every command exactly as the skill shows it. Only "Rules
+  still at the project root", below, applies.
 - **`cowork`:** the project isn't visible from here, and `device_bash`, which
   can see it, can't read the plugin. Copy the script into the project and run
   every command there, as below.
@@ -60,3 +60,16 @@ cd "$HOME/mnt"/Notes && PROSE=.prose-tuning/prose.py && python3 "$PROSE" preflig
 - **If preflight says `.prose-tuning/prose.py` is not ignored,** the
   `.gitignore` beside it didn't arrive. Stage and copy again. Never pass
   `--force` past this blocker.
+
+## Rules still at the project root
+
+A project's rules live in `.claude/rules/prose-style.md`, where every session
+loads them. If preflight reports a `prose-style.md` at the project root, the
+project predates that. Offer to move it, and with the author's yes run:
+
+```sh
+python3 "$PROSE" config move
+```
+
+It copies the file and never deletes one. Ask the author to delete the root
+copy, then run preflight again. It blocks while both copies are there.

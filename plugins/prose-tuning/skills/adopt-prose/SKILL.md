@@ -8,7 +8,7 @@ description: Copy prose rules from one project's prose-style.md into another, or
 Two uses, one flow:
 
 - **"make this project sound like that one"** - target is this project's
-  `prose-style.md`.
+  `.claude/rules/prose-style.md`.
 - **"promote this rule so new projects get it"** - target is
   `plugins/prose-tuning/templates/prose-style.md` in the `claude-plugins` repo,
   the rules `config init` starts a project from.
@@ -28,7 +28,9 @@ ls "$PROSE" || echo "prose-tuning is not installed as a plugin here"
 
 Then follow `$ROOT/reference/setup.md`. It says where every command below
 runs. On Cowork, both files have to be in connected folders, and a `--file`
-outside this project is given as `"$HOME/mnt"/<folder>/prose-style.md`.
+outside this project is given as
+`"$HOME/mnt"/<folder>/.claude/rules/prose-style.md`, or the `prose-style.md` at
+the folder's root for a project that has not moved its rules yet.
 Promoting a rule into the shipped rules is repo work, done in Claude Code
 against a checkout of `claude-plugins`.
 

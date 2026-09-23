@@ -29,7 +29,23 @@ Every later agent editing those documents started from nothing.
 
 Prose style becomes a file in the repo, not a thing re-derived per session.
 
-`prose-style.md` sits at the project root. Every agent reads it before editing.
+`prose-style.md` sits in the project's `.claude/rules/` folder. Claude Code and
+Cowork both load every file there into each session, so an agent has the rules
+whether or not one of these skills is running. They cover everything written in
+the project, not only the documents: commit messages, pull request titles and
+descriptions, issues and code comments. The cost is the whole file, in the
+context of every session.
+
+In Cowork the rules arrive with a conversation's second message. The first
+message sees only the Project's Instructions field, so a project that wants the
+rules from the start has the field say to read `.claude/rules/prose-style.md`.
+Finder hides folders whose names start with a dot. Press Cmd-Shift-. to show
+them.
+
+A project set up before the rules moved has `prose-style.md` at its root, where
+nothing loads it. The skills stop there, offer to copy it into `.claude/rules/`,
+and leave the old copy for you to delete.
+
 Its rules carry stable ids that say what the rule means, so a note can read
 `sentences-own-subject at landscape.md:42` and be checkable without opening the
 file.
@@ -42,7 +58,7 @@ own copy.
 
 | Skill | Does |
 |---|---|
-| `update-prose-config` | Reads your uncommitted edits, works out what rule each implies, asks about the ambiguous ones, writes `prose-style.md` |
+| `update-prose-config` | Reads your uncommitted edits, works out what rule each implies, asks about the ambiguous ones, writes `.claude/rules/prose-style.md` |
 | `apply-prose` | Reports where the existing documents break those rules, and rewrites on approval |
 | `adopt-prose` | Copies rules between projects, or promotes one into the plugin's shipped rules |
 

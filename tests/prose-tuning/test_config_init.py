@@ -23,7 +23,7 @@ def ids(path):
 @pytest.fixture
 def fresh_repo(prose_repo):
     """prose_repo with no prose-style.md yet."""
-    (prose_repo.root / prose.CONFIG_NAME).unlink()
+    (prose_repo.root / prose.CONFIG_PATH).unlink()
     return prose_repo
 
 
@@ -46,11 +46,11 @@ class DescribeConfigInit:
     def it_starts_a_project_from_the_shipped_rules(self, fresh_repo):
         code, env = fresh_repo.run("config", "init")
         assert code == prose.OK, env["errors"]
-        assert ids(fresh_repo.root / prose.CONFIG_NAME) == ids(prose.shipped_template())
+        assert ids(fresh_repo.root / prose.CONFIG_PATH) == ids(prose.shipped_template())
 
     def it_names_the_project_where_the_shipped_rules_leave_a_slot(self, fresh_repo):
         fresh_repo.run("config", "init")
-        text = fresh_repo.read(prose.CONFIG_NAME)
+        text = fresh_repo.read(prose.CONFIG_PATH)
         assert prose.PROJECT_NAME_SLOT not in text
         assert "name: %s prose style" % fresh_repo.root.name in text
 
@@ -64,12 +64,12 @@ class DescribeConfigInit:
         other.write_text(SHIPPED_ONLY)
         code, _ = fresh_repo.run("config", "init", "--from", str(other))
         assert code == prose.OK
-        assert fresh_repo.read(prose.CONFIG_NAME) == SHIPPED_ONLY
+        assert fresh_repo.read(prose.CONFIG_PATH) == SHIPPED_ONLY
 
     def it_writes_a_skeleton_with_no_rules_when_asked_for_empty(self, fresh_repo):
         code, _ = fresh_repo.run("config", "init", "--empty")
         assert code == prose.OK
-        assert ids(fresh_repo.root / prose.CONFIG_NAME) == []
+        assert ids(fresh_repo.root / prose.CONFIG_PATH) == []
 
     def it_refuses_from_and_empty_together(self, fresh_repo, tmp_path):
         with pytest.raises(SystemExit) as exc:
@@ -77,10 +77,10 @@ class DescribeConfigInit:
         assert exc.value.code == prose.CANNOT_RUN
 
     def it_refuses_to_overwrite_an_existing_file(self, prose_repo):
-        before = prose_repo.read(prose.CONFIG_NAME)
+        before = prose_repo.read(prose.CONFIG_PATH)
         code, _ = prose_repo.run("config", "init")
         assert code == prose.CANNOT_RUN
-        assert prose_repo.read(prose.CONFIG_NAME) == before
+        assert prose_repo.read(prose.CONFIG_PATH) == before
 
 
 class DescribeConfigInitOnTheDevice:
@@ -89,7 +89,7 @@ class DescribeConfigInitOnTheDevice:
         (fresh_repo.root / prose.DEVICE_TEMPLATE).write_text(SHIPPED_ONLY)
         code, env = fresh_repo.run("config", "init")
         assert code == prose.OK, env["errors"]
-        assert ids(fresh_repo.root / prose.CONFIG_NAME) == ["sentences-from-stage"]
+        assert ids(fresh_repo.root / prose.CONFIG_PATH) == ["sentences-from-stage"]
 
     def it_never_takes_a_templates_folder_in_the_project_for_the_plugin(
         self, fresh_repo, monkeypatch
@@ -101,4 +101,4 @@ class DescribeConfigInitOnTheDevice:
         code, _ = fresh_repo.run("config", "init")
         assert code == prose.CANNOT_RUN
         assert "shipped rules not found" in fresh_repo.err
-        assert not (fresh_repo.root / prose.CONFIG_NAME).exists()
+        assert not (fresh_repo.root / prose.CONFIG_PATH).exists()

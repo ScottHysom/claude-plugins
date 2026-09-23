@@ -108,7 +108,7 @@ class DescribeGuards:
         )
         assert code == prose.PROBLEMS
         assert errors_of(envelope) == [
-            "finding 1 names rule 'made-up-rule', which is not in prose-style.md"
+            "finding 1 names rule 'made-up-rule', which is not in .claude/rules/prose-style.md"
         ]
 
     def it_refuses_text_that_moved_since_the_report(self, prose_repo, target_lines):
@@ -329,7 +329,7 @@ class DescribeFilters:
 
     @pytest.fixture
     def four(self, prose_repo, target_lines):
-        style = prose_repo.root / "prose-style.md"
+        style = prose_repo.root / prose.CONFIG_PATH
         style.write_text(style.read_text() + OTHER_RULE_TEXT)
         (prose_repo.root / "other.md").write_text(prose_repo.read())
         findings = []

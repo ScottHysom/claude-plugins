@@ -4,7 +4,7 @@ scope:
   include:
     - "**/*.md"
   exclude:
-    - "prose-style.md"
+    - ".claude/**"
     - "CLAUDE.md"
     - "**/README.md"
     - "skills/**"
@@ -12,16 +12,23 @@ scope:
 
 # {{PROJECT_NAME}}: prose style
 
-The house style for every document in this repo, including this one. It
-covers how the sentences read. Document mechanics - front matter, TODO markers,
-diagrams, commit format - are out of its scope.
+The house style for everything written in this project: its documents, this
+one included, and also commit messages, pull request titles and descriptions,
+issues and code comments. It covers how the sentences read. The rules on
+headings apply wherever there are headings, a pull request description as much
+as a document. A pull request title or a commit subject is not a heading.
+Mechanics - front matter, TODO markers, diagrams, commit format - are out of
+its scope.
+
+This file sits in `.claude/rules/`, so every session in the project loads it.
+The `scope:` block above decides only which files `apply-prose` checks.
 
 Every rule has a stable id of the form `<section>-<name>`, where the name is
 one to four words saying what the rule means. A report names the id, so
 `apply-prose` can say `sentences-own-subject at landscape.md:42` and be checked
 by eye. A rule that gets reworded keeps its name. Nothing here is ever marked
-retired: a rule that changes is edited in place, and `git log -p prose-style.md`
-holds what it used to say.
+retired: a rule that changes is edited in place, and
+`git log -p .claude/rules/prose-style.md` holds what it used to say.
 
 What none of this licenses: cutting nuance to make a sentence short, or
 dropping a caveat because it reads as a long clause. Split it into two
@@ -29,8 +36,8 @@ sentences instead.
 
 ## Standing instructions
 
-The project owner's standing preferences. They apply to every document in this
-folder.
+The project owner's standing preferences. They apply to everything written in
+this folder.
 
 <!-- FILL: replace or extend these if the owner's standing instructions differ
      from the defaults below. If they are already set as a Claude preference,
