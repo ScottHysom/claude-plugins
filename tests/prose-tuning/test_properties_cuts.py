@@ -28,20 +28,28 @@ def document(paragraphs, final_newline):
 def batches(draw):
     """A document and findings over its prose lines.
 
-    Each chosen line is cut whole, cut in two side-by-side halves, or has its
-    first character rewritten. Only the first two remove the line.
+    Each chosen line is cut whole, cut in two side-by-side halves, cut along
+    with the next line of its paragraph by one finding, or has its first
+    character rewritten. All but the last remove the line. A whole cut gives
+    no columns, since its text starts nowhere else on its line.
     """
     source = document(draw(st.lists(PARAGRAPH, min_size=1, max_size=5)), draw(st.booleans()))
     text = prose.Text(source)
     findings, removed = [], set()
     for n in range(1, text.line_count() + 1):
         bare = text.bare(n)
-        if not bare:
+        if not bare or n in removed:
             continue
-        how = draw(st.sampled_from(["keep", "cut", "halves", "rewrite"]))
+        spans = n < text.line_count() and bool(text.bare(n + 1))
+        how = draw(st.sampled_from(["keep", "cut", "halves", "span", "rewrite"]))
+        if how == "span" and not spans:
+            how = "cut"
         if how == "cut":
-            findings.append(finding(n, 0, len(bare), bare, ""))
+            findings.append(anchored(n, bare, ""))
             removed.add(n)
+        elif how == "span":
+            findings.append(anchored(n, bare + "\n" + text.bare(n + 1), ""))
+            removed.update((n, n + 1))
         elif how == "halves":
             mid = draw(st.integers(0, len(bare)))
             findings.append(finding(n, 0, mid, bare[:mid], ""))
@@ -62,6 +70,10 @@ def finding(line, col_start, col_end, text, replacement):
         "text": text,
         "replacement": replacement,
     }
+
+
+def anchored(line, text, replacement):
+    return {"file": "doc.md", "rule": RULE, "line": line, "text": text, "replacement": replacement}
 
 
 def plan(source, findings):

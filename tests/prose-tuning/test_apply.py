@@ -339,6 +339,176 @@ class DescribeWholeLineCuts:
         assert prose_repo.read("doc.md") == "Keep.\n\nNew.\n"
 
 
+def anchored(prose_repo, line, text, replacement="", **overrides):
+    """A finding on doc.md addressed by its line and text, with no columns."""
+    return prose_repo.finding(line, file="doc.md", text=text, replacement=replacement, **overrides)
+
+
+class DescribeAnchoredFindings:
+    """A finding may leave its columns out and let apply find its text.
+
+    The model used to count the columns itself. One off-by-one read as stale
+    text, and the next run of apply-prose wrote a helper to do the counting.
+    """
+
+    def write(self, prose_repo, content):
+        (prose_repo.root / "doc.md").write_text(content)
+
+    def it_finds_the_text_on_its_line(self, prose_repo):
+        self.write(prose_repo, "- First item starts here and\n  continues on this line.\n")
+        code, envelope = prose_repo.apply(
+            [anchored(prose_repo, 2, "continues on this line.", "goes on here.")]
+        )
+        assert code == prose.OK, envelope["errors"]
+        assert prose_repo.read("doc.md") == "- First item starts here and\n  goes on here.\n"
+
+    def it_refuses_text_that_does_not_start_on_its_line(self, prose_repo):
+        self.write(prose_repo, "One line.\nAnother line.\n")
+        before = prose_repo.read("doc.md")
+        code, envelope = prose_repo.apply([anchored(prose_repo, 1, "Another line.")])
+        assert code == prose.PROBLEMS
+        assert errors_of(envelope) == [
+            "doc.md:1  finding 1: 'Another line.' does not start on this line. Re-run the report."
+        ]
+        assert prose_repo.read("doc.md") == before
+
+    def it_refuses_text_that_starts_more_than_once_on_its_line(self, prose_repo):
+        self.write(prose_repo, "the cat and the dog\n")
+        before = prose_repo.read("doc.md")
+        code, envelope = prose_repo.apply([anchored(prose_repo, 1, "the", "a")])
+        assert code == prose.PROBLEMS
+        assert errors_of(envelope) == [
+            "doc.md:1  finding 1: 'the' starts at columns 0, 12 on this line; "
+            "add col_start to say which"
+        ]
+        assert prose_repo.read("doc.md") == before
+
+    def it_takes_col_start_to_say_which_match(self, prose_repo):
+        self.write(prose_repo, "the cat and the dog\n")
+        code, _ = prose_repo.apply([anchored(prose_repo, 1, "the", "a", col_start=12)])
+        assert code == prose.OK
+        assert prose_repo.read("doc.md") == "the cat and a dog\n"
+
+    def it_refuses_a_col_start_past_the_end_of_the_line(self, prose_repo):
+        """Text.offset adds the column blind, so col_start=40 on a short line
+        would look for the text on a later line instead.
+        """
+        self.write(prose_repo, "Short.\nThe cat sat.\n")
+        code, envelope = prose_repo.apply([anchored(prose_repo, 1, "cat", "dog", col_start=11)])
+        assert code == prose.PROBLEMS
+        assert errors_of(envelope) == ["doc.md:1  column 11 is outside the line (6 characters)"]
+
+    def it_refuses_an_empty_text_without_col_start(self, prose_repo):
+        self.write(prose_repo, "One line.\n")
+        code, envelope = prose_repo.apply([anchored(prose_repo, 1, "", "x")])
+        assert code == prose.PROBLEMS
+        assert errors_of(envelope) == [
+            "doc.md:1  finding 1: an empty text needs col_start to say where it goes"
+        ]
+
+    def it_names_each_finding_by_its_place_in_the_batch(self, prose_repo):
+        self.write(prose_repo, "One line.\nAnother line.\n")
+        code, envelope = prose_repo.apply(
+            [anchored(prose_repo, 1, "One", "Single"), anchored(prose_repo, 2, "missing")]
+        )
+        assert code == prose.PROBLEMS
+        assert errors_of(envelope)[0].startswith("doc.md:2  finding 2: 'missing'")
+
+
+class DescribeSpansAcrossLines:
+    """A finding whose text holds a newline ends on a later line.
+
+    A wrapped sentence used to take one finding per line, each with its own
+    columns, and #73 needed three sentences split that way.
+    """
+
+    WRAPPED = "- First item starts here and\n  continues on this line.\n"
+
+    def write(self, prose_repo, content):
+        (prose_repo.root / "doc.md").write_text(content)
+
+    def it_rewrites_a_wrapped_sentence_as_one_finding(self, prose_repo):
+        self.write(prose_repo, self.WRAPPED)
+        code, envelope = prose_repo.apply(
+            [
+                anchored(
+                    prose_repo,
+                    1,
+                    "First item starts here and\n  continues on this line.",
+                    "One item.",
+                )
+            ]
+        )
+        assert code == prose.OK, envelope["errors"]
+        assert prose_repo.read("doc.md") == "- One item.\n"
+
+    def it_keeps_a_newline_in_the_rewrite_of_a_span_that_crossed_one(self, prose_repo):
+        """A list item may not take a newline it did not have. A span that
+        already crossed a line in one may put one back.
+        """
+        self.write(prose_repo, self.WRAPPED)
+        code, envelope = prose_repo.apply(
+            [
+                anchored(
+                    prose_repo,
+                    1,
+                    "starts here and\n  continues on this line.",
+                    "starts here\n  and goes on.",
+                )
+            ]
+        )
+        assert code == prose.OK, envelope["errors"]
+        assert prose_repo.read("doc.md") == "- First item starts here\n  and goes on.\n"
+
+    def it_refuses_a_span_that_crosses_a_blank_line(self, prose_repo):
+        self.write(prose_repo, "One.\n\nTwo.\n")
+        before = prose_repo.read("doc.md")
+        code, envelope = prose_repo.apply([anchored(prose_repo, 1, "One.\n\nTwo.")])
+        assert code == prose.PROBLEMS
+        assert errors_of(envelope) == [
+            "doc.md:1  finding 1 crosses line 2, which is blank; a finding can cross "
+            "lines only within a paragraph or a list item"
+        ]
+        assert prose_repo.read("doc.md") == before
+
+    def it_refuses_a_span_that_reaches_a_protected_line(self, prose_repo):
+        self.write(prose_repo, "Some prose.\n> A quotation.\n")
+        before = prose_repo.read("doc.md")
+        code, envelope = prose_repo.apply([anchored(prose_repo, 1, "prose.\n> A")])
+        assert code == prose.PROBLEMS
+        assert errors_of(envelope) == ["doc.md:2  is a blockquote; prose rules do not apply there"]
+        assert prose_repo.read("doc.md") == before
+
+    def it_removes_the_lines_a_span_cuts_whole(self, prose_repo):
+        self.write(prose_repo, "Keep this.\n\nCut this line.\nAnd this one.\n\nKeep this too.\n")
+        code, envelope = prose_repo.apply(
+            [anchored(prose_repo, 3, "Cut this line.\nAnd this one.")]
+        )
+        assert code == prose.OK, envelope["errors"]
+        assert prose_repo.read("doc.md") == "Keep this.\n\nKeep this too.\n"
+
+    def it_joins_what_is_left_when_a_span_cuts_part_of_a_line(self, prose_repo):
+        """The first line is covered whole, but the span goes on into the
+        second, so the span's own edit removes the newline between them.
+        """
+        self.write(prose_repo, "Cut.\nKeep this.\n")
+        code, envelope = prose_repo.apply([anchored(prose_repo, 1, "Cut.\nKeep ")])
+        assert code == prose.OK, envelope["errors"]
+        assert prose_repo.read("doc.md") == "this.\n"
+
+
+class DescribeHelp:
+    def it_describes_every_field_of_a_finding(self, capsys):
+        with pytest.raises(SystemExit) as exit:
+            prose.main(["apply", "--help"])
+        assert exit.value.code == prose.OK
+        out = capsys.readouterr().out
+        for field in ("file", "line", "rule", "text", "replacement", "col_start", "col_end"):
+            assert "  %s " % field in out, field
+        assert "newline" in out
+        assert "apply what is valid" in out
+
+
 class DescribePartial:
     """Whole-batch by default, --partial to take what is good.
 

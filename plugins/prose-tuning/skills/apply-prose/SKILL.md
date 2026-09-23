@@ -109,21 +109,24 @@ is left in it:
 
 ```sh
 cat > "${TMPDIR:-/tmp}/prose-findings.json" <<'END'
-[{"file":"landscape.md","line":42,"col_start":0,"col_end":74,
-  "rule":"sentences-own-subject","text":"<the current text>",
+[{"file":"landscape.md","line":42,"rule":"sentences-own-subject",
+  "text":"<the current text, copied from the segment>",
   "replacement":"<the rewrite>"}]
 END
 ```
 
-`col_start` and `col_end` count characters on that line, and a finding may
-cover part of a segment. `text` is exactly the characters between them. `apply`
-compares it with the file and refuses a finding whose text has moved.
+`line` is where the text starts, and `text` is copied exactly from the
+segments output. Leave the columns out: `apply` finds the text on its line.
+When it is refused because the text starts at more than one place on the line,
+add the `col_start` the refusal lists. A sentence wrapped onto the next line is
+one finding, with the newline and the next line's indent in `text`.
 
-To cut a whole line, give a finding that covers every character on it, from
-`col_start` 0 to the line's length, with `"replacement":""`. Two findings side
-by side that do the same between them also count. `apply` removes the line
-itself, and when a cut takes a whole block it keeps one blank line between the
-blocks either side.
+`python3 "$PROSE" apply --help` describes every field of a finding, and which
+kinds of line a replacement may put a newline in.
+
+To cut text, give `"replacement":""`. A line that the cuts cover whole goes
+with its newline, and when a cut takes a whole block `apply` keeps one blank
+line between the blocks either side.
 
 ## Step 5: one approval round
 
@@ -158,11 +161,14 @@ stale. `--partial` applies what is valid and reports the rest.
 
 The engine rejects a finding rather than trusting it when:
 
-- the `text` no longer matches what is at that address, which means the report
-  is stale and must be regenerated
+- the `text` starts nowhere on its line, or no longer matches what is at its
+  columns, which means the report is stale and must be regenerated
+- the `text` starts at more than one place on its line and no `col_start` says
+  which
 - the rule id is not in `prose-style.md`
-- the line is front matter, a fence, a blockquote or an HTML comment
-- the columns touch an HTML comment part way along the line
+- the text reaches front matter, a fence, a blockquote or an HTML comment
+- the text crosses a line that is not part of a paragraph or a list item, such
+  as a blank line or a heading
 - a `table-cell` replacement contains a `|` or a newline, which would silently
   restructure the table
 
