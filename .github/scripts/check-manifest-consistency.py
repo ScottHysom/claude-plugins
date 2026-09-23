@@ -202,25 +202,25 @@ def cmd_check(args, root):
         errors.append("marketplace.json lists no plugins")
         return emit(args, "check", {"plugins": plugins}, errors, human=human)
 
-    catalogued = set()
+    cataloged = set()
     for entry in entries:
         before = len(errors)
         name = check_entry(root, entry, errors)
         if name is None:
             continue
-        catalogued.add(name)
+        cataloged.add(name)
         # Only report a plugin as consistent if it raised nothing above.
         if len(errors) == before:
             plugins.append({"name": name, "version": entry.get("version")})
 
-    # The inverse drift: a plugin directory that was never catalogued. Without
+    # The inverse drift: a plugin directory that was never cataloged. Without
     # an entry it is unreachable through the marketplace.
     plugins_dir = os.path.join(root, PLUGINS)
     if os.path.isdir(plugins_dir):
         for d in sorted(os.listdir(plugins_dir)):
             if not os.path.isfile(os.path.join(plugins_dir, d, PLUGIN_JSON)):
                 continue
-            if d not in catalogued:
+            if d not in cataloged:
                 errors.append(
                     "%s: has a plugin.json but no marketplace.json entry, "
                     "so it cannot be installed" % d

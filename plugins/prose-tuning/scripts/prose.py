@@ -2,7 +2,7 @@
 """Deterministic half of the prose-tuning skills.
 
 The three skills in this plugin use the model only for what genuinely needs
-judgement: inferring a rule from an edit, writing prose, deciding whether a
+judgment: inferring a rule from an edit, writing prose, deciding whether a
 passage conforms. Everything else - parsing markup, selecting files, diffing,
 inserting and resolving tags, reading the config - happens here, because the
 first run of this workflow by hand produced five malformed tags that survived
@@ -291,7 +291,7 @@ class EditEngine:
         """Pairs whose result would depend on the order they were added in.
 
         Sorting by (start, end) puts a zero-width point immediately before any
-        span starting at the same offset, so comparing neighbours catches every
+        span starting at the same offset, so comparing neighbors catches every
         overlap without comparing every pair.
 
         The second clause - two edits beginning at the same offset - is where
@@ -300,7 +300,7 @@ class EditEngine:
         on the order the records happened to arrive in. Two ordinary requests
         hit this. A <q> on the first line of a block <del> puts a zero-width
         insert at the offset the block replacement starts from, and the splice
-        discards whichever went first. Two neighbouring inline <del> spans put
+        discards whichever went first. Two neighboring inline <del> spans put
         the first one's closing tag and the second one's opening tag on one
         offset, and one of the two orders emits
         `<del>Curated<del></del>, not</del>`, which does not even parse.
@@ -496,7 +496,7 @@ class Rule:
         return "\n".join(self.body).strip()
 
     def body_key(self):
-        """The body normalised for comparison, for adopt-prose.
+        """The body normalized for comparison, for adopt-prose.
 
         HTML comments go: a FILL marker tells one project what to supply and is
         not part of the rule, so two rules differing only by one are the same
@@ -1905,7 +1905,7 @@ def apply_inserts(text, blocks, records, path, qid_start):
             continue
 
         # Each record marks up one region, and the regions have to be disjoint.
-        # Overlap is two judgements about one passage, which the markup has no
+        # Overlap is two judgments about one passage, which the markup has no
         # way to express; nesting is worse, because an <ins> landing inside
         # another record's <del> is a grammar the scanner rejects, and the file
         # written would be one this tool's own `tags check` turns down.
@@ -2784,7 +2784,7 @@ def cmd_where(args):
     return emit(args, "where", None, data, human=lambda: print(data["surface"]))
 
 
-def normalise_folder(value, name):
+def normalize_folder(value, name):
     """A device folder as get_device_info lists it, without a trailing slash."""
     folder = (value or "").rstrip("/")
     if not folder.startswith("/"):
@@ -2795,8 +2795,8 @@ def normalise_folder(value, name):
 
 
 def cmd_stage(args):
-    folder = normalise_folder(args.folder, "folder")
-    connected = normalise_folder(args.connected or args.folder, "connected")
+    folder = normalize_folder(args.folder, "folder")
+    connected = normalize_folder(args.connected or args.folder, "connected")
     if folder == connected:
         sub = ""
     elif folder.startswith(connected + "/"):

@@ -36,7 +36,7 @@ back them. What agents do:
   - **Done when**: what a fix has to make true.
 - **Label it** with one of `bug`, `enhancement` or `docs`, and one area:
   `plugin:<name>` or `repo`. Never `approved`.
-- **Work only on issues labelled `approved`.** Scott may also ask for work
+- **Work only on issues labeled `approved`.** Scott may also ask for work
   directly, without an issue; that needs no label.
 - **Claim an issue before any work on it**, whether Scott named it or you
   found it with `python3 .github/scripts/issues.py next`. Run
@@ -54,7 +54,7 @@ back them. What agents do:
 
 ## Skills and scripts
 
-- **Split the work.** The model does only what needs judgement: inferring a
+- **Split the work.** The model does only what needs judgment: inferring a
   rule, writing prose, deciding whether something conforms. A script does the
   rest - parsing, selecting files, diffing, validating, reading config, writing
   results. The test: if two runs on the same input should give the same answer,
@@ -163,7 +163,7 @@ back them. What agents do:
 - A new test is not finished until it has failed. Break the code it guards and
   confirm the test notices; the Properties section of the README says how, and
   why a green first run proves little.
-- A test is named for the behaviour it checks, not the operation it performs:
+- A test is named for the behavior it checks, not the operation it performs:
   `it_<does x>` in a `Describe<Subject>` class, a sentence in the active voice
   with the unit under test as its subject, and never the word "should". A
   failing test's name is the first line of the report, so it has to say which

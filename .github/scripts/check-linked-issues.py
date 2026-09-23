@@ -205,7 +205,7 @@ def problems(event, repo, token, fetch=get):
             out.append("#%d is a pull request, not an issue" % number)
         elif not any(lbl.get("name", "").lower() == LABEL for lbl in issue.get("labels", [])):
             out.append(
-                "#%d is not labelled %s. Scott approves an issue before it is worked on; "
+                "#%d is not labeled %s. Scott approves an issue before it is worked on; "
                 "re-run this job once the label is added" % (number, LABEL)
             )
     out.extend(claim_problems(pr, ours, repo, token, fetch))

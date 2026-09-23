@@ -123,7 +123,7 @@ def event(title="t", body="", head="issue/12", head_repo=REPO):
 class DescribeTheApprovedLabelRule:
     """The half of `problems` that asks whether each linked issue may be worked
     on at all - it exists, it is an issue rather than a pull request, and Scott
-    has labelled it approved.
+    has labeled it approved.
     """
 
     def it_passes_an_approved_issue(self):
@@ -135,7 +135,7 @@ class DescribeTheApprovedLabelRule:
         linked, found = cli.problems(event(body="Closes #12"), REPO, "tok", gh)
         assert linked == [12]
         assert len(found) == 1
-        assert "#12 is not labelled approved" in found[0]
+        assert "#12 is not labeled approved" in found[0]
         assert "re-run this job" in found[0]
 
     def it_compares_label_names_without_case(self):
@@ -280,7 +280,7 @@ class DescribeMain:
         )
         assert code == cli.PROBLEMS
         assert "#12 linked" in out.out
-        assert "not labelled approved" in out.err
+        assert "not labeled approved" in out.err
 
     def it_says_nothing_about_links_when_it_could_not_read_them(self, tmp_path, capsys):
         code, out = run(tmp_path, capsys, event(), FakeGitHub(missing={"commits"}))

@@ -101,8 +101,8 @@ exactly the false collision `adopt-prose` then has to put to the author.
 
 Nothing enforces the naming discipline. `config lint` checks the grammar and the
 word count and stops there, the same way it cannot tell that two rules
-contradict each other. Both are judgement, and both are stated here so that the
-judgement is at least a shared one.
+contradict each other. Both are judgment, and both are stated here so that the
+judgment is at least a shared one.
 
 **The metadata comment carries at most two keys.** `source` is one of `shipped`,
 `inferred`, `interview` or `adopted`. `origin=<project>` appears only on a rule
@@ -125,7 +125,7 @@ text is in git.
 
 Carrying retired rules in the file is history in the content, which is the one
 thing this family of documents exists to prevent. It would also raise a question
-with no good answer: whether a conformance pass should honour them.
+with no good answer: whether a conformance pass should honor them.
 
 ## Sections
 

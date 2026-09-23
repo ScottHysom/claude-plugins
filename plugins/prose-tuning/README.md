@@ -94,7 +94,7 @@ full grammar.
 
 `scripts/prose.py` does everything deterministic - parsing the markup,
 selecting files, diffing, inserting and resolving tags, reading the config -
-and the model does only what needs judgement: inferring a rule, writing prose,
+and the model does only what needs judgment: inferring a rule, writing prose,
 deciding whether a passage conforms.
 
 Two parts of it carry the design.

@@ -1,16 +1,14 @@
 ---
-name: {{PROJECT_NAME}} prose style
+name: claude-plugins prose style
 scope:
   include:
     - "**/*.md"
   exclude:
     - ".claude/**"
-    - "CLAUDE.md"
-    - "**/README.md"
-    - "skills/**"
+    - "plugins/prose-tuning/templates/prose-style.md"
 ---
 
-# {{PROJECT_NAME}}: prose style
+# claude-plugins: prose style
 
 The house style for everything written in this project: its documents, this
 one included, and also commit messages, pull request titles and descriptions,
@@ -37,12 +35,7 @@ sentences instead.
 ## Standing instructions
 
 The project owner's standing preferences. They apply to everything written in
-this folder.
-
-<!-- FILL: replace or extend these if the owner's standing instructions differ
-     from the defaults below. If they are already set as a Claude preference,
-     restate them here anyway. A skill cannot rely on a preference being
-     loaded, and neither can this file. -->
+this repo.
 
 ### standing-define-terms: Define jargon and acronyms on first use
 <!-- prose-rule: source=shipped -->
@@ -55,17 +48,20 @@ definition. One clause is enough.
 
 "Already known" means the owner's own career, not the field at large.
 
-<!-- FILL: name the domains that need no gloss, and the domains in THIS
-     project that always do. Both halves matter: without the first, every
-     document over-explains; without the second, jargon slips through. -->
+Git, GitHub, Python, pytest, shell, CI and JSON need no gloss. These always
+do:
+
+- Cowork, and its device bridge.
+- How plugins, skills and the marketplace fit together.
+- prose-tuning's markup.
 
 ### standing-concrete-over-abstract: Prefer a concrete example over an abstraction
 <!-- prose-rule: source=shipped -->
 
 Concrete means a number, a name or a title.
 
-<!-- FILL: one real example from this project, and the vague version it
-     beats. -->
+> **Before.** The claim step can fail if the issue is not ready.
+> **After.** `issues.py claim 64` exits 1 when #64 is not labeled `approved`.
 
 ### standing-flag-simplification: Flag a simplification with the word
 <!-- prose-rule: source=shipped -->
@@ -118,19 +114,22 @@ or what, its subject is missing.
 > **Before.** Able to state what is inside the file.
 > **After.** A reader can state what is inside the file.
 
-<!-- FILL: replace that example with a real before and after from this
-     project. -->
-
 ### sentences-name-the-role: Name the role
 <!-- prose-rule: source=shipped -->
 
 A project has more than one person in it, and prose names the one it means
 rather than leaving it to inference.
 
-<!-- FILL: name this project's roles and say which documents speak of which. A
-     common set: the author, who sets the goals and constraints; the reader,
-     who works the material; the agent, who edits the documents. Without this
-     list every dropped subject returns as "you". -->
+The roles in this repo:
+
+- **The owner** approves issues, reviews pull requests and merges them.
+- **The agent** is Claude working an issue. It posts under the owner's
+  account, so its replies start with `**Claude:**`.
+- **A contributor** is anyone changing the repo. `CLAUDE.md`, `README.md` and
+  `COWORK.md` speak to them.
+- **The user** has installed a plugin. A plugin's `README.md` speaks to them.
+- **The model** is Claude following a skill. `SKILL.md` and a plugin's
+  `reference/` speak to it.
 
 ### sentences-imperative-no-subject: Imperatives take no subject
 <!-- prose-rule: source=shipped -->
@@ -238,9 +237,12 @@ lead-in to a bullet.
 ### register-matches-audience: The register matches the audience
 <!-- prose-rule: source=shipped -->
 
-<!-- FILL: name this project's reader and the register that fits. Give one
-     colloquial phrase this project has actually produced, and its
-     replacement. A rule with no example does not survive contact. -->
+The contributor docs are plain technical prose for an engineer. A plugin's
+`README.md` is for someone who has just installed the plugin and may not write
+code.
+
+> **Before.** The grep it replaced went blind the moment its pathspec stopped matching and stayed green.
+> **After.** The grep it replaced matched no files once its pathspec went stale, and still passed.
 
 ### register-no-presuming-adjectives: An adjective that presumes the reader's state is cut
 <!-- prose-rule: source=shipped -->
@@ -269,6 +271,4 @@ full pros and cons. A section qualifies when either of these holds:
 2. The owner explicitly asked to record it for posterity. Say in the section
    that its purpose is to record the options.
 
-<!-- FILL: point at a section in this project that is deliberately a
-     comparison, if one exists. Without an example the exception gets read as
-     permission to keep every alternative-and-cost clause. -->
+No section in this repo is deliberately a comparison yet.

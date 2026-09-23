@@ -285,7 +285,7 @@ Anyone can open an issue, and Scott decides what gets worked on. The process:
 | Label | Means |
 |---|---|
 | `bug` | something does not work as documented |
-| `enhancement` | new behaviour, or a better way to do an existing thing |
+| `enhancement` | new behavior, or a better way to do an existing thing |
 | `docs` | documentation only |
 | `plugin:<name>` | which plugin it is about |
 | `repo` | CI, tooling, the marketplace catalog or root docs |
@@ -360,11 +360,11 @@ Editing the repo yourself needs none of this. Just use git.
 
 Each plugin carries its own `version` in both `plugin.json` and its
 `marketplace.json` entry. Keep them the same. Bump it whenever the plugin's
-behaviour changes, or installed users have no signal that anything did.
+behavior changes, or installed users have no signal that anything did.
 
-Semver, starting at `0.1.0`. Patch for a fix, minor for new behaviour, major
+Semver, starting at `0.1.0`. Patch for a fix, minor for new behavior, major
 when an existing project or workflow would need changing to keep working.
 
-## Licence
+## License
 
 MIT. See [LICENSE](LICENSE).

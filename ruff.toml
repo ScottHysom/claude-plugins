@@ -4,7 +4,7 @@
 line-length = 100
 
 # The floor prose.py and the plugin scripts promise. The formatter reads this to
-# avoid writing syntax that only newer Pythons accept, such as parenthesised
+# avoid writing syntax that only newer Pythons accept, such as parenthesized
 # context managers.
 target-version = "py39"
 

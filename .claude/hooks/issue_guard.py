@@ -22,7 +22,7 @@ quotes one of these commands is text, and goes through.
 
 Exit code 2 blocks the command and hands stderr back to Claude. Anything the
 hook cannot read - bad JSON, a command shlex cannot split - is checked by a
-plain text match instead, which errs towards blocking.
+plain text match instead, which errs toward blocking.
 """
 
 import json

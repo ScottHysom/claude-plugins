@@ -11,7 +11,7 @@
       "source": "./plugins/gitify-cowork-project",
       "displayName": "Gitify Cowork Project",
       "description": "Cowork only. Puts an existing Cowork Project folder under git without touching its documents: commit helpers, a CLAUDE.md holding the Project Instructions, and a per-project history skill.",
-      "version": "0.2.2",
+      "version": "0.2.3",
       "category": "productivity",
       "tags": [
         "cowork",
@@ -30,7 +30,7 @@
       "source": "./plugins/prose-tuning",
       "displayName": "Prose Tuning",
       "description": "Claude Code and Cowork. Learns a project's house prose style from edits already made, records it as prose-style.md with stable rule ids, and conforms the rest of the documents to it.",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "category": "productivity",
       "tags": [
         "prose",
