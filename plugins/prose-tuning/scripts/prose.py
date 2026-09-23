@@ -16,7 +16,7 @@ Commands:
     preflight   refuse-to-run check for one skill
     status      what is in the working tree right now
     scope       which files the prose rules govern
-    segments    the prose-eligible spans of a file
+    segments    the prose-eligible spans of each file, one per line
     evidence    explicit tags + inferred edits + open questions
     config      list | lint | check-id | similar | init | move
     tags        check | list | insert | resolve | strip
@@ -2191,6 +2191,22 @@ def cmd_preflight(args):
     return emit(args, "preflight", repo.root, data, errors=blockers, warnings=hints, human=human)
 
 
+def segment_line(rel, seg):
+    """One segment as a line of text: its address, its kind, then its text.
+
+    The address is file:line:col_start-col_end, which holds every field a
+    finding may need, so a model copies it rather than working it out.
+    """
+    return "%s:%d:%d-%d  %s  %s" % (
+        rel,
+        seg["line"],
+        seg["col_start"],
+        seg["col_end"],
+        seg["kind"],
+        seg["text"],
+    )
+
+
 def cmd_segments(args):
     repo, config, scope = load(args)
     targets = args.paths or scope.files()
@@ -2204,15 +2220,35 @@ def cmd_segments(args):
         blocks = Blocks(text)
         segs = segments_for(text, blocks)
         protected = sum(1 for k in blocks.kinds if k in PROTECTED_KINDS)
-        data[rel] = {"segments": segs, "protected_lines": protected, "lines": text.line_count()}
+        data[rel] = {
+            "segment_count": len(segs),
+            "chars": sum(len(s["text"]) for s in segs),
+            "protected_lines": protected,
+            "lines": text.line_count(),
+        }
+        if not args.summary:
+            data[rel]["segments"] = segs
 
     def human():
+        if not args.summary:
+            for rel in sorted(data):
+                for seg in data[rel]["segments"]:
+                    print(segment_line(rel, seg))
+            return
         for rel in sorted(data):
             d = data[rel]
             print(
-                "%s  %d segment(s), %d protected line(s) of %d"
-                % (rel, len(d["segments"]), d["protected_lines"], d["lines"])
+                "%s  %d segment(s), %d character(s), %d protected line(s) of %d"
+                % (rel, d["segment_count"], d["chars"], d["protected_lines"], d["lines"])
             )
+        print(
+            "\n%d file(s), %d segment(s), %d character(s)"
+            % (
+                len(data),
+                sum(d["segment_count"] for d in data.values()),
+                sum(d["chars"] for d in data.values()),
+            )
+        )
 
     return emit(args, "segments", repo.root, data, errors=errors, human=human)
 
@@ -3325,8 +3361,19 @@ def build_parser():
     )
     p.set_defaults(func=cmd_scope)
 
-    p = sub.add_parser("segments", parents=[common], help="the prose-eligible spans of a file")
-    p.add_argument("paths", nargs="*")
+    p = sub.add_parser(
+        "segments",
+        parents=[common],
+        help="the prose-eligible spans of each file, one per line",
+        description="Every prose-eligible span, one per line, as "
+        "FILE:LINE:COL_START-COL_END  KIND  TEXT. With no path, every file in scope.",
+    )
+    p.add_argument("paths", nargs="*", help="files to read (default: every file in scope)")
+    p.add_argument(
+        "--summary",
+        action="store_true",
+        help="one line per file: segments, characters and protected lines, then the totals",
+    )
     p.set_defaults(func=cmd_segments)
 
     p = sub.add_parser(

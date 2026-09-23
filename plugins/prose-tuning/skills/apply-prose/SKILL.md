@@ -47,11 +47,13 @@ the run whose rules this pass is about to check.
 
 ```sh
 python3 "$PROSE" config list --json
-python3 "$PROSE" scope
+python3 "$PROSE" segments --summary
 ```
 
-State the file count before reading anything, so the size of the pass is known
-up front. When the author asks why a file was skipped:
+`segments --summary` prints one line per file in scope, with its segment count
+and the characters of prose in them, then the totals. State the totals before
+reading anything, so the size of the pass is known up front. When the author
+asks why a file was skipped:
 
 ```sh
 python3 "$PROSE" scope --all
@@ -62,11 +64,21 @@ which prints every markdown file with the pattern that included or excluded it.
 ## Step 3: read only the eligible prose
 
 ```sh
-python3 "$PROSE" segments <file> --json
+python3 "$PROSE" segments
 ```
 
+With no path, `segments` reads every file in scope, so one run covers the
+whole pass. Name files after it to read only those.
+
 **Never read the raw file to judge conformance.** `segments` returns only the
-spans a prose rule may touch, each with its line, columns and kind.
+spans a prose rule may touch, one per line:
+
+```text
+landscape.md:42:2-40  list-item  Able to state what is inside the file.
+```
+
+The line starts with the address `file:line:col_start-col_end`. Then come the
+kind and the text, each after two spaces. The text runs to the end of the line.
 
 | Kind | Is |
 |---|---|
@@ -114,7 +126,9 @@ cat > "${TMPDIR:-/tmp}/prose-findings.json" <<'END'
 END
 ```
 
-`text` is copied exactly from the segments output. Leave the columns out: `apply` finds the text on its line.
+`file` and `line` come from the segment's address, and `text` is copied
+exactly from the segment's text. Leave the columns out: `apply` finds the text
+on its line.
 When it is refused because the text starts at more than one place on the line,
 add the `col_start` the refusal lists. A sentence wrapped onto the next line is
 one finding, with the newline and the next line's indent in `text`.
