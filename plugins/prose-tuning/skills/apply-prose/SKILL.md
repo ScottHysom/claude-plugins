@@ -84,6 +84,7 @@ kind and the text, each after two spaces. The text runs to the end of the line.
 |---|---|
 | `paragraph` | body prose, the usual case |
 | `list-item` | the text after the bullet, not the bullet |
+| `list-continuation` | a later line of a list item's text. A new line in its replacement is indented to stay in the item |
 | `heading` | the text after the `#`s. Headings have rules too |
 | `table-cell` | one cell's text, without its pipes |
 

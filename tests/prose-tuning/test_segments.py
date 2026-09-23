@@ -145,3 +145,20 @@ class DescribeTheSegmentsCommand:
         assert code == prose.OK
         assert "segments" not in envelope["data"]["target.md"]
         assert envelope["data"]["target.md"]["segment_count"] > 0
+
+
+class DescribeListContinuations:
+    def it_reports_a_line_that_continues_a_list_item_with_its_item(self):
+        segs = segments("- First item starts here and\n  continues on this line.\n- Second.\n")
+        assert [(s["line"], s["kind"], s.get("item")) for s in segs] == [
+            (1, "list-item", None),
+            (2, "list-continuation", 1),
+            (3, "list-item", None),
+        ]
+
+    def it_reports_a_paragraph_after_a_list_as_a_paragraph(self):
+        segs = segments("- An item.\n\nA paragraph.\n")
+        assert [(s["kind"], s.get("item")) for s in segs] == [
+            ("list-item", None),
+            ("paragraph", None),
+        ]
