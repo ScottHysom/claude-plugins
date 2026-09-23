@@ -148,6 +148,9 @@ python3 "$PROSE" report --findings "${TMPDIR:-/tmp}/prose-findings.json"
 
 `report` prints each finding with its `file:line`, rule id, current text,
 proposed text and why. It reads the current text from the file as it is now.
+Each line of a current or proposed text sits between `|` marks, so a space at
+either end shows. `(cut)` and `(nothing: this inserts)` stand for an empty
+text and carry no marks.
 Show the author that output as it stands. Never retype it into a table of
 your own, because the author then approves a text that `apply` never sees.
 
