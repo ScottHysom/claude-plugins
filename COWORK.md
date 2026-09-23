@@ -54,7 +54,16 @@ session printed. Where a point is still a guess, it is under "Not yet known".
   is not filled in. A line that locates a plugin script has to live in
   `SKILL.md` itself.
 - **`propose_skills` takes one `SKILL.md` and nothing else.** A skill that needs
-  a bundled script works only from a marketplace install.
+  a bundled script works only from a marketplace install, or from an uploaded
+  `.plugin` file.
+- **A `.plugin` file is a zip of the plugin folder,** with `.claude-plugin/` at
+  its root. Uploading one is how to try a branch: Cowork can't add a marketplace
+  at a branch of a GitHub repo.
+- **An upload is checked harder than a marketplace install.** It rejects a
+  skill whose `description` contains anything that looks like an XML tag,
+  "SKILL.md description cannot contain XML tags", even where the marketplace
+  installed the same skill without complaint. `claude plugin validate --strict`
+  doesn't catch it either.
 
 ## What the design follows from this
 

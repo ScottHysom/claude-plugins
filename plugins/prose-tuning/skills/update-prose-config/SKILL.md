@@ -1,6 +1,6 @@
 ---
 name: update-prose-config
-description: Infer prose and style rules from the uncommitted markdown edits in a project repo and write them into that project's prose-style.md with stable rule ids. Reads explicit <ins>/<del>/<repl> markup and untagged diff hunks through scripts/prose.py, asks the author about anything ambiguous in one batch, then resolves the markup so the working tree is committable. Use when asked to learn the house style from edits just made, to update or set up prose-style.md, to tag passages for a style pass, to turn an editing pass into rules, or to record why a passage was cut. Never commits and never writes outside the project repo.
+description: Infer prose and style rules from the uncommitted markdown edits in a project repo and write them into that project's prose-style.md with stable rule ids. Reads explicit ins, del and repl markup and untagged diff hunks through scripts/prose.py, asks the author about anything ambiguous in one batch, then resolves the markup so the working tree is committable. Use when asked to learn the house style from edits just made, to update or set up prose-style.md, to tag passages for a style pass, to turn an editing pass into rules, or to record why a passage was cut. Never commits and never writes outside the project repo.
 ---
 
 # Learn the house prose style from edits already made
