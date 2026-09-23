@@ -19,7 +19,7 @@ known", added back when there is one.
 | Python | 3.11 | 3.10 |
 | git | Yes | Yes |
 | `$HOME` | `/root` | `/sessions/<session id>` |
-| `$TMPDIR` | | `$HOME/tmp`, the VM's own disk: files there can be deleted |
+| `$TMPDIR` | Not probed | `$HOME/tmp`, the VM's own disk: files there can be deleted |
 
 - **The container's copy of the folder isn't the folder.**
   `/mnt/user-data/uploads/cowork-folders/<name>/` holds a read-only snapshot of
