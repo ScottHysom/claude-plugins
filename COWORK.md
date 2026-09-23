@@ -6,7 +6,8 @@ something new, record it here, not only in a script's docstring or a pull
 request, so the next design starts from it.
 
 Nothing here comes from documentation. Each point is what a probe in a real
-session printed. Where a point is still a guess, it is under "Not yet known".
+session printed. A question no probe has answered yet goes under "Not yet
+known", added back when there is one.
 
 ## Two machines, and neither has everything
 
@@ -18,6 +19,7 @@ session printed. Where a point is still a guess, it is under "Not yet known".
 | Python | 3.11 | 3.10 |
 | git | Yes | Yes |
 | `$HOME` | `/root` | `/sessions/<session id>` |
+| `$TMPDIR` | | `$HOME/tmp`, the VM's own disk: files there can be deleted |
 
 - **The container's copy of the folder isn't the folder.**
   `/mnt/user-data/uploads/cowork-folders/<name>/` holds a read-only snapshot of
@@ -26,6 +28,9 @@ session printed. Where a point is still a guess, it is under "Not yet known".
   container, and the project only on the device. Either it runs in the
   container and hands its output across, or it is copied across and runs on the
   device.
+- **Every `device_bash` call starts afresh,** in `$HOME`, with no variable or
+  `cd` kept from the call before. A command that needs the project starts
+  with its own `cd`.
 
 ## Moving files: `device_commit_files`
 
@@ -86,15 +91,7 @@ session printed. Where a point is still a guess, it is under "Not yet known".
   it up. The project's own `.gitignore` doesn't have to know the plugin exists,
   and no other plugin's templates have to either.
 - **Keep scratch files out of the project.** The bridge could never delete
-  them. Pass data on stdin, or use `$TMPDIR` on the device, which is the VM's
-  own disk.
-
-## Not yet known
-
-- **Shell state between `device_bash` calls:** does a `cd` or a variable
-  survive from one call to the next? Until a probe says so, start every call
-  from scratch.
-- **Deleting in the VM:** can a file in `$TMPDIR` be deleted?
+  them. Pass data on stdin, or use `$TMPDIR` on the device.
 
 ## Probing
 
