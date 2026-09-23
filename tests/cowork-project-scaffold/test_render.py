@@ -248,6 +248,8 @@ REJECTED_VALUES = [
     ("DESCRIPTION", "Document rules for this project", "must name the project"),
     ("DESCRIPTION", "Foo Research " + "x" * 1024, "at most 1024"),
     ("DESCRIPTION", "Foo Research\nsecond line", "one line"),
+    ("DESCRIPTION", "Rules for Foo Research <ins> markup", "looks like an XML tag"),
+    ("DESCRIPTION", "Rules for Foo Research</b>", "looks like an XML tag"),
 ]
 
 
@@ -263,6 +265,13 @@ class DescribeValidatingAValue:
         self, runner, make_answers
     ):
         data = with_value(make_answers, "DESCRIPTION", "Rules behind update-foo-research-docs.")
+        code, env = runner.render(data)
+        assert code == scaffold.OK, env["errors"]
+
+    def it_accepts_a_description_with_a_less_than_sign_not_followed_by_a_name(
+        self, runner, make_answers
+    ):
+        data = with_value(make_answers, "DESCRIPTION", "Foo Research rules, when a < b.")
         code, env = runner.render(data)
         assert code == scaffold.OK, env["errors"]
 

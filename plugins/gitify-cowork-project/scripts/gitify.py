@@ -120,6 +120,9 @@ DESCRIPTION_MAX = 1024
 # cannot contain ": " or " #", or start with one of these.
 YAML_UNSAFE_START = "-?:,[]{}#&*!|>'\"%@`"
 YAML_UNSAFE_INNER = (": ", " #")
+# Cowork's .plugin upload rejects a skill whose description holds anything that
+# looks like an XML tag: a `<` directly followed by a name, as in <ins> or </b>.
+TAG_RE = re.compile(r"</?[A-Za-z][\w:.-]*")
 
 # Placeholders the model supplies, and the ones computed from the folders.
 SUPPLIED = ("PROJECT_NAME", "SKILL_NAME", "DESCRIPTION")
@@ -377,6 +380,12 @@ def check_value(name, value, values):
             errs.append(
                 "values.DESCRIPTION would break the skill's front matter: it cannot start with "
                 "one of %s or contain ': ' or ' #'" % YAML_UNSAFE_START
+            )
+        tag = TAG_RE.search(value)
+        if tag:
+            errs.append(
+                "values.DESCRIPTION contains something that looks like an XML tag (%r); "
+                "Cowork's plugin upload rejects the skill" % tag.group(0)
             )
         names = [values.get("PROJECT_NAME"), values.get("SKILL_NAME")]
         if not any(isinstance(n, str) and n and n.lower() in value.lower() for n in names):

@@ -132,7 +132,8 @@ In `answers.json`, under `values`:
 - `SKILL_NAME`: **the project's name, with a verb.** `update-<project>-docs` is
   the shape. A generic name invites a generic description.
 - `ANCHOR_DOC`: `current-state.md` unless the user said otherwise.
-- `DESCRIPTION`: the skill's description.
+- `DESCRIPTION`: the skill's description. No `<` followed by a word, as in
+  `<ins>`: Cowork's plugin upload reads it as an XML tag and rejects the skill.
 
 The description is the only part of a skill that costs context in every
 session whether or not it fires, and the only thing that keeps it from firing

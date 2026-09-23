@@ -99,7 +99,9 @@ Write `/tmp/gitify/answers.json`, after `mkdir -p /tmp/gitify`:
   only thing that keeps it from firing in unrelated conversations. Name the
   project, and what the skill covers in the words a user would use: committing,
   commit messages, checking what changed, the skill's own drift check. No
-  generic verbs on their own; "commit changes" fires everywhere.
+  generic verbs on their own; "commit changes" fires everywhere. No `<`
+  followed by a word, as in `<ins>`: Cowork's plugin upload reads it as an
+  XML tag and rejects the skill.
 - `instructions`: when this Project's instructions field has content, which
   you can see in your own context, copy it here **exactly**, character for
   character. Do not tidy, summarise or reformat it; it becomes `CLAUDE.md`.
