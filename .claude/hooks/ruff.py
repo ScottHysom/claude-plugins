@@ -12,7 +12,8 @@ applied: an agent often adds an import in one edit and its first use in the
 next, and a hook that removed "unused" imports would undo the first edit.
 
 Uses the ruff in the repo's .venv, where README.md installs it, and falls back
-to one on PATH. Exit code 2 hands stderr back to Claude, which is how it learns
+to one on PATH. In a git worktree, which has no .venv of its own, the main
+checkout's .venv is the one README.md set up, so that is checked too. Exit code 2 hands stderr back to Claude, which is how it learns
 that ruff is missing, that the file does not parse, or what the linter found.
 """
 
@@ -22,12 +23,43 @@ import shutil
 import subprocess
 import sys
 
+VENV_DIR = ".venv"
+VENV_BIN = "Scripts" if os.name == "nt" else "bin"
+RUFF_NAMES = ("ruff", "ruff.exe")
+
+
+def venv_roots(root):
+    """The checkouts whose .venv may hold ruff: root, then the main checkout.
+
+    In a git worktree, root is the worktree, and the venv README.md sets up is
+    in the main checkout. git prints the shared git directory relative to cwd
+    in the main checkout and absolute in a worktree; joining it to root handles
+    both without --path-format, which older git lacks.
+    """
+    yield root
+    try:
+        common = subprocess.run(
+            ["git", "rev-parse", "--git-common-dir"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except OSError:
+        return
+    if common.returncode != 0 or not common.stdout.strip():
+        return
+    main = os.path.dirname(os.path.realpath(os.path.join(root, common.stdout.strip())))
+    if main != os.path.realpath(root):
+        yield main
+
 
 def find_ruff(root):
-    for name in ("ruff", "ruff.exe"):
-        candidate = os.path.join(root, ".venv", "bin" if os.name != "nt" else "Scripts", name)
-        if os.path.isfile(candidate):
-            return candidate
+    for checkout in venv_roots(root):
+        for name in RUFF_NAMES:
+            candidate = os.path.join(checkout, VENV_DIR, VENV_BIN, name)
+            if os.path.isfile(candidate):
+                return candidate
     return shutil.which("ruff")
 
 
