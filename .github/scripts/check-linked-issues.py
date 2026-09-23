@@ -43,6 +43,14 @@ It reads the event from $GITHUB_EVENT_PATH, the repository from
 $GITHUB_REPOSITORY and a token from $GITHUB_TOKEN. When Scott approves an issue
 after the pull request was opened, re-run the job.
 
+It takes no arguments, on purpose. It runs only in CI on a pull_request event,
+GitHub hands it everything it needs through the environment, and it reads
+nothing from a clone - so it has no parser, no subcommands, and neither of the
+--json and -C/--repo flags that issues.py and check-tests.py carry. A flag here
+would be a promise with nothing behind it; add one when a caller outside CI
+needs it, not before. Tests reach main() through its environ and fetch
+parameters instead.
+
 Exit codes: 0 clean, 1 an issue is not approved or not claimed by this branch,
 2 could not run.
 """
@@ -230,7 +238,7 @@ def claim_problems(pr, ours, repo, token, fetch):
     return out
 
 
-def main(argv=None, environ=None, fetch=get):
+def main(environ=None, fetch=get):
     env = os.environ if environ is None else environ
     try:
         path, repo, token = (
