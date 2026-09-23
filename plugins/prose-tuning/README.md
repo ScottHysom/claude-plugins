@@ -17,7 +17,9 @@ next conversation makes the same mistakes. With it, each correction becomes a
 written rule that every later conversation in the project reads.
 
 The plugin needs a project folder tracked by git, because it reads your edits
-as the difference from the last commit.
+as the difference from the last commit. A Cowork Project that is not under git
+yet can get there with the gitify-cowork-project plugin, from the same
+marketplace.
 
 For a single edit to a single document, ask Claude directly. The plugin earns
 its place once the same correction comes up a second time.
