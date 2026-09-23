@@ -45,7 +45,10 @@ across.
 The shipped rules. `config init` starts a project's prose-style.md from
 templates/prose-style.md in this plugin. The copy on the device has no plugin
 around it, so a copy in a .prose-tuning/ folder reads the rules `stage` put
-beside it, and never looks for a templates/ folder in the project.
+beside it, and never looks for a templates/ folder in the project. The name
+init writes into it is the main working tree's folder, not the checkout's: run
+from a git worktree, the checkout's folder is a throwaway name
+(Repo.project_name has how).
 
 Two things in here look like bugs and are not:
 
@@ -98,6 +101,8 @@ DEVICE_TEMPLATE = DEVICE_DIR + "/prose-style.template.md"
 # the placeholder in them that init fills with the project's name.
 SHIPPED_TEMPLATE = "templates/" + CONFIG_NAME
 PROJECT_NAME_SLOT = "{{PROJECT_NAME}}"
+# What a repository's git directory is called, which init strips to name it.
+GIT_DIR_NAME = ".git"
 # Ignores the folder it sits in, itself included, so the project's .gitignore
 # never has to know this plugin exists.
 DEVICE_IGNORE = DEVICE_DIR + "/.gitignore"
@@ -356,6 +361,25 @@ class Repo:
             ["git", "-C", self.root, *args], capture_output=True, text=True, check=False
         )
         return out.returncode, out.stdout, out.stderr
+
+    def project_name(self):
+        """The folder name of the main working tree, the same from any worktree.
+
+        In a linked worktree, --show-toplevel is the worktree's own folder, a
+        throwaway name. --git-common-dir is shared by every worktree: the main
+        tree's .git, or a bare repository whose name drops its .git suffix.
+        Falls back to the toplevel's name when git does not answer.
+        """
+        code, stdout, _ = self.git("rev-parse", "--git-common-dir")
+        if code != 0 or not stdout.strip():
+            return os.path.basename(self.root)
+        common = os.path.normpath(os.path.join(self.root, stdout.strip()))
+        name = os.path.basename(common)
+        if name == GIT_DIR_NAME:
+            return os.path.basename(os.path.dirname(common))
+        if name.endswith(GIT_DIR_NAME):
+            return name[: -len(GIT_DIR_NAME)]
+        return name
 
     def _lines(self, *args):
         code, stdout, stderr = self.git(*args)
@@ -2344,7 +2368,7 @@ def cmd_config(args):
             Text(Text.read(args.source).s).write(config.path)
         elif not args.empty:
             shipped = Text.read(shipped_template()).s
-            name = os.path.basename(repo.root)
+            name = repo.project_name()
             Text(shipped.replace(PROJECT_NAME_SLOT, name)).write(config.path)
         else:
 
@@ -2353,7 +2377,7 @@ def cmd_config(args):
 
             Text(
                 CONFIG_SKELETON.format(
-                    name=os.path.basename(repo.root),
+                    name=repo.project_name(),
                     include=fmt(DEFAULT_INCLUDE),
                     exclude=fmt(DEFAULT_EXCLUDE),
                 )
