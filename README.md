@@ -215,7 +215,7 @@ problem whoever wrote it. Two things run ruff as you go so that rarely happens:
   file, set up in `.claude/settings.json`. It sorts imports, formats, and hands
   any remaining lint problem back to Claude. The hook's docstring says why it
   fixes nothing else. It needs ruff installed in `.venv` or on `PATH`, and tells
-  Claude when it is not.
+  Claude when it is not. In a git worktree it uses the main checkout's `.venv`.
 - **VS Code** formats and sorts imports on save, and shows lint problems as you
   type, using the committed `.vscode/settings.json`. Accept the prompt to install
   the recommended Ruff extension when you open the folder. The extension uses
