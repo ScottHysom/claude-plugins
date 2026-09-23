@@ -1,14 +1,15 @@
 # Gitify Cowork Project: technical design
 
 This file explains why gitify-cowork-project is built the way it is, and how
-to change what it writes.
+to change what it writes. Cowork is the Claude desktop app's mode for working
+in a folder on the user's computer.
 [README.md](https://github.com/ScottHysom/claude-plugins/blob/main/plugins/gitify-cowork-project/README.md)
 covers using it. What Cowork allows a plugin in general is in
 [Designing for Cowork](https://github.com/ScottHysom/claude-plugins/blob/main/COWORK.md).
 
 ## Why it runs only in Cowork
 
-The plugin depends on two things Cowork has and Claude Code does not:
+The plugin depends on parts of Cowork that Claude Code does not have:
 
 - **The device bridge.** Cowork runs Claude in a cloud container, which cannot
   see the user's computer. The device bridge is the set of tools, such as
@@ -22,11 +23,15 @@ The plugin depends on two things Cowork has and Claude Code does not:
 
 ## The bundled script
 
-The `gitify-project` skill calls `scripts/gitify.py` for everything that should
-come out the same on every run. `propose_skills` takes a single `SKILL.md` and
+A skill is a set of instructions Claude follows for one kind of task, and a
+plugin bundles skills with the scripts they call. The `gitify-project` skill
+calls `scripts/gitify.py` for everything that should come out the same on every
+run. `propose_skills` takes a single `SKILL.md` and
 no other files. A copy of `gitify-project` saved on its own through the review
-card therefore has no script to call. The plugin needs a marketplace install,
-and the skill's first step says so and stops when the script is missing.
+card therefore has no script to call. A plugin installed from the
+marketplace, the catalog Cowork installs plugins from, brings its skills
+together with its scripts. So the plugin needs a marketplace install, and the
+skill's first step says so and stops when the script is missing.
 
 ## One place for standing instructions
 

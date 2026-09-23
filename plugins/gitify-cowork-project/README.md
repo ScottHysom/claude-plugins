@@ -15,8 +15,8 @@ The plugin suits a project whether it is new or already under way:
 - **A new project,** before anything is in the folder. History starts with the
   first document.
 - **A project you have been working in for a while.** By then the folder holds
-  real work, and you want a record of it: what a document said last week, why
-  a figure changed, a way back from an edit that went wrong.
+  real work. History shows what a document said last week and why a figure
+  changed, and it gives a way back from an edit that went wrong.
 
 The plugin adds the history and nothing else. It writes no documents, and no
 rules about what documents say or how they read. Those belong to the project,
@@ -42,7 +42,8 @@ finds one.
       SKILL.md                 how Claude handles this project's history
 ```
 
-The `<project>-history` skill is written for this project and saved to your
+A skill is a set of instructions Claude follows for one kind of task. The
+`<project>-history` skill is written for this project and saved to your
 account. Claude uses it whenever you ask about committing or about what changed.
 It covers history only:
 
@@ -55,12 +56,15 @@ It covers history only:
 
 ## Setting it up
 
-Install the plugin from the marketplace, then ask Claude to put the project
-under git.
+With the plugin installed, ask Claude to put the project under git.
 
-Claude checks the folder first. It stops if the folder is not there, is
-already a git repository, or already has a file with the same name as one it
-would write. It lists what is in the folder and asks about anything that
+Claude checks the folder first. It stops in any of these cases:
+
+- The folder is not there.
+- The folder is already a git repository.
+- The folder already has a file with the same name as one Claude would write.
+
+Otherwise Claude lists what is in the folder and asks about anything that
 probably should not be in git, such as large media or exports.
 
 Claude then writes the files and leaves you the steps it cannot take:
