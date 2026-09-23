@@ -1,19 +1,31 @@
 #!/usr/bin/env python3
-"""Keep a plugin's skills sharing a step rather than each carrying a copy.
+"""Check what a plugin's skills say, for what the other checks cannot see.
 
-When two skills in one plugin need the same instructions, CLAUDE.md puts them
+`repeats` keeps a plugin's skills sharing a step rather than each carrying a
+copy. When two skills in one plugin need the same instructions, CLAUDE.md puts them
 once in the plugin's reference/ and has each SKILL.md point there. A copy
 pasted into a second SKILL.md reads fine in either file, and the two drift
 apart the first time someone edits one of them. No diff shows the copy unless
 the reviewer happens to have both files open. `repeats` is what notices.
 
+`descriptions` keeps each skill uploadable to Cowork. Uploading a .plugin file
+rejects a skill whose `description` holds anything that looks like an XML tag
+("SKILL.md description cannot contain XML tags"). A marketplace install
+accepts the same skill, and so does `claude plugin validate --strict`, so CI
+stayed green while the upload failed. COWORK.md, under "How skills load",
+records the difference.
+
 Run from anywhere in the clone:
 
     python3 .github/scripts/check-skills.py repeats
+    python3 .github/scripts/check-skills.py descriptions
 
 Commands:
 
-  repeats  no block of text appears in two SKILL.md files of the same plugin
+  repeats       no block of text appears in two SKILL.md files of the same
+                plugin
+  descriptions  no description in the front matter of a markdown file under
+                plugins/ holds a `<` followed by a tag-like name
 
 Every command takes --json and -C/--repo.
 
@@ -23,7 +35,7 @@ What counts as a block: a paragraph, a table, a fenced code block (blank lines
 and all), or a single list item without its bullet or number. Whitespace is
 collapsed before comparing, so rewrapping a copied paragraph does not hide it.
 
-Things that look like bugs and are not:
+Things that look like bugs and are not, in `repeats`:
 
 - The "Locate the script" section is skipped entirely. Every SKILL.md must carry
   it, because Cowork fills in ${CLAUDE_SKILL_DIR} only in SKILL.md itself, and
@@ -43,6 +55,21 @@ Things that look like bugs and are not:
 - It fails when it has scanned nothing: no SKILL.md at all, or one that yields
   no blocks. A check whose file pattern or parser has gone blind passes every
   pull request, so scanning nothing is an error rather than a clean run.
+
+Things that look like bugs and are not, in `descriptions`:
+
+- It reads every markdown file under plugins/ whose front matter has a
+  description, not only SKILL.md. The generated-skill templates in
+  cowork-project-scaffold and gitify-cowork-project are skills too, once
+  rendered. Their description is a placeholder the plugin script fills in and
+  checks at runtime; this check keeps the template itself clean.
+- A `<` on its own, as in `a < b` or `<3`, passes. Only `<` directly followed
+  by a letter, or by `/` and a letter, reads as a tag.
+- It fails when it finds no descriptions at all, for the same reason as
+  `repeats`.
+
+Both commands:
+
 - It only reads, and the only thing it reads through is git, so it is safe to
   run anywhere - including Cowork's device bridge, where a git write would
   strand a lock file.
@@ -65,6 +92,7 @@ SKILLS = "skills"
 SKILL_FILE = "SKILL.md"
 REFERENCE = "reference"
 LOCATE_SECTION = "Locate the script"
+MARKDOWN = ".md"
 
 FRONT_MATTER = "---"
 FENCE_RE = re.compile(r"^[ \t]*(`{3,}|~{3,})")
@@ -72,11 +100,17 @@ HEADING_RE = re.compile(r"^#{1,6}[ \t]+(.*?)[ \t#]*$")
 LIST_ITEM_RE = re.compile(r"^[ \t]*(?:[-*+]|\d+[.)])[ \t]+")
 # How much of a repeated block an error quotes.
 QUOTE_CHARS = 72
+DESCRIPTION_RE = re.compile(r"^description:(.*)$")
+# A continuation line of a folded or multi-line YAML value is indented.
+CONTINUATION_RE = re.compile(r"^[ \t]+\S")
+# A `<` directly followed by a tag-like name: <ins>, </del>, <br/>. Not `a < b`.
+TAG_RE = re.compile(r"</?[A-Za-z][\w:.-]*")
 
-WHERE = (
+WHERE_REPEATS = (
     'CLAUDE.md, under "Skills and scripts", says why a step shared by two skills '
     "lives once in the plugin's %s/." % REFERENCE
 )
+WHERE_DESCRIPTIONS = 'COWORK.md, under "How skills load", says why an upload rejects this.'
 
 
 class Fatal(Exception):
@@ -100,7 +134,7 @@ def envelope(command, data, errors=None, warnings=None):
     }
 
 
-def emit(args, command, data, errors=None, warnings=None, human=None):
+def emit(args, command, data, errors=None, warnings=None, human=None, where=None):
     """Print JSON or human output, and return the exit code."""
     errors = errors or []
     warnings = warnings or []
@@ -113,8 +147,8 @@ def emit(args, command, data, errors=None, warnings=None, human=None):
             sys.stderr.write("warning: %s\n" % w)
         for e in errors:
             sys.stderr.write("%s\n" % e)
-        if errors:
-            sys.stderr.write("%s\n" % WHERE)
+        if errors and where:
+            sys.stderr.write("%s\n" % where)
     return PROBLEMS if errors else OK
 
 
@@ -285,7 +319,67 @@ def cmd_repeats(args, root):
             )
 
     data = {"scanned": scanned, "repeats": repeats}
-    return emit(args, "repeats", data, errors, None, human)
+    return emit(args, "repeats", data, errors, None, human, WHERE_REPEATS)
+
+
+def description_lines(lines):
+    """The description's lines as (line number, text), or None if there is none.
+
+    Only the front matter is read: the lines between a first line of `---` and
+    the next `---`. The value is the rest of the `description:` line plus the
+    indented lines after it.
+    """
+    if not lines or lines[0].strip() != FRONT_MATTER:
+        return None
+    found = None
+    for i, line in enumerate(lines[1:], start=2):
+        if line.strip() == FRONT_MATTER:
+            break
+        if found is None:
+            m = DESCRIPTION_RE.match(line)
+            if m:
+                found = [(i, m.group(1))]
+        elif CONTINUATION_RE.match(line):
+            found.append((i, line))
+        else:
+            break
+    return found
+
+
+def cmd_descriptions(args, root):
+    """No skill description holds something Cowork's upload reads as a tag."""
+    errors, checked = [], []
+
+    def human():
+        if not errors:
+            print("%d skill description(s) clear of XML-like tags." % len(checked))
+
+    for path in repo_files(root):
+        if not (path.startswith(PLUGINS + "/") and path.endswith(MARKDOWN)):
+            continue
+        try:
+            with open(os.path.join(root, path), encoding="utf-8", errors="replace") as fh:
+                found = description_lines(fh.read().splitlines())
+        except OSError as exc:
+            raise Fatal("cannot read %s: %s" % (path, exc)) from exc
+        if found is None:
+            continue
+        checked.append(path)
+        for number, text in found:
+            for tag in TAG_RE.findall(text):
+                errors.append(
+                    "%s:%d: description contains an XML-like tag `%s`; "
+                    "Cowork's .plugin upload rejects it" % (path, number, tag)
+                )
+
+    if not checked:
+        errors.append(
+            "found no markdown under %s/ with a description in its front matter; "
+            "a check that scanned nothing has not passed" % PLUGINS
+        )
+
+    data = {"checked": checked}
+    return emit(args, "descriptions", data, errors, None, human, WHERE_DESCRIPTIONS)
 
 
 # --------------------------------------------------------------------------
@@ -298,15 +392,18 @@ def build_parser():
     common.add_argument("--json", action="store_true", help="machine-readable envelope on stdout")
     common.add_argument("-C", "--repo", metavar="DIR", default=".", help="a directory in the clone")
 
-    ap = argparse.ArgumentParser(
-        prog=PROG, description="Keep a plugin's skills sharing steps rather than copying them."
-    )
+    ap = argparse.ArgumentParser(prog=PROG, description="Check what a plugin's skills say.")
     sub = ap.add_subparsers(dest="command", required=True)
 
     p = sub.add_parser(
         "repeats", parents=[common], help="no block in two SKILL.md files of one plugin"
     )
     p.set_defaults(func=cmd_repeats)
+
+    p = sub.add_parser(
+        "descriptions", parents=[common], help="no skill description holds an XML-like tag"
+    )
+    p.set_defaults(func=cmd_descriptions)
 
     return ap
 

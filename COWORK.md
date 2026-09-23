@@ -69,7 +69,9 @@ known", added back when there is one.
   skill whose `description` contains anything that looks like an XML tag,
   "SKILL.md description cannot contain XML tags", even where the marketplace
   installed the same skill without complaint. `claude plugin validate --strict`
-  doesn't catch it either.
+  doesn't catch it either. `check-skills.py descriptions` does, in CI, for every
+  skill and generated-skill template under `plugins/`. The scaffold and gitify
+  scripts reject a tag in the description they are handed for a generated skill.
 
 ## What the design follows from this
 
