@@ -1,13 +1,13 @@
 # The markup vocabulary
 
-Normative. `prose.py tags check` enforces every rule on this page, and reports
+This page is normative. `prose.py tags check` enforces every rule on this page, and reports
 one line per problem.
 
 The markup is temporary. It is inserted to say something about a passage, read
 once by `update-prose-config`, and removed by `tags resolve` before anything is
 committed. A tag that reaches a commit is a bug.
 
-## The five tags
+## The tags
 
 | Tag | Means | Resolves to |
 |---|---|---|
@@ -17,7 +17,7 @@ committed. A tag that reaches a commit is a bug.
 | `why` | Why the edit was made. | nothing |
 | `<alt>…</alt>` | A proposed rule, or an equivalent rewrite. | nothing |
 
-Plus one pair for the interview: `<q id="N">question</q>` and `<a>answer</a>`.
+The interview adds one pair: `<q id="N">question</q>` and `<a>answer</a>`.
 
 ## A replacement is a del and an ins
 
@@ -31,7 +31,7 @@ one replacement. Nothing else is needed for the common case.
 `<del>` and `<ins>` are real HTML5 elements. GitHub's sanitizer allows them and
 every markdown preview renders them as strikethrough and inserted text, so a
 replacement **looks like an edit** in the preview being read while tagging. An
-invented element - `<with>`, `<old>`, `<new>` - is auto-closed by the browser
+invented element, such as `<with>`, `<old>` or `<new>`, is auto-closed by the browser
 and shows both versions run together with nothing between them. That is the
 whole reason the vocabulary reuses these two rather than inventing a separator.
 
@@ -51,7 +51,7 @@ the parser from needing to disambiguate which span a closing tag closes.
 
 ## Commentary
 
-Two keywords, because rationale and exemplars are different inputs to a rule
+Commentary takes two keywords, because rationale and exemplars are different inputs to a rule
 and routing them by hand is work the parser can do for free.
 
 **`why` is the reason, and nothing else.** Short form is an attribute. Long
@@ -61,7 +61,7 @@ form, or any text containing a double quote, is a child element:
 <del why="restates the passage">A bookmark list is not this document.</del>
 ```
 
-**`<alt>` is a proposal.** A rule the edit implies, or an equivalent rewrite,
+**`<alt>` is a proposal.** It offers a rule the edit implies, or an equivalent rewrite,
 or several. It repeats, and it is also valid on its own at the top level, tied
 to no passage:
 

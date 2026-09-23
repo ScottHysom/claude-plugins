@@ -30,7 +30,7 @@ runs.
 python3 "$PROSE" preflight --for apply
 ```
 
-Exits 1 on either of two states, both meaning an `update-prose-config` run is
+`preflight` exits 1 on either of two states, both meaning an `update-prose-config` run is
 underway:
 
 - **markup present in any governed file.** Conforming a half-tagged tree
@@ -87,7 +87,7 @@ the same time.
 
 ## Step 4: produce findings
 
-One row per finding:
+Each finding is one row:
 
 | Column | Content |
 |---|---|
@@ -121,7 +121,7 @@ compares it with the file and refuses a finding whose text has moved.
 
 ## Step 5: one approval round
 
-Present the findings and take one decision. Whole set, by rule id, or by file.
+Present the findings and take one decision. The decision covers the whole set, a set of rule ids, or a set of files.
 Batch it; do not ask per finding.
 
 ## Step 6: apply
@@ -147,7 +147,7 @@ python3 "$PROSE" apply --findings "${TMPDIR:-/tmp}/prose-findings.json" \
 
 A rule id or file that matches no finding is an error, not an empty run.
 
-All-or-nothing by default, so a partial pass cannot leave half the addresses
+`apply` is all-or-nothing by default, so a partial pass cannot leave half the addresses
 stale. `--partial` applies what is valid and reports the rest.
 
 The engine rejects a finding rather than trusting it when:
@@ -160,7 +160,7 @@ The engine rejects a finding rather than trusting it when:
 - a `table-cell` replacement contains a `|` or a newline, which would silently
   restructure the table
 
-Judgment proposes. The engine enforces.
+
 
 ## Step 7: report and stop
 

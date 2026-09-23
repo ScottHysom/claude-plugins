@@ -65,14 +65,14 @@ python3 "$PROSE" evidence --json
 ```
 
 One command returns everything: explicit markup, untagged edits, and any open
-questions. Two halves matter differently.
+questions. The explicit and inferred halves matter differently.
 
 **`explicit`** is markup the author wrote: an `<ins>`, `<del>` or `<repl>` with
 its `why` and its `<alt>` proposals. The author has already said what they mean.
 Take it at face value.
 
 **`inferred`** is an untagged diff hunk. Treat every one as a statement about
-prose, not a factual correction - that is the working assumption of this whole
+prose, not a factual correction. That is the working assumption of this whole
 skill. The escape hatch is the `signal` field: a hunk marked `numeric-only`,
 `link-only` or `whitespace-only` may be a fact that got fixed in passing. Those
 go into the interview, never straight into a rule.
@@ -99,7 +99,7 @@ document in the project forever.
 
 ## Step 5: tag what needs the author's eye
 
-One call, one batch, JSON on stdin:
+Insert every tag in one call, as one batch, with JSON on stdin:
 
 ```sh
 python3 "$PROSE" tags insert --batch - <<'END'
@@ -118,7 +118,7 @@ at all if any record is refused.
 | Field | Means |
 |---|---|
 | `start`, `end` | 1-indexed lines. `end` defaults to `start` |
-| `col_start`, `col_end` | 0-indexed columns. Default to the whole line |
+| `col_start`, `col_end` | 0-indexed columns. Both default to the whole line |
 | `kind` | `ins`, `del`, `repl`, `q` or `alt` |
 | `why` | short rationale, becomes an attribute |
 | `with` | the replacement text, for `repl` |
@@ -184,7 +184,7 @@ than add a second under a name split finely enough to be free.
 python3 "$PROSE" config lint
 ```
 
-Must pass before going on.
+The lint must pass before going on.
 
 ## Step 8: resolve the markup
 
@@ -193,8 +193,8 @@ python3 "$PROSE" tags resolve
 python3 "$PROSE" tags check
 ```
 
-`resolve` takes the edits the markup proposes - `<ins>` stays, `<del>` goes,
-`<repl>` keeps the replacement - and removes every tag. What is left is
+`resolve` takes the edits the markup proposes (`<ins>` stays, `<del>` goes,
+`<repl>` keeps the replacement) and removes every tag. What is left is
 committable prose. `tags check` must then find nothing: **markup is never
 committed.**
 
@@ -222,7 +222,7 @@ python3 "$PROSE" tags strip                    # markup goes, edits revert
 python3 "$PROSE" restore --file <path>         # a mangled file goes back to HEAD
 ```
 
-Not `sed -i ''`, which is BSD syntax and fails on the Linux bridge. Not
+Do not use `sed -i ''`, which is BSD syntax and fails on the Linux bridge. Do not use
 `git checkout`, which fails on the bridge because it cannot unlink. `restore`
 does `git show HEAD:<file>` into the file, which works on both.
 
