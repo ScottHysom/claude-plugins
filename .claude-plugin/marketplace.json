@@ -50,7 +50,7 @@
       "source": "./plugins/prose-tuning",
       "displayName": "Prose Tuning",
       "description": "Claude Code and Cowork. Learns a project's house prose style from edits already made, records it as prose-style.md with stable rule ids, and conforms the rest of the documents to it.",
-      "version": "0.3.0",
+      "version": "0.4.0",
       "category": "productivity",
       "tags": [
         "prose",
