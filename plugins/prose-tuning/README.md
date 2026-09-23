@@ -8,6 +8,11 @@ to it.
 bundled script, and Cowork's `propose_skills` takes a single `SKILL.md` with no
 bundled files. Proposing one of these skills gives you a skill that cannot run.
 
+On Cowork, the skills copy that script into the project, at
+`.prose-tuning/prose.py`, because your computer can see the project but not the
+plugin. The folder carries its own `.gitignore`, so nothing in it reaches your
+commits. It stays between runs, and you can delete it whenever you like.
+
 ## The problem it solves
 
 Getting a set of documents to sound the way you want is easy to do once by hand

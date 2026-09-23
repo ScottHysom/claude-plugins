@@ -13,16 +13,16 @@ silently rewrites three hundred lines produces exactly the diff nobody reads,
 and a reader cannot tell a rule being applied correctly from a rule being
 misapplied without seeing which rule was claimed.
 
-**Claude Code against a local checkout is the primary surface.** On Cowork this
-needs a marketplace install, because `propose_skills` cannot carry
-`scripts/prose.py`.
-
 ## Locate the script
 
 ```sh
-PROSE="${CLAUDE_PLUGIN_ROOT:-${CLAUDE_SKILL_DIR}/../..}/scripts/prose.py"
+ROOT="${CLAUDE_PLUGIN_ROOT:-${CLAUDE_SKILL_DIR}/../..}"
+PROSE="$ROOT/scripts/prose.py"
 ls "$PROSE" || echo "prose-tuning is not installed as a plugin here"
 ```
+
+Then follow `$ROOT/reference/setup.md`. It says where every command below
+runs.
 
 ## Step 1: refuse early
 
@@ -102,13 +102,20 @@ findings, because the author may accept one and reject the other.
 proposed rewrite that changes a number, a name, a date or a claim is out of
 scope for this skill no matter how badly the sentence reads.
 
-Write the findings to a file for step 6:
+Write the findings to a file for step 6, outside the project so no stray file
+is left in it:
 
-```json
+```sh
+cat > "${TMPDIR:-/tmp}/prose-findings.json" <<'END'
 [{"file":"landscape.md","line":42,"col_start":0,"col_end":74,
   "rule":"sentences-own-subject","text":"<the current text>",
   "replacement":"<the rewrite>"}]
+END
 ```
+
+`col_start` and `col_end` count characters on that line, and a finding may
+cover part of a segment. `text` is exactly the characters between them. `apply`
+compares it with the file and refuses a finding whose text has moved.
 
 ## Step 5: one approval round
 
@@ -118,9 +125,9 @@ Batch it; do not ask per finding.
 ## Step 6: apply
 
 ```sh
-python3 "$PROSE" apply --findings findings.json \
+python3 "$PROSE" apply --findings "${TMPDIR:-/tmp}/prose-findings.json" \
   --only sentences-own-subject,headings-noun-phrase --dry-run
-python3 "$PROSE" apply --findings findings.json \
+python3 "$PROSE" apply --findings "${TMPDIR:-/tmp}/prose-findings.json" \
   --only sentences-own-subject,headings-noun-phrase
 ```
 

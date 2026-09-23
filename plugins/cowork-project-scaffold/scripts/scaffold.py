@@ -20,18 +20,14 @@ Commands:
 
 Exit codes: 0 clean, 1 ran and found problems, 2 could not run.
 
-Where this runs, and why the output is shaped the way it is. Checked in Cowork:
-
-- The script runs in the cloud container. The container can read the plugin
-  but has no view of the user's folder. The device side (`device_bash`) can see
-  the folder, under $HOME/mnt/<name of the connected folder>, but gets
-  Permission denied on the plugin. Neither side can do the whole job.
-- `device_commit_files` copies a container file to the device byte for byte,
-  creating directories, but only from under /mnt/user-data/outputs/. So render
-  writes to a stage directory there and prints the `files` list that tool
-  takes, plus two commands for `device_bash`: a precheck that nothing would be
-  overwritten, and a sha256 check that everything arrived intact.
-- Execute bits do not survive the trip. setup.sh sets them itself.
+Where this runs: in Cowork's container, which can read the plugin but not the
+user's folder. COWORK.md at the root of the claude-plugins repo says what
+Cowork allows and how that was established. So render writes to a stage
+directory under /mnt/user-data/outputs/ and prints the `files` list
+`device_commit_files` takes, plus two commands for `device_bash`: a precheck
+that nothing would be overwritten, and a sha256 check that everything arrived
+intact.
+setup.sh sets its own execute bits, since they do not survive the copy.
 
 Things that look like bugs and are not:
 

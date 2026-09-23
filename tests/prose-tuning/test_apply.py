@@ -11,6 +11,9 @@ Both exist because a refusal the author can read beats a rewrite they have to
 find later.
 """
 
+import io
+import json
+
 import pytest
 
 import prose
@@ -40,6 +43,19 @@ class DescribeApply:
         )
         assert code == prose.OK
         assert envelope["errors"] == []
+        assert "The closing paragraph." in prose_repo.read()
+
+    def it_reads_the_findings_from_stdin_given_a_dash(self, prose_repo, target_lines, monkeypatch):
+        finding = prose_repo.finding(
+            target_lines["last-paragraph"],
+            col_start=0,
+            col_end=16,
+            text="Final paragraph.",
+            replacement="The closing paragraph.",
+        )
+        monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps([finding])))
+        code, _ = prose_repo.run("apply", "--findings", "-")
+        assert code == prose.OK
         assert "The closing paragraph." in prose_repo.read()
 
 
