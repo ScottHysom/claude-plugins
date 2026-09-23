@@ -78,7 +78,7 @@ jobs:
       - name: Check skill descriptions pass Cowork's upload
         run: python3 .github/scripts/check-skills.py descriptions
 
-      # A pull request may close only issues Scott has labelled approved, and
+      # A pull request may close only issues Scott has labeled approved, and
       # only from the issue/N branch that claiming the issue makes. Agents post
       # as Scott, so GitHub cannot tell their work apart; this job is required,
       # so the rules hold whichever surface an agent ran on. README.md, under

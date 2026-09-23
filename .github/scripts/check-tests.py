@@ -175,7 +175,7 @@ def is_test_file(path):
     return bool(TEST_FILE_RE.match(os.path.basename(path)))
 
 
-def is_test_artefact(path):
+def is_test_artifact(path):
     """A file that exists for pytest: a test, a conftest, or anything in tests/."""
     name = os.path.basename(path)
     return is_test_file(path) or name in SUPPORT_FILES or SUITES in path.split("/")[:-1]
@@ -211,10 +211,10 @@ def cmd_placement(args, root):
 
     for path in files:
         in_plugins = under(path, PLUGINS)
-        artefact = is_test_artefact(path)
-        if in_plugins and not artefact and imports_contributor_dep(root, path):
-            artefact = True
-        if not artefact:
+        artifact = is_test_artifact(path)
+        if in_plugins and not artifact and imports_contributor_dep(root, path):
+            artifact = True
+        if not artifact:
             continue
         if in_plugins:
             strays.append({"path": path, "destination": destination(path), "reason": "ships"})
@@ -263,7 +263,7 @@ def cmd_placement(args, root):
 def cmd_naming(args, root):
     roots = test_roots(root)
     files = repo_files(root)
-    scanned, offences = [], []
+    scanned, offenses = [], []
 
     for path in files:
         if not is_test_file(path):
@@ -276,12 +276,12 @@ def cmd_naming(args, root):
             raise Fatal("cannot read %s: %s" % (path, exc)) from exc
         for number, line in enumerate(lines, 1):
             if OLD_NAME_RE.match(line):
-                offences.append({"path": path, "line": number, "text": line.strip()})
+                offenses.append({"path": path, "line": number, "text": line.strip()})
 
     errors = [
         "%s:%d: `%s` is a name pytest does not collect. Name it it_<does x> in a "
         "Describe<Subject> class; CLAUDE.md, Tests" % (o["path"], o["line"], o["text"])
-        for o in offences
+        for o in offenses
     ]
 
     # A check that scanned nothing is the failure this command exists for.
@@ -304,7 +304,7 @@ def cmd_naming(args, root):
         if not errors:
             print("%d test files, all on the names pytest collects." % len(scanned))
 
-    data = {"roots": roots, "scanned": scanned, "offences": offences}
+    data = {"roots": roots, "scanned": scanned, "offenses": offenses}
     return emit(args, "naming", data, errors, None, human)
 
 

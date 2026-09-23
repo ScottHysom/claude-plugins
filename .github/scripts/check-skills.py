@@ -195,12 +195,12 @@ def skill_files(files):
 # --------------------------------------------------------------------------
 
 
-def normalise(text):
+def normalize(text):
     return " ".join(text.split())
 
 
 def blocks(text):
-    """The comparable blocks of a SKILL.md, as [(line, normalised text)].
+    """The comparable blocks of a SKILL.md, as [(line, normalized text)].
 
     Front matter, headings and the LOCATE_SECTION section are left out.
     """
@@ -211,7 +211,7 @@ def blocks(text):
 
     def flush():
         if current and not exempt:
-            out.append((start, normalise("\n".join(current))))
+            out.append((start, normalize("\n".join(current))))
         del current[:]
 
     i = 0

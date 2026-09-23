@@ -34,7 +34,7 @@ approved, the branch holds work, a claim is stale), 2 could not run.
 
 Things that look like bugs and are not:
 - `next` exits 0 when nothing is free. An empty queue is not a problem.
-- `claim` exits 0 when the push succeeded but labelling or commenting failed.
+- `claim` exits 0 when the push succeeded but labeling or commenting failed.
   The branch is the claim; those failures are warnings to fix by hand.
 - `release` refuses to delete a branch with commits not on main, and has no
   flag to force it. Throwing away work is for a person to decide.
@@ -230,7 +230,7 @@ def cmd_claim(args, repo):
             "claim",
             data,
             [
-                "#%d is not labelled %s. Scott approves an issue before it is worked on"
+                "#%d is not labeled %s. Scott approves an issue before it is worked on"
                 % (n, APPROVED)
             ],
         )
@@ -312,8 +312,8 @@ def cmd_release(args, repo):
     data = {"number": n, "branch": branch(n), "released": False}
     item = issue(repo, n)
     sha = claims(repo).get(n)
-    labelled = IN_PROGRESS in labels(item)
-    if sha is None and not labelled:
+    labeled = IN_PROGRESS in labels(item)
+    if sha is None and not labeled:
         return emit(args, "release", data, ["#%d is not claimed" % n])
     if sha is not None:
         git(repo, "fetch", "--quiet", REMOTE, BASE, ref(n))
@@ -348,7 +348,7 @@ def cmd_release(args, repo):
                 data,
                 ["%s changed while releasing; run release again" % branch(n)],
             )
-    if labelled:
+    if labeled:
         gh(repo, "issue", "edit", str(n), "--remove-label", IN_PROGRESS)
     body = "Released %s." % branch(n)
     if args.reason:
@@ -360,7 +360,7 @@ def cmd_release(args, repo):
 
 def cmd_stale(args, repo):
     held = claims(repo)
-    labelled = gh_json(
+    labeled = gh_json(
         repo,
         "issue",
         "list",
@@ -373,7 +373,7 @@ def cmd_stale(args, repo):
         "--json",
         "number,state",
     )
-    closed = {i["number"] for i in labelled if i.get("state") != "OPEN"}
+    closed = {i["number"] for i in labeled if i.get("state") != "OPEN"}
     pulls = gh_json(
         repo, "pr", "list", "--state", "open", "--limit", str(LIST_LIMIT), "--json", "headRefName"
     )
@@ -382,17 +382,17 @@ def cmd_stale(args, repo):
         git(repo, "fetch", "--quiet", REMOTE, *sorted(ref(n) for n in held))
 
     errors, rows = [], []
-    for n in sorted(set(held) | {i["number"] for i in labelled}):
+    for n in sorted(set(held) | {i["number"] for i in labeled}):
         row = {"number": n, "branch": branch(n), "pull_request": branch(n) in pr_branches}
         rows.append(row)
         if n not in held and n in closed:
             errors.append(
-                "#%d is closed but still labelled %s; run release %d" % (n, IN_PROGRESS, n)
+                "#%d is closed but still labeled %s; run release %d" % (n, IN_PROGRESS, n)
             )
             continue
         if n not in held:
             errors.append(
-                "#%d is labelled %s but %s does not exist; run release %d"
+                "#%d is labeled %s but %s does not exist; run release %d"
                 % (n, IN_PROGRESS, branch(n), n)
             )
             continue

@@ -196,7 +196,7 @@ class DescribeClaim:
     @pytest.mark.parametrize(
         ("item", "message"),
         [
-            (make_issue(12), "#12 is not labelled approved"),
+            (make_issue(12), "#12 is not labeled approved"),
             (make_issue(12, "approved", state="CLOSED"), "#12 is closed"),
         ],
     )
@@ -241,7 +241,7 @@ class DescribeClaim:
 
 
 class DescribeNext:
-    def it_skips_labelled_and_branch_held_issues(self, capsys, remote, clone, github):
+    def it_skips_labeled_and_branch_held_issues(self, capsys, remote, clone, github):
         a = clone("a")
         github(make_issue(10, "approved"))
         run(capsys, a, "claim", "10")
@@ -371,13 +371,13 @@ class DescribeStale:
         github(make_issue(12, "approved", "in-progress"))
         code, out = run(capsys, clone("a"), "stale")
         assert code == cli.PROBLEMS
-        assert "#12 is labelled in-progress but issue/12 does not exist" in out.err
+        assert "#12 is labeled in-progress but issue/12 does not exist" in out.err
 
     def it_reports_a_closed_issue_that_kept_the_label(self, capsys, clone, github):
         github(make_issue(12, "approved", "in-progress", state="CLOSED"))
         code, out = run(capsys, clone("a"), "stale")
         assert code == cli.PROBLEMS
-        assert "#12 is closed but still labelled in-progress; run release 12" in out.err
+        assert "#12 is closed but still labeled in-progress; run release 12" in out.err
 
 
 class DescribeMain:
