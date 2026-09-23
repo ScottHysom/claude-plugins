@@ -108,6 +108,45 @@ instruction like "use US spelling" does not need one.
 `**Check.**` is conventional rather than required. A rule that can state a
 mechanical test should.
 
+## A pattern
+
+A rule whose breaches a regular expression can find carries a `**Pattern.**`
+line, and `prose.py patterns` runs it:
+
+```markdown
+### standing-no-em-dash: Prefer a period over the em-dash
+<!-- prose-rule: source=shipped -->
+
+Ranges keep their en-dash.
+
+**Pattern.** `—`
+**Pattern.** `\s(?:--?|–)(?:\s|$)`
+```
+
+**The line holds one code span and nothing else.** The span holds a Python
+regular expression. A pattern with a backtick in it goes in a span of two
+backticks, as markdown has it. A rule can carry any number of pattern lines,
+and a match of any one of them is a match for the rule. A word list reads more
+easily as one line per family of words than as one long alternation.
+
+**A flag such as `(?i)` goes at the very start.** Python 3.11 refuses one
+anywhere else, so `config lint` refuses it on every version.
+
+**A pattern reads what `segments` returns, and nothing else.** Front matter,
+fences, blockquotes, HTML comments and a table's delimiter row are never
+searched. A match that touches a code span is dropped too, since a code span
+quotes code. The lines of one paragraph or list item are searched as one
+passage, with each line break read as a single space, so `in order to` finds
+a sentence that wraps after `order`.
+
+`config lint` rejects a `**Pattern.**` line that is not one code span, a
+pattern that does not compile, and a pattern that matches an empty string,
+which would match everywhere.
+
+A pattern finds places to look, and the model still judges each one. A
+spaced hyphen can be a minus sign. The pattern does not replace the rule's
+prose either. A misspelling missing from a word list still breaks the rule.
+
 ## No retired rules
 
 There is no `status: retired` and no `supersedes:`. When a later run contradicts

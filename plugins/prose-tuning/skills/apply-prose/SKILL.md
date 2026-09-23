@@ -1,6 +1,6 @@
 ---
 name: apply-prose
-description: Conform a project's markdown to the rules in its prose-style.md. Reports findings first - file, line, rule id, proposed rewrite - and changes nothing until the author approves. Uses scripts/prose.py to resolve scope, to skip code fences, mermaid blocks, front matter, table structure and quoted material, and to apply approved rewrites in place. Use when asked to apply the house style, conform documents to prose-style.md, run a style pass over the docs, check a document against the prose rules, or clean up the prose across a project. Refuses to run while a prose-tuning markup pass is in progress, and never commits.
+description: Conform a project's markdown to the rules in its prose-style.md. Reports findings first - file, line, rule id, proposed rewrite - and changes nothing until the author approves. Uses scripts/prose.py to resolve scope, to skip code fences, mermaid blocks, front matter, table structure and quoted material, to find the breaches a rule's pattern can, and to apply approved rewrites in place. Use when asked to apply the house style, conform documents to prose-style.md, run a style pass over the docs, check a document against the prose rules, or clean up the prose across a project. Refuses to run while a prose-tuning markup pass is in progress, and never commits.
 ---
 
 # Conform the documents to prose-style.md
@@ -61,7 +61,40 @@ python3 "$PROSE" scope --all
 
 which prints every markdown file with the pattern that included or excluded it.
 
-## Step 3: read only the eligible prose
+## Step 3: run the rules' patterns
+
+```sh
+python3 "$PROSE" patterns
+```
+
+A rule can carry a regular expression that finds its breaches, such as a
+spaced hyphen for `standing-no-em-dash`. `patterns` runs every one over the
+same spans `segments` returns, in every file in scope, and prints one line per
+match:
+
+```text
+notes.md:12:40-42  standing-no-em-dash  " -"
+notes.md:30:61-31:4  register-plain-words  "in order\n  to"
+```
+
+The address is `file:line:col_start-col_end`, with `end_line:col_end` after
+the dash when the match wraps onto the next line. Then come the rule id and
+the matched text, as a JSON string that goes into a finding's `text` as it
+stands. The last line names the rules checked by pattern.
+
+A pattern finds places to look, so judge each match. A spaced hyphen can be a
+minus sign. Every match that breaks its rule becomes a finding in step 5,
+usually with a longer `text` than the match, since the rewrite is of the
+sentence.
+
+**Never search the prose with a command of your own,** such as `grep` over
+the `segments` output. A search written during a run finds a different set on
+the next run, and nothing records which rules it covered. A rule with no
+pattern is checked by reading, in step 4. A break of a patterned rule that
+reading turns up anyway is still a finding. Tell the author the pattern
+missed it, since the pattern is theirs to extend.
+
+## Step 4: read only the eligible prose
 
 ```sh
 python3 "$PROSE" segments
@@ -97,7 +130,7 @@ Telling a model "do not touch code fences" is a rule that gets broken. Never
 showing it the fence makes the mistake unavailable, and shrinks the context at
 the same time.
 
-## Step 4: produce findings
+## Step 5: produce findings
 
 Each finding is one JSON object in a findings file:
 
@@ -140,7 +173,7 @@ To cut text, give `"replacement":""`. A line that the cuts cover whole goes
 with its newline, and when a cut takes a whole block `apply` keeps one blank
 line between the blocks either side.
 
-## Step 5: one approval round
+## Step 6: one approval round
 
 ```sh
 python3 "$PROSE" report --findings "${TMPDIR:-/tmp}/prose-findings.json"
@@ -150,6 +183,8 @@ python3 "$PROSE" report --findings "${TMPDIR:-/tmp}/prose-findings.json"
 proposed text and why. It reads the current text from the file as it is now.
 Show the author that output as it stands. Never retype it into a table of
 your own, because the author then approves a text that `apply` never sees.
+Its last line names the rules `patterns` checked in every file, and says that
+every other rule was checked by reading.
 
 `report` exits 1 when a finding cannot apply, and says why on stderr:
 
@@ -166,13 +201,13 @@ files, and says which side of each overlap stays. Batch it; do not ask per
 finding.
 
 Then remove the side of each overlap the author turned down from the findings
-file, and run `report` again. It has to exit 0 before step 6.
+file, and run `report` again. It has to exit 0 before step 7.
 
-## Step 6: apply
+## Step 7: apply
 
 Hand the approval to `apply` as flags. Never edit the findings file to match
-it; the flags do the selecting. The one edit the file takes after step 4 is
-the removal of an overlap's losing side, in step 5.
+it; the flags do the selecting. The one edit the file takes after step 5 is
+the removal of an overlap's losing side, in step 6.
 
 | Approved | Flags |
 |---|---|
@@ -207,9 +242,9 @@ The engine rejects a finding rather than trusting it when:
   as a blank line or a heading
 - a `table-cell` replacement contains a `|` or a newline, which would silently
   restructure the table
-- two findings overlap, which `report` names in step 5
+- two findings overlap, which `report` names in step 6
 
-## Step 7: report and stop
+## Step 8: report and stop
 
 Say what changed, per file and per rule id. Leave the working tree dirty.
 **Never commit.** The project's own maintenance skill owns that.
