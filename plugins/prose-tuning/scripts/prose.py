@@ -22,26 +22,17 @@ Commands:
     tags        check | list | insert | resolve | strip
     apply       apply approved rewrites
     restore     put a file back to its committed state
+    where       which surface this is running on: local or cowork
     stage       copy this script into Cowork's outputs, ready for the device
 
 Exit codes: 0 clean, 1 ran and found problems, 2 could not run.
 
-Where this runs. In Claude Code, beside the checkout, and nothing below
-applies. In Cowork, probed for issue #17:
-
-- The container can read the plugin but not the user's folder. The device side
-  (`device_bash`, a Linux VM) sees the folder at $HOME/mnt/<folder name> and
-  has python3 and git, but gets Permission denied on the plugin. So the script
-  has to be copied onto the device and run there.
-- `device_commit_files` copies a file from under /mnt/user-data/outputs/ byte
-  for byte, but only into a connected folder, and never under .git. The copy
-  therefore lives in the project, at .prose-tuning/prose.py. `stage` puts it in
-  the outputs directory and prints the list that tool takes, the sha256 check,
-  and the `cd` every later device command starts with.
-- The project's commit.sh runs `git add -A`, so the copy must be ignored.
-  preflight refuses to run from a copy git would commit. The .gitignore
-  templates in cowork-project-scaffold and gitify-cowork-project carry the
-  line; an older project needs it added.
+Where this runs. In Claude Code, beside the checkout. In Cowork, on the device
+side, because only the device can see the project; COWORK.md at the root of
+the claude-plugins repo says what Cowork allows and why. `stage` copies this
+script into the project at .prose-tuning/, beside a .gitignore of `*` that keeps
+the whole folder out of the project's commits, and preflight refuses to run
+from a copy git would commit.
 
 Two things in here look like bugs and are not:
 
@@ -82,6 +73,10 @@ DEFAULT_STAGE = OUTPUTS_ROOT + "/prose-tuning"
 DEVICE_DIR = ".prose-tuning"
 DEVICE_SCRIPT = DEVICE_DIR + "/prose.py"
 DEVICE_TEMPLATE = DEVICE_DIR + "/prose-style.template.md"
+# Ignores the folder it sits in, itself included, so the project's .gitignore
+# never has to know this plugin exists.
+DEVICE_IGNORE = DEVICE_DIR + "/.gitignore"
+DEVICE_IGNORE_TEXT = b"*\n"
 DEVICE_MOUNT_ROOT = "$HOME/mnt"
 
 DEFAULT_INCLUDE = ["**/*.md"]
@@ -1775,6 +1770,26 @@ def apply_inserts(text, blocks, records, path, qid_start):
 # --------------------------------------------------------------------------
 
 
+def read_json(source, what):
+    """JSON from a file, or from stdin when source is -.
+
+    stdin spares Cowork a scratch file in the project, which the bridge could
+    write but never delete.
+    """
+    if source == "-":
+        raw = sys.stdin.read()
+    else:
+        try:
+            with open(source, encoding="utf-8") as fh:
+                raw = fh.read()
+        except OSError as exc:
+            raise Fatal("cannot read %s: %s" % (what, exc)) from exc
+    try:
+        return json.loads(raw)
+    except ValueError as exc:
+        raise Fatal("%s is not valid JSON: %s" % (what, exc)) from exc
+
+
 def load(args):
     """repo, config, scope for one invocation.
 
@@ -1899,8 +1914,8 @@ def cmd_preflight(args):
     unignored = unignored_device_copy(repo)
     if unignored:
         blockers.append(
-            "%s  not ignored, so commit.sh's `git add -A` would commit it; "
-            "add a line %s/ to .gitignore and commit it" % (unignored, DEVICE_DIR)
+            "%s  not ignored, so the project's next commit would take it in; "
+            "stage and copy again, which puts %s beside it" % (unignored, DEVICE_IGNORE)
         )
 
     files = scope.files()
@@ -2311,18 +2326,7 @@ def cmd_tags(args):
         return emit(args, "tags " + which, repo.root, data, warnings=warnings, human=human)
 
     # insert
-    if args.batch == "-":
-        raw = sys.stdin.read()
-    else:
-        try:
-            with open(args.batch, encoding="utf-8") as fh:
-                raw = fh.read()
-        except OSError as exc:
-            raise Fatal("cannot read batch: %s" % exc) from exc
-    try:
-        records = json.loads(raw)
-    except ValueError as exc:
-        raise Fatal("batch is not valid JSON: %s" % exc) from exc
+    records = read_json(args.batch, "batch")
     if not isinstance(records, list):
         raise Fatal("batch must be a JSON array of records")
 
@@ -2374,11 +2378,7 @@ def cmd_tags(args):
 
 def cmd_apply(args):
     repo, config, scope = load(args)
-    try:
-        with open(args.findings, encoding="utf-8") as fh:
-            findings = json.load(fh)
-    except (OSError, ValueError) as exc:
-        raise Fatal("cannot read findings: %s" % exc) from exc
+    findings = read_json(args.findings, "findings")
     only = set(x.strip() for x in args.only.split(",")) if args.only else None
     known = config.by_id()
 
@@ -2500,6 +2500,15 @@ def cmd_restore(args):
     )
 
 
+def cmd_where(args):
+    """local or cowork, so a skill need not judge it from the tools it holds.
+
+    Cowork's container has its outputs directory and no project checkout.
+    """
+    data = {"surface": "cowork" if os.path.isdir(OUTPUTS_ROOT) else "local"}
+    return emit(args, "where", None, data, human=lambda: print(data["surface"]))
+
+
 def normalise_folder(value, name):
     """A device folder as get_device_info lists it, without a trailing slash."""
     folder = (value or "").rstrip("/")
@@ -2525,11 +2534,14 @@ def cmd_stage(args):
     if not mount:
         raise Fatal("--connected %s has no folder name to mount" % connected)
 
-    sources = [(DEVICE_SCRIPT, SCRIPT_PATH)]
+    with open(SCRIPT_PATH, "rb") as fh:
+        sources = [(DEVICE_SCRIPT, fh.read()), (DEVICE_IGNORE, DEVICE_IGNORE_TEXT)]
     if args.template:
-        if not os.path.isfile(args.template):
-            raise Fatal("--template %s is not a file" % args.template)
-        sources.append((DEVICE_TEMPLATE, os.path.abspath(args.template)))
+        try:
+            with open(args.template, "rb") as fh:
+                sources.append((DEVICE_TEMPLATE, fh.read()))
+        except OSError as exc:
+            raise Fatal("cannot read --template: %s" % exc) from exc
 
     stage = os.path.abspath(args.stage)
     warnings = []
@@ -2541,9 +2553,7 @@ def cmd_stage(args):
         raise Fatal("stage %s exists and is not a directory" % stage)
 
     files = []
-    for rel, source in sources:
-        with open(source, "rb") as fh:
-            content = fh.read()
+    for rel, content in sources:
         staged = os.path.join(stage, *rel.split("/"))
         if not args.dry_run:
             os.makedirs(os.path.dirname(staged), exist_ok=True)
@@ -2696,7 +2706,7 @@ def build_parser():
     p.set_defaults(func=cmd_tags)
 
     p = sub.add_parser("apply", parents=[common], help="apply approved rewrites")
-    p.add_argument("--findings", required=True, metavar="FILE")
+    p.add_argument("--findings", required=True, metavar="FILE", help="JSON array, or - for stdin")
     p.add_argument("--only", metavar="ID,ID", help="only these rule ids")
     p.add_argument("--partial", action="store_true")
     p.add_argument("--dry-run", action="store_true")
@@ -2707,7 +2717,10 @@ def build_parser():
     p.add_argument("--ref", default="HEAD")
     p.set_defaults(func=cmd_restore)
 
-    # No -C: stage runs in Cowork's container, which has no repo to point at.
+    # No -C on these two: they run in Cowork's container, which has no repo.
+    p = sub.add_parser("where", parents=[output], help="local or cowork")
+    p.set_defaults(func=cmd_where)
+
     p = sub.add_parser(
         "stage", parents=[output], help="copy this script into Cowork's outputs for the device"
     )

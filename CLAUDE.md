@@ -79,6 +79,19 @@ back them. What agents do:
   `${CLAUDE_PLUGIN_ROOT:-${CLAUDE_SKILL_DIR}/../..}/scripts/<name>.py` and checks
   it exists before the first step. Do not share code between plugins: each
   installs on its own, and cannot import another's.
+- **Skills in a plugin share instructions through one file.** When two skills
+  need the same step, it lives once, in the plugin's `reference/`, and each
+  `SKILL.md` points to it. Before writing a paragraph into a `SKILL.md`, check
+  whether a sibling skill already has it. The one exception is the line that
+  locates the script: Cowork fills in `${CLAUDE_SKILL_DIR}` only in `SKILL.md`
+  itself.
+- **A plugin knows only itself.** It never edits another plugin's templates and
+  never relies on another plugin's files, because each installs on its own. When
+  two plugins meet in a project, they follow a shared convention instead.
+  COWORK.md has the one for files a plugin leaves in a project.
+- **Read COWORK.md before designing anything that runs in Cowork.** It holds
+  what live sessions have shown the platform allows. When a probe settles
+  something new, add it there, not only to a docstring or a pull request.
 
 ### Script conventions
 
@@ -113,7 +126,8 @@ back them. What agents do:
   rewrites files in place with `open(path, "w")`, not via a temp file moved into
   place, and only ever reads git, because a git write through the bridge
   strands `.git/*.lock` files that block every later write. Say so in the
-  script's docstring, where the next reader will look.
+  script's docstring, where the next reader will look, and point to COWORK.md
+  for the rest of what Cowork allows.
 - **The module docstring** says what the script is for, how to run it, its
   commands and exit codes, and anything that looks like a bug and is not. Read
   it before "fixing" a script.

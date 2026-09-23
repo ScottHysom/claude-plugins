@@ -8,13 +8,6 @@ description: Infer prose and style rules from the uncommitted markdown edits in 
 When the author edits documents by hand to tailor the prose, this skill reads those 
 edits and works out what rule each one implies. It then writes the rules into `prose-style.md` so every later agent applies them without being asked.
 
-**Runs in Claude Code against a local checkout, and in Cowork.** On Cowork the
-plugin has to be installed from the marketplace: `propose_skills` takes a single
-`SKILL.md` and no bundled files, and this skill cannot run without
-`scripts/prose.py`. Cowork also keeps the script and the project apart, so
-`reference/cowork.md` copies the script into the project and says how every
-command below runs there.
-
 ## Locate the script
 
 ```sh
@@ -22,10 +15,7 @@ PROSE="${CLAUDE_PLUGIN_ROOT:-${CLAUDE_SKILL_DIR}/../..}/scripts/prose.py"
 ls "$PROSE" || echo "prose-tuning is not installed as a plugin here"
 ```
 
-On Cowork, follow `reference/cowork.md` now, before the first command below.
-
-Stop if that `ls` fails. Every step below is a call into it, and a missing
-script surfaces three commands later as something unrelated.
+Then follow `reference/setup.md`. It says where every command below runs.
 
 Read `reference/tag-vocabulary.md` before inserting any markup. It is normative
 and the script enforces it.
@@ -49,9 +39,9 @@ had one starts from the scaffold's shipped default rather than from nothing:
 python3 "$PROSE" config init --from <path to templates/prose-style.md>
 ```
 
-On Cowork the template has to be on the device too. `reference/cowork.md` says
-how to stage it, and the path to pass is then
-`.prose-tuning/prose-style.template.md`.
+On Cowork the template has to be on the device too. Stage it with
+`--template <path>`, as `reference/setup.md` describes, and pass
+`.prose-tuning/prose-style.template.md` here.
 
 ## Step 2: read the rules that already exist
 

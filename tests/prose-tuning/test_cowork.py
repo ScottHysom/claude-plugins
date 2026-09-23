@@ -1,12 +1,13 @@
-"""Running prose.py on Cowork's device: stage, and preflight's ignore check.
+"""Running prose.py on Cowork's device: where, stage, and preflight's ignore check.
 
-prose.py's docstring, under "Where this runs", says why the script is copied
-into the project and why that copy has to be ignored.
+COWORK.md at the repo root says why the script is copied into the project and
+why that copy has to stay out of the project's commits.
 """
 
 import hashlib
 import json
 import shutil
+import subprocess
 
 import prose
 
@@ -38,12 +39,26 @@ class DescribeStage:
 
     def it_addresses_the_copy_to_the_project_folder_on_the_device(self, tmp_path, capsys):
         _, env, _ = stage(capsys, "--folder", FOLDER + "/", "--stage", str(tmp_path))
-        assert env["data"]["commit_files"] == [
-            {
-                "stagedPath": entry(env, prose.DEVICE_SCRIPT)["staged_path"],
-                "devicePath": FOLDER + "/.prose-tuning/prose.py",
-            }
+        assert [c["devicePath"] for c in env["data"]["commit_files"]] == [
+            FOLDER + "/.prose-tuning/prose.py",
+            FOLDER + "/.prose-tuning/.gitignore",
         ]
+        assert [c["stagedPath"] for c in env["data"]["commit_files"]] == [
+            f["staged_path"] for f in env["data"]["files"]
+        ]
+
+    def it_keeps_the_copied_folder_out_of_the_projects_commits(self, tmp_path, capsys):
+        project = tmp_path / "project"
+        subprocess.run(["git", "init", "-q", str(project)], check=True, capture_output=True)
+        # Staging straight into a repo stands in for the copy device_commit_files makes.
+        stage(capsys, "--folder", FOLDER, "--stage", str(project))
+        status = subprocess.run(
+            ["git", "-C", str(project), "status", "--porcelain", "--untracked-files=all"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        assert status.stdout == ""
 
     def it_starts_device_commands_in_the_mounted_project(self, tmp_path, capsys):
         _, env, _ = stage(capsys, "--folder", FOLDER, "--stage", str(tmp_path))
@@ -73,6 +88,7 @@ class DescribeStage:
         assert lines[1:-1] == ["%s  %s" % (f["sha256"], f["file"]) for f in env["data"]["files"]]
         assert [f["file"] for f in env["data"]["files"]] == [
             prose.DEVICE_SCRIPT,
+            prose.DEVICE_IGNORE,
             prose.DEVICE_TEMPLATE,
         ]
 
@@ -118,12 +134,27 @@ class DescribePreflightOnTheDevice:
         assert code == prose.PROBLEMS
         assert any(e.startswith(".prose-tuning/prose.py  not ignored") for e in env["errors"])
 
-    def it_accepts_a_copy_the_gitignore_covers(self, prose_repo, monkeypatch):
+    def it_accepts_a_copy_its_own_folder_ignores(self, prose_repo, monkeypatch):
         self.install_copy(prose_repo, monkeypatch)
-        (prose_repo.root / ".gitignore").write_text(".prose-tuning/\n")
+        (prose_repo.root / prose.DEVICE_IGNORE).write_bytes(prose.DEVICE_IGNORE_TEXT)
         code, env = prose_repo.run("preflight", "--for", "config")
         assert code == prose.OK, env["errors"]
 
     def it_ignores_the_check_for_a_script_outside_the_project(self, prose_repo):
         code, env = prose_repo.run("preflight", "--for", "config")
         assert code == prose.OK, env["errors"]
+
+
+class DescribeWhere:
+    def where(self, capsys):
+        capsys.readouterr()
+        code = prose.main(["where", "--json"])
+        return code, json.loads(capsys.readouterr().out)["data"]["surface"]
+
+    def it_reports_cowork_inside_coworks_container(self, tmp_path, capsys, monkeypatch):
+        monkeypatch.setattr(prose, "OUTPUTS_ROOT", str(tmp_path))
+        assert self.where(capsys) == (prose.OK, "cowork")
+
+    def it_reports_local_anywhere_else(self, tmp_path, capsys, monkeypatch):
+        monkeypatch.setattr(prose, "OUTPUTS_ROOT", str(tmp_path / "absent"))
+        assert self.where(capsys) == (prose.OK, "local")

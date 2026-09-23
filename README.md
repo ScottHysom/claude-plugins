@@ -78,6 +78,7 @@ directory under `plugins/` and one new entry in the catalog.
    A plugin that bundles a script cannot be delivered to Cowork through
    `propose_skills`, which takes a single `SKILL.md` and no bundled files. Say
    so in the skill, or it fails confusingly at the point of use.
+   [COWORK.md](COWORK.md) has the rest of what Cowork lets a plugin do.
 3. Add an entry to `.claude-plugin/marketplace.json` with `name`, `source`,
    `description` and `version`. State the required surface in the first
    sentence of the description.
