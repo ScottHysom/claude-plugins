@@ -74,6 +74,36 @@ known", added back when there is one.
   generated skill, as gitify's does, rejects a tag in the description it is
   handed.
 
+## How instruction files load
+
+Probed on 2026-09-20, 2026-09-22 and 2026-09-23, in a Project made with "Use
+an existing folder", beside the same files run through Claude Code 2.1.274.
+
+| Source | Claude Code | Cowork |
+|---|---|---|
+| Project Instructions field | n/a | From the first message |
+| Root `CLAUDE.md`, `.claude/CLAUDE.md` | At session start | From the second message, as a system reminder |
+| `.claude/rules/*.md` with no `paths:` | At session start | From the second message |
+| `@path` imports in `CLAUDE.md` | Expanded | Not expanded: the line stays as text |
+| `CLAUDE.local.md` | Loaded | Not loaded |
+| Block-level HTML comments | Stripped | Stripped |
+| Path-scoped rules, a subfolder's `CLAUDE.md` | When Claude reads a matching file | Never |
+| `AGENTS.md` beside a `CLAUDE.md` | Not loaded | Not loaded |
+
+- **The first message sees only the field.** Its whole turn, every tool call
+  included, runs without the folder's `CLAUDE.md`. The file arrives with the
+  second message, before any tool call, even when neither message uses a
+  tool: it is tied to the message, not to touching the folder.
+- **Only the connected folder's root counts.** A `CLAUDE.md` in a folder
+  inside the connected one, or above it, is never loaded. Files are read
+  through `device_bash`, which triggers nothing, so neither are path-scoped
+  rules.
+- **A "Start from scratch" Project has no folder,** whatever Cowork's guide
+  says: none is created on disk and none is linked, though a chip with a
+  folder icon and the project's name sits below the prompt box. A session in
+  it reports no connected folder. Only the field carries standing
+  instructions there.
+
 ## What the design follows from this
 
 - **Do the logic where the files are.** Rendering new files works in the
@@ -93,6 +123,9 @@ known", added back when there is one.
   whole folder, that `.gitignore` included, so the project's commits never pick
   it up. The project's own `.gitignore` doesn't have to know the plugin exists,
   and no other plugin's templates have to either.
+- **Standing instructions need a line in the field.** A project that keeps
+  them in a file has the field hold one line telling Claude to read it, or the
+  first message of every conversation works without them.
 - **Keep scratch files out of the project.** The bridge could never delete
   them. Pass data on stdin, or use `$TMPDIR` on the device.
 

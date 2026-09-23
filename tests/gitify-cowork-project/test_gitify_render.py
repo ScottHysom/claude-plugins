@@ -64,12 +64,15 @@ class DescribeACleanRender:
         assert env["data"]["project_mount"] == "Projects"
         assert env["data"]["files"][0]["device_path"] == project["connected"] + "/.gitignore"
 
-    def it_leaves_the_field_empty_when_the_project_is_the_connected_folder(
-        self, runner, make_answers
+    def it_tells_claude_to_read_the_file_when_the_project_is_the_connected_folder(
+        self, runner, make_answers, project
     ):
-        # Cowork loads the root CLAUDE.md itself; a pointer would only cost context.
+        # Cowork loads the root CLAUDE.md only from the second message on; the
+        # field is all the first one sees. COWORK.md, "How instruction files load".
         _, env = runner.render(make_answers(project_folder=None))
-        assert env["data"]["field_pointer"] is None
+        pointer = env["data"]["field_pointer"]
+        assert pointer == gitify.FIELD_POINTER.format(path=project["connected"])
+        assert "\n" not in pointer
 
     def it_tells_claude_to_read_the_file_when_the_project_is_a_subfolder(
         self, runner, make_answers, project
@@ -81,13 +84,14 @@ class DescribeACleanRender:
         assert project["project"] in pointer
         assert "\n" not in pointer
 
-    def it_says_to_leave_the_field_empty_in_its_plain_output(self, runner, make_answers):
+    def it_prints_the_pointer_in_its_plain_output(self, runner, make_answers, project):
         path = runner.tmp / "answers.json"
         path.write_text(json.dumps(make_answers(project_folder=None)))
         args = ("render", "--answers", str(path), "--stage", str(runner.stage))
         code, _ = runner.run(*args, json_output=False)
         assert code == gitify.OK
-        assert "Project Instructions field:\n(leave it empty)" in runner.out
+        pointer = gitify.FIELD_POINTER.format(path=project["connected"])
+        assert "Project Instructions field:\n%s\n" % pointer in runner.out
 
     def it_reports_and_writes_nothing_on_a_dry_run(self, runner, make_answers):
         code, env = runner.render(make_answers(), "--dry-run")
