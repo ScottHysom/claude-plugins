@@ -252,6 +252,93 @@ class DescribeGuards:
         assert prose_repo.read() == before
 
 
+def cut(prose_repo, line, text, **overrides):
+    """A finding that deletes `text`, which starts `line` of doc.md."""
+    record = dict(file="doc.md", col_start=0, col_end=len(text), text=text, replacement="")
+    record.update(overrides)
+    return prose_repo.finding(line, **record)
+
+
+class DescribeWholeLineCuts:
+    """A finding cannot reach past its line's end, so cutting a line used to
+    empty it and keep its newline. Cutting a passage left one blank line per
+    line it had, and #73 needed them collapsed by hand.
+    """
+
+    def write(self, prose_repo, content):
+        (prose_repo.root / "doc.md").write_text(content)
+
+    def it_removes_a_cut_passage_and_keeps_one_blank_line(self, prose_repo):
+        self.write(prose_repo, "Keep this.\n\nCut this line.\nAnd this one.\n\nKeep this too.\n")
+        code, _ = prose_repo.apply(
+            [cut(prose_repo, 3, "Cut this line."), cut(prose_repo, 4, "And this one.")]
+        )
+        assert code == prose.OK
+        assert prose_repo.read("doc.md") == "Keep this.\n\nKeep this too.\n"
+
+    def it_joins_the_lines_around_one_cut_from_a_paragraph(self, prose_repo):
+        self.write(prose_repo, "One.\nTwo.\nThree.\n")
+        code, _ = prose_repo.apply([cut(prose_repo, 2, "Two.")])
+        assert code == prose.OK
+        assert prose_repo.read("doc.md") == "One.\nThree.\n"
+
+    def it_removes_a_line_that_two_findings_empty_between_them(self, prose_repo):
+        self.write(prose_repo, "One.\nFirst half, second half.\nThree.\n")
+        code, _ = prose_repo.apply(
+            [
+                cut(prose_repo, 2, "First half,", col_end=11),
+                cut(prose_repo, 2, " second half.", col_start=11, col_end=24),
+            ]
+        )
+        assert code == prose.OK
+        assert prose_repo.read("doc.md") == "One.\nThree.\n"
+
+    def it_leaves_the_rest_of_a_partly_cut_line_alone(self, prose_repo):
+        self.write(prose_repo, "One.\nKeep, cut.\nThree.\n")
+        code, _ = prose_repo.apply([cut(prose_repo, 2, " cut.", col_start=5, col_end=10)])
+        assert code == prose.OK
+        assert prose_repo.read("doc.md") == "One.\nKeep,\nThree.\n"
+
+    def it_keeps_a_line_that_also_takes_a_replacement(self, prose_repo):
+        self.write(prose_repo, "One.\nOld words.\nThree.\n")
+        code, _ = prose_repo.apply(
+            [
+                cut(prose_repo, 2, "Old", col_end=3, replacement="New"),
+                cut(prose_repo, 2, " words.", col_start=3, col_end=10),
+            ]
+        )
+        assert code == prose.OK
+        assert prose_repo.read("doc.md") == "One.\nNew\nThree.\n"
+
+    @pytest.mark.parametrize(
+        ("content", "line", "text", "after"),
+        [
+            pytest.param("Cut.\n\nKeep.\n", 1, "Cut.", "Keep.\n", id="start-of-file"),
+            pytest.param("Keep.\n\nCut.\n", 3, "Cut.", "Keep.\n", id="end-of-file"),
+            pytest.param("Keep.\n\nCut.", 3, "Cut.", "Keep.", id="end-without-a-newline"),
+            pytest.param("Keep.\nCut.", 2, "Cut.", "Keep.", id="last-paragraph-line"),
+        ],
+    )
+    def it_leaves_no_blank_line_at_either_end_of_the_file(
+        self, prose_repo, content, line, text, after
+    ):
+        self.write(prose_repo, content)
+        code, _ = prose_repo.apply([cut(prose_repo, line, text)])
+        assert code == prose.OK
+        assert prose_repo.read("doc.md") == after
+
+    def it_still_rewrites_a_later_line_after_a_cut(self, prose_repo):
+        """Every edit is planned against one snapshot, so removing lines does
+        not shift the address of a finding below them.
+        """
+        self.write(prose_repo, "Keep.\n\nCut.\n\nOld.\n")
+        code, _ = prose_repo.apply(
+            [cut(prose_repo, 3, "Cut."), cut(prose_repo, 5, "Old.", replacement="New.")]
+        )
+        assert code == prose.OK
+        assert prose_repo.read("doc.md") == "Keep.\n\nNew.\n"
+
+
 class DescribePartial:
     """Whole-batch by default, --partial to take what is good.
 
