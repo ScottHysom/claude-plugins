@@ -56,15 +56,14 @@ Then it leaves you what the bridge cannot do:
    `sh setup.sh commit`. `sh`, because files written through the bridge lose
    their execute bit; `setup.sh` restores it.
 2. Save the proposed skill from the review card.
-3. Clear the Project Instructions field, or replace it with the one line
-   Claude gives you. Claude says which.
+3. Replace the Project Instructions field with the one line Claude gives you.
 
 ## One place for standing instructions
 
 A Cowork Project's instructions field is not versioned, and a copy of it in the
 folder drifts from it the first time either is edited. So the field's content
 moves into `CLAUDE.md` at the root of the folder, copied exactly, and the field
-is left empty or holding one line that points there. That line never needs to
+holds one line that points there. That line never needs to
 change, so there is nothing left to drift.
 
 The note at the top of `CLAUDE.md` says how the file works. It is an HTML
@@ -74,12 +73,11 @@ it costs no context.
 Claude cannot write the field itself. That is why replacing it is your step.
 
 Cowork adds the field to every conversation in the project, so anything left
-in it costs context every time. Cowork loads a `CLAUDE.md` by itself only from
-the root of the connected folder, not from a folder inside it or above it. So
-when the project is the connected folder, the field is left empty. When the
-project is a folder inside the connected one, Cowork does not load its
-`CLAUDE.md`, and the field holds one line telling Claude to read that file
-first.
+in it costs context every time. The line stays even when the project is the
+connected folder, whose `CLAUDE.md` Cowork loads by itself: the field is the
+only project text the first message of a conversation sees. What Cowork loads,
+and from which message, is in
+[Designing for Cowork](https://github.com/ScottHysom/claude-plugins/blob/main/COWORK.md#how-instruction-files-load).
 
 ## Prose and document rules
 

@@ -173,13 +173,10 @@ Then name what else only the user can do:
 - Save the proposed skill from the review card.
 - Change the Project Instructions field. You cannot write it. `CLAUDE.md` now
   holds what was there, and the field keeping a copy is how the two drift
-  apart. Cowork adds the field to every conversation in the project, so it
-  keeps only what Claude needs:
-  - `data.field_pointer` is `null`: clear the field and leave it empty. Cowork
-    loads `CLAUDE.md` from the root of the connected folder by itself.
-  - Otherwise: replace everything in the field with `data.field_pointer`,
-    exactly. Cowork does not load a `CLAUDE.md` from a folder inside the
-    connected one, so this line is what gets it read.
+  apart. They replace everything in the field with `data.field_pointer`,
+  exactly, even when the project is the connected folder. The field is the
+  only project text Cowork shows the first message of a conversation, so this
+  line is what gets `CLAUDE.md` read there.
 
 ## Checking a project's skill against the template
 
