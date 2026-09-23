@@ -2,10 +2,22 @@
 
 Normative. `prose.py config lint` enforces every rule on this page.
 
-The file lives at the root of a project repo. It is read by every agent that
-edits a document there, which is why it is a document rather than a section
-inside a skill: not every agent loads the skill, and a project is expected to
+The file lives at `.claude/rules/prose-style.md` in a project repo. Claude Code
+and Cowork both load every file in `.claude/rules/` into their sessions, so
+every agent writing in the project has the rules without a skill running. That covers commit messages, pull request text
+and code comments as much as documents. COWORK.md, in the claude-plugins repo,
+has what each product loads and when. It is a file rather than a section inside
+a skill because not every agent loads the skill, and a project is expected to
 diverge from the shipped default.
+
+The front matter never carries `paths:`. That key would stop the file loading
+in every session, so `config lint` rejects it.
+
+A project whose `prose-style.md` is still at its root, where nothing loads it,
+runs `config move`. It copies the file across, byte for byte, and leaves the
+root copy for the author to delete: the script only reads git, and Cowork's
+bridge cannot delete a file. Preflight refuses to run while the root copy is
+there.
 
 ## Front matter
 
@@ -16,7 +28,7 @@ scope:
   include:
     - "**/*.md"
   exclude:
-    - "prose-style.md"
+    - ".claude/**"
     - "project-instructions.md"
     - "**/README.md"
     - "skills/**"
@@ -34,12 +46,12 @@ work.
 override was considered and rejected: "which of the four defaults am I still
 getting" is not a question anyone should answer by reading a script.
 
-`prose-style.md` is excluded whatever the override says. A conformance pass
+The rules file is excluded whatever the override says. A conformance pass
 rewriting its own rulebook is not a thing anyone wants to debug.
 
 Glob syntax: `**/` matches any number of directories, `**` matches anything,
 `*` matches within one path segment, `?` matches one character. Patterns match
-the whole repo-relative path, so `prose-style.md` matches only at the root and
+the whole repo-relative path, so `CLAUDE.md` matches only at the root and
 `**/README.md` matches at any depth.
 
 ## A rule
@@ -125,9 +137,12 @@ project what to supply.
 ## Checking a file
 
 ```sh
-python3 "$PROSE" config lint --file prose-style.md
-python3 "$PROSE" config list --file prose-style.md
+python3 "$PROSE" config lint
+python3 "$PROSE" config list
 ```
+
+Both read the project's `.claude/rules/prose-style.md`. `--file <path>` reads
+another one instead.
 
 `lint` exits 1 on any error and prints one line per problem. `list` prints the
 rules and marks with `!` any rule carrying no worked example.

@@ -18,7 +18,7 @@ Commands:
     scope       which files the prose rules govern
     segments    the prose-eligible spans of a file
     evidence    explicit tags + inferred edits + open questions
-    config      list | lint | check-id | similar | init
+    config      list | lint | check-id | similar | init | move
     tags        check | list | insert | resolve | strip
     apply       apply approved rewrites
     restore     put a file back to its committed state
@@ -33,6 +33,14 @@ the claude-plugins repo says what Cowork allows and why. `stage` copies this
 script and the shipped rules into the project at .prose-tuning/, beside a
 .gitignore of `*` that keeps the whole folder out of the project's commits, and
 preflight refuses to run from a copy git would commit.
+
+Where the rules live. A project keeps them in .claude/rules/prose-style.md,
+with no paths: key. Claude Code and Cowork both load that folder into their
+sessions, so every agent writing in the project has the rules, whether or not
+a skill runs. COWORK.md, "How instruction files load", has what each product
+loads and when. A copy at the project root is where they used to
+live and nothing loads it: preflight refuses one, and `config move` copies it
+across.
 
 The shipped rules. `config init` starts a project's prose-style.md from
 templates/prose-style.md in this plugin. The copy on the device has no plugin
@@ -70,6 +78,14 @@ ENVELOPE_VERSION = 1
 OK, PROBLEMS, CANNOT_RUN = 0, 1, 2
 
 CONFIG_NAME = "prose-style.md"
+# Where a project keeps it. See "Where the rules live" above.
+CONFIG_DIR = ".claude/rules"
+CONFIG_PATH = CONFIG_DIR + "/" + CONFIG_NAME
+# Where it lived before, which preflight refuses and config move leaves behind.
+LEGACY_CONFIG_PATH = CONFIG_NAME
+# The front matter key that scopes a rule file to matching paths, so that it
+# no longer loads in every session. lint rejects it.
+PATHS_KEY = "paths"
 
 # Cowork. See "Where this runs" above.
 SCRIPT_PATH = os.path.abspath(__file__)
@@ -90,7 +106,7 @@ DEVICE_MOUNT_ROOT = "$HOME/mnt"
 
 DEFAULT_INCLUDE = ["**/*.md"]
 DEFAULT_EXCLUDE = [
-    CONFIG_NAME,
+    ".claude/**",
     "CLAUDE.md",
     "**/README.md",
     "skills/**",
@@ -517,8 +533,10 @@ class Config:
     dropped key is a scope override that looks like it works.
     """
 
-    def __init__(self, path):
+    def __init__(self, path, shown=None):
         self.path = path
+        # How messages name the file: its repo-relative path when there is one.
+        self.shown = shown or os.path.basename(path)
         self.front = {}
         self.scope_include = []
         self.scope_exclude = []
@@ -530,7 +548,7 @@ class Config:
             self._parse(Text.read(path))
 
     def rel(self):
-        return os.path.basename(self.path)
+        return self.shown
 
     def _err(self, line, msg):
         self.errors.append("%s:%d  %s" % (self.rel(), line, msg))
@@ -593,6 +611,12 @@ class Config:
                 in_scope, target = True, None
                 continue
             in_scope, target = False, None
+            if name == PATHS_KEY:
+                self._err(
+                    num,
+                    "%s: would stop these rules loading in every session; remove it" % PATHS_KEY,
+                )
+                continue
             self.front[name] = unquote(value)
         return close + 1
 
@@ -710,7 +734,13 @@ class Config:
 
 
 def config_path(repo, override=None):
-    return os.path.abspath(override) if override else os.path.join(repo.root, CONFIG_NAME)
+    if override:
+        return os.path.abspath(override)
+    return os.path.join(repo.root, *CONFIG_PATH.split("/"))
+
+
+def legacy_config_path(repo):
+    return os.path.join(repo.root, LEGACY_CONFIG_PATH)
 
 
 # --------------------------------------------------------------------------
@@ -725,8 +755,9 @@ class Scope:
     override was considered and rejected: "which of the four defaults am I
     still getting" is not a question anyone should answer by reading a script.
 
-    prose-style.md is excluded unconditionally, override or not. apply-prose
-    rewriting its own rulebook is not a thing anyone wants to debug.
+    prose-style.md is excluded unconditionally, override or not, and so is a
+    copy left at the root until the author deletes it. apply-prose rewriting
+    its own rulebook is not a thing anyone wants to debug.
     """
 
     def __init__(self, repo, config):
@@ -746,6 +777,9 @@ class Scope:
         for rel in self.repo.all_md():
             if self._config_rel and rel == self._config_rel:
                 out.append({"path": rel, "included": False, "reason": "the config itself"})
+                continue
+            if rel == LEGACY_CONFIG_PATH:
+                out.append({"path": rel, "included": False, "reason": "the config's old place"})
                 continue
             hit = self._inc.match(rel)
             if not hit:
@@ -1926,7 +1960,9 @@ def load(args):
     as a path to prose-style.md.
     """
     repo = Repo(args.repo)
-    config = Config(config_path(repo, getattr(args, "config_file", None)))
+    path = config_path(repo, getattr(args, "config_file", None))
+    inside = path.startswith(repo.root + os.sep)
+    config = Config(path, os.path.relpath(path, repo.root) if inside else None)
     return repo, config, Scope(repo, config)
 
 
@@ -2028,14 +2064,30 @@ def unignored_device_copy(repo):
     return None if code == 0 else rel
 
 
+def legacy_blockers(repo, config):
+    """A prose-style.md still at the project root, where nothing loads it."""
+    if not os.path.exists(legacy_config_path(repo)):
+        return []
+    if not config.exists:
+        return [
+            "%s  the rules are at the project root, where no session loads them; "
+            "run: prose.py config move" % LEGACY_CONFIG_PATH
+        ]
+    return [
+        "%s  a second copy of the rules, beside %s; delete the one at the root"
+        % (LEGACY_CONFIG_PATH, CONFIG_PATH)
+    ]
+
+
 def cmd_preflight(args):
     repo, config, scope = load(args)
     want = args.for_target
     blockers = []
     if sys.version_info < (3, 9):  # noqa: UP036 - the message a user on an older Python sees
         blockers.append("python3 is %d.%d; this script needs 3.9 or newer" % sys.version_info[:2])
+    blockers += legacy_blockers(repo, config)
     if not config.exists:
-        if want in ("apply", "adopt"):
+        if want in ("apply", "adopt") and not os.path.exists(legacy_config_path(repo)):
             blockers.append("%s  no config; run: prose.py config init" % config.rel())
     else:
         blockers += config.errors
@@ -2199,9 +2251,13 @@ scope:
 
 # {name}: prose style
 
-The house style for every document in this repo. It covers how the sentences
-read. Document mechanics - front matter, TODO markers, commit format - are out
-of its scope.
+The house style for everything written in this repo: its documents, and also
+commit messages, pull request titles and descriptions, issues and code
+comments. It covers how the sentences read. Mechanics - front matter, TODO
+markers, commit format - are out of its scope.
+
+This file sits in `.claude/rules/`, so every session in the project loads it.
+The `scope:` block above decides only which files `apply-prose` checks.
 
 A rule here has a stable id of the form `<section>-<name>`, where the name is
 one to four words saying what the rule means. Reports name the id, and a rule
@@ -2228,13 +2284,60 @@ def shipped_template():
     return path
 
 
+def config_move(args, repo, config):
+    """Copy a root prose-style.md to where sessions load it.
+
+    Copies and never deletes: this script only reads git, and Cowork's bridge
+    cannot delete a file. The author removes the root copy.
+    """
+    legacy = legacy_config_path(repo)
+    if not os.path.exists(legacy):
+        raise Fatal("%s does not exist; nothing to move" % LEGACY_CONFIG_PATH)
+    if config.exists:
+        raise Fatal(
+            "%s already exists; compare it with %s and delete the one at the root"
+            % (CONFIG_PATH, LEGACY_CONFIG_PATH)
+        )
+    if not args.dry_run:
+        os.makedirs(os.path.dirname(config.path), exist_ok=True)
+        with open(legacy, "rb") as src:
+            body = src.read()
+        with open(config.path, "wb") as dst:
+            dst.write(body)
+    data = {
+        "from": LEGACY_CONFIG_PATH,
+        "to": os.path.relpath(config.path, repo.root),
+        "dry_run": args.dry_run,
+        "next": "delete %s" % LEGACY_CONFIG_PATH,
+    }
+    return emit(
+        args,
+        "config move",
+        repo.root,
+        data,
+        human=lambda: print(
+            "%s %s to %s; now delete %s"
+            % (
+                "would copy" if args.dry_run else "copied",
+                LEGACY_CONFIG_PATH,
+                data["to"],
+                LEGACY_CONFIG_PATH,
+            )
+        ),
+    )
+
+
 def cmd_config(args):
     repo, config, scope = load(args)
     which = args.config_cmd
 
+    if which == "move":
+        return config_move(args, repo, config)
+
     if which == "init":
         if config.exists:
             raise Fatal("%s already exists" % config.path)
+        os.makedirs(os.path.dirname(config.path), exist_ok=True)
         if args.source:
             if not os.path.exists(args.source):
                 raise Fatal("%s does not exist" % args.source)
@@ -2264,6 +2367,8 @@ def cmd_config(args):
         )
 
     if not config.exists:
+        if not args.config_file and os.path.exists(legacy_config_path(repo)):
+            raise Fatal("%s does not exist; run: prose.py config move" % config.path)
         raise Fatal("%s does not exist; run: prose.py config init" % config.path)
 
     if which == "check-id":
@@ -2824,6 +2929,7 @@ def build_parser():
         ("check-id", "is this id well-formed and free"),
         ("similar", "rules two files state twice"),
         ("init", "start one from the shipped rules"),
+        ("move", "move a root prose-style.md to %s" % CONFIG_DIR),
     ]:
         c = csub.add_parser(name, parents=[common], help=helptext)
         c.add_argument(
@@ -2843,6 +2949,8 @@ def build_parser():
                 "--to", required=True, metavar="PATH", help="the prose-style.md to compare against"
             )
             c.add_argument("--threshold", type=float, default=0.6, metavar="N")
+        if name == "move":
+            c.add_argument("--dry-run", action="store_true", help="say what would be copied")
         if name == "init":
             how = c.add_mutually_exclusive_group()
             how.add_argument(

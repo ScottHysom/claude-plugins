@@ -123,6 +123,12 @@ an existing folder", beside the same files run through Claude Code 2.1.274.
   whole folder, that `.gitignore` included, so the project's commits never pick
   it up. The project's own `.gitignore` doesn't have to know the plugin exists,
   and no other plugin's templates have to either.
+- **Instructions every session needs go in `.claude/rules/`, with no
+  `paths:`.** Both products load a file there without being asked, as the
+  table above shows, and a `paths:` key takes it out of that row. Unlike the root `CLAUDE.md`, a plugin can add a
+  file there without editing one the project owns. The file is the project's
+  own and is committed, unlike a plugin's working files in `.<plugin name>/`.
+  `prose-tuning` keeps a project's rules in `.claude/rules/prose-style.md`.
 - **Standing instructions need a line in the field.** A project that keeps
   them in a file has the field hold one line telling Claude to read it, or the
   first message of every conversation works without them.

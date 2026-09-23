@@ -6,7 +6,7 @@ description: Infer prose and style rules from the uncommitted markdown edits in 
 # Learn the house prose style from edits already made
 
 When the author edits documents by hand to tailor the prose, this skill reads those 
-edits and works out what rule each one implies. It then writes the rules into `prose-style.md` so every later agent applies them without being asked.
+edits and works out what rule each one implies. It then writes the rules into `.claude/rules/prose-style.md`, which every later session in the project loads, so every agent applies them without being asked.
 
 ## Locate the script
 
@@ -34,7 +34,7 @@ a `prose-style.md` that does not parse. `status` is the progress view, and it
 exits 0 even with markup present, because markup present is the normal middle of
 this skill's own run.
 
-If there is no `prose-style.md`, offer `config init`. A project that has never
+If there is no `.claude/rules/prose-style.md`, offer `config init`. A project that has never
 had one starts from the rules this plugin ships rather than from nothing:
 
 ```sh
@@ -44,7 +44,7 @@ python3 "$PROSE" config init
 The shipped rules carry `<!-- FILL: ... -->` notes where a rule wants an
 example or a name from this project. Tell the author they are there; the
 evidence from this run is often what fills them. To start from another
-project's rules instead, pass `--from <path to its prose-style.md>`. To start
+project's rules instead, pass `--from <path to its .claude/rules/prose-style.md>`. To start
 with no rules at all, pass `--empty`.
 
 ## Step 2: read the rules that already exist
@@ -166,7 +166,8 @@ rule's provenance as well as its explanation.
 
 **When a new rule contradicts an existing one, rewrite the body of the existing
 id.** Do not add a second rule, and do not mark the old one retired. The id is
-the identity, the body is current truth, and `git log -p prose-style.md` holds
+the identity, the body is current truth, and
+`git log -p .claude/rules/prose-style.md` holds
 what it used to say.
 
 **The script cannot detect a contradiction** and does not try. Nothing in

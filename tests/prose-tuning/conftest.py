@@ -229,7 +229,9 @@ def prose_repo(tmp_path, capsys):
     root.mkdir()
     # capture_output so git's default-branch hint stays out of the CI log.
     subprocess.run(["git", "init", "-q", str(root)], check=True, capture_output=True)
-    (root / "prose-style.md").write_text(STYLE)
+    config = root / prose.CONFIG_PATH
+    config.parent.mkdir(parents=True)
+    config.write_text(STYLE)
     (root / "target.md").write_text(TARGET)
     return ProseRepo(root, capsys)
 
