@@ -95,8 +95,8 @@ known", added back when there is one.
 
 ## Probing
 
-The model can't run Cowork from Claude Code. It writes a probe prompt, Scott
-pastes it into a Cowork session, and the answers come back. A probe that
+The model can't run Cowork from Claude Code. It writes a probe prompt, the
+user pastes it into a Cowork session and pastes the answers back. A probe that
 works asks for:
 
 - exact commands and verbatim output, with exit codes;
