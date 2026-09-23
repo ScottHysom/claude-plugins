@@ -87,15 +87,15 @@ the same time.
 
 ## Step 4: produce findings
 
-Each finding is one row:
+Each finding is one JSON object in a findings file:
 
-| Column | Content |
+| Field | Content |
 |---|---|
-| `file:line` | where |
-| rule | the id from `prose-style.md`, exactly one |
-| current | the text as it stands |
-| proposed | the rewrite |
-| why | one clause, in the rule's own terms |
+| `file`, `line` | where the text starts |
+| `rule` | the id from `prose-style.md`, exactly one |
+| `text` | the text as it stands |
+| `replacement` | the rewrite |
+| `why` | one clause, in the rule's own terms |
 
 **A finding names exactly one rule.** A passage breaking two rules is two
 findings, because the author may accept one and reject the other.
@@ -104,19 +104,17 @@ findings, because the author may accept one and reject the other.
 proposed rewrite that changes a number, a name, a date or a claim is out of
 scope for this skill no matter how badly the sentence reads.
 
-Write the findings to a file for step 6, outside the project so no stray file
-is left in it:
+Write the findings file outside the project, so no stray file is left in it:
 
 ```sh
 cat > "${TMPDIR:-/tmp}/prose-findings.json" <<'END'
 [{"file":"landscape.md","line":42,"rule":"sentences-own-subject",
   "text":"<the current text, copied from the segment>",
-  "replacement":"<the rewrite>"}]
+  "replacement":"<the rewrite>","why":"<one clause>"}]
 END
 ```
 
-`line` is where the text starts, and `text` is copied exactly from the
-segments output. Leave the columns out: `apply` finds the text on its line.
+`text` is copied exactly from the segments output. Leave the columns out: `apply` finds the text on its line.
 When it is refused because the text starts at more than one place on the line,
 add the `col_start` the refusal lists. A sentence wrapped onto the next line is
 one finding, with the newline and the next line's indent in `text`.
@@ -130,13 +128,37 @@ line between the blocks either side.
 
 ## Step 5: one approval round
 
-Present the findings and take one decision. The decision covers the whole set, a set of rule ids, or a set of files.
-Batch it; do not ask per finding.
+```sh
+python3 "$PROSE" report --findings "${TMPDIR:-/tmp}/prose-findings.json"
+```
+
+`report` prints each finding with its `file:line`, rule id, current text,
+proposed text and why. It reads the current text from the file as it is now.
+Show the author that output as it stands. Never retype it into a table of
+your own, because the author then approves a text that `apply` never sees.
+
+`report` exits 1 when a finding cannot apply, and says why on stderr:
+
+- **a finding `apply` would refuse**, such as one whose text has moved. Fix
+  the finding and run `report` again.
+- **two findings that overlap**, named as `finding 3 (notes.md:96,
+  standing-no-em-dash) overlaps finding 7 (notes.md:94,
+  sentences-no-restating-close)`. Each can apply alone, and the pair cannot.
+  Put the pair to the author in this round, and let the author choose which
+  one to keep. Never drop one yourself.
+
+Take one decision. It covers the whole set, a set of rule ids, or a set of
+files, and says which side of each overlap stays. Batch it; do not ask per
+finding.
+
+Then remove the side of each overlap the author turned down from the findings
+file, and run `report` again. It has to exit 0 before step 6.
 
 ## Step 6: apply
 
 Hand the approval to `apply` as flags. Never edit the findings file to match
-it; the flags do the selecting.
+it; the flags do the selecting. The one edit the file takes after step 4 is
+the removal of an overlap's losing side, in step 5.
 
 | Approved | Flags |
 |---|---|
@@ -171,6 +193,7 @@ The engine rejects a finding rather than trusting it when:
   as a blank line or a heading
 - a `table-cell` replacement contains a `|` or a newline, which would silently
   restructure the table
+- two findings overlap, which `report` names in step 5
 
 ## Step 7: report and stop
 

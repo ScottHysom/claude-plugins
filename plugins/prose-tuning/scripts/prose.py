@@ -20,6 +20,7 @@ Commands:
     evidence    explicit tags + inferred edits + open questions
     config      list | lint | check-id | similar | init | move
     tags        check | list | insert | resolve | strip
+    report      the findings for approval, and which of them overlap
     apply       apply approved rewrites
     restore     put a file back to its committed state
     where       which surface this is running on: local or cowork
@@ -298,11 +299,14 @@ class EditEngine:
         self.edits.append((start, end, replacement, label))
 
     def conflicts(self):
-        """Pairs whose result would depend on the order they were added in.
+        """Every pair of edits whose result would depend on the order they were
+        added in, as (edit, edit) with the earlier-starting one first.
 
-        Sorting by (start, end) puts a zero-width point immediately before any
-        span starting at the same offset, so comparing neighbors catches every
-        overlap without comparing every pair.
+        Sorted by (start, end), a zero-width point comes immediately before any
+        span starting at the same offset, and the scan from each edit stops at
+        the first one starting past its end, since every later one starts
+        further on still. That finds every pair, not only neighbors, so a
+        report can name each finding a long cut swallows.
 
         The second clause - two edits beginning at the same offset - is where
         everything that shares a boundary lands. Such a pair overlaps by no
@@ -321,17 +325,27 @@ class EditEngine:
         """
         out = []
         ordered = sorted(self.edits, key=lambda e: (e[0], e[1]))
-        for a, b in zip(ordered, ordered[1:]):
-            if b[0] < a[1] or b[0] == a[0]:
-                out.append(
-                    "overlapping edits at offsets %d-%d and %d-%d" % (a[0], a[1], b[0], b[1])
-                )
+        for i, a in enumerate(ordered):
+            for b in ordered[i + 1 :]:
+                if b[0] >= a[1] and b[0] > a[0]:
+                    break
+                out.append((a, b))
         return out
+
+    @staticmethod
+    def describe(edit):
+        """An edit's label, or its offsets when it was given none."""
+        start, end, _, label = edit
+        if label is None:
+            return "the edit at offsets %d-%d" % (start, end)
+        return str(label)
 
     def result(self):
         bad = self.conflicts()
         if bad:
-            raise Fatal("; ".join(bad))
+            raise Fatal(
+                "; ".join("%s overlaps %s" % (self.describe(a), self.describe(b)) for a, b in bad)
+            )
         s = self.text.s
         for start, end, replacement, _ in sorted(self.edits, key=lambda e: e[0], reverse=True):
             s = s[:start] + replacement + s[end:]
@@ -2720,14 +2734,59 @@ def locate(text, line, f, n):
     return (a, b), None
 
 
+class FindingLabel:
+    """Which findings an edit carries out, for a message that names them.
+
+    An edit is one finding's, except the removal of a run of cut lines, which
+    carries out every finding in the run.
+    """
+
+    def __init__(self, refs):
+        self.refs = refs
+
+    def __str__(self):
+        return " and ".join(
+            "finding %d (%s:%d, %s)" % (r["finding"], r["file"], r["line"], r["rule"])
+            for r in self.refs
+        )
+
+
 def plan_findings(text, blocks, rel, findings, numbers=None):
     """Plan one file's approved findings against one snapshot of it.
 
     Returns (new text or None, applied, rejected). The new text is None only
-    when the batch as a whole cannot be applied, as when two findings overlap.
-    Nothing is written here; cmd_apply decides that. `numbers` are the
-    findings' places in the whole batch, so a rejection can name one; they
-    default to counting from 1.
+    when the batch as a whole cannot be applied, as when two findings overlap,
+    and the rejection then names both. Nothing is written here; cmd_apply
+    decides that. stage_findings does the planning.
+    """
+    staged = stage_findings(text, blocks, rel, findings, numbers)
+    try:
+        return staged.engine.result(), staged.applied, staged.rejected
+    except Fatal as exc:
+        staged.rejected.append("%s  %s" % (rel, exc))
+        return None, staged.applied, staged.rejected
+
+
+class Staged:
+    """One file's findings, checked and turned into edits, not yet applied.
+
+    `accepted` holds (finding number, finding, start, end) for each finding
+    that passed its checks, `applied` and `rejected` what plan_findings
+    returns, and `engine` the edits, labeled with the findings they carry out.
+    """
+
+    def __init__(self, engine, accepted, applied, rejected):
+        self.engine = engine
+        self.accepted = accepted
+        self.applied = applied
+        self.rejected = rejected
+
+
+def stage_findings(text, blocks, rel, findings, numbers=None):
+    """Check one file's findings and turn the ones that pass into edits.
+
+    `numbers` are the findings' places in the whole batch, so a rejection can
+    name one; they default to counting from 1.
 
     locate works out where each finding is. A finding whose span holds a
     newline crosses lines, and every line it reaches has to be a paragraph or
@@ -2749,7 +2808,7 @@ def plan_findings(text, blocks, rel, findings, numbers=None):
     a finding of its own is left alone.
     """
     engine = EditEngine(text)
-    applied, rejected, accepted = [], [], []
+    applied, rejected, accepted, placed = [], [], [], []
     for n, f in zip(numbers or range(1, len(findings) + 1), findings):
         line = int(f.get("line", 0))
         if line < 1 or line > text.line_count():
@@ -2804,21 +2863,20 @@ def plan_findings(text, blocks, rel, findings, numbers=None):
             )
             continue
         touched = set(range(line, (text.line_of(b - 1) if b > a else line) + 1))
-        accepted.append((a, b, new, touched))
+        ref = {"finding": n, "file": rel, "line": line, "rule": f["rule"]}
+        accepted.append((a, b, new, touched, ref))
+        placed.append((n, f, a, b))
         applied.append({"file": rel, "line": line, "rule": f["rule"]})
 
     cut = cut_lines(text, accepted)
-    for a, b, new, touched in accepted:
+    for a, b, new, touched, ref in accepted:
         if not touched <= cut:
-            engine.replace(a, b, new)
+            engine.replace(a, b, new, FindingLabel([ref]))
     marked = set().union(*(x[3] for x in accepted))
     for start, end in cut_runs(text, blocks, cut, marked):
-        engine.replace(start, end, "")
-    try:
-        return engine.result(), applied, rejected
-    except Fatal as exc:
-        rejected.append("%s  %s" % (rel, exc))
-        return None, applied, rejected
+        inside = [x[4] for x in accepted if x[3] <= cut and start <= x[0] and x[1] <= end]
+        engine.replace(start, end, "", FindingLabel(inside) if inside else None)
+    return Staged(engine, placed, applied, rejected)
 
 
 def cut_lines(text, accepted):
@@ -2834,7 +2892,7 @@ def cut_lines(text, accepted):
     nothing changes.
     """
     spans, kept = {}, set()
-    for a, b, new, touched in accepted:
+    for a, b, new, touched, _ref in accepted:
         if new:
             kept |= touched
         for line in touched:
@@ -2856,7 +2914,7 @@ def cut_lines(text, accepted):
     changed = True
     while changed:
         changed = False
-        for _a, _b, _new, touched in accepted:
+        for _a, _b, _new, touched, _ref in accepted:
             if touched & out and not touched <= out:
                 out -= touched
                 changed = True
@@ -2929,6 +2987,8 @@ findings:
   col_end      optional: the column the span ends at, on the same line.
                With both columns, text may be left out, and without text
                the columns default to the whole line
+  why          optional: one clause saying why, which report shows and
+               apply ignores
 
   A replacement may hold a newline when the finding starts in a paragraph,
   or when its span already crosses a line. A span can cross lines only
@@ -2942,16 +3002,20 @@ example:
 """
 
 
-def cmd_apply(args):
-    repo, config, scope = load(args)
+def select_findings(args, config):
+    """The findings --only and --file keep, by file, and the ones refused.
+
+    Returns (by_file, rejected). by_file maps each file to its
+    findings as (place in the whole batch, counting from 1, finding).
+    """
     findings = read_json(args.findings, "findings")
     only = set(x.strip() for x in args.only.split(",")) if args.only else None
     files = set(os.path.normpath(p) for p in args.file) if args.file else None
     known = config.by_id()
 
-    # The filters are how an approval by rule or by file reaches this command,
-    # so the model never trims the findings by hand. They combine: a finding
-    # is kept only if it passes both.
+    # The filters are how an approval by rule or by file reaches apply, so
+    # the model never trims the findings by hand. They combine: a finding is
+    # kept only if it passes both.
     by_file, rejected = {}, []
     for n, f in enumerate(findings):
         if only and f.get("rule") not in only:
@@ -2979,16 +3043,103 @@ def cmd_apply(args):
     if not unmatched and (only or files) and not by_file and not rejected:
         unmatched.append("--only and --file together match no finding")
     rejected.extend(unmatched)
+    return by_file, rejected
 
-    staged, applied = [], []
+
+def selected_files(repo, by_file, rejected):
+    """(path, rel, text, numbers, findings) for each selected file that exists.
+
+    A file that does not exist is added to `rejected` instead.
+    """
+    out = []
     for rel in sorted(by_file):
         path = repo.abspath(rel) if rel else None
         if not rel or not os.path.exists(path):
             rejected.append("%s  no such file" % rel)
             continue
-        text = Text.read(path)
         numbers = [n for n, _f in by_file[rel]]
         mine = [f for _n, f in by_file[rel]]
+        out.append((path, rel, Text.read(path), numbers, mine))
+    return out
+
+
+# What the report shows for an empty text, which would otherwise print as
+# nothing at all and read as a finding with its text missing.
+REPORT_NOTHING = "(nothing: this inserts)"
+REPORT_CUT = "(cut)"
+REPORT_LABEL_WIDTH = len("proposed") + 2
+
+
+def report_field(label, value):
+    """One labeled field of a report row, with a wrapped text's later lines
+    indented under its first, so a newline in the text shows where it is.
+    """
+    pad = " " * (2 + REPORT_LABEL_WIDTH)
+    lines = value.split("\n")
+    out = ["  %-*s%s" % (REPORT_LABEL_WIDTH, label, lines[0])]
+    out.extend(pad + ln for ln in lines[1:])
+    return "\n".join(out)
+
+
+def edit_refs(edit):
+    """The findings an edit carries out, as FindingLabel holds them."""
+    label = edit[3]
+    return label.refs if isinstance(label, FindingLabel) else []
+
+
+def cmd_report(args):
+    """The findings as the author approves them, read against the files now.
+
+    The current text is what is at each finding's place in the file, not what
+    the finding says is there, so the report cannot show one text and apply
+    change another. A finding apply would refuse is an error here too, and so
+    is each pair of findings apply could not do both of.
+    """
+    repo, config, _ = load(args)
+    by_file, rejected = select_findings(args, config)
+    rows, overlaps = [], []
+    for _path, rel, text, numbers, mine in selected_files(repo, by_file, rejected):
+        staged = stage_findings(text, Blocks(text), rel, mine, numbers)
+        rejected.extend(staged.rejected)
+        for n, f, a, b in staged.accepted:
+            rows.append(
+                {
+                    "finding": n,
+                    "file": rel,
+                    "line": int(f["line"]),
+                    "rule": f["rule"],
+                    "current": text.s[a:b],
+                    "proposed": f.get("replacement", ""),
+                    "why": f.get("why", ""),
+                }
+            )
+        for x, y in staged.engine.conflicts():
+            overlaps.append({"first": edit_refs(x), "second": edit_refs(y)})
+            rejected.append(
+                "%s  %s overlaps %s; they cannot both apply"
+                % (rel, EditEngine.describe(x), EditEngine.describe(y))
+            )
+    rows.sort(key=lambda r: (r["file"], r["line"], r["finding"]))
+    data = {"findings": rows, "overlaps": overlaps}
+
+    def human():
+        for r in rows:
+            print("%s:%d  %s  (finding %d)" % (r["file"], r["line"], r["rule"], r["finding"]))
+            print(report_field("current", r["current"] or REPORT_NOTHING))
+            print(report_field("proposed", r["proposed"] or REPORT_CUT))
+            if r["why"]:
+                print(report_field("why", r["why"]))
+            print()
+        print("%d finding(s) in %d file(s)" % (len(rows), len(set(r["file"] for r in rows))))
+
+    return emit(args, "report", repo.root, data, errors=rejected, human=human)
+
+
+def cmd_apply(args):
+    repo, config, _ = load(args)
+    by_file, rejected = select_findings(args, config)
+    staged, applied = [], []
+    for path, rel, text, numbers, mine in selected_files(repo, by_file, rejected):
         new, done, refused = plan_findings(text, Blocks(text), rel, mine, numbers)
         applied.extend(done)
         rejected.extend(refused)
@@ -3257,26 +3408,41 @@ def build_parser():
             t.add_argument("--dry-run", action="store_true")
     p.set_defaults(func=cmd_tags)
 
-    p = sub.add_parser(
-        "apply",
-        parents=[common],
-        help="apply approved rewrites",
-        description="Apply approved rewrites.",
-        epilog=FINDINGS_HELP,
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-    )
-    p.add_argument(
+    # report and apply read one findings file through the same filters, so
+    # the report the author approves is the batch apply is handed.
+    findings = argparse.ArgumentParser(add_help=False)
+    findings.add_argument(
         "--findings",
         required=True,
         metavar="FILE",
         help="JSON array of findings, described below, or - for stdin",
     )
-    p.add_argument("--only", metavar="ID,ID", help="only these rule ids")
-    p.add_argument(
+    findings.add_argument("--only", metavar="ID,ID", help="only these rule ids")
+    findings.add_argument(
         "--file",
         action="append",
         metavar="PATH",
         help="only findings in this file; repeat for more",
+    )
+
+    p = sub.add_parser(
+        "report",
+        parents=[common, findings],
+        help="the findings, for approval",
+        description="Print the findings for approval, read against the files as they are now, "
+        "and name every pair of them that overlaps.",
+        epilog=FINDINGS_HELP,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p.set_defaults(func=cmd_report)
+
+    p = sub.add_parser(
+        "apply",
+        parents=[common, findings],
+        help="apply approved rewrites",
+        description="Apply approved rewrites.",
+        epilog=FINDINGS_HELP,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     p.add_argument(
         "--partial",
