@@ -21,15 +21,16 @@ which machine it ran on.
 ## Locate the script
 
 ```sh
-PROSE="${CLAUDE_PLUGIN_ROOT:-${CLAUDE_SKILL_DIR}/../..}/scripts/prose.py"
+ROOT="${CLAUDE_PLUGIN_ROOT:-${CLAUDE_SKILL_DIR}/../..}"
+PROSE="$ROOT/scripts/prose.py"
 ls "$PROSE" || echo "prose-tuning is not installed as a plugin here"
 ```
 
-Then follow `reference/setup.md`. It says where every command below runs. On
-Cowork, both files have to be in connected folders, and a `--file` outside
-this project is given as `"$HOME/mnt"/<folder>/prose-style.md`. Promoting a
-rule into the scaffold template is repo work, done in Claude Code against a
-checkout of `claude-plugins`.
+Then follow `$ROOT/reference/setup.md`. It says where every command below
+runs. On Cowork, both files have to be in connected folders, and a `--file`
+outside this project is given as `"$HOME/mnt"/<folder>/prose-style.md`.
+Promoting a rule into the scaffold template is repo work, done in Claude Code
+against a checkout of `claude-plugins`.
 
 ## Step 1: parse both files
 

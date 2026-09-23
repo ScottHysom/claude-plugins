@@ -11,14 +11,16 @@ edits and works out what rule each one implies. It then writes the rules into `p
 ## Locate the script
 
 ```sh
-PROSE="${CLAUDE_PLUGIN_ROOT:-${CLAUDE_SKILL_DIR}/../..}/scripts/prose.py"
+ROOT="${CLAUDE_PLUGIN_ROOT:-${CLAUDE_SKILL_DIR}/../..}"
+PROSE="$ROOT/scripts/prose.py"
 ls "$PROSE" || echo "prose-tuning is not installed as a plugin here"
 ```
 
-Then follow `reference/setup.md`. It says where every command below runs.
+Then follow `$ROOT/reference/setup.md`. It says where every command below
+runs.
 
-Read `reference/tag-vocabulary.md` before inserting any markup. It is normative
-and the script enforces it.
+Read `$ROOT/reference/tag-vocabulary.md` before inserting any markup. It is
+normative and the script enforces it.
 
 ## Step 1: refuse early
 
@@ -40,7 +42,7 @@ python3 "$PROSE" config init --from <path to templates/prose-style.md>
 ```
 
 On Cowork the template has to be on the device too. Stage it with
-`--template <path>`, as `reference/setup.md` describes, and pass
+`--template <path>`, as `$ROOT/reference/setup.md` describes, and pass
 `.prose-tuning/prose-style.template.md` here.
 
 ## Step 2: read the rules that already exist
@@ -156,7 +158,7 @@ to allocate: an ordinal would only record which rule happened to be written
 first. `check-id` exits non-zero when the name is malformed or already taken,
 which is worth knowing before the file is edited rather than after.
 
-Read `reference/prose-style-format.md` for the shape. Every rule carries a
+Read `$ROOT/reference/prose-style-format.md` for the shape. Every rule carries a
 worked before-and-after taken from the actual edit, because that example is the
 rule's provenance as well as its explanation.
 

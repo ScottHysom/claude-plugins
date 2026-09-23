@@ -54,11 +54,9 @@ Every `python3 "$PROSE" ...` in the skill runs through `device_bash`, with
 cd "$HOME/mnt"/Notes && PROSE=.prose-tuning/prose.py && python3 "$PROSE" preflight --for apply
 ```
 
-- **Use the prefix on every call.** It moves into the project, so a path the
-  skill gives relative to the project root works as written.
-- **Pass JSON on stdin.** Where the skill gives the script JSON, send it with
-  `-` and a heredoc. If a file is needed, put it in `"$TMPDIR"`, never in the
-  project, because nothing written into the project can be deleted.
+- **Use the prefix on every call,** including one that only writes a file. It
+  moves into the project, so a path the skill gives relative to the project
+  root works as written, and `$TMPDIR` is the device's.
 - **If preflight says `.prose-tuning/prose.py` is not ignored,** the
   `.gitignore` beside it didn't arrive. Stage and copy again. Never pass
   `--force` past this blocker.

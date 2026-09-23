@@ -82,9 +82,11 @@ back them. What agents do:
 - **Skills in a plugin share instructions through one file.** When two skills
   need the same step, it lives once, in the plugin's `reference/`, and each
   `SKILL.md` points to it. Before writing a paragraph into a `SKILL.md`, check
-  whether a sibling skill already has it. The one exception is the line that
+  whether a sibling skill already has it. The one exception is the block that
   locates the script: Cowork fills in `${CLAUDE_SKILL_DIR}` only in `SKILL.md`
-  itself.
+  itself. That block sets `ROOT` to the plugin root, and a skill names every
+  shared file from it, as `$ROOT/reference/<file>.md`. A bare `reference/...`
+  reads as the skill's own folder.
 - **A plugin knows only itself.** It never edits another plugin's templates and
   never relies on another plugin's files, because each installs on its own. When
   two plugins meet in a project, they follow a shared convention instead.
