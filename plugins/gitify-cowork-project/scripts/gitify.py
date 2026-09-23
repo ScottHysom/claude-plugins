@@ -104,9 +104,10 @@ GITIGNORE_HEADING = "# This project"
 # What the user puts in the Project Instructions field in place of what was
 # there. Cowork adds the field to every conversation in the project, so it
 # carries only this line. The line stays even when the project is the connected
-# folder, whose CLAUDE.md Cowork loads by itself: the field is the only project
-# text the first message of a conversation sees. COWORK.md, under "How
-# instruction files load", has what Cowork loads and when.
+# folder, whose CLAUDE.md Cowork also loads by itself: the field reaches every
+# conversation from its start, so the line gets CLAUDE.md read wherever
+# Cowork's own loading does not. COWORK.md, under "How instruction files load",
+# has what Cowork loads and when.
 FIELD_POINTER = "Before anything else, read CLAUDE.md at the root of {path}."
 
 PLACEHOLDER_RE = re.compile(r"\{\{([A-Z_]+)\}\}")
