@@ -64,7 +64,7 @@ also works.
 ## Commit types
 
 [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/).
-Subject under ~70 chars, imperative, lowercase after the colon.
+The subject is under ~70 chars, imperative, and lowercase after the colon.
 
 | Type | Use for |
 |---|---|
@@ -87,7 +87,7 @@ fix: correct three claims in the <section> section
 
 ## Dates
 
-ISO 8601 (`2026-08-20`) wherever a date is written, commit messages included.
+Write every date in ISO 8601 (`2026-08-20`), commit messages included.
 Never `08/20/26`.
 
 ## Skill provenance

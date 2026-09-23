@@ -127,7 +127,7 @@ tool and live outside that constraint, on pytest and hypothesis installed from
 a clone.
 
 That is why the suites are not beside the scripts they test. **Everything under
-`plugins/<name>/` is copied verbatim into every install** - the manifest points
+`plugins/<name>/` is copied verbatim into every install**. The manifest points
 each plugin at its own directory and the whole subtree is copied, with no
 `files` or `exclude` key, no `.claudeignore` and no build step to hold anything
 back. A test file there reaches every user.
@@ -179,7 +179,7 @@ Hypothesis strategy is built from, goes in a helper module named after the
 plugin, like `tests/prose-tuning/prose_samples.py`. `ruff check` fails on a
 `conftest` import.
 
-CI runs the suite on Python 3.9 and 3.13. The floor is not decoration - the
+CI runs the suite on Python 3.9 and 3.13. The floor is not decoration. The
 scripts have to run under whatever Python is already on the machine, which on
 macOS is still 3.9, so no walrus in a comprehension and no `X | Y` unions. The
 floor constrains the test dependencies as well; `requirements-dev.txt` says
@@ -193,12 +193,12 @@ it mattered. Both are load-bearing: a property that fails prints a shrunk
 counterexample, which tells you what broke and nothing about why anyone cared.
 
 Property tests explore a different set of inputs on each run, so CI fixes the
-seed - a red build there is always caused by the diff - while a developer
+seed, so a red build there is always caused by the diff. A developer
 machine explores. When exploring turns something up, pin it with `@example(...)`
 so it is checked every run afterwards, and add the example-based test that says
 what the bug was.
 
-Two habits keep them honest. Mutation-check: break the code the property
+Property tests stay honest through two habits. Mutation-check: break the code the property
 guards and confirm it fails, because a property that passes against broken code
 is a generator producing nothing interesting. Run the tests with
 `PYTHONDONTWRITEBYTECODE=1` while doing it, and confirm the unbroken code passes
@@ -206,7 +206,7 @@ first. Python reuses cached bytecode when a file's size and modification second
 match, so a quick break-and-restore can run a stale copy. macOS's system Python
 keeps that cache in `~/Library/Caches/com.apple.python`, not beside the source,
 so it is easy to miss. And watch for vacuity with
-`--hypothesis-show-statistics` - a round-trip generator whose inputs are all
+`--hypothesis-show-statistics`. A round-trip generator whose inputs are all
 refused proves only that refusing works.
 
 ## Formatting and linting
@@ -225,7 +225,7 @@ ruff check --fix .
 ```
 
 CI runs both as checks, so a pull request fails on unformatted code or a lint
-problem whoever wrote it. Two things run ruff as you go so that rarely happens:
+problem whoever wrote it. Ruff runs as you go in two places, so that rarely happens:
 
 - **Claude Code** runs `.claude/hooks/ruff.py` after every edit to a `.py`
   file, set up in `.claude/settings.json`. It sorts imports, formats, and hands
@@ -310,7 +310,7 @@ python3 .github/scripts/issues.py stale        # claims nobody seems to be worki
 
 The claim is the branch `issue/N` on GitHub. `claim` pushes it in a way only one
 agent can win, then adds the `in-progress` label and a comment so the claim
-shows in the issue list. Two things take the label off: `release`, when a claim
+shows in the issue list. The label comes off in two ways: `release`, when a claim
 is given up, and `.github/workflows/issue-closed.yml`, when the issue closes,
 whether a merged pull request closed it or someone closed it by hand. When the
 label and the branch disagree, the branch is right, and `stale` lists the
@@ -362,7 +362,7 @@ Each plugin carries its own `version` in both `plugin.json` and its
 `marketplace.json` entry. Keep them the same. Bump it whenever the plugin's
 behavior changes, or installed users have no signal that anything did.
 
-Semver, starting at `0.1.0`. Patch for a fix, minor for new behavior, major
+Versions follow semver, starting at `0.1.0`. Patch for a fix, minor for new behavior, major
 when an existing project or workflow would need changing to keep working.
 
 ## License

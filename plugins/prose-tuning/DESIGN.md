@@ -72,7 +72,7 @@ The model does only what needs judgment: inferring a rule, writing prose,
 deciding whether a passage conforms. The script's module docstring lists its
 commands, and the parts of it that look like bugs and are not.
 
-Two parts of the script carry the design.
+These parts of the script carry the design.
 
 ### The tag-neutral diff
 

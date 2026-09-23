@@ -1,6 +1,6 @@
 # The format of prose-style.md
 
-Normative. `prose.py config lint` enforces every rule on this page.
+This page is normative. `prose.py config lint` enforces every rule on this page.
 
 The file lives at `.claude/rules/prose-style.md` in a project repo. Claude Code
 and Cowork both load every file in `.claude/rules/` into their sessions, so
@@ -39,12 +39,10 @@ scope:
 stdlib-only and has no YAML parser, so anything richer would be parsed by
 guesswork. What is allowed: top-level `key: value` pairs, and exactly one
 `scope:` block holding `include:` and `exclude:` lists. Anything else is an
-error, not a shrug - a silently dropped key is a scope override that appears to
+error, not a shrug. A silently dropped key is a scope override that appears to
 work.
 
-`include` and `exclude` replace the defaults wholesale when present. Partial
-override was considered and rejected: "which of the four defaults am I still
-getting" is not a question anyone should answer by reading a script.
+`include` and `exclude` replace the defaults wholesale when present.
 
 The rules file is excluded whatever the override says. A conformance pass
 rewriting its own rulebook is not a thing anyone wants to debug.
@@ -91,13 +89,6 @@ Reword the body freely; the name survives, because the name is about the
 subject, not the wording. A rule whose subject moved far enough to want a
 different name is a different rule, and the one it replaced should have been
 rewritten in place.
-
-Two alternatives were rejected. Content-hash ids are unreadable in a report.
-Positional ids - `sentences-01`, allocated as the next free number - were what
-this file specified first, and they failed twice over: a report naming one says
-nothing without the file open, and two projects that each wrote three `register`
-rules collide on `register-03` for reasons of writing order alone, which is
-exactly the false collision `adopt-prose` then has to put to the author.
 
 Nothing enforces the naming discipline. `config lint` checks the grammar and the
 word count and stops there, the same way it cannot tell that two rules
@@ -165,6 +156,6 @@ no `config migrate`, and there should not be: naming a rule is a reading of what
 that rule means, which is the one thing in this file a script cannot do. Open
 the file, name each rule, and change the headings. Nothing else in a rule moves.
 
-Anything outside the file that quoted an old id - a report, a commit message, a
-cross-reference in another document - is stale afterwards. The cross-references
+Anything outside the file that quoted an old id (a report, a commit message, a
+cross-reference in another document) is stale afterwards. The cross-references
 are worth fixing. The reports are history, and history stays as it was written.

@@ -5,11 +5,11 @@ description: Copy prose rules from one project's prose-style.md into another, or
 
 # Move prose rules between projects
 
-Two uses, one flow:
+This skill has two uses, and one flow serves both:
 
-- **"make this project sound like that one"** - target is this project's
+- **"make this project sound like that one"**: the target is this project's
   `.claude/rules/prose-style.md`.
-- **"promote this rule so new projects get it"** - target is
+- **"promote this rule so new projects get it"**: the target is
   `plugins/prose-tuning/templates/prose-style.md` in the `claude-plugins` repo,
   the rules `config init` starts a project from.
 
@@ -52,7 +52,7 @@ ids. Step 2 says what to do with them.
 
 ## Step 2: classify
 
-Four buckets. The first three are computed by rule id, exactly:
+Every rule lands in one of four buckets. The first three are computed by rule id, exactly:
 
 | Bucket | Test | Action |
 |---|---|---|
@@ -80,7 +80,7 @@ at or above a threshold. Two rules about the same subject usually get similar
 names, which is a signal positional ids could not carry at all.
 
 **The script surfaces candidates; it never decides.** Every pair it prints goes
-to the author in step 4 with both bodies in full - which is the audit that
+to the author in step 4 with both bodies in full, which is the audit that
 automatic similarity merging denies, and the reason this skill refuses to do
 one. A score is a reason to look, never a reason to merge.
 
@@ -106,7 +106,7 @@ positional one had to be renumbered into whatever the target had free.
 
 ## Step 4: questions, one batch
 
-One `AskUserQuestion` set covering every colliding and every similar pair, each
+Ask one `AskUserQuestion` set covering every colliding and every similar pair, each
 showing both bodies in full. Never split them into two rounds: the author is
 deciding one thing, which is what the target's rulebook should say.
 
@@ -127,11 +127,11 @@ that id would be easiest and least noticed.
 python3 "$PROSE" config lint --file <target>
 ```
 
-Must pass.
+The lint must pass.
 
 ## Step 6: when the target is the shipped rules
 
-Three extra obligations, because the shipped rules are part of the plugin:
+Promoting into them carries three extra obligations, because the shipped rules are part of the plugin:
 
 ```sh
 python3 .github/scripts/check-manifest-consistency.py check

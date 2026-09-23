@@ -17,7 +17,7 @@ Do not offer to add any.
 
 ## What this produces
 
-1. Five files in the folder: `.gitignore`, `commit.sh`, `setup.sh`,
+1. The files in the folder: `.gitignore`, `commit.sh`, `setup.sh`,
    `CLAUDE.md`, and a **per-project history skill** at
    `skills/<skill-name>/SKILL.md`. That file is the versioned original.
 2. The **same skill text registered on the account**, via `propose_skills`.

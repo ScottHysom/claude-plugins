@@ -9,7 +9,7 @@ Nothing here comes from documentation. Each point is what a probe in a real
 session printed. A question no probe has answered yet goes under "Not yet
 known", added back when there is one.
 
-## Two machines, and neither has everything
+## The container and the device
 
 | | Container: the model's own shell | Device: `device_bash` |
 |---|---|---|

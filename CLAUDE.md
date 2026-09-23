@@ -56,7 +56,7 @@ back them. What agents do:
 
 - **Split the work.** The model does only what needs judgment: inferring a
   rule, writing prose, deciding whether something conforms. A script does the
-  rest - parsing, selecting files, diffing, validating, reading config, writing
+  rest: parsing, selecting files, diffing, validating, reading config, writing
   results. The test: if two runs on the same input should give the same answer,
   it belongs in the script. A step the model does by hand will eventually be
   done wrong, and nothing will notice.
@@ -99,7 +99,7 @@ back them. What agents do:
 
 ### Script conventions
 
-- **Standard library only, and it must run on Python 3.9** - no `match`, no
+- **Standard library only, and it must run on Python 3.9**: no `match`, no
   `X | Y` unions. ruff formats and lints it; README.md says how and what CI
   checks.
 - **Subcommands from the start.** argparse `add_subparsers(required=True)`, one
@@ -107,7 +107,7 @@ back them. What agents do:
   addition rather than a rewrite. Flags every command takes, such as `--json`
   and `-C/--repo`, go on a shared parent parser instead of being repeated.
 - **Exit codes are named constants, defined once:** `0` clean, `1` ran and
-  found problems, `2` could not run - which is also what argparse exits with on
+  found problems, `2` could not run, which is also what argparse exits with on
   bad usage. Anything that stops the run raises one exception type of the
   script's own; `main()` catches it, writes it to stderr prefixed with the
   script name, and returns 2. `main(argv=None)` returns the code, and
@@ -115,8 +115,8 @@ back them. What agents do:
   closed output pipe exits 0, not with a traceback.
 - **stdout is the result and nothing else.** Warnings, errors and progress go
   to stderr, so a skill can parse stdout. `--json` prints one object with the
-  same top-level keys for every command - `version`, `command`, `ok`, `errors`,
-  `warnings`, `data` - and `version` is bumped when that shape changes. A skill
+  same top-level keys for every command: `version`, `command`, `ok`, `errors`,
+  `warnings`, `data`. The `version` key is bumped when that shape changes. A skill
   that reads a result asks for `--json`. All output goes through one helper,
   which also derives the exit code from whether there were errors.
 - **Constants for repeated values.** File names, defaults, regexes and the
@@ -152,7 +152,7 @@ back them. What agents do:
   one of these directories, and `.github/scripts/check-tests.py placement`
   fails a pull request with a test file anywhere else, including under
   `plugins/`. README.md, under "Running the tests", has the detail.
-- **A plugin's own README mentions tests nowhere** - not a path, not a link.
+- **A plugin's own README mentions tests nowhere**, neither a path nor a link.
   That README is what the desktop app shows someone who installed the plugin.
   What a contributor needs to know about a suite goes here instead.
 - Tests drive commands through `main(argv)` so argparse defaults are the real
@@ -170,8 +170,8 @@ back them. What agents do:
   promise broke rather than which function was touched. `pytest.ini` collects
   only those two prefixes, which means a test named any other way is not run
   and not reported; `.github/scripts/check-tests.py naming` is what catches
-  one. It fails when it has scanned nothing, because the grep it replaced went
-  blind the moment its pathspec stopped matching and stayed green.
+  one. It fails when it has scanned nothing, because the grep it replaced matched no files once
+  its pathspec went stale, and still passed.
 - **prose.py's round trip is the property that must never regress.** For any
   batch, insert then strip returns the file byte-identical; it is the only
   thing between a tagging pass and a mangled document.
@@ -182,8 +182,8 @@ back them. What agents do:
 
 ## Comments and docs
 
-- Do not count things that grow - "six cases", "the last two bugs". Say what
+- Do not count things that grow, such as "six cases" or "the last two bugs". Say what
   the thing is for and let the code be the list; a count is wrong the moment
   someone adds one.
 - Do not repeat an explanation that already lives somewhere. Point to it.
-- Plain words over jargon.
+- Use plain words over jargon.
