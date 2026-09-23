@@ -69,7 +69,7 @@ jobs:
       # `claude plugin validate` checks each manifest alone, so it cannot see two
       # manifests disagreeing with each other. This catches that.
       - name: Check manifests agree with each other
-        run: python3 .github/scripts/check-manifest-consistency.py
+        run: python3 .github/scripts/check-manifest-consistency.py check
 
       # A pull request may close only issues Scott has labelled approved, and
       # only from the issue/N branch that claiming the issue makes. Agents post
