@@ -36,6 +36,7 @@ session printed. Where a point is still a guess, it is under "Not yet known".
   addresses the computer, not the VM.
 - **Never writes under `.git`:** "Writing to .git is not permitted via remote
   tools". That includes `.git/info/exclude`.
+- **Copies dotfiles.** A file named `.gitignore` arrives like any other.
 - **Execute bits are lost.** Run scripts as `sh x.sh` or `python3 x.py`.
 
 ## What the bridge cannot do
@@ -50,9 +51,9 @@ session printed. Where a point is still a guess, it is under "Not yet known".
 ## How skills load
 
 - **`${CLAUDE_SKILL_DIR}` is filled in only in the text of `SKILL.md`,** as the
-  skill loads. It is unset in both shells, and a reference file the skill reads
-  is not filled in. A line that locates a plugin script has to live in
-  `SKILL.md` itself.
+  skill loads. It and `$CLAUDE_PLUGIN_ROOT` are unset in both shells, and a
+  reference file the skill reads is not filled in. A line that locates a plugin
+  script has to live in `SKILL.md` itself.
 - **`propose_skills` takes one `SKILL.md` and nothing else.** A skill that needs
   a bundled script works only from a marketplace install, or from an uploaded
   `.plugin` file.
@@ -94,8 +95,6 @@ session printed. Where a point is still a guess, it is under "Not yet known".
   survive from one call to the next? Until a probe says so, start every call
   from scratch.
 - **Deleting in the VM:** can a file in `$TMPDIR` be deleted?
-- **Dotfiles:** does `device_commit_files` copy a file named `.gitignore`?
-  prose-tuning depends on it.
 
 ## Probing
 
