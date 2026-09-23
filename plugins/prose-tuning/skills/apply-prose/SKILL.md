@@ -119,6 +119,12 @@ END
 cover part of a segment. `text` is exactly the characters between them. `apply`
 compares it with the file and refuses a finding whose text has moved.
 
+To cut a whole line, give a finding that covers every character on it, from
+`col_start` 0 to the line's length, with `"replacement":""`. Two findings side
+by side that do the same between them also count. `apply` removes the line
+itself, and when a cut takes a whole block it keeps one blank line between the
+blocks either side.
+
 ## Step 5: one approval round
 
 Present the findings and take one decision. The decision covers the whole set, a set of rule ids, or a set of files.

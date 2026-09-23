@@ -50,7 +50,7 @@ init writes into it is the main working tree's folder, not the checkout's: run
 from a git worktree, the checkout's folder is a throwaway name
 (Repo.project_name has how).
 
-Two things in here look like bugs and are not:
+Some things in here look like bugs and are not:
 
 1. Files are rewritten in place with open(path, "w") rather than written to a
    temp file and moved into position. The usual temp-file-then-os.replace dance
@@ -61,6 +61,11 @@ Two things in here look like bugs and are not:
    Nothing here writes through git, so no .git/*.lock is ever created. The
    bridge strands those locks because it cannot delete them, which is the whole
    reason the projects this runs against carry a commit.sh.
+
+3. apply can delete a blank line that no finding names. It does so when the
+   findings cut a whole block that sat between two blank lines, so that one
+   blank line is left between its neighbors rather than two. plan_findings
+   has the rule.
 
 Python 3.9 is the floor. No match statements, no X | Y unions.
 """
@@ -2649,6 +2654,162 @@ def cmd_tags(args):
     return emit(args, "tags insert", repo.root, data, errors=refusals, human=human)
 
 
+def plan_findings(text, blocks, rel, findings):
+    """Plan one file's approved findings against one snapshot of it.
+
+    Returns (new text or None, applied, rejected). The new text is None only
+    when the batch as a whole cannot be applied, as when two findings overlap.
+    Nothing is written here; cmd_apply decides that.
+
+    A finding is one line and a column range that stops at the line's end, so
+    on its own it can empty a line but not remove it. A line is cut when it has
+    characters, every finding on it replaces with nothing, and together they
+    cover the whole of it. Consecutive cut lines form a run, and the run is
+    removed with its newlines as one edit in place of its findings' own edits.
+    Without that, cutting a passage left a blank line for every line it had.
+
+    Removing a paragraph that stood between two blank lines would leave those
+    two blank lines touching, so a blank line beside a cut goes too when the
+    line kept before it is blank, or when nothing is kept before or after it.
+    The file keeps one blank line between the blocks either side of the cut,
+    and no blank line at either end. A blank line that is protected or carries
+    a finding of its own is left alone.
+    """
+    engine = EditEngine(text)
+    applied, rejected, accepted = [], [], []
+    for f in findings:
+        line = int(f.get("line", 0))
+        if line < 1 or line > text.line_count():
+            rejected.append("%s:%s  line is outside the file" % (rel, line))
+            continue
+        if blocks.is_protected(line):
+            rejected.append(
+                "%s:%d  is a %s; prose rules do not apply there" % (rel, line, blocks.kind(line))
+            )
+            continue
+        width = len(text.bare(line))
+        col_start = int(f.get("col_start", 0))
+        col_end = int(f.get("col_end", width))
+        # Text.offset validates the line and then adds the column blind, so
+        # a column past the end of its line resolves somewhere further down
+        # the file and this would rewrite a passage nobody approved.
+        if not 0 <= col_start <= col_end <= width:
+            rejected.append(
+                "%s:%d  columns %d-%d are outside the line "
+                "(%d characters)" % (rel, line, col_start, col_end, width)
+            )
+            continue
+        a = text.offset(line, col_start)
+        b = text.offset(line, col_end)
+        if blocks.comment_overlaps(a, b):
+            rejected.append(
+                "%s:%d  columns %d-%d touch an HTML comment; "
+                "prose rules do not apply there" % (rel, line, col_start, col_end)
+            )
+            continue
+        current = text.s[a:b]
+        if f.get("text") is not None and current != f["text"]:
+            rejected.append(
+                "%s:%d  the text moved; expected %r, found %r. "
+                "Re-run the report." % (rel, line, f["text"][:60], current[:60])
+            )
+            continue
+        new = f.get("replacement", "")
+        if blocks.kind(line) == "table" and ("|" in new or "\n" in new):
+            rejected.append("%s:%d  a table cell cannot contain | or a newline" % (rel, line))
+            continue
+        if "\n" in new and blocks.kind(line) != "paragraph":
+            rejected.append(
+                "%s:%d  a %s replacement cannot span lines" % (rel, line, blocks.kind(line))
+            )
+            continue
+        accepted.append((line, col_start, col_end, a, b, new))
+        applied.append({"file": rel, "line": line, "rule": f["rule"]})
+
+    cut = cut_lines(text, accepted)
+    for line, _cs, _ce, a, b, new in accepted:
+        if line not in cut:
+            engine.replace(a, b, new)
+    for start, end in cut_runs(text, blocks, cut, set(x[0] for x in accepted)):
+        engine.replace(start, end, "")
+    try:
+        return engine.result(), applied, rejected
+    except Fatal as exc:
+        rejected.append("%s  %s" % (rel, exc))
+        return None, applied, rejected
+
+
+def cut_lines(text, accepted):
+    """The lines whose every character an accepted finding replaces with nothing.
+
+    A line with any non-empty replacement on it is kept, even if deletions
+    around it cover the rest, because the replacement has to land somewhere.
+    """
+    spans = {}
+    for line, col_start, col_end, _a, _b, new in accepted:
+        spans.setdefault(line, []).append((col_start, col_end, new))
+    out = set()
+    for line, parts in spans.items():
+        width = len(text.bare(line))
+        if not width or any(new for _s, _e, new in parts):
+            continue
+        reach = 0
+        for col_start, col_end, _new in sorted(parts):
+            if col_start > reach:
+                break
+            reach = max(reach, col_end)
+        if reach == width:
+            out.add(line)
+    return out
+
+
+def cut_runs(text, blocks, cut, touched):
+    """(start, end) offsets that remove each run of cut lines, newlines included.
+
+    plan_findings says why a blank line beside a cut can go too. The blank
+    lines are chosen against the lines that survive, not run by run, because
+    two cuts either side of one blank line would otherwise both claim it.
+    """
+
+    def loose(n):
+        return (
+            not text.bare(n).strip()
+            and not blocks.is_protected(n)
+            and n not in touched
+            and (n - 1 in cut or n + 1 in cut)
+        )
+
+    last = text.line_count()
+    removed = set(cut)
+    kept = []
+    for n in range(1, last + 1):
+        if n in cut:
+            continue
+        if loose(n) and (not kept or not text.bare(kept[-1]).strip()):
+            removed.add(n)
+            continue
+        kept.append(n)
+    while kept and loose(kept[-1]):
+        removed.add(kept.pop())
+
+    out = []
+    for n in sorted(removed):
+        if out and out[-1][1] == n - 1:
+            out[-1][1] = n
+        else:
+            out.append([n, n])
+    spans = []
+    for first, final in out:
+        start = text.offset(first)
+        end = text.offset(final + 1) if final < last else text.end
+        # The file ended without a newline. Taking the one before the run
+        # keeps it that way rather than leaving a newline the file never had.
+        if final == last and not text.line(last).endswith("\n") and first > 1:
+            start -= len(text.line(first - 1)) - len(text.bare(first - 1))
+        spans.append((start, end))
+    return spans
+
+
 def cmd_apply(args):
     repo, config, scope = load(args)
     findings = read_json(args.findings, "findings")
@@ -2694,61 +2855,11 @@ def cmd_apply(args):
             rejected.append("%s  no such file" % rel)
             continue
         text = Text.read(path)
-        blocks = Blocks(text)
-        engine = EditEngine(text)
-        for f in by_file[rel]:
-            line = int(f.get("line", 0))
-            if line < 1 or line > text.line_count():
-                rejected.append("%s:%s  line is outside the file" % (rel, line))
-                continue
-            if blocks.is_protected(line):
-                rejected.append(
-                    "%s:%d  is a %s; prose rules do not apply there"
-                    % (rel, line, blocks.kind(line))
-                )
-                continue
-            width = len(text.bare(line))
-            col_start = int(f.get("col_start", 0))
-            col_end = int(f.get("col_end", width))
-            # Text.offset validates the line and then adds the column blind, so
-            # a column past the end of its line resolves somewhere further down
-            # the file and this would rewrite a passage nobody approved.
-            if not 0 <= col_start <= col_end <= width:
-                rejected.append(
-                    "%s:%d  columns %d-%d are outside the line "
-                    "(%d characters)" % (rel, line, col_start, col_end, width)
-                )
-                continue
-            a = text.offset(line, col_start)
-            b = text.offset(line, col_end)
-            if blocks.comment_overlaps(a, b):
-                rejected.append(
-                    "%s:%d  columns %d-%d touch an HTML comment; "
-                    "prose rules do not apply there" % (rel, line, col_start, col_end)
-                )
-                continue
-            current = text.s[a:b]
-            if f.get("text") is not None and current != f["text"]:
-                rejected.append(
-                    "%s:%d  the text moved; expected %r, found %r. "
-                    "Re-run the report." % (rel, line, f["text"][:60], current[:60])
-                )
-                continue
-            new = f.get("replacement", "")
-            if blocks.kind(line) == "table" and ("|" in new or "\n" in new):
-                rejected.append("%s:%d  a table cell cannot contain | or a newline" % (rel, line))
-                continue
-            if "\n" in new and blocks.kind(line) != "paragraph":
-                rejected.append(
-                    "%s:%d  a %s replacement cannot span lines" % (rel, line, blocks.kind(line))
-                )
-                continue
-            engine.replace(a, b, new)
-            applied.append({"file": rel, "line": line, "rule": f["rule"]})
-        try:
-            staged.append((path, rel, engine.result()))
-        except Fatal as exc:
-            rejected.append("%s  %s" % (rel, exc))
+        new, done, refused = plan_findings(text, Blocks(text), rel, by_file[rel])
+        applied.extend(done)
+        rejected.extend(refused)
+        if new is not None:
+            staged.append((path, rel, new))
 
     if rejected and not args.partial:
         rejected.append("nothing was written; pass --partial to apply the rest")
