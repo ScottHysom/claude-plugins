@@ -154,7 +154,7 @@ drift check.
 
 ## Step 6: hand off
 
-The bridge cannot complete a `git commit`; the plugin's README, under "Why
+The bridge cannot complete a `git commit`; the plugin's DESIGN.md, under "Why
 `commit.sh` exists", says why. So tell the user to run, from their own
 terminal:
 
