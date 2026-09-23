@@ -82,3 +82,66 @@ class DescribeSegments:
         assert comment_lines == [22, 23, 24]
         # front matter 3, blockquote 1, fence 3, comment 3
         assert got["protected_lines"] == 10
+
+
+# One of each kind segments hands out, for the tests that read its output.
+KINDS = """# Title
+
+A paragraph that
+wraps.
+
+- A list item.
+
+| Term | Meaning |
+|---|---|
+| model | numbers |
+"""
+
+
+def run_text(prose_repo, capsys, *argv):
+    """Run segments without --json. Returns (exit code, stdout, stderr)."""
+    capsys.readouterr()
+    code = prose.main(["segments", *argv, "-C", str(prose_repo.root)])
+    out, err = capsys.readouterr()
+    return code, out, err
+
+
+class DescribeTheSegmentsCommand:
+    def it_prints_one_line_per_segment_with_its_address_kind_and_text(self, prose_repo, capsys):
+        (prose_repo.root / "kinds.md").write_text(KINDS)
+        code, out, err = run_text(prose_repo, capsys, "kinds.md")
+        assert code == prose.OK
+        assert err == ""
+        assert out == (
+            "kinds.md:1:2-7  heading  Title\n"
+            "kinds.md:3:0-16  paragraph  A paragraph that\n"
+            "kinds.md:4:0-6  paragraph  wraps.\n"
+            "kinds.md:6:2-14  list-item  A list item.\n"
+            "kinds.md:8:2-6  table-cell  Term\n"
+            "kinds.md:8:9-16  table-cell  Meaning\n"
+            "kinds.md:10:2-7  table-cell  model\n"
+            "kinds.md:10:10-17  table-cell  numbers\n"
+        )
+
+    def it_reads_every_file_in_scope_when_given_no_path(self, prose_repo, capsys):
+        (prose_repo.root / "kinds.md").write_text(KINDS)
+        code, out, _ = run_text(prose_repo, capsys)
+        assert code == prose.OK
+        assert {line.split(":", 1)[0] for line in out.splitlines()} == {"kinds.md", "target.md"}
+
+    def it_prints_one_summary_line_per_file_and_the_totals(self, prose_repo, capsys):
+        (prose_repo.root / "target.md").write_text(KINDS)
+        code, out, _ = run_text(prose_repo, capsys, "--summary")
+        assert code == prose.OK
+        chars = len("TitleA paragraph thatwraps.A list item.TermMeaningmodelnumbers")
+        assert out == (
+            "target.md  8 segment(s), %d character(s), 0 protected line(s) of 10\n"
+            "\n"
+            "1 file(s), 8 segment(s), %d character(s)\n" % (chars, chars)
+        )
+
+    def it_leaves_the_segments_out_of_the_json_summary(self, prose_repo):
+        code, envelope = prose_repo.run("segments", "--summary", "target.md")
+        assert code == prose.OK
+        assert "segments" not in envelope["data"]["target.md"]
+        assert envelope["data"]["target.md"]["segment_count"] > 0
