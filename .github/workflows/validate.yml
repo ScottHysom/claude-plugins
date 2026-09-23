@@ -148,3 +148,11 @@ jobs:
       # also proves the script itself runs on the 3.9 floor.
       - name: Check test naming
         run: python3 .github/scripts/check-tests.py naming
+
+      # A step two of a plugin's skills share lives once in the plugin's
+      # reference/, and each SKILL.md points to it. A copy pasted into a second
+      # SKILL.md reads fine in either file and drifts the first time one is
+      # edited. In #44 only review caught the copies. Like the naming check,
+      # it fails when it has scanned nothing.
+      - name: Check skills share steps rather than copy them
+        run: python3 .github/scripts/check-skills.py repeats

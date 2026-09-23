@@ -86,7 +86,9 @@ back them. What agents do:
   locates the script: Cowork fills in `${CLAUDE_SKILL_DIR}` only in `SKILL.md`
   itself. That block sets `ROOT` to the plugin root, and a skill names every
   shared file from it, as `$ROOT/reference/<file>.md`. A bare `reference/...`
-  reads as the skill's own folder.
+  reads as the skill's own folder. `.github/scripts/check-skills.py repeats`
+  fails a pull request that copies a block between two of a plugin's skills;
+  its docstring says what it counts and how the exception is drawn.
 - **A plugin knows only itself.** It never edits another plugin's templates and
   never relies on another plugin's files, because each installs on its own. When
   two plugins meet in a project, they follow a shared convention instead.
