@@ -42,6 +42,7 @@ class DescribeStage:
         assert [c["devicePath"] for c in env["data"]["commit_files"]] == [
             FOLDER + "/.prose-tuning/prose.py",
             FOLDER + "/.prose-tuning/.gitignore",
+            FOLDER + "/.prose-tuning/prose-style.template.md",
         ]
         assert [c["stagedPath"] for c in env["data"]["commit_files"]] == [
             f["staged_path"] for f in env["data"]["files"]
@@ -78,12 +79,15 @@ class DescribeStage:
         )
         assert env["data"]["device_setup"].startswith("cd \"$HOME/mnt\"/'Claude Projects/Notes' ")
 
+    def it_stages_the_shipped_rules_beside_the_script(self, tmp_path, capsys):
+        _, env, _ = stage(capsys, "--folder", FOLDER, "--stage", str(tmp_path))
+        with open(prose.shipped_template(), "rb") as fh:
+            shipped = fh.read()
+        with open(entry(env, prose.DEVICE_TEMPLATE)["staged_path"], "rb") as fh:
+            assert fh.read() == shipped
+
     def it_checks_every_staged_file_by_checksum_on_the_device(self, tmp_path, capsys):
-        template = tmp_path / "prose-style.md"
-        template.write_text("---\nname: T\n---\n")
-        _, env, _ = stage(
-            capsys, "--folder", FOLDER, "--template", str(template), "--stage", str(tmp_path / "s")
-        )
+        _, env, _ = stage(capsys, "--folder", FOLDER, "--stage", str(tmp_path / "s"))
         lines = env["data"]["check_command"].split("\n")
         assert lines[1:-1] == ["%s  %s" % (f["sha256"], f["file"]) for f in env["data"]["files"]]
         assert [f["file"] for f in env["data"]["files"]] == [

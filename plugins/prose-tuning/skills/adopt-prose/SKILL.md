@@ -1,6 +1,6 @@
 ---
 name: adopt-prose
-description: Copy prose rules from one project's prose-style.md into another, or into the cowork-project-scaffold plugin's templates/prose-style.md so newly scaffolded projects ship with them. Rules the target lacks are added as-is with their origin recorded; rules that collide on the same id, and rules that state the same thing under two different ids, are shown side by side in one batch for the author to resolve. Use when asked to adopt another project's prose rules, to promote a rule into the scaffold template, to share a style rule between two projects, or to merge two prose-style.md files. Never commits.
+description: Copy prose rules from one project's prose-style.md into another, or into the rules prose-tuning ships so every new prose-style.md starts with them. Rules the target lacks are added as-is with their origin recorded; rules that collide on the same id, and rules that state the same thing under two different ids, are shown side by side in one batch for the author to resolve. Use when asked to adopt another project's prose rules, to promote a rule into the shipped rules, to share a style rule between two projects, or to merge two prose-style.md files. Never commits.
 ---
 
 # Move prose rules between projects
@@ -10,11 +10,11 @@ Two uses, one flow:
 - **"make this project sound like that one"** - target is this project's
   `prose-style.md`.
 - **"promote this rule so new projects get it"** - target is
-  `plugins/cowork-project-scaffold/skills/new-cowork-project/templates/prose-style.md`
-  in the `claude-plugins` repo.
+  `plugins/prose-tuning/templates/prose-style.md` in the `claude-plugins` repo,
+  the rules `config init` starts a project from.
 
 The second is the only sanctioned route from a project back into the shipped
-default. `update-prose-config` deliberately cannot do it: a skill that writes
+rules. `update-prose-config` deliberately cannot do it: a skill that writes
 outside the repo it was invoked in is a skill whose blast radius depends on
 which machine it ran on.
 
@@ -29,7 +29,7 @@ ls "$PROSE" || echo "prose-tuning is not installed as a plugin here"
 Then follow `$ROOT/reference/setup.md`. It says where every command below
 runs. On Cowork, both files have to be in connected folders, and a `--file`
 outside this project is given as `"$HOME/mnt"/<folder>/prose-style.md`.
-Promoting a rule into the scaffold template is repo work, done in Claude Code
+Promoting a rule into the shipped rules is repo work, done in Claude Code
 against a checkout of `claude-plugins`.
 
 ## Step 1: parse both files
@@ -127,22 +127,23 @@ python3 "$PROSE" config lint --file <target>
 
 Must pass.
 
-## Step 6: when the target is the scaffold template
+## Step 6: when the target is the shipped rules
 
-Three extra obligations, because the template is shipped code:
+Three extra obligations, because the shipped rules are part of the plugin:
 
 ```sh
 python3 .github/scripts/check-manifest-consistency.py check
 ```
 
-- **Bump `cowork-project-scaffold`** in both `.claude-plugin/plugin.json` and
-  the root `.claude-plugin/marketplace.json`. They must match or CI fails. A new
+- **Bump `prose-tuning`** in both its `.claude-plugin/plugin.json` and the
+  root `.claude-plugin/marketplace.json`. They must match or CI fails. A new
   rule is a minor bump; rewording one is a patch.
-- **Say which already-scaffolded projects now differ.** They do not update
-  themselves. Regenerating an existing project's files is a deliberate act that
-  discards hand-tuning, and it is the author's call, not this skill's.
+- **Say that projects already started from the shipped rules now differ.**
+  They do not update themselves. Bringing one into line is this skill run
+  again, with the shipped rules as the source and that project as the target,
+  and it is the author's call, not this run's.
 - **Keep the `FILL` markers.** A rule promoted out of a real project usually has
-  that project's example baked into it. The template version needs the example
+  that project's example baked into it. The shipped version needs the example
   replaced by a `FILL` telling the next project what to supply, or every project
   inherits a worked example about something it has never heard of.
 

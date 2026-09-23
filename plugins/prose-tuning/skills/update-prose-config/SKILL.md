@@ -35,15 +35,17 @@ exits 0 even with markup present, because markup present is the normal middle of
 this skill's own run.
 
 If there is no `prose-style.md`, offer `config init`. A project that has never
-had one starts from the scaffold's shipped default rather than from nothing:
+had one starts from the rules this plugin ships rather than from nothing:
 
 ```sh
-python3 "$PROSE" config init --from <path to templates/prose-style.md>
+python3 "$PROSE" config init
 ```
 
-On Cowork the template has to be on the device too. Stage it with
-`--template <path>`, as `$ROOT/reference/setup.md` describes, and pass
-`.prose-tuning/prose-style.template.md` here.
+The shipped rules carry `<!-- FILL: ... -->` notes where a rule wants an
+example or a name from this project. Tell the author they are there; the
+evidence from this run is often what fills them. To start from another
+project's rules instead, pass `--from <path to its prose-style.md>`. To start
+with no rules at all, pass `--empty`.
 
 ## Step 2: read the rules that already exist
 
@@ -226,5 +228,5 @@ does `git show HEAD:<file>` into the file, which works on both.
 ## Scope
 
 This skill writes inside the project repo it was invoked in, and nowhere else.
-Carrying a rule upstream into the scaffold's shipped default is `adopt-prose`'s
+Carrying a rule upstream into the rules this plugin ships is `adopt-prose`'s
 job, and it is deliberate rather than automatic.
