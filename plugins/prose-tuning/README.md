@@ -36,9 +36,11 @@ the project, not only the documents: commit messages, pull request titles and
 descriptions, issues and code comments. The cost is the whole file, in the
 context of every session.
 
-In Cowork the rules arrive with a conversation's second message. The first
-message sees only the Project's Instructions field, so a project that wants the
-rules from the start has the field say to read `.claude/rules/prose-style.md`.
+Cowork does not load the folder for every part of a conversation. A line in
+the Project's Instructions field telling Claude to read
+`.claude/rules/prose-style.md` covers the gap.
+[Designing for Cowork](https://github.com/ScottHysom/claude-plugins/blob/main/COWORK.md#how-instruction-files-load)
+has what Cowork loads and when.
 Finder hides folders whose names start with a dot. Press Cmd-Shift-. to show
 them.
 

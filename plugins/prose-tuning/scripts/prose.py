@@ -35,10 +35,10 @@ script and the shipped rules into the project at .prose-tuning/, beside a
 preflight refuses to run from a copy git would commit.
 
 Where the rules live. A project keeps them in .claude/rules/prose-style.md,
-with no paths: key. Claude Code loads that folder at the start of a session and
-Cowork from its second message, so every agent writing in the project has the
-rules, whether or not a skill runs; COWORK.md, "How instruction files load",
-has what each product loads. A copy at the project root is where they used to
+with no paths: key. Claude Code and Cowork both load that folder into their
+sessions, so every agent writing in the project has the rules, whether or not
+a skill runs. COWORK.md, "How instruction files load", has what each product
+loads and when. A copy at the project root is where they used to
 live and nothing loads it: preflight refuses one, and `config move` copies it
 across.
 
@@ -78,16 +78,13 @@ ENVELOPE_VERSION = 1
 OK, PROBLEMS, CANNOT_RUN = 0, 1, 2
 
 CONFIG_NAME = "prose-style.md"
-# Where a project keeps it. Claude Code and Cowork both load every file in
-# .claude/rules/ that has no paths: key, so the rules are in context for all
-# the project's writing, not only while a skill runs. See "Where the rules
-# live" above.
+# Where a project keeps it. See "Where the rules live" above.
 CONFIG_DIR = ".claude/rules"
 CONFIG_PATH = CONFIG_DIR + "/" + CONFIG_NAME
 # Where it lived before, which preflight refuses and config move leaves behind.
 LEGACY_CONFIG_PATH = CONFIG_NAME
-# The front matter key that scopes a rule file to matching paths. Claude Code
-# then loads the file only when a matching file is read, and Cowork never.
+# The front matter key that scopes a rule file to matching paths, so that it
+# no longer loads in every session. lint rejects it.
 PATHS_KEY = "paths"
 
 # Cowork. See "Where this runs" above.
@@ -617,8 +614,7 @@ class Config:
             if name == PATHS_KEY:
                 self._err(
                     num,
-                    "%s: would load these rules only beside matching files in Claude Code, "
-                    "and never in Cowork; remove it" % PATHS_KEY,
+                    "%s: would stop these rules loading in every session; remove it" % PATHS_KEY,
                 )
                 continue
             self.front[name] = unquote(value)

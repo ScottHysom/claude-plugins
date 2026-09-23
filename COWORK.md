@@ -124,9 +124,8 @@ an existing folder", beside the same files run through Claude Code 2.1.274.
   it up. The project's own `.gitignore` doesn't have to know the plugin exists,
   and no other plugin's templates have to either.
 - **Instructions every session needs go in `.claude/rules/`, with no
-  `paths:`.** Both products load a file there without being asked: Claude
-  Code at session start, Cowork from the second message. A `paths:` key stops
-  it loading in Cowork at all. Unlike the root `CLAUDE.md`, a plugin can add a
+  `paths:`.** Both products load a file there without being asked, as the
+  table above shows, and a `paths:` key takes it out of that row. Unlike the root `CLAUDE.md`, a plugin can add a
   file there without editing one the project owns. The file is the project's
   own and is committed, unlike a plugin's working files in `.<plugin name>/`.
   `prose-tuning` keeps a project's rules in `.claude/rules/prose-style.md`.

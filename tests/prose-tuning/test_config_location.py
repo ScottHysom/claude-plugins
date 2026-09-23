@@ -95,7 +95,7 @@ class DescribePathsKey:
     @pytest.mark.parametrize("line", ['paths: ["**/*.md"]', "paths: docs/**"])
     def it_rejects_a_paths_key_that_would_stop_the_file_loading(self, config_from, line):
         config = config_from("---\nname: X\n%s\n---\n" % line)
-        assert any("never in Cowork" in e for e in config.errors)
+        assert any("loading in every session" in e for e in config.errors)
 
 
 class DescribeDefaultScope:

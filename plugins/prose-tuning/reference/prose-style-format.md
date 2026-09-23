@@ -3,17 +3,15 @@
 Normative. `prose.py config lint` enforces every rule on this page.
 
 The file lives at `.claude/rules/prose-style.md` in a project repo. Claude Code
-loads every file in `.claude/rules/` at the start of a session, and Cowork from
-a conversation's second message, so every agent writing in the project has the
-rules without a skill running. That covers commit messages, pull request text
+and Cowork both load every file in `.claude/rules/` into their sessions, so
+every agent writing in the project has the rules without a skill running. That covers commit messages, pull request text
 and code comments as much as documents. COWORK.md, in the claude-plugins repo,
 has what each product loads and when. It is a file rather than a section inside
 a skill because not every agent loads the skill, and a project is expected to
 diverge from the shipped default.
 
-The front matter never carries `paths:`. That key would make Claude Code load
-the file only when a matching file is read, and Cowork never, so `config lint`
-rejects it.
+The front matter never carries `paths:`. That key would stop the file loading
+in every session, so `config lint` rejects it.
 
 A project whose `prose-style.md` is still at its root, where nothing loads it,
 runs `config move`. It copies the file across, byte for byte, and leaves the
