@@ -111,6 +111,10 @@ x = 1
 ```
 
 Final paragraph.
+
+<!--
+A note for whoever edits this document next.
+-->
 """
 
 TARGET_LINES = {
@@ -121,6 +125,7 @@ TARGET_LINES = {
     "table": 14,
     "fence": 17,
     "last-paragraph": 20,
+    "comment": 23,
 }
 
 # The one rule the throwaway repo's rule file defines. apply rejects a finding
