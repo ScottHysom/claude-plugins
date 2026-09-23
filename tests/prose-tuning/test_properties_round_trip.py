@@ -50,7 +50,7 @@ def records(draw, max_records=3):
     out = []
     for _ in range(draw(st.integers(1, max_records))):
         kind = draw(st.sampled_from(prose.INSERTABLE))
-        # Weighted towards lines and columns that are actually in range. An
+        # Weighted toward lines and columns that are actually in range. An
         # unweighted draw spends most of its budget on records the planner
         # turns down at the first guard, which proves only that refusing works
         # - the interesting failures were pairs of records that both got past
@@ -205,7 +205,7 @@ class DescribeWellFormedRecords:
         """Records that are each fine, together.
 
         Some failures are not reachable one record at a time. A <q> on the first
-        line of a block <del> shares an offset with it; two neighbouring inline
+        line of a block <del> shares an offset with it; two neighboring inline
         <del> spans put one's closing tag on the other's opening offset; an <ins>
         inside another record's <del> is a grammar the scanner rejects. Each record
         passes every guard on its own, and the batch is still wrong.

@@ -70,7 +70,7 @@ Subject under ~70 chars, imperative, lowercase after the colon.
 |---|---|
 | `docs:` | new sections, rewrites, expansions. Most commits |
 | `fix:` | a claim was wrong and is now right. Always explain in the body |
-| `refactor:` | reorganisation with no change of meaning, such as splitting files |
+| `refactor:` | reorganization with no change of meaning, such as splitting files |
 | `chore:` | repo plumbing, gitignore, tooling |
 | `feat:` | a genuinely new artifact, such as a new document |
 

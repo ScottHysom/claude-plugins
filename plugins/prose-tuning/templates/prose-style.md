@@ -246,7 +246,7 @@ lead-in to a bullet.
 <!-- prose-rule: source=shipped -->
 
 "The non-obvious result is in the bolded column" tells the reader what they have
-already found obvious, or have not. Leave the judgement to them.
+already found obvious, or have not. Leave the judgment to them.
 
 > **Before.** The non-obvious result is in the bolded column.
 > **After.** The result in the bolded column:

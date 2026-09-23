@@ -59,7 +59,7 @@ def engine_with(source, edits):
 class DescribeEditEngine:
     @given(source=TEXT, data=st.data())
     def it_finds_every_overlap_with_an_adjacent_pair_scan(self, source, data):
-        """conflicts() checks neighbours; the definition is pairwise."""
+        """conflicts() checks neighbors; the definition is pairwise."""
         edits = data.draw(spans(source))
         assert bool(engine_with(source, edits).conflicts()) is conflicting(edits)
 
@@ -90,7 +90,7 @@ class DescribeEditEngine:
 
         This is what "bottom-up from one snapshot" is supposed to be equivalent to.
         Stating the equivalence is the point - the bottom-up pass is an
-        optimisation of this, and the two only agree while the offsets are all
+        optimization of this, and the two only agree while the offsets are all
         read from the same snapshot.
         """
         edits = data.draw(spans(source))

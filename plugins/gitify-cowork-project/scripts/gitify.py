@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Deterministic half of the gitify-project skill.
 
-The skill uses the model for what needs judgement: running the interview,
+The skill uses the model for what needs judgment: running the interview,
 naming the history skill and writing its description, deciding with the user
 what to keep out of git. Everything else happens here - reading the templates,
 checking the model's answers, filling in placeholders, laying the files out for
@@ -305,7 +305,7 @@ def read_answers(path):
     return data
 
 
-def normalise_folder(value, field):
+def normalize_folder(value, field):
     """A device folder path as the model passed it, checked and without a
     trailing slash. Returns (path, error)."""
     if not isinstance(value, str) or not value:
@@ -334,12 +334,12 @@ def resolve_folders(connected_value, project_value):
     """(Folders, errors) from the two folder answers. Folders is None when
     there are errors."""
     errors = []
-    connected, err = normalise_folder(connected_value, "connected_folder")
+    connected, err = normalize_folder(connected_value, "connected_folder")
     if err:
         errors.append(err)
     project = connected
     if project_value is not None:
-        project, err = normalise_folder(project_value, "project_folder")
+        project, err = normalize_folder(project_value, "project_folder")
         if err:
             errors.append(err)
     if errors:

@@ -63,7 +63,7 @@ Four buckets. The first three are computed by rule id, exactly:
 
 **Compare `body_key`, not `body`.** `config list --json` returns both.
 `body_key` has HTML comments removed and whitespace collapsed, so two rules
-differing only by a `FILL` marker or a line rewrap are recognised as the same
+differing only by a `FILL` marker or a line rewrap are recognized as the same
 rule. Comparing raw bodies makes almost every shipped rule look like a
 collision, and a batch of twenty false collisions is a batch nobody reads.
 
@@ -71,11 +71,11 @@ collision, and a batch of twenty false collisions is a batch nobody reads.
 rule in their own words give it two different names, so it is `new` by id in
 both directions, and adopting it leaves the target holding the same instruction
 twice under two names. Nothing downstream can then be pointed at: a report cites
-one id, a conformance pass honours whichever it reads first, and a later run
+one id, a conformance pass honors whichever it reads first, and a later run
 tries to reconcile rules that were never meant to differ.
 
 `config similar` finds the candidates. It scores every cross-file pair on the
-normalised body and on the overlap between the two names, and prints the pairs
+normalized body and on the overlap between the two names, and prints the pairs
 at or above a threshold. Two rules about the same subject usually get similar
 names, which is a signal positional ids could not carry at all.
 
@@ -86,7 +86,7 @@ one. A score is a reason to look, never a reason to merge.
 
 It is also a floor rather than a ceiling. Read the source rules against the
 target yourself and add any pair the score missed; two rules can say the same
-thing with no words in common. This is judgement, and it is the part of this
+thing with no words in common. This is judgment, and it is the part of this
 skill the script cannot do.
 
 ## Step 3: adopt the new rules

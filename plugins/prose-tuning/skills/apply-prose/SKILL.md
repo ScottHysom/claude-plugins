@@ -160,7 +160,7 @@ The engine rejects a finding rather than trusting it when:
 - a `table-cell` replacement contains a `|` or a newline, which would silently
   restructure the table
 
-Judgement proposes. The engine enforces.
+Judgment proposes. The engine enforces.
 
 ## Step 7: report and stop
 

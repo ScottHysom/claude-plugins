@@ -104,7 +104,7 @@ Write `/tmp/gitify/answers.json`, after `mkdir -p /tmp/gitify`:
   XML tag and rejects the skill.
 - `instructions`: when this Project's instructions field has content, which
   you can see in your own context, copy it here **exactly**, character for
-  character. Do not tidy, summarise or reformat it; it becomes `CLAUDE.md`.
+  character. Do not tidy, summarize or reformat it; it becomes `CLAUDE.md`.
   `null` when the field is empty.
 - `ignore`: the patterns from step 1, or `[]`.
 
