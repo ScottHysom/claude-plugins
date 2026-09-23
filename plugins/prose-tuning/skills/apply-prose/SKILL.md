@@ -76,8 +76,10 @@ spans a prose rule may touch, each with its line, columns and kind.
 | `table-cell` | one cell's text, without its pipes |
 
 What never appears, and why: fenced code and mermaid blocks are code, front
-matter is structured data, blockquotes are usually somebody else's words, and a
-table's delimiter row is structure.
+matter is structured data, blockquotes are usually somebody else's words, HTML
+comments are notes for people rather than the document's prose, and a table's
+delimiter row is structure. A comment part way along a line is cut out, and
+the prose either side of it comes back as separate segments.
 
 Telling a model "do not touch code fences" is a rule that gets broken. Never
 showing it the fence makes the mistake unavailable, and shrinks the context at
@@ -153,7 +155,8 @@ The engine rejects a finding rather than trusting it when:
 - the `text` no longer matches what is at that address, which means the report
   is stale and must be regenerated
 - the rule id is not in `prose-style.md`
-- the line is front matter, a fence or a blockquote
+- the line is front matter, a fence, a blockquote or an HTML comment
+- the columns touch an HTML comment part way along the line
 - a `table-cell` replacement contains a `|` or a newline, which would silently
   restructure the table
 

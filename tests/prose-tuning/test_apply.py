@@ -62,7 +62,7 @@ class DescribeApply:
 class DescribeGuards:
     """One malformed finding, one named rejection, and nothing on disk."""
 
-    @pytest.mark.parametrize("kind", ["frontmatter", "blockquote", "fence"])
+    @pytest.mark.parametrize("kind", ["frontmatter", "blockquote", "fence", "comment"])
     def it_refuses_a_protected_line(self, prose_repo, target_lines, kind):
         before = prose_repo.read()
         code, envelope = prose_repo.apply(
@@ -189,6 +189,50 @@ class DescribeGuards:
         assert errors_of(envelope) == [
             "target.md:%d  a heading replacement cannot span lines" % target_lines["heading"]
         ]
+
+    @pytest.mark.parametrize(
+        "cols",
+        [
+            pytest.param((10, 25), id="the-whole-comment"),
+            pytest.param((0, 12), id="prose-and-the-opening-marker"),
+            pytest.param((15, 15), id="an-insertion-inside-it"),
+        ],
+    )
+    def it_refuses_a_finding_that_touches_an_inline_comment(self, prose_repo, cols):
+        (prose_repo.root / "notes.md").write_text("Some text <!-- a note --> more text.\n")
+        before = prose_repo.read("notes.md")
+        code, envelope = prose_repo.apply(
+            [
+                prose_repo.finding(1, file="notes.md", col_start=cols[0], col_end=cols[1]),
+            ]
+        )
+        assert code == prose.PROBLEMS
+        assert errors_of(envelope) == [
+            "notes.md:1  columns %d-%d touch an HTML comment; prose rules do not apply there" % cols
+        ]
+        assert prose_repo.read("notes.md") == before
+
+    @pytest.mark.parametrize(
+        ("cols", "after"),
+        [
+            pytest.param((0, 9), "rewritten <!-- a note --> more text.\n", id="the-prose-before"),
+            pytest.param(
+                (10, 10), "Some text rewritten<!-- a note --> more text.\n", id="up-to-it"
+            ),
+            pytest.param(
+                (25, 25), "Some text <!-- a note -->rewritten more text.\n", id="just-after"
+            ),
+        ],
+    )
+    def it_applies_a_finding_on_the_prose_beside_an_inline_comment(self, prose_repo, cols, after):
+        (prose_repo.root / "notes.md").write_text("Some text <!-- a note --> more text.\n")
+        code, _ = prose_repo.apply(
+            [
+                prose_repo.finding(1, file="notes.md", col_start=cols[0], col_end=cols[1]),
+            ]
+        )
+        assert code == prose.OK
+        assert prose_repo.read("notes.md") == after
 
     def it_refuses_two_edits_on_the_same_span(self, prose_repo, target_lines):
         """EditEngine applies a batch from one snapshot. Overlapping spans have

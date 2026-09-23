@@ -1,4 +1,4 @@
-"""Blocks decides what each line of a document is, and three of those kinds are
+"""Blocks decides what each line of a document is, and some of those kinds are
 off limits to every rewrite the plugin makes.
 
 This is the classifier the apply guard consults. Asserting it here means a
@@ -10,7 +10,7 @@ import pytest
 
 import prose
 
-PROTECTED = ["frontmatter", "blockquote", "fence"]
+PROTECTED = ["frontmatter", "blockquote", "fence", "comment"]
 
 
 class DescribeBlocks:

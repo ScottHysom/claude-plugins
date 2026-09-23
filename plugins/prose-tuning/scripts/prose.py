@@ -762,9 +762,17 @@ HEADING_RE = re.compile(r"^\s{0,3}(#{1,6})\s+(.*?)\s*#*\s*$")
 LIST_ITEM = re.compile(r"^(\s*)(?:[-*+]|\d+[.)])\s+")
 BLOCKQUOTE = re.compile(r"^\s{0,3}>")
 TABLE_DELIM = re.compile(r"^\s*\|?\s*:?-{1,}:?\s*(?:\|\s*:?-{1,}:?\s*)*\|?\s*$")
+COMMENT_OPEN = "<!--"
+COMMENT_CLOSE = "-->"
+COMMENT_BLOCK = re.compile(r"^\s{0,3}" + re.escape(COMMENT_OPEN))
 
-# Kinds that prose rules must never be applied inside.
-PROTECTED_KINDS = {"frontmatter", "fence", "blockquote"}
+# Kinds that prose rules must never be applied inside. An HTML comment is a
+# note for people - a FILL marker in a scaffolded project is one - and not
+# the document's prose.
+PROTECTED_KINDS = {"frontmatter", "fence", "blockquote", "comment"}
+
+# Kinds whose text can carry an inline comment, `prose <!-- note --> prose`.
+INLINE_COMMENT_KINDS = ("heading", "paragraph", "list-item", "table")
 
 
 class Blocks:
@@ -773,6 +781,16 @@ class Blocks:
     segments uses this so apply-prose is handed only the spans it may rewrite.
     Telling a model "do not touch code fences" is a rule that gets broken;
     never showing it the fence makes the mistake unavailable.
+
+    HTML comments follow CommonMark. A line that opens with `<!--` starts a
+    block that runs through the line holding the next `-->`, or to the end of
+    the file, and every line of it is a "comment", text after the `-->`
+    included. A `<!--` further along a line of prose is inline: it closes at
+    the next `-->` in the same paragraph, or it is literal text. The lines
+    wholly inside it are "comment"; a line only partly inside keeps its kind,
+    and segments hands out the prose either side. self.comments holds every
+    comment's absolute (start, end), so apply can refuse a column range that
+    touches one.
     """
 
     def __init__(self, text):
@@ -781,7 +799,9 @@ class Blocks:
         self.kinds = ["paragraph"] * n
         self.info = [""] * n
         self.headings = []
+        self.comments = []
         self._classify()
+        self._inline_comments()
 
     def _classify(self):
         lines = [self.text.bare(i + 1) for i in range(self.text.line_count())]
@@ -820,6 +840,21 @@ class Blocks:
                 i = j + 1
                 continue
 
+            # Before headings and tables, so a `#` or `|` inside a comment is
+            # never taken for one.
+            if COMMENT_BLOCK.match(line):
+                opened = line.index(COMMENT_OPEN) + len(COMMENT_OPEN)
+                j = i
+                while j < n and COMMENT_CLOSE not in lines[j][opened if j == i else 0 :]:
+                    j += 1
+                j = min(j, n - 1)
+                for k in range(i, j + 1):
+                    self.kinds[k] = "comment"
+                end = self.text.offset(j + 2) if j + 1 < n else self.text.end
+                self.comments.append((self.text.offset(i + 1), end))
+                i = j + 1
+                continue
+
             head = HEADING_RE.match(line)
             if head:
                 self.kinds[i] = "heading"
@@ -852,6 +887,63 @@ class Blocks:
 
             self.kinds[i] = "paragraph"
             i += 1
+
+    def _inline_comments(self):
+        """Find the comments that open part way along a line of prose.
+
+        One closes at the next `-->` before its paragraph ends - a blank line,
+        a protected line or a heading - and a heading's closes on its own line.
+        One that does not close is literal text, as CommonMark has it, and is
+        left as prose rather than hiding everything after it.
+        """
+        s = self.text.s
+        spans = self.code_span_offsets(self.protected_offsets())
+        pos = 0
+        while True:
+            a = s.find(COMMENT_OPEN, pos)
+            if a < 0:
+                break
+            pos = a + len(COMMENT_OPEN)
+            line = self.text.line_of(a)
+            if self.kinds[line - 1] not in INLINE_COMMENT_KINDS:
+                continue
+            if any(x <= a < y for x, y in spans):
+                continue
+            last = line
+            if self.kinds[line - 1] != "heading":
+                while last < len(self.kinds):
+                    nxt = self.kinds[last]
+                    if nxt == "blank" or nxt == "heading" or nxt in PROTECTED_KINDS:
+                        break
+                    last += 1
+            limit = self.text.offset(last) + len(self.text.bare(last))
+            b = s.find(COMMENT_CLOSE, pos, limit)
+            if b < 0:
+                continue
+            pos = b + len(COMMENT_CLOSE)
+            self.comments.append((a, pos))
+            for ln in range(line, self.text.line_of(pos - 1) + 1):
+                start = self.text.offset(ln)
+                outside = self.uncovered(start, start + len(self.text.bare(ln)))
+                if not any(s[x:y].strip() for x, y in outside):
+                    self.kinds[ln - 1] = "comment"
+
+    def comment_overlaps(self, a, b):
+        """Whether the range [a, b) touches an HTML comment. An empty range,
+        an insertion, touches one only from strictly inside it."""
+        return any(x < b and a < y for x, y in self.comments)
+
+    def uncovered(self, a, b):
+        """The parts of [a, b) outside every HTML comment, in order."""
+        out = [(a, b)]
+        for x, y in self.comments:
+            out = [
+                piece
+                for p, q in out
+                for piece in ((p, min(q, x)), (max(p, y), q))
+                if piece[0] < piece[1]
+            ]
+        return out
 
     def kind(self, line):
         return self.kinds[line - 1]
@@ -1514,6 +1606,33 @@ HEADING_PREFIX = re.compile(r"^(\s{0,3}#{1,6}\s+)")
 
 
 def segments_for(text, blocks):
+    """Every prose-eligible span, with inline HTML comments cut out of it.
+
+    A line with no comment on it gives exactly what line_segments does. One
+    with a comment part way along gives the prose either side as separate
+    segments of the same kind, each trimmed, and nothing for the comment.
+    """
+    out = []
+    for seg in line_segments(text, blocks):
+        start = text.offset(seg["line"])
+        whole = (start + seg["col_start"], start + seg["col_end"])
+        pieces = blocks.uncovered(*whole)
+        if pieces == [whole]:
+            out.append(seg)
+            continue
+        raw = text.bare(seg["line"])
+        for x, y in pieces:
+            piece = raw[x - start : y - start]
+            if not piece.strip():
+                continue
+            col_start = x - start + len(piece) - len(piece.lstrip())
+            col_end = y - start - (len(piece) - len(piece.rstrip()))
+            out.append(dict(seg, col_start=col_start, col_end=col_end, text=raw[col_start:col_end]))
+    return out
+
+
+def line_segments(text, blocks):
+    """The prose-eligible span of each line, before comments are cut out."""
     out = []
     for line in range(1, text.line_count() + 1):
         kind = blocks.kind(line)
@@ -2448,6 +2567,12 @@ def cmd_apply(args):
                 continue
             a = text.offset(line, col_start)
             b = text.offset(line, col_end)
+            if blocks.comment_overlaps(a, b):
+                rejected.append(
+                    "%s:%d  columns %d-%d touch an HTML comment; "
+                    "prose rules do not apply there" % (rel, line, col_start, col_end)
+                )
+                continue
             current = text.s[a:b]
             if f.get("text") is not None and current != f["text"]:
                 rejected.append(
