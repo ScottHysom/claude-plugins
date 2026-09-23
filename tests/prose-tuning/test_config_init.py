@@ -6,6 +6,7 @@ parse, and a copy of the script on Cowork's device has to find the rules
 """
 
 import shutil
+import subprocess
 
 import pytest
 
@@ -25,6 +26,38 @@ def fresh_repo(prose_repo):
     """prose_repo with no prose-style.md yet."""
     (prose_repo.root / prose.CONFIG_PATH).unlink()
     return prose_repo
+
+
+def git(cwd, *args):
+    # An identity and no signing, so the commit works on any machine.
+    subprocess.run(
+        [
+            "git",
+            "-c",
+            "user.name=t",
+            "-c",
+            "user.email=t@t",
+            "-c",
+            "commit.gpgsign=false",
+            *args,
+        ],
+        cwd=str(cwd),
+        check=True,
+        capture_output=True,
+    )
+
+
+@pytest.fixture
+def worktree_repo(fresh_repo, tmp_path):
+    """fresh_repo seen from a linked worktree whose folder has another name.
+
+    `git worktree add` needs a commit to check out, which prose_repo leaves
+    out; this makes an empty one.
+    """
+    git(fresh_repo.root, "commit", "-q", "--allow-empty", "-m", "start")
+    checkout = tmp_path / "issue-42-7fdf82"
+    git(fresh_repo.root, "worktree", "add", "-q", str(checkout))
+    return type(fresh_repo)(checkout, fresh_repo._capsys)
 
 
 def install_copy(repo, monkeypatch):
@@ -81,6 +114,31 @@ class DescribeConfigInit:
         code, _ = prose_repo.run("config", "init")
         assert code == prose.CANNOT_RUN
         assert prose_repo.read(prose.CONFIG_PATH) == before
+
+
+class DescribeConfigInitInAWorktree:
+    def it_names_the_project_after_the_main_working_tree(self, worktree_repo):
+        code, env = worktree_repo.run("config", "init")
+        assert code == prose.OK, env["errors"]
+        text = worktree_repo.read(prose.CONFIG_PATH)
+        assert "name: repo prose style" in text
+        assert "issue-42-7fdf82" not in text
+
+    def it_names_the_empty_skeleton_after_the_main_working_tree(self, worktree_repo):
+        worktree_repo.run("config", "init", "--empty")
+        text = worktree_repo.read(prose.CONFIG_PATH)
+        assert "name: repo prose style" in text
+        assert "issue-42-7fdf82" not in text
+
+    def it_names_a_bare_repository_without_its_git_suffix(self, fresh_repo, tmp_path):
+        git(fresh_repo.root, "commit", "-q", "--allow-empty", "-m", "start")
+        bare = tmp_path / "shared.git"
+        git(tmp_path, "clone", "-q", "--bare", str(fresh_repo.root), str(bare))
+        checkout = tmp_path / "issue-42-7fdf82"
+        git(bare, "worktree", "add", "-q", str(checkout))
+        code, env = type(fresh_repo)(checkout, fresh_repo._capsys).run("config", "init")
+        assert code == prose.OK, env["errors"]
+        assert "name: shared prose style" in (checkout / prose.CONFIG_PATH).read_text()
 
 
 class DescribeConfigInitOnTheDevice:
