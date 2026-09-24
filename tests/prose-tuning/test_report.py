@@ -49,6 +49,16 @@ def cut(prose_repo):
     return prose_repo.finding(6, file="doc.md", text=CUT, replacement="")
 
 
+def human_report(prose_repo, capsys, findings):
+    """stdout of a clean report run without --json."""
+    path = prose_repo.findings_file(findings)
+    capsys.readouterr()
+    code = prose.main(["report", "--findings", path, "-C", str(prose_repo.root)])
+    out, err = capsys.readouterr()
+    assert code == prose.OK, err
+    return out
+
+
 class DescribeReport:
     def it_shows_a_finding_across_a_line_break_with_its_text_whole(self, prose_repo):
         write_doc(prose_repo)
@@ -77,11 +87,31 @@ class DescribeReport:
         assert err == ""
         assert (
             "doc.md:3  %s  (finding 1)\n"
-            "  current   Able to state\n"
-            "              what is inside the file.\n"
-            "  proposed  A reader can state what is inside the file.\n"
+            "  current   |Able to state|\n"
+            "            |  what is inside the file.|\n"
+            "  proposed  |A reader can state what is inside the file.|\n"
             "  why       it borrows its subject\n" % wrapped(prose_repo)["rule"]
         ) in out
+
+    def it_fences_a_text_so_a_leading_or_trailing_space_shows(self, prose_repo, capsys):
+        write_doc(prose_repo)
+        finding = dict(dash(prose_repo), replacement=". It stops holding until ")
+        out = human_report(prose_repo, capsys, [finding])
+        assert "  current   | - until|\n" in out
+        assert "  proposed  |. It stops holding until |\n" in out
+
+    def it_shows_a_text_of_only_spaces_as_its_fence(self, prose_repo, capsys):
+        write_doc(prose_repo)
+        # Line 4 opens with the two spaces that indent the wrapped sentence.
+        finding = prose_repo.finding(4, file="doc.md", text="  ", replacement=" ")
+        out = human_report(prose_repo, capsys, [finding])
+        assert "  current   |  |\n" in out
+        assert "  proposed  | |\n" in out
+
+    def it_leaves_the_placeholder_for_an_empty_text_unfenced(self, prose_repo, capsys):
+        write_doc(prose_repo)
+        out = human_report(prose_repo, capsys, [cut(prose_repo)])
+        assert "  proposed  %s\n" % prose.REPORT_CUT in out
 
     def it_takes_the_current_text_from_the_file_when_the_finding_gives_only_columns(
         self, prose_repo

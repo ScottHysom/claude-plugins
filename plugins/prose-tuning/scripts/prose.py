@@ -884,6 +884,10 @@ class Blocks:
     and segments hands out the prose either side. self.comments holds every
     comment's absolute (start, end), so apply can refuse a column range that
     touches one.
+
+    A paragraph line can belong to a list item without being its first line.
+    self.items holds, for each line, the (line, content column) of the list
+    item it belongs to, or None. _items says how a line is placed.
     """
 
     def __init__(self, text):
@@ -895,6 +899,7 @@ class Blocks:
         self.comments = []
         self._classify()
         self._inline_comments()
+        self.items = self._items()
 
     def _classify(self):
         lines = [self.text.bare(i + 1) for i in range(self.text.line_count())]
@@ -980,6 +985,41 @@ class Blocks:
 
             self.kinds[i] = "paragraph"
             i += 1
+
+    def _items(self):
+        """The list item each line belongs to, as (line, content column) or None.
+
+        A list item's line belongs to that item. A paragraph line straight
+        after a line of an item's text belongs to the same item, whatever its
+        indent, as CommonMark's lazy continuation has it. Any other line
+        belongs to the innermost open item whose content column its indent
+        reaches, and closes the items it does not reach. Inside a fence,
+        comment or front matter only the first line counts, because what it
+        holds is not markdown and its indent says nothing about the list.
+        """
+        out = [None] * len(self.kinds)
+        stack = []
+        prev = "blank"
+        for i, kind in enumerate(self.kinds):
+            if kind == "blank" or (kind in PROTECTED_KINDS and kind == prev):
+                prev = kind
+                continue
+            raw = self.text.bare(i + 1)
+            lead = len(raw) - len(raw.lstrip())
+            if kind == "paragraph" and prev in ("paragraph", "list-item") and out[i - 1]:
+                out[i] = out[i - 1]
+            else:
+                while stack and stack[-1][1] > lead:
+                    stack.pop()
+                if kind == "list-item":
+                    stack.append((i + 1, len(LIST_ITEM.match(raw).group(0))))
+                out[i] = stack[-1] if stack else None
+            prev = kind
+        return out
+
+    def item(self, line):
+        """The (line, content column) of the list item `line` belongs to, or None."""
+        return self.items[line - 1]
 
     def _inline_comments(self):
         """Find the comments that open part way along a line of prose.
@@ -1775,15 +1815,18 @@ def line_segments(text, blocks):
             )
         else:
             lead = len(raw) - len(raw.lstrip())
-            out.append(
-                {
-                    "line": line,
-                    "col_start": lead,
-                    "col_end": len(raw),
-                    "kind": "paragraph",
-                    "text": raw.strip(),
-                }
-            )
+            seg = {
+                "line": line,
+                "col_start": lead,
+                "col_end": len(raw),
+                "kind": "paragraph",
+                "text": raw.strip(),
+            }
+            item = blocks.item(line)
+            if item:
+                seg["kind"] = "list-continuation"
+                seg["item"] = item[0]
+            out.append(seg)
     return out
 
 
@@ -2835,7 +2878,9 @@ def stage_findings(text, blocks, rel, findings, numbers=None):
     locate works out where each finding is. A finding whose span holds a
     newline crosses lines, and every line it reaches has to be a paragraph or
     a list item. Only such a finding, or one in a paragraph, may put a newline
-    in its replacement.
+    in its replacement. When the finding starts in a list item, including on
+    a paragraph line that continues one, indent_new_lines keeps every new
+    line inside the item.
 
     A line is cut when it has characters, every finding on it replaces with
     nothing, and together they cover the whole of it. Consecutive cut lines
@@ -2906,6 +2951,9 @@ def stage_findings(text, blocks, rel, findings, numbers=None):
                 "%s:%d  a %s replacement cannot span lines" % (rel, line, blocks.kind(line))
             )
             continue
+        item = blocks.item(line)
+        if item:
+            new = indent_new_lines(new, item[1])
         touched = set(range(line, (text.line_of(b - 1) if b > a else line) + 1))
         ref = {"finding": n, "file": rel, "line": line, "rule": f["rule"]}
         accepted.append((a, b, new, touched, ref))
@@ -2921,6 +2969,22 @@ def stage_findings(text, blocks, rel, findings, numbers=None):
         inside = [x[4] for x in accepted if x[3] <= cut and start <= x[0] and x[1] <= end]
         engine.replace(start, end, "", FindingLabel(inside) if inside else None)
     return Staged(engine, placed, applied, rejected)
+
+
+def indent_new_lines(new, column):
+    """`new` with every line after its first indented to at least `column`.
+
+    A replacement in a list item that starts a line at column 0 ends the item
+    there, and a line starting with `-`, `#` or `1.` turns into a block of its
+    own. A line already indented that far is left as the model wrote it, and
+    so is an empty one, since a blank line inside an item needs no indent.
+    """
+    first, *rest = new.split("\n")
+    out = [first]
+    for piece in rest:
+        lead = len(piece) - len(piece.lstrip(" "))
+        out.append(" " * (column - lead) + piece if piece and lead < column else piece)
+    return "\n".join(out)
 
 
 def cut_lines(text, accepted):
@@ -3036,8 +3100,9 @@ findings:
 
   A replacement may hold a newline when the finding starts in a paragraph,
   or when its span already crosses a line. A span can cross lines only
-  within paragraphs and list items. A table cell's replacement can hold
-  neither a newline nor a |.
+  within paragraphs and list items. In a list item, apply indents each new
+  line to the item's text, so it stays in the item. A table cell's
+  replacement can hold neither a newline nor a |.
 
 example:
   [{"file": "notes.md", "line": 12, "rule": "sentences-own-subject",
@@ -3112,6 +3177,22 @@ def selected_files(repo, by_file, rejected):
 REPORT_NOTHING = "(nothing: this inserts)"
 REPORT_CUT = "(cut)"
 REPORT_LABEL_WIDTH = len("proposed") + 2
+# Each line of a current or proposed text is printed between these, so a
+# space at either end of it shows. A finding's text often starts with one: the
+# dash in "holds - until" is addressed as " - until".
+REPORT_FENCE = "|"
+
+
+def report_text(value, placeholder):
+    """A current or proposed text as the report prints it: each line fenced,
+    or the unfenced placeholder when the text is empty.
+
+    The placeholder stays unfenced so it cannot be read as a text, even one
+    that says "(cut)".
+    """
+    if not value:
+        return placeholder
+    return "\n".join(REPORT_FENCE + ln + REPORT_FENCE for ln in value.split("\n"))
 
 
 def report_field(label, value):
@@ -3169,8 +3250,8 @@ def cmd_report(args):
     def human():
         for r in rows:
             print("%s:%d  %s  (finding %d)" % (r["file"], r["line"], r["rule"], r["finding"]))
-            print(report_field("current", r["current"] or REPORT_NOTHING))
-            print(report_field("proposed", r["proposed"] or REPORT_CUT))
+            print(report_field("current", report_text(r["current"], REPORT_NOTHING)))
+            print(report_field("proposed", report_text(r["proposed"], REPORT_CUT)))
             if r["why"]:
                 print(report_field("why", r["why"]))
             print()

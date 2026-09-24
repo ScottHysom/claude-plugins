@@ -86,6 +86,7 @@ kind and the text, each after two spaces. The text runs to the end of the line.
 |---|---|
 | `paragraph` | body prose, the usual case |
 | `list-item` | the text after the bullet, not the bullet |
+| `list-continuation` | a later line of a list item's text. A new line in its replacement is indented to stay in the item |
 | `heading` | the text after the `#`s. Headings have rules too |
 | `table-cell` | one cell's text, without its pipes |
 
@@ -150,6 +151,9 @@ python3 "$PROSE" report --findings "${TMPDIR:-/tmp}/prose-findings.json"
 
 `report` prints each finding with its `file:line`, rule id, current text,
 proposed text and why. It reads the current text from the file as it is now.
+Each line of a current or proposed text sits between `|` marks, so a space at
+either end shows. `(cut)` and `(nothing: this inserts)` stand for an empty
+text and carry no marks.
 Show the author that output as it stands. Never retype it into a table of
 your own, because the author then approves a text that `apply` never sees.
 

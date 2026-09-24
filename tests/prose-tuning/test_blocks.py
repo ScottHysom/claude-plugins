@@ -35,3 +35,40 @@ class DescribeBlocks:
     def it_leaves_a_line_of_prose_unprotected(self, target, target_lines, kind):
         blocks = prose.Blocks(prose.Text(target))
         assert blocks.is_protected(target_lines[kind]) is False
+
+
+def items(src):
+    """The line of the list item each line belongs to, or None."""
+    blocks = prose.Blocks(prose.Text(src))
+    return [item[0] if item else None for item in blocks.items]
+
+
+class DescribeListItems:
+    """A paragraph line can carry on a list item without starting one.
+
+    apply indents a new line to the item's text only if it knows the line
+    belongs to one, and segments reports it as a list-continuation.
+    """
+
+    def it_gives_an_indented_continuation_line_to_its_item(self):
+        assert items("- First\n  continues.\n- Second.\n") == [1, 1, 3]
+
+    def it_gives_a_lazy_continuation_line_to_its_item(self):
+        assert items("- First\ncontinues lazily.\n") == [1, 1]
+
+    def it_gives_an_indented_paragraph_after_a_blank_line_to_its_item(self):
+        assert items("- First.\n\n  A second paragraph.\n") == [1, None, 1]
+
+    def it_ends_the_list_at_an_unindented_paragraph_after_a_blank_line(self):
+        assert items("- First.\n\nNot in the list.\n") == [1, None, None]
+
+    def it_ends_the_list_at_a_heading(self):
+        assert items("- First.\n# Heading\nProse.\n") == [1, None, None]
+
+    def it_gives_a_line_to_the_innermost_item_its_indent_reaches(self):
+        src = "- Outer\n  - Inner\n    inner text.\n\n  outer text.\n"
+        assert items(src) == [1, 2, 2, None, 1]
+
+    def it_records_the_column_the_item_text_starts_at(self):
+        blocks = prose.Blocks(prose.Text("10. Item\n    more.\n"))
+        assert blocks.item(2) == (1, 4)
