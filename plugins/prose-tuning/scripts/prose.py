@@ -1878,10 +1878,11 @@ def line_segments(text, blocks):
 # pattern matches
 # --------------------------------------------------------------------------
 
-# The kinds a pattern may read on into the next line from. A list item's later
-# lines are classified as paragraph, so they continue it; a line that opens a
-# new list item starts afresh.
-RUN_KINDS = ("paragraph", "list-item")
+# The segment kinds a pattern may read on into the next line from, and the
+# ones that continue the line before. A line that opens a new list item starts
+# afresh.
+RUN_KINDS = ("paragraph", "list-item", "list-continuation")
+CONTINUING_KINDS = ("paragraph", "list-continuation")
 
 
 class ProseRun:
@@ -1931,8 +1932,8 @@ def prose_runs(text, blocks):
     """The eligible prose of a file as runs, each one passage.
 
     A segment joins the run before it when it is the next line of the same
-    paragraph or list item: the line before is a paragraph or list item, this
-    line is a paragraph, and neither is cut short by an HTML comment at the
+    paragraph or list item: the line before is one of RUN_KINDS, this line is
+    one of CONTINUING_KINDS, and neither is cut short by an HTML comment at the
     line break. Anything else starts a new run.
     """
     runs, prev = [], None
@@ -1946,7 +1947,7 @@ def prose_runs(text, blocks):
             and prev["line"] == line - 1
             and prev["kind"] in RUN_KINDS
             and prev["col_end"] >= len(text.bare(prev["line"]).rstrip())
-            and seg["kind"] == "paragraph"
+            and seg["kind"] in CONTINUING_KINDS
             and seg["col_start"] == len(raw) - len(raw.lstrip())
         )
         if not joins:
