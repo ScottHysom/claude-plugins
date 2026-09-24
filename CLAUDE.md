@@ -79,6 +79,16 @@ back them. What agents do:
   `${CLAUDE_PLUGIN_ROOT:-${CLAUDE_SKILL_DIR}/../..}/scripts/<name>.py` and checks
   it exists before the first step. Do not share code between plugins: each
   installs on its own, and cannot import another's.
+- **A shell variable lasts one command.** Each Bash call in Claude Code starts
+  a fresh shell, and so does each `device_bash` call on Cowork. A variable the
+  locate block sets is empty in the next call, and the plugin's install path
+  runs past 200 characters, too long to paste into every command. So the
+  locate block runs the script's first command in the same call, and each
+  later command reaches the script by a path short enough to repeat.
+  prose-tuning's `setup` copies its script into the project at
+  `.prose-tuning/`, which git ignores, and every command starts
+  `PROSE=.prose-tuning/prose.py &&`. `plugins/prose-tuning/reference/setup.md`
+  has the rest.
 - **Skills in a plugin share instructions through one file.** When two skills
   need the same step, it lives once, in the plugin's `reference/`, and each
   `SKILL.md` points to it. Before writing a paragraph into a `SKILL.md`, check
