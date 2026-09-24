@@ -19,6 +19,7 @@ known", added back when there is one.
 | Python | 3.11 | 3.10 |
 | git | Yes | Yes |
 | `$HOME` | `/root` | `/sessions/<session id>` |
+| Each call starts in | `/home/claude`, not `$HOME` | `$HOME` |
 | `$TMPDIR` | Not probed | `$HOME/tmp`, the VM's own disk: files there can be deleted |
 
 - **The container's copy of the folder isn't the folder.**
@@ -31,10 +32,13 @@ known", added back when there is one.
 - **Every `device_bash` call starts afresh,** in `$HOME`, with no variable or
   `cd` kept from the call before. A command that needs the project starts
   with its own `cd`.
-- **Every call to the container's shell starts afresh too.** A variable set
-  in one call is empty in the next, probed on 2026-09-23. Each call started
-  in `/home/claude`; whether a `cd` carries over was not probed. A command
-  that needs a plugin script sets its path in the same call.
+- **Every call to the container's shell starts afresh too,** in
+  `/home/claude`, with no variable or `cd` kept from the call before. After a
+  call that changes directory, the tool adds "Shell cwd was reset to
+  /home/claude" to its output; the command did not print that line. A
+  command that needs a plugin script sets its path in the same call. Probed
+  on 2026-09-23, in a Project with a connected folder and one without, with
+  the same result.
 
 ## Moving files: `device_commit_files`
 
