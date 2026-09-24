@@ -100,6 +100,7 @@ directory under `plugins/` and one new entry in the catalog.
    claude plugin validate --strict plugins/<name>
    python3 .github/scripts/check-manifest-consistency.py check
    python3 .github/scripts/check-skills.py descriptions
+   python3 .github/scripts/check-skills.py commands
    python3 .github/scripts/check-tests.py placement
    pytest
    ```
@@ -110,7 +111,10 @@ directory under `plugins/` and one new entry in the catalog.
    `claude plugin validate` cannot: two manifests that each validate but
    disagree with each other, such as a version bumped in one and not the other.
    The skills check catches a description Cowork's `.plugin` upload would
-   reject, which a marketplace install and `--strict` both accept.
+   reject, which a marketplace install and `--strict` both accept. Its
+   `commands` check puts every script invocation in a skill's shell fences
+   through that script's parser, so a renamed subcommand or flag fails here
+   rather than part way through a run.
    The placement check catches a contributor-only file left under `plugins/`,
    which would otherwise be copied into every install.
 5. Add a `plugin:<name>` label, and the plugin to the Area list in

@@ -10,6 +10,11 @@ nothing.
 XML-like tag, and nothing else in CI notices. The check fails by absence - a
 pattern or a file selection that stops matching passes everything - so each
 rule gets a repo that breaks it and a test that the check says so.
+
+`commands`: a skill naming a subcommand or flag its script lacks sends the
+model into a usage error mid-run. The tests give a throwaway plugin a small
+script with a real parser, and check that each form a skill writes a command
+in reaches that parser, and that a check which found nothing to resolve fails.
 """
 
 import importlib.util
@@ -346,10 +351,213 @@ class DescribeDescriptions:
         assert any("/templates/" in p for p in checked)
 
 
+FOO_SCRIPT = "plugins/foo/scripts/foo.py"
+FOO_REFERENCE = "plugins/foo/reference/setup.md"
+
+# A script with the shape the plugin scripts have: build_parser(), and main()
+# only under __main__.
+FOO_PY = """import argparse
+
+
+def build_parser():
+    ap = argparse.ArgumentParser(prog="foo.py")
+    sub = ap.add_subparsers(dest="command", required=True)
+    p = sub.add_parser("lint")
+    p.add_argument("--file")
+    p.add_argument("--json", action="store_true")
+    config = sub.add_parser("config").add_subparsers(dest="action", required=True)
+    c = config.add_parser("list")
+    c.add_argument("--json", action="store_true")
+    return ap
+
+
+if __name__ == "__main__":
+    raise SystemExit("main ran on import")
+"""
+
+FOO_LOCATE = (
+    "## Locate the script\n\n"
+    "```sh\n"
+    'ROOT="${CLAUDE_PLUGIN_ROOT:-${CLAUDE_SKILL_DIR}/../..}"\n'
+    'FOO="$ROOT/scripts/foo.py"\n'
+    "```\n\n"
+)
+
+
+def uses(fence, script=FOO_PY):
+    """A plugin whose one skill sets $FOO and then runs this fence."""
+    files = {SKILL: skill("foo", FOO_LOCATE + "## Step 1\n\n" + fence)}
+    if script is not None:
+        files[FOO_SCRIPT] = script
+    return files
+
+
+def sh(*lines):
+    return "```sh\n" + "".join(line + "\n" for line in lines) + "```\n"
+
+
+class DescribeCommands:
+    def it_accepts_commands_the_script_has(self, make_repo, run):
+        root = make_repo(uses(sh('python3 "$FOO" lint --json', 'python3 "$FOO" config list')))
+        code, out, err = run("commands", "-C", str(root))
+        assert code == cs.OK, err
+        assert "2 invocation(s) in 1 file(s)" in out
+
+    def it_rejects_an_unknown_subcommand(self, make_repo, run):
+        root = make_repo(uses(sh('python3 "$FOO" config nope')))
+        code, out, err = run("commands", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert out == ""
+        assert "%s:18:" % SKILL in err
+        assert "nope" in err
+        assert "invalid choice" in err
+
+    def it_rejects_an_unknown_flag(self, make_repo, run):
+        root = make_repo(uses(sh('python3 "$FOO" lint --fix')))
+        code, _, err = run("commands", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "unrecognized arguments: --fix" in err
+
+    def it_reads_the_prefix_form(self, make_repo, run):
+        root = make_repo(
+            {
+                SKILL: skill("foo", "No fence here.\n"),
+                FOO_SCRIPT: FOO_PY,
+                FOO_REFERENCE: sh('cd "<dir>" && FOO=.foo/foo.py && python3 "$FOO" lint --bad'),
+            }
+        )
+        code, out, err = run("commands", "--json", "-C", str(root))
+        assert code == cs.PROBLEMS
+        body = json.loads(out)
+        [found] = body["data"]["invocations"]
+        assert found["script"] == FOO_SCRIPT
+        assert found["argv"] == ["lint", "--bad"]
+        assert any(e.startswith(FOO_REFERENCE + ":2:") for e in body["errors"])
+
+    def it_reads_a_variable_a_sibling_file_sets(self, make_repo, run):
+        files = uses(sh('python3 "$FOO" lint'))
+        files[FOO_REFERENCE] = sh('python3 "$FOO" config list --json')
+        root = make_repo(files)
+        code, out, err = run("commands", "--json", "-C", str(root))
+        assert code == cs.OK, err
+        paths = [i["path"] for i in json.loads(out)["data"]["invocations"]]
+        assert FOO_REFERENCE in paths
+
+    def it_accepts_placeholders_and_optional_parts(self, make_repo, run):
+        fence = sh(
+            'python3 "$FOO" lint --file <two words> \\',
+            "  [--json]                # the comment goes",
+        )
+        root = make_repo(uses(fence))
+        code, out, err = run("commands", "--json", "-C", str(root))
+        assert code == cs.OK, err
+        [found] = json.loads(out)["data"]["invocations"]
+        assert found["argv"] == ["lint", "--file", cs.PLACEHOLDER, "--json"]
+
+    def it_checks_the_flag_inside_an_optional_part(self, make_repo, run):
+        root = make_repo(uses(sh('python3 "$FOO" lint [--fix]')))
+        code, _, err = run("commands", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "--fix" in err
+
+    def it_does_not_read_a_heredoc_body(self, make_repo, run):
+        fence = sh(
+            "python3 \"$FOO\" lint --file - <<'END'",
+            'python3 "$FOO" nope',
+            "END",
+            'python3 "$FOO" config list',
+        )
+        root = make_repo(uses(fence))
+        code, out, err = run("commands", "--json", "-C", str(root))
+        assert code == cs.OK, err
+        argvs = [i["argv"] for i in json.loads(out)["data"]["invocations"]]
+        assert argvs == [["lint", "--file", "-"], ["config", "list"]]
+
+    def it_skips_a_fence_that_is_not_shell(self, make_repo, run):
+        fence = sh('python3 "$FOO" lint') + '\n```\npython3 "$FOO" nope\n```\n'
+        fence += '\n```text\npython3 "$FOO" nope\n```\n'
+        root = make_repo(uses(fence))
+        code, _, err = run("commands", "-C", str(root))
+        assert code == cs.OK, err
+
+    def it_reads_a_fence_indented_in_a_list(self, make_repo, run):
+        fence = '1. Run it:\n\n   ```sh\n   python3 "$FOO" nope\n   ```\n'
+        root = make_repo(uses(fence))
+        code, _, err = run("commands", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "nope" in err
+
+    def it_resolves_a_repo_script_by_its_path(self, make_repo, run):
+        files = uses(sh("python3 .github/scripts/bar.py lint --fix"))
+        files[".github/scripts/bar.py"] = FOO_PY
+        root = make_repo(files)
+        code, out, err = run("commands", "--json", "-C", str(root))
+        assert code == cs.PROBLEMS
+        [found] = json.loads(out)["data"]["invocations"]
+        assert found["script"] == ".github/scripts/bar.py"
+        assert "--fix" in json.loads(out)["errors"][0]
+
+    def it_rejects_a_script_that_does_not_exist(self, make_repo, run):
+        root = make_repo(uses(sh('python3 "$FOO" lint'), script=None))
+        code, _, err = run("commands", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "%s does not exist" % FOO_SCRIPT in err
+
+    def it_rejects_a_variable_no_assignment_names(self, make_repo, run):
+        root = make_repo(uses(sh('python3 "$BAR" lint')))
+        code, _, err = run("commands", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "no assignment in plugins/foo/ names a script for $BAR" in err
+
+    def it_rejects_one_variable_naming_two_scripts(self, make_repo, run):
+        files = uses(sh('python3 "$FOO" lint'))
+        files[FOO_REFERENCE] = sh("FOO=.foo/other.py")
+        root = make_repo(files)
+        code, _, err = run("commands", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "plugins/foo/scripts/other.py" in err
+
+    def it_fails_when_a_script_has_no_parser(self, make_repo, run):
+        root = make_repo(uses(sh('python3 "$FOO" lint'), script="print('no parser')\n"))
+        code, _, err = run("commands", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "has no build_parser()" in err
+
+    def it_fails_when_it_finds_no_invocation(self, make_repo, run):
+        root = make_repo(uses(sh("ls")))
+        code, _, err = run("commands", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "found no script invocation" in err
+
+    def it_accepts_the_repo_as_it_stands(self, run):
+        code, out, err = run("commands", "--json", "-C", str(REPO_ROOT))
+        assert code == cs.OK, err
+        scripts = set(i["script"] for i in json.loads(out)["data"]["invocations"])
+        assert "plugins/prose-tuning/scripts/prose.py" in scripts
+        assert "plugins/gitify-cowork-project/scripts/gitify.py" in scripts
+
+
+class DescribeFences:
+    def it_keeps_each_fences_info_string(self):
+        text = "```sh\nls\n```\n\n```\nplain\n```\n\n~~~Text\nx\n~~~\n"
+        assert [f.info for f in cs.fences(text)] == ["sh", "", "text"]
+
+    def it_numbers_body_lines_from_the_file(self):
+        [fence] = cs.fences("intro\n\n```sh\na\nb\n```\n")
+        assert fence.line == 3
+        assert fence.body == [(4, "a"), (5, "b")]
+
+
 class DescribeMain:
-    @pytest.mark.parametrize("command", ["repeats", "descriptions"])
+    @pytest.mark.parametrize("command", ["repeats", "descriptions", "commands"])
     def it_prints_the_same_envelope_for_every_command(self, make_repo, run, command):
-        root = make_repo(DISTINCT)
+        root = make_repo(
+            {
+                A: skill("a", FOO_LOCATE + "## Step 1\n\n" + sh('python3 "$FOO" lint')),
+                B: skill("b", LOCATE + "## Step 1\n\nOnly skill b says this.\n"),
+                FOO_SCRIPT: FOO_PY,
+            }
+        )
         code, out, _ = run(command, "-C", str(root), "--json")
         assert code == cs.OK
         body = json.loads(out)

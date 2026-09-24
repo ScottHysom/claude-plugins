@@ -15,10 +15,18 @@ accepts the same skill, and so does `claude plugin validate --strict`, so CI
 stayed green while the upload failed. COWORK.md, under "How skills load",
 records the difference.
 
+`commands` keeps each command a skill runs one its script accepts. A SKILL.md
+that names a subcommand or flag the script lacks passes review, and the model
+meets the usage error part way through a run and falls back on doing the step
+by hand. `commands` reads every shell fence in a plugin's SKILL.md files and
+reference/ files, and puts each script invocation through that script's own
+build_parser().
+
 Run from anywhere in the clone:
 
     python3 .github/scripts/check-skills.py repeats
     python3 .github/scripts/check-skills.py descriptions
+    python3 .github/scripts/check-skills.py commands
 
 Commands:
 
@@ -26,6 +34,8 @@ Commands:
                 plugin
   descriptions  no description in the front matter of a markdown file under
                 plugins/ holds a `<` followed by a tag-like name
+  commands      every `python3 <script> ...` in a skill's shell fences parses
+                with that script's build_parser()
 
 Every command takes --json and -C/--repo.
 
@@ -68,17 +78,48 @@ Things that look like bugs and are not, in `descriptions`:
 - It fails when it finds no descriptions at all, for the same reason as
   `repeats`.
 
-Both commands:
+Things that look like bugs and are not, in `commands`:
 
-- It only reads, and the only thing it reads through is git, so it is safe to
-  run anywhere - including Cowork's device bridge, where a git write would
-  strand a lock file.
+- A variable is resolved from its assignment anywhere in the same plugin's
+  files, not only earlier in the same file. reference/ files use the $PROSE
+  that SKILL.md's "Locate the script" step sets, and never set it themselves.
+- Only the file name of an assigned path counts. `$ROOT/scripts/prose.py`,
+  `.prose-tuning/prose.py` and `/tmp/gitify/plugin/scripts/gitify.py` are all
+  the plugin's own scripts/<name>, wherever a skill copies or links it. A
+  literal path such as `.github/scripts/check-manifest-consistency.py` is read
+  from the root of the clone.
+- Only fences whose info string is sh, bash or shell are read. A fence with no
+  info string, or a text fence, holds something the model does not run.
+- A `<placeholder>` becomes one word, PLACEHOLDER, and is passed as that text.
+  An argument with `type=` or `choices` therefore needs a real value in the
+  fence. `[optional]` parts lose their brackets and are checked, so an
+  optional flag must exist too.
+- A heredoc's body is not read. It is data the command reads, not a command.
+- `python3 -c` and commands other than python are not checked here. Whether a
+  shell fence may hold them at all is a separate rule.
+- It fails when it finds no invocation at all, or a script with no
+  build_parser(), for the same reason as `repeats`.
+
+All commands:
+
+- They only read. `repeats` and `descriptions` read through git and nothing
+  else. `commands` also imports each script a skill runs, from the working
+  tree, and calls its build_parser(), since only the parser knows the
+  commands the script accepts. The scripts run main() only under
+  `if __name__ == "__main__":`, so importing one runs no command. None of the
+  commands writes a file, so all are safe to run anywhere, including Cowork's
+  device bridge, where a git write would strand a lock file.
 """
 
 import argparse
+import collections
+import contextlib
+import importlib.util
+import io
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 
@@ -95,7 +136,9 @@ LOCATE_SECTION = "Locate the script"
 MARKDOWN = ".md"
 
 FRONT_MATTER = "---"
-FENCE_RE = re.compile(r"^[ \t]*(`{3,}|~{3,})")
+# A fence opener: its indent, its run of backticks or tildes, and its info
+# string, the first word after the marker ("sh" in ```sh).
+FENCE_RE = re.compile(r"^(?P<indent>[ \t]*)(?P<marker>`{3,}|~{3,})[ \t]*(?P<info>[^`\s]*)")
 HEADING_RE = re.compile(r"^#{1,6}[ \t]+(.*?)[ \t#]*$")
 LIST_ITEM_RE = re.compile(r"^[ \t]*(?:[-*+]|\d+[.)])[ \t]+")
 # How much of a repeated block an error quotes.
@@ -106,11 +149,38 @@ CONTINUATION_RE = re.compile(r"^[ \t]+\S")
 # A `<` directly followed by a tag-like name: <ins>, </del>, <br/>. Not `a < b`.
 TAG_RE = re.compile(r"</?[A-Za-z][\w:.-]*")
 
+# The fences `commands` reads. A fence with any other info string is not
+# something the model runs.
+SHELL_INFOS = ("sh", "bash", "shell")
+PYTHONS = ("python3", "python")
+SCRIPT_SUFFIX = ".py"
+SCRIPTS = "scripts"
+BUILD_PARSER = "build_parser"
+# The start of a heredoc, and the word that ends it: <<'END', <<"END", <<END, <<-END.
+HEREDOC_RE = re.compile(r"<<-?[ \t]*(['\"]?)(\w+)\1")
+# A <placeholder> the model fills in. Not the second `<` of `<<`.
+PLACEHOLDER_RE = re.compile(r"(?<!<)<[A-Za-z][^<>]*>")
+# What a placeholder becomes: one word, as the filled-in value would be.
+PLACEHOLDER = "PLACEHOLDER"
+# The brackets around an [optional] part. What is inside is still checked.
+OPTIONAL_RE = re.compile(r"\[([^\[\]]*)\]")
+ASSIGNMENT_RE = re.compile(r"^([A-Za-z_]\w*)=(.*)$")
+VARIABLE_RE = re.compile(r"^\$(?:\{(\w+)\}|(\w+))$")
+SEPARATORS = ("&&", "||", ";", "|")
+REDIRECTIONS = ("<", "<<", ">", ">>")
+
 WHERE_REPEATS = (
     'CLAUDE.md, under "Skills and scripts", says why a step shared by two skills '
     "lives once in the plugin's %s/." % REFERENCE
 )
 WHERE_DESCRIPTIONS = 'COWORK.md, under "How skills load", says why an upload rejects this.'
+WHERE_COMMANDS = (
+    'CLAUDE.md, under "Skills and scripts", says a SKILL.md names the command for '
+    "each step. A command the script rejects sends the model back to doing the step by hand."
+)
+
+
+Fence = collections.namedtuple("Fence", "line info body")
 
 
 class Fatal(Exception):
@@ -199,6 +269,46 @@ def normalize(text):
     return " ".join(text.split())
 
 
+def fence_end(lines, i, marker):
+    """The index of the line closing the fence opened at lines[i].
+
+    The last line, if the fence is never closed.
+    """
+    j = i + 1
+    while j < len(lines):
+        if lines[j].strip().startswith(marker):
+            return j
+        j += 1
+    return len(lines) - 1
+
+
+def fences(text):
+    """Every fenced code block, as [Fence].
+
+    A fence's body keeps its line numbers and loses the fence's own indent, so
+    a fence nested in a list item reads the same as one at the margin.
+    """
+    lines = text.splitlines()
+    out = []
+    i = 0
+    while i < len(lines):
+        fence = FENCE_RE.match(lines[i])
+        if not fence:
+            i += 1
+            continue
+        end = fence_end(lines, i, fence.group("marker"))
+        indent = len(fence.group("indent"))
+        body = []
+        for j in range(i + 1, end if end > i else i + 1):
+            line = lines[j]
+            if line[:indent].strip() == "":
+                line = line[indent:]
+            body.append((j + 1, line))
+        out.append(Fence(i + 1, fence.group("info").lower(), body))
+        i = end + 1
+    return out
+
+
 def blocks(text):
     """The comparable blocks of a SKILL.md, as [(line, normalized text)].
 
@@ -228,15 +338,10 @@ def blocks(text):
         heading = HEADING_RE.match(line)
         if fence:
             flush()
-            marker = fence.group(1)
-            current.append(line)
+            end = fence_end(lines, i, fence.group("marker"))
+            current.extend(lines[i : end + 1])
             start = number
-            i += 1
-            while i < len(lines):
-                current.append(lines[i])
-                if lines[i].strip().startswith(marker):
-                    break
-                i += 1
+            i = end
             flush()
         elif heading:
             flush()
@@ -383,6 +488,234 @@ def cmd_descriptions(args, root):
 
 
 # --------------------------------------------------------------------------
+# commands a skill runs
+# --------------------------------------------------------------------------
+
+
+def instruction_files(files):
+    """Every file a skill's instructions live in, as {plugin: [path, ...]}.
+
+    plugins/<plugin>/skills/<skill>/SKILL.md, and plugins/<plugin>/reference/*.md.
+    """
+    found = {}
+    for path in files:
+        parts = path.split("/")
+        if not parts[0] == PLUGINS or len(parts) < 3:
+            continue
+        skill = len(parts) == 5 and parts[2] == SKILLS and parts[4] == SKILL_FILE
+        reference = len(parts) == 4 and parts[2] == REFERENCE and parts[3].endswith(MARKDOWN)
+        if skill or reference:
+            found.setdefault(parts[1], []).append(path)
+    return found
+
+
+def shell_lines(fence):
+    """The command lines of a shell fence, as [(line, text)].
+
+    Continuation lines are joined onto the line they continue, and a heredoc's
+    body is left out: it is data for the command, not a command.
+    """
+    out = []
+    body = fence.body
+    i = 0
+    while i < len(body):
+        number, text = body[i]
+        while text.endswith("\\") and i + 1 < len(body):
+            i += 1
+            text = text[:-1] + " " + body[i][1].strip()
+        out.append((number, text))
+        heredoc = HEREDOC_RE.search(text)
+        if heredoc:
+            i += 1
+            while i < len(body) and body[i][1].strip() != heredoc.group(2):
+                i += 1
+        i += 1
+    return out
+
+
+def simple_commands(text):
+    """The simple commands on one line, each as a list of words.
+
+    Placeholders become one word, the brackets of an optional part go, comments
+    go, and a redirection goes with its operand.
+    """
+    text = PLACEHOLDER_RE.sub(PLACEHOLDER, text)
+    while OPTIONAL_RE.search(text):
+        text = OPTIONAL_RE.sub(r"\1", text)
+    lexer = shlex.shlex(text, posix=True, punctuation_chars=True)
+    lexer.whitespace_split = True
+    try:
+        tokens = list(lexer)
+    except ValueError as exc:
+        raise Fatal("cannot split %r into words: %s" % (text, exc)) from exc
+    commands, current, skip = [], [], False
+    for token in tokens:
+        if skip:
+            skip = False
+        elif token in SEPARATORS:
+            commands.append(current)
+            current = []
+        elif token in REDIRECTIONS:
+            skip = True
+        else:
+            current.append(token)
+    commands.append(current)
+    return [c for c in commands if c]
+
+
+def script_of(value, plugin):
+    """The script an assigned value names, as a path in the clone, or None.
+
+    Only the file name counts: `$ROOT/scripts/prose.py`, `.prose-tuning/prose.py`
+    and `/tmp/gitify/plugin/scripts/gitify.py` are all the plugin's own
+    scripts/ file of that name, wherever the skill has put it.
+    """
+    if not value.endswith(SCRIPT_SUFFIX):
+        return None
+    return "/".join((PLUGINS, plugin, SCRIPTS, value.rsplit("/", 1)[-1]))
+
+
+def read_commands(root, paths):
+    """Every simple command in the shell fences of these files.
+
+    As [{"path", "line", "text", "words"}], in file order. `text` is the whole
+    line as the fence has it, for quoting in an error.
+    """
+    out = []
+    for path in paths:
+        try:
+            with open(os.path.join(root, path), encoding="utf-8", errors="replace") as fh:
+                text = fh.read()
+        except OSError as exc:
+            raise Fatal("cannot read %s: %s" % (path, exc)) from exc
+        for fence in fences(text):
+            if fence.info not in SHELL_INFOS:
+                continue
+            for line, command in shell_lines(fence):
+                for words in simple_commands(command):
+                    out.append(
+                        {"path": path, "line": line, "text": command.strip(), "words": words}
+                    )
+    return out
+
+
+def assignments(commands, plugin, errors):
+    """{variable: script path}, from every assignment in a plugin's files.
+
+    A variable is read from the assignment wherever it is, since a reference
+    file uses the variable that SKILL.md's "Locate the script" step sets.
+    """
+    table, where = {}, {}
+    for c in commands:
+        for word in c["words"]:
+            m = ASSIGNMENT_RE.match(word)
+            if not m:
+                break
+            script = script_of(m.group(2), plugin)
+            if script is None:
+                continue
+            name = m.group(1)
+            if name in table and table[name] != script:
+                errors.append(
+                    "%s:%d: $%s names %s, but %s names %s"
+                    % (c["path"], c["line"], name, script, where[name], table[name])
+                )
+                continue
+            table[name] = script
+            where[name] = "%s:%d" % (c["path"], c["line"])
+    return table
+
+
+def load_parser(root, script, cache):
+    """The script's build_parser(), or a string saying why there is none."""
+    if script in cache:
+        return cache[script]
+    path = os.path.join(root, script)
+    if not os.path.isfile(path):
+        cache[script] = "%s does not exist" % script
+        return cache[script]
+    name = "check_skills_target_%d" % len(cache)
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(module)
+    except Exception as exc:  # a broken script is a finding, not a crash
+        cache[script] = "%s fails to import: %s" % (script, exc)
+        return cache[script]
+    build = getattr(module, BUILD_PARSER, None)
+    cache[script] = build if callable(build) else "%s has no %s()" % (script, BUILD_PARSER)
+    return cache[script]
+
+
+def parse(build, argv):
+    """argparse's complaint about argv, or None if it parses."""
+    out, err = io.StringIO(), io.StringIO()
+    try:
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            build().parse_args(argv)
+    except SystemExit as exc:
+        if exc.code:
+            lines = err.getvalue().strip().splitlines()
+            return lines[-1] if lines else "exit %s" % exc.code
+    return None
+
+
+def cmd_commands(args, root):
+    """Every script a skill runs accepts the command the skill gives it."""
+    found = instruction_files(repo_files(root))
+    scanned, invocations, errors = [], [], []
+    cache = {}
+
+    for plugin in sorted(found):
+        paths = sorted(found[plugin])
+        scanned.extend(paths)
+        commands = read_commands(root, paths)
+        table = assignments(commands, plugin, errors)
+        for c in commands:
+            words = c["words"]
+            while words and ASSIGNMENT_RE.match(words[0]):
+                words = words[1:]
+            if len(words) < 2 or words[0] not in PYTHONS or words[1].startswith("-"):
+                continue
+            target, argv = words[1], words[2:]
+            variable = VARIABLE_RE.match(target)
+            if variable:
+                name = variable.group(1) or variable.group(2)
+                script = table.get(name)
+                if script is None:
+                    errors.append(
+                        "%s:%d: no assignment in %s/%s/ names a script for $%s"
+                        % (c["path"], c["line"], PLUGINS, plugin, name)
+                    )
+                    continue
+            else:
+                script = os.path.normpath(target)
+            entry = {"path": c["path"], "line": c["line"], "script": script, "argv": argv}
+            invocations.append(entry)
+            build = load_parser(root, script, cache)
+            problem = build if isinstance(build, str) else parse(build, argv)
+            entry["ok"] = problem is None
+            if problem:
+                errors.append("%s:%d: `%s`: %s" % (c["path"], c["line"], c["text"], problem))
+
+    if not invocations:
+        errors.append(
+            "found no script invocation in a shell fence under %s/; "
+            "a check that scanned nothing has not passed" % PLUGINS
+        )
+
+    def human():
+        if not errors:
+            print(
+                "%d invocation(s) in %d file(s) resolve against their scripts."
+                % (len(invocations), len(set(i["path"] for i in invocations)))
+            )
+
+    data = {"scanned": scanned, "invocations": invocations}
+    return emit(args, "commands", data, errors, None, human, WHERE_COMMANDS)
+
+
+# --------------------------------------------------------------------------
 # entry point
 # --------------------------------------------------------------------------
 
@@ -404,6 +737,11 @@ def build_parser():
         "descriptions", parents=[common], help="no skill description holds an XML-like tag"
     )
     p.set_defaults(func=cmd_descriptions)
+
+    p = sub.add_parser(
+        "commands", parents=[common], help="every command a skill runs, its script accepts"
+    )
+    p.set_defaults(func=cmd_commands)
 
     return ap
 
