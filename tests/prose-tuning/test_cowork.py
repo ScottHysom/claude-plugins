@@ -1,4 +1,4 @@
-"""Running prose.py on Cowork's device: where, stage, and preflight's ignore check.
+"""The copy of prose.py in the project: setup, stage, and preflight's ignore check.
 
 COWORK.md at the repo root says why the script is copied into the project and
 why that copy has to stay out of the project's commits.
@@ -30,7 +30,7 @@ class DescribeStage:
     def it_stages_a_byte_identical_copy_of_the_running_script(self, tmp_path, capsys):
         code, env, _ = stage(capsys, "--folder", FOLDER, "--stage", str(tmp_path))
         assert code == prose.OK
-        staged = entry(env, prose.DEVICE_SCRIPT)
+        staged = entry(env, prose.COPY_SCRIPT)
         with open(prose.SCRIPT_PATH, "rb") as fh:
             original = fh.read()
         with open(staged["staged_path"], "rb") as fh:
@@ -83,7 +83,7 @@ class DescribeStage:
         _, env, _ = stage(capsys, "--folder", FOLDER, "--stage", str(tmp_path))
         with open(prose.shipped_template(), "rb") as fh:
             shipped = fh.read()
-        with open(entry(env, prose.DEVICE_TEMPLATE)["staged_path"], "rb") as fh:
+        with open(entry(env, prose.COPY_TEMPLATE)["staged_path"], "rb") as fh:
             assert fh.read() == shipped
 
     def it_checks_every_staged_file_by_checksum_on_the_device(self, tmp_path, capsys):
@@ -91,9 +91,9 @@ class DescribeStage:
         lines = env["data"]["check_command"].split("\n")
         assert lines[1:-1] == ["%s  %s" % (f["sha256"], f["file"]) for f in env["data"]["files"]]
         assert [f["file"] for f in env["data"]["files"]] == [
-            prose.DEVICE_SCRIPT,
-            prose.DEVICE_IGNORE,
-            prose.DEVICE_TEMPLATE,
+            prose.COPY_SCRIPT,
+            prose.COPY_IGNORE,
+            prose.COPY_TEMPLATE,
         ]
 
     def it_writes_nothing_on_a_dry_run(self, tmp_path, capsys):
@@ -140,7 +140,7 @@ class DescribePreflightOnTheDevice:
 
     def it_accepts_a_copy_its_own_folder_ignores(self, prose_repo, monkeypatch):
         self.install_copy(prose_repo, monkeypatch)
-        (prose_repo.root / prose.DEVICE_IGNORE).write_bytes(prose.DEVICE_IGNORE_TEXT)
+        (prose_repo.root / prose.COPY_IGNORE).write_bytes(prose.COPY_IGNORE_TEXT)
         code, env = prose_repo.run("preflight", "--for", "config")
         assert code == prose.OK, env["errors"]
 
@@ -149,16 +149,67 @@ class DescribePreflightOnTheDevice:
         assert code == prose.OK, env["errors"]
 
 
-class DescribeWhere:
-    def where(self, capsys):
-        capsys.readouterr()
-        code = prose.main(["where", "--json"])
-        return code, json.loads(capsys.readouterr().out)["data"]["surface"]
+class DescribeSetup:
+    def setup(self, prose_repo, monkeypatch, outputs, *argv):
+        monkeypatch.setattr(prose, "OUTPUTS_ROOT", str(outputs))
+        return prose_repo.run("setup", *argv)
 
-    def it_reports_cowork_inside_coworks_container(self, tmp_path, capsys, monkeypatch):
-        monkeypatch.setattr(prose, "OUTPUTS_ROOT", str(tmp_path))
-        assert self.where(capsys) == (prose.OK, "cowork")
+    def local(self, prose_repo, monkeypatch, *argv):
+        return self.setup(prose_repo, monkeypatch, prose_repo.root.parent / "absent", *argv)
 
-    def it_reports_local_anywhere_else(self, tmp_path, capsys, monkeypatch):
-        monkeypatch.setattr(prose, "OUTPUTS_ROOT", str(tmp_path / "absent"))
-        assert self.where(capsys) == (prose.OK, "local")
+    def it_reports_cowork_inside_coworks_container(self, prose_repo, monkeypatch, tmp_path):
+        code, env = self.setup(prose_repo, monkeypatch, tmp_path)
+        assert (code, env["data"]["surface"]) == (prose.OK, "cowork")
+
+    def it_leaves_the_copying_to_stage_inside_coworks_container(
+        self, prose_repo, monkeypatch, tmp_path
+    ):
+        _, env = self.setup(prose_repo, monkeypatch, tmp_path)
+        assert env["data"]["files"] == []
+        assert not (prose_repo.root / prose.COPY_DIR).exists()
+
+    def it_reports_local_anywhere_else(self, prose_repo, monkeypatch):
+        code, env = self.local(prose_repo, monkeypatch)
+        assert (code, env["data"]["surface"]) == (prose.OK, "local")
+
+    def it_copies_a_byte_identical_script_into_the_project_locally(self, prose_repo, monkeypatch):
+        self.local(prose_repo, monkeypatch)
+        with open(prose.SCRIPT_PATH, "rb") as fh:
+            original = fh.read()
+        assert (prose_repo.root / prose.COPY_SCRIPT).read_bytes() == original
+
+    def it_copies_the_shipped_rules_beside_the_local_copy(self, prose_repo, monkeypatch):
+        self.local(prose_repo, monkeypatch)
+        with open(prose.shipped_template(), "rb") as fh:
+            shipped = fh.read()
+        assert (prose_repo.root / prose.COPY_TEMPLATE).read_bytes() == shipped
+
+    def it_names_a_prefix_that_reaches_the_copy_from_the_project_root(
+        self, prose_repo, monkeypatch
+    ):
+        _, env = self.local(prose_repo, monkeypatch)
+        prefix = env["data"]["prefix"]
+        assert prefix == "PROSE=.prose-tuning/prose.py"
+        assert (prose_repo.root / prefix[len("PROSE=") :]).is_file()
+        assert env["repo"] == str(prose_repo.root)
+
+    def it_keeps_the_local_copy_out_of_the_projects_commits(self, prose_repo, monkeypatch):
+        self.local(prose_repo, monkeypatch)
+        status = subprocess.run(
+            ["git", "-C", str(prose_repo.root), "status", "--porcelain", "--untracked-files=all"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        assert prose.COPY_DIR not in status.stdout
+
+    def it_leaves_a_copy_that_preflight_accepts(self, prose_repo, monkeypatch):
+        self.local(prose_repo, monkeypatch)
+        monkeypatch.setattr(prose, "SCRIPT_PATH", str(prose_repo.root / prose.COPY_SCRIPT))
+        code, env = prose_repo.run("preflight", "--for", "config")
+        assert code == prose.OK, env["errors"]
+
+    def it_writes_nothing_locally_on_a_dry_run(self, prose_repo, monkeypatch):
+        code, _ = self.local(prose_repo, monkeypatch, "--dry-run")
+        assert code == prose.OK
+        assert not (prose_repo.root / prose.COPY_DIR).exists()

@@ -43,8 +43,8 @@ Each rule has a short id that says what it means, such as
 `sentences-own-subject`. When Claude reports a passage that breaks a rule, it
 names the id, so you can find the rule and check the report yourself.
 
-On Cowork, a `.prose-tuning/` folder also appears in the project. It holds a
-copy of the plugin's script, which the skills need to run there. Git ignores
+A `.prose-tuning/` folder also appears in the project. It holds a copy of the
+plugin's script, which the skills run from there. Git ignores
 the folder, so it never reaches your commits. You can delete it whenever you
 like, and the next run puts it back.
 
