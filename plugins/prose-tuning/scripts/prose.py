@@ -571,8 +571,10 @@ class Rule:
         self.body = []
         self.before = None
         self.after = None
-        # (line, regex source) for each **Pattern.** line.
+        # (line, regex source) for each **Pattern.** line that parses, and
+        # whether any did not.
         self.patterns = []
+        self.bad_pattern = False
 
     def body_text(self):
         return "\n".join(self.body).strip()
@@ -742,6 +744,7 @@ class Config:
                 source, problem = parse_pattern(pattern.group(1))
                 if problem:
                     self._err(num, problem)
+                    current.bad_pattern = True
                 else:
                     current.patterns.append((num, source))
             before, after = BEFORE_LINE.match(raw), AFTER_LINE.match(raw)
@@ -781,6 +784,7 @@ class Config:
                         rule.line,
                         "source=%s is not one of %s" % (v, ", ".join(sorted(META_SOURCES))),
                     )
+            self._check_patterns(rule)
             if not rule.body_text():
                 self._err(rule.line, "rule %s has no body" % rule.id)
             if rule.before is None and rule.after is None:
@@ -796,6 +800,28 @@ class Config:
                 )
         if self.exists and "name" not in self.front:
             self._warn(1, "front matter has no name:")
+
+    def _check_patterns(self, rule):
+        """A rule's patterns against its own worked example.
+
+        The example is the rule's evidence, so a pattern that misses the
+        Before text finds nothing the rule was written for, and one that
+        matches the After text flags the prose the rule holds up as right.
+        Skipped when the rule has no whole example, or when one of its
+        pattern lines did not parse, since the set is then incomplete and
+        that line already has its error.
+        """
+        if not rule.patterns or rule.bad_pattern or rule.before is None or rule.after is None:
+            return
+        compiled = [(line, source, re.compile(source)) for line, source in rule.patterns]
+        if not any(m.group(0) for _l, _s, rx in compiled for m in rx.finditer(rule.before)):
+            self._err(
+                rule.patterns[0][0],
+                "no pattern of %s finds anything in its Before example" % rule.id,
+            )
+        for line, source, rx in compiled:
+            if any(m.group(0) for m in rx.finditer(rule.after)):
+                self._err(line, "pattern %r matches the After example of %s" % (source, rule.id))
 
     def check_id(self, section, name):
         """(id, message or None). Grammar first, then whether it is taken.

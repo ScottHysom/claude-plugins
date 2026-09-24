@@ -89,6 +89,25 @@ class DescribePatternLines:
         assert ":16  " in envelope["errors"][0]
         assert message in envelope["errors"][0]
 
+    @pytest.mark.parametrize(
+        ("line", "message"),
+        [
+            ("**Pattern.** `run it`\n**Pattern.** `ran`", "matches the After example"),
+            ("**Pattern.** `ship`", "finds anything in its Before example"),
+        ],
+    )
+    def it_holds_the_patterns_to_the_rules_own_example(self, prose_repo, line, message):
+        style = rule_with(line).replace("**Pattern.** `—`\n", "")
+        (prose_repo.root / prose.CONFIG_PATH).write_text(style)
+        code, envelope = prose_repo.run("config", "lint")
+        assert code == prose.PROBLEMS
+        assert [e for e in envelope["errors"] if message in e] != []
+        assert len(envelope["errors"]) == 1
+
+    def it_leaves_the_patterns_of_a_rule_with_no_example_unchecked(self, config_from):
+        style = rule_with("**Pattern.** `ship`").split("> **Before.**")[0]
+        assert config_from(style).errors == []
+
 
 class DescribePatternMatches:
     def it_finds_a_match_on_one_line(self, tmp_path):
@@ -145,9 +164,9 @@ class DescribePatternMatches:
         style = rule_with(r"**Pattern.** `\sto\s`")
         got = matches(tmp_path, "We did it in order to\n  ship.\n", style)
         assert [(m["line"], m["end_line"], m["text"]) for m in got] == [(1, 1, " to")]
-        style = rule_with(r"**Pattern.** `\sship`")
-        got = matches(tmp_path, "We did it in order to\n  ship.\n", style)
-        assert [(m["line"], m["col_start"], m["text"]) for m in got] == [(2, 2, "ship")]
+        style = rule_with(r"**Pattern.** `\sto\b`")
+        got = matches(tmp_path, "We did it in order\n  to ship.\n", style)
+        assert [(m["line"], m["col_start"], m["text"]) for m in got] == [(2, 2, "to")]
 
     def it_reports_a_place_two_patterns_of_one_rule_share_once(self, tmp_path):
         style = rule_with("**Pattern.** `order`\n**Pattern.** `(?i)ORDER`")

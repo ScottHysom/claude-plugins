@@ -143,9 +143,32 @@ a sentence that wraps after `order`.
 pattern that does not compile, and a pattern that matches an empty string,
 which would match everywhere.
 
+**A pattern answers to its rule's worked example.** When a rule has both
+halves of an example, at least one of its patterns must find something in the
+Before text, and none may match the After text. `config lint` fails the file
+otherwise. The example is the evidence the rule was written from, so a pattern
+that misses it finds nothing the rule is about, and one that matches the
+rewrite flags prose the rule holds up as right.
+
 A pattern finds places to look, and the model still judges each one. A
 spaced hyphen can be a minus sign. The pattern does not replace the rule's
 prose either. A misspelling missing from a word list still breaks the rule.
+
+### When a rule gets a pattern
+
+A rule gets a pattern when what breaks it is a fixed form: a character such as
+the em-dash, a word such as `behaviour`, or a phrase such as `in order to`. A
+pattern that matches every one of those forms and little else is exhaustive,
+and the rule is checked in every file on every run.
+
+A rule about meaning gets none. `sentences-own-subject` and
+`headings-noun-phrase` need a reading of the sentence, and a pattern
+approximating them would flag a pile of passages that are fine. The model
+then learns to skim the matches.
+
+Write the narrowest pattern that finds the rule's own Before text. A word
+list is written from the forms the evidence showed and the obvious members of
+the same family, one `**Pattern.**` line per family.
 
 ## No retired rules
 
