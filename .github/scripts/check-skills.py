@@ -22,11 +22,23 @@ by hand. `commands` reads every shell fence in a plugin's SKILL.md files and
 reference/ files, and puts each script invocation through that script's own
 build_parser().
 
+`steps` keeps each step of a SKILL.md naming the command it runs. CLAUDE.md
+asks for that, and a step without one leaves mechanical work to the model with
+nothing to say so. A step that is judgment or a hand-off says why it runs no
+command, in a marker under its heading:
+
+    <!-- no-command: <reason> -->
+
+Every run lists each marked step and its reason, so a reviewer sees the list
+grow. A step waiting on an issue to give it a command is in KNOWN_GAPS instead,
+and passes with a warning naming that issue until it gains one.
+
 Run from anywhere in the clone:
 
     python3 .github/scripts/check-skills.py repeats
     python3 .github/scripts/check-skills.py descriptions
     python3 .github/scripts/check-skills.py commands
+    python3 .github/scripts/check-skills.py steps
 
 Commands:
 
@@ -36,6 +48,8 @@ Commands:
                 plugins/ holds a `<` followed by a tag-like name
   commands      every `python3 <script> ...` in a skill's shell fences parses
                 with that script's build_parser()
+  steps         every `## Step` section of a SKILL.md runs a command `commands`
+                resolves, or carries a no-command marker with a reason
 
 Every command takes --json and -C/--repo.
 
@@ -100,11 +114,28 @@ Things that look like bugs and are not, in `commands`:
 - It fails when it finds no invocation at all, or a script with no
   build_parser(), for the same reason as `repeats`.
 
+Things that look like bugs and are not, in `steps`:
+
+- Only SKILL.md is read. Steps live there; a reference/ file is read for the
+  variables a step's command uses, and nothing else.
+- A step is a level-2 heading starting "Step <number>". It runs to the next
+  heading of level 1 or 2, so a `###` inside it stays in it. A `#` line inside
+  a fence is not a heading, and a marker inside a fence is not a marker.
+- A marker must be a line of its own. COWORK.md, under "How instruction files
+  load", records block-level HTML comments as stripped, and says nothing for
+  one inside a paragraph, which may reach the model as text.
+- An invocation counts only when its script accepts it. One that `commands`
+  rejects leaves its step with no working command.
+- A marker on a step that also runs a command is stale and fails, as does a
+  KNOWN_GAPS entry whose step now runs one, or whose step is gone. Each has
+  done its job and should be removed.
+- It fails when it finds no step at all, for the same reason as `repeats`.
+
 All commands:
 
 - They only read. `repeats` and `descriptions` read through git and nothing
-  else. `commands` also imports each script a skill runs, from the working
-  tree, and calls its build_parser(), since only the parser knows the
+  else. `commands` and `steps` also import each script a skill runs, from the
+  working tree, and call its build_parser(), since only the parser knows the
   commands the script accepts. The scripts run main() only under
   `if __name__ == "__main__":`, so importing one runs no command. None of the
   commands writes a file, so all are safe to run anywhere, including Cowork's
@@ -169,6 +200,23 @@ VARIABLE_RE = re.compile(r"^\$(?:\{(\w+)\}|(\w+))$")
 SEPARATORS = ("&&", "||", ";", "|")
 REDIRECTIONS = ("<", "<<", ">", ">>")
 
+# `steps`: a step is a level-2 heading that starts "Step <number>".
+SECTION_LEVEL = 2
+STEP_RE = re.compile(r"^Step[ \t]+(\d+)\b")
+MARKER_FORM = "<!-- no-command: <reason> -->"
+# Anything that looks like a marker, so a malformed one is reported, not missed.
+MARKER_RE = re.compile(r"<!--\s*no-command\b")
+# A marker as it must be written: alone on its line, with the reason after the colon.
+MARKER_LINE_RE = re.compile(r"^[ \t]*<!--[ \t]*no-command:(.*?)-->[ \t]*$")
+# Steps with no command yet, each waiting on the issue that will give it one:
+# {(SKILL.md path, step number): issue number}. An entry goes when its step
+# gains a command; `steps` fails until it does.
+KNOWN_GAPS = {
+    ("plugins/prose-tuning/skills/adopt-prose/SKILL.md", 2): 102,
+    ("plugins/prose-tuning/skills/adopt-prose/SKILL.md", 3): 103,
+    ("plugins/prose-tuning/skills/update-prose-config/SKILL.md", 9): 105,
+}
+
 WHERE_REPEATS = (
     'CLAUDE.md, under "Skills and scripts", says why a step shared by two skills '
     "lives once in the plugin's %s/." % REFERENCE
@@ -177,6 +225,10 @@ WHERE_DESCRIPTIONS = 'COWORK.md, under "How skills load", says why an upload rej
 WHERE_COMMANDS = (
     'CLAUDE.md, under "Skills and scripts", says a SKILL.md names the command for '
     "each step. A command the script rejects sends the model back to doing the step by hand."
+)
+WHERE_STEPS = (
+    'CLAUDE.md, under "Skills and scripts", says a SKILL.md names the command for '
+    "each step. A step with none leaves its work to the model unless it says why."
 )
 
 
@@ -660,9 +712,12 @@ def parse(build, argv):
     return None
 
 
-def cmd_commands(args, root):
-    """Every script a skill runs accepts the command the skill gives it."""
-    found = instruction_files(repo_files(root))
+def find_invocations(root, found):
+    """Every script invocation in these files, each put through its script's parser.
+
+    `found` is {plugin: [path, ...]}. Returns (scanned, invocations, errors),
+    where each invocation is {"path", "line", "script", "argv", "ok"}.
+    """
     scanned, invocations, errors = [], [], []
     cache = {}
 
@@ -697,6 +752,12 @@ def cmd_commands(args, root):
             entry["ok"] = problem is None
             if problem:
                 errors.append("%s:%d: `%s`: %s" % (c["path"], c["line"], c["text"], problem))
+    return scanned, invocations, errors
+
+
+def cmd_commands(args, root):
+    """Every script a skill runs accepts the command the skill gives it."""
+    scanned, invocations, errors = find_invocations(root, instruction_files(repo_files(root)))
 
     if not invocations:
         errors.append(
@@ -713,6 +774,184 @@ def cmd_commands(args, root):
 
     data = {"scanned": scanned, "invocations": invocations}
     return emit(args, "commands", data, errors, None, human, WHERE_COMMANDS)
+
+
+# --------------------------------------------------------------------------
+# steps that name a command
+# --------------------------------------------------------------------------
+
+
+def step_sections(text):
+    """The steps of a SKILL.md and the no-command markers in it.
+
+    Returns (steps, markers). A step is {"line", "end", "heading", "number"}:
+    it runs from its `## Step N` heading to the line before the next heading of
+    level 1 or 2, or to the end of the file. A marker is {"line", "reason",
+    "own_line", "step"}, where `step` is the step dict it sits in, or None.
+    Fences are skipped whole, so neither a `#` line nor a marker inside one
+    counts.
+    """
+    lines = text.splitlines()
+    steps, markers = [], []
+    current = None
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        fence = FENCE_RE.match(line)
+        if fence:
+            i = fence_end(lines, i, fence.group("marker")) + 1
+            continue
+        heading = HEADING_RE.match(line)
+        if heading and len(line) - len(line.lstrip("#")) <= SECTION_LEVEL:
+            if current is not None:
+                current["end"] = i
+            current = None
+            step = STEP_RE.match(heading.group(1).strip())
+            if step and line.startswith("#" * SECTION_LEVEL + " "):
+                current = {
+                    "line": i + 1,
+                    "end": len(lines),
+                    "heading": heading.group(1).strip(),
+                    "number": int(step.group(1)),
+                }
+                steps.append(current)
+        elif MARKER_RE.search(line):
+            m = MARKER_LINE_RE.match(line)
+            markers.append(
+                {
+                    "line": i + 1,
+                    "reason": m.group(1).strip() if m else "",
+                    "own_line": bool(m),
+                    "step": current,
+                }
+            )
+        i += 1
+    return steps, markers
+
+
+def cmd_steps(args, root):
+    """Every step of a SKILL.md runs a command, or says why it runs none."""
+    files = repo_files(root)
+    found = skill_files(files)
+    # Read over the reference/ files too, where a variable a step uses may be set.
+    _, invocations, _ = find_invocations(root, instruction_files(files))
+    resolved = {}
+    for inv in invocations:
+        if inv["ok"]:
+            resolved.setdefault(inv["path"], []).append(inv["line"])
+
+    scanned, steps, marked, errors, warnings = [], [], [], [], []
+    gaps_seen = set()
+
+    for path in sorted(p for paths in found.values() for p in paths):
+        try:
+            with open(os.path.join(root, path), encoding="utf-8", errors="replace") as fh:
+                sections, markers = step_sections(fh.read())
+        except OSError as exc:
+            raise Fatal("cannot read %s: %s" % (path, exc)) from exc
+        scanned.append(path)
+
+        for m in markers:
+            where = "%s:%d" % (path, m["line"])
+            if m["step"] is None:
+                errors.append(
+                    "%s: a no-command marker sits outside any step. Put it under the "
+                    "heading of the step it explains." % where
+                )
+            elif not m["own_line"]:
+                errors.append(
+                    "%s: a no-command marker must be a line of its own, as `%s`, "
+                    "or Cowork does not strip it." % (where, MARKER_FORM)
+                )
+            elif not m["reason"]:
+                errors.append(
+                    "%s: a no-command marker gives no reason. Say why the step runs "
+                    "no command." % where
+                )
+
+        for s in sections:
+            count = sum(1 for n in resolved.get(path, []) if s["line"] < n <= s["end"])
+            own = [m for m in markers if m["step"] is s]
+            reason = next((m["reason"] for m in own if m["own_line"] and m["reason"]), None)
+            gap = KNOWN_GAPS.get((path, s["number"]))
+            if gap is not None:
+                gaps_seen.add((path, s["number"]))
+            where = '%s:%d: "%s"' % (path, s["line"], s["heading"])
+
+            if count and own:
+                errors.append(
+                    "%s runs a command and also carries a no-command marker. The "
+                    "marker is stale; remove it." % where
+                )
+            if count and gap is not None:
+                errors.append(
+                    "%s now runs a command. Remove its KNOWN_GAPS entry, which "
+                    "points to #%d." % (where, gap)
+                )
+            if own and gap is not None and not count:
+                errors.append(
+                    "%s carries a no-command marker and a KNOWN_GAPS entry for #%d. "
+                    "Keep the one that is true." % (where, gap)
+                )
+            if not count and not own:
+                if gap is not None:
+                    warnings.append("%s runs no command yet; #%d will give it one." % (where, gap))
+                else:
+                    errors.append(
+                        "%s names no command. Add the command it runs, or `%s` "
+                        "under its heading if the step is judgment or a hand-off."
+                        % (where, MARKER_FORM)
+                    )
+
+            steps.append(
+                {
+                    "path": path,
+                    "line": s["line"],
+                    "heading": s["heading"],
+                    "invocations": count,
+                    "reason": reason,
+                    "gap": gap,
+                }
+            )
+            if reason and not count:
+                marked.append(
+                    {"path": path, "line": s["line"], "heading": s["heading"], "reason": reason}
+                )
+
+    for (path, number), issue in sorted(KNOWN_GAPS.items()):
+        if (path, number) not in gaps_seen:
+            errors.append(
+                "KNOWN_GAPS lists step %d of %s for #%d, and there is no such step. "
+                "Remove the entry, or move it to the step's new place." % (number, path, issue)
+            )
+
+    if not steps:
+        errors.append(
+            "found no `## Step` heading in any %s under %s/; "
+            "a check that scanned nothing has not passed" % (SKILL_FILE, PLUGINS)
+        )
+
+    def human():
+        if marked:
+            print("Steps that run no command, and why:")
+            for m in marked:
+                print("  %s:%d %s: %s" % (m["path"], m["line"], m["heading"], m["reason"]))
+        if not errors:
+            print(
+                "%d step(s) in %d %s file(s): %d run a command, %d marked no-command, "
+                "%d known gap(s)."
+                % (
+                    len(steps),
+                    len(scanned),
+                    SKILL_FILE,
+                    sum(1 for s in steps if s["invocations"]),
+                    len(marked),
+                    sum(1 for s in steps if s["gap"] is not None and not s["invocations"]),
+                )
+            )
+
+    data = {"scanned": scanned, "steps": steps, "marked": marked}
+    return emit(args, "steps", data, errors, warnings, human, WHERE_STEPS)
 
 
 # --------------------------------------------------------------------------
@@ -742,6 +981,11 @@ def build_parser():
         "commands", parents=[common], help="every command a skill runs, its script accepts"
     )
     p.set_defaults(func=cmd_commands)
+
+    p = sub.add_parser(
+        "steps", parents=[common], help="every step runs a command, or says why it runs none"
+    )
+    p.set_defaults(func=cmd_steps)
 
     return ap
 

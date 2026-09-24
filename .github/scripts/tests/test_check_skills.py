@@ -15,6 +15,12 @@ rule gets a repo that breaks it and a test that the check says so.
 model into a usage error mid-run. The tests give a throwaway plugin a small
 script with a real parser, and check that each form a skill writes a command
 in reaches that parser, and that a check which found nothing to resolve fails.
+
+`steps`: a step with no command leaves its work to the model unless it says
+why. The tests build a skill whose steps run a command, carry a marker or do
+neither. They check each rule the marker and KNOWN_GAPS follow, and that the
+check fails when it finds no step. KNOWN_GAPS is emptied for every test, since
+a throwaway repo holds none of the real steps it lists.
 """
 
 import importlib.util
@@ -66,6 +72,15 @@ def isolated_git(monkeypatch):
     """Keep the developer's git config (signing, hooks, default branch) out."""
     monkeypatch.setenv("GIT_CONFIG_GLOBAL", "/dev/null")
     monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
+
+
+REAL_GAPS = dict(cs.KNOWN_GAPS)
+
+
+@pytest.fixture(autouse=True)
+def no_known_gaps(monkeypatch):
+    """A throwaway repo has none of the real skills, so none of their gaps."""
+    monkeypatch.setattr(cs, "KNOWN_GAPS", {})
 
 
 @pytest.fixture
@@ -537,6 +552,126 @@ class DescribeCommands:
         assert "plugins/gitify-cowork-project/scripts/gitify.py" in scripts
 
 
+RUNS = sh('python3 "$FOO" lint')
+
+
+def steps(*bodies, head=""):
+    """A plugin whose one skill sets $FOO, says `head`, then has these steps."""
+    text = FOO_LOCATE + head
+    for n, body in enumerate(bodies, start=1):
+        text += "## Step %d: s%d\n\n%s\n" % (n, n, body)
+    return {SKILL: skill("foo", text), FOO_SCRIPT: FOO_PY}
+
+
+def marker(reason):
+    return "<!-- no-command: %s -->\n" % reason
+
+
+class DescribeSteps:
+    def it_accepts_steps_that_run_a_command_or_say_why_not(self, make_repo, run):
+        root = make_repo(steps(RUNS, marker("the author decides")))
+        code, out, err = run("steps", "-C", str(root))
+        assert code == cs.OK, err
+        assert "2 step(s)" in out
+
+    def it_rejects_a_step_with_neither(self, make_repo, run):
+        root = make_repo(steps(RUNS, "Think hard about it.\n"))
+        code, _, err = run("steps", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert '%s:21: "Step 2: s2" names no command' % SKILL in err
+
+    def it_does_not_count_a_command_its_script_rejects(self, make_repo, run):
+        root = make_repo(steps(sh('python3 "$FOO" nope')))
+        code, _, err = run("steps", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "names no command" in err
+
+    def it_rejects_a_marker_without_a_reason(self, make_repo, run):
+        root = make_repo(steps(RUNS, marker("")))
+        code, _, err = run("steps", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "gives no reason" in err
+
+    def it_rejects_a_marker_inside_a_line(self, make_repo, run):
+        root = make_repo(steps(RUNS, "Decide. <!-- no-command: the author decides -->\n"))
+        code, _, err = run("steps", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "must be a line of its own" in err
+
+    def it_rejects_a_marker_outside_a_step(self, make_repo, run):
+        root = make_repo(steps(RUNS, head=marker("stray") + "\n"))
+        code, _, err = run("steps", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "outside any step" in err
+
+    def it_rejects_a_stale_marker(self, make_repo, run):
+        root = make_repo(steps(marker("nothing to run") + "\n" + RUNS))
+        code, _, err = run("steps", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "marker is stale" in err
+
+    def it_lists_each_marked_step(self, make_repo, run):
+        root = make_repo(steps(RUNS, marker("the author decides"), marker("hand off")))
+        code, out, _ = run("steps", "-C", str(root))
+        assert code == cs.OK
+        assert "%s:21 Step 2: s2: the author decides" % SKILL in out
+        assert "Step 3: s3: hand off" in out
+        code, out, _ = run("steps", "--json", "-C", str(root))
+        marked = json.loads(out)["data"]["marked"]
+        assert [(m["heading"], m["reason"]) for m in marked] == [
+            ("Step 2: s2", "the author decides"),
+            ("Step 3: s3", "hand off"),
+        ]
+
+    def it_keeps_a_heading_inside_a_fence_in_its_step(self, make_repo, run):
+        body = "```markdown\n## Not a heading\n```\n\n" + RUNS
+        root = make_repo(steps(body))
+        code, _, err = run("steps", "-C", str(root))
+        assert code == cs.OK, err
+
+    def it_ends_a_step_at_the_next_section(self, make_repo, run):
+        files = steps(marker("the author decides"))
+        files[SKILL] += "## Abandoning a run\n\n" + RUNS
+        root = make_repo(files)
+        code, _, err = run("steps", "-C", str(root))
+        assert code == cs.OK, err
+
+    def it_warns_for_a_known_gap(self, make_repo, run, monkeypatch):
+        monkeypatch.setattr(cs, "KNOWN_GAPS", {(SKILL, 2): 123})
+        root = make_repo(steps(RUNS, "Do it by hand for now.\n"))
+        code, _, err = run("steps", "-C", str(root))
+        assert code == cs.OK, err
+        assert 'warning: %s:21: "Step 2: s2" runs no command yet; #123' % SKILL in err
+
+    def it_rejects_a_known_gap_that_has_a_command(self, make_repo, run, monkeypatch):
+        monkeypatch.setattr(cs, "KNOWN_GAPS", {(SKILL, 1): 123})
+        root = make_repo(steps(RUNS))
+        code, _, err = run("steps", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "Remove its KNOWN_GAPS entry, which points to #123" in err
+
+    def it_rejects_a_known_gap_with_no_step(self, make_repo, run, monkeypatch):
+        monkeypatch.setattr(cs, "KNOWN_GAPS", {(SKILL, 7): 123})
+        root = make_repo(steps(RUNS))
+        code, _, err = run("steps", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "there is no such step" in err
+
+    def it_fails_when_it_finds_no_step(self, make_repo, run):
+        root = make_repo({SKILL: skill("foo", FOO_LOCATE + "## Usage\n\nRun it.\n")})
+        code, _, err = run("steps", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "found no `## Step` heading" in err
+
+    def it_accepts_the_repo_as_it_stands(self, run, monkeypatch):
+        monkeypatch.setattr(cs, "KNOWN_GAPS", REAL_GAPS)
+        code, out, err = run("steps", "--json", "-C", str(REPO_ROOT))
+        assert code == cs.OK, err
+        data = json.loads(out)["data"]
+        assert any(s["invocations"] for s in data["steps"])
+        assert data["marked"]
+
+
 class DescribeFences:
     def it_keeps_each_fences_info_string(self):
         text = "```sh\nls\n```\n\n```\nplain\n```\n\n~~~Text\nx\n~~~\n"
@@ -549,12 +684,12 @@ class DescribeFences:
 
 
 class DescribeMain:
-    @pytest.mark.parametrize("command", ["repeats", "descriptions", "commands"])
+    @pytest.mark.parametrize("command", ["repeats", "descriptions", "commands", "steps"])
     def it_prints_the_same_envelope_for_every_command(self, make_repo, run, command):
         root = make_repo(
             {
                 A: skill("a", FOO_LOCATE + "## Step 1\n\n" + sh('python3 "$FOO" lint')),
-                B: skill("b", LOCATE + "## Step 1\n\nOnly skill b says this.\n"),
+                B: skill("b", LOCATE + "## Step 1\n\n" + marker("only skill b says this")),
                 FOO_SCRIPT: FOO_PY,
             }
         )
