@@ -156,7 +156,7 @@ python3 "$PROSE" config check-id --section sentences --name own-subject
 
 The name is one to four words saying what the rule means, and there is nothing
 to allocate. `check-id` exits non-zero when the name is malformed or already
-taken, which is worth knowing before the file is edited rather than after.
+taken.
 
 Read `$ROOT/reference/prose-style-format.md` for the shape. Every rule carries a
 worked before-and-after taken from the actual edit, because that example is the

@@ -80,9 +80,8 @@ at or above a threshold. Two rules about the same subject usually get similar
 names.
 
 **The script surfaces candidates; it never decides.** Every pair it prints goes
-to the author in step 4 with both bodies in full, which is the audit that
-automatic similarity merging denies, and the reason this skill refuses to do
-one. A score is a reason to look, never a reason to merge.
+to the author in step 4 with both bodies in full. A score is a reason to look,
+never a reason to merge.
 
 It is also a floor rather than a ceiling. Read the source rules against the
 target yourself and add any pair the score missed; two rules can say the same
