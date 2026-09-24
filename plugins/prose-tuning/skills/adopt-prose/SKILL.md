@@ -41,52 +41,40 @@ python3 "$PROSE" config lint --file <source>
 python3 "$PROSE" config lint --file <target>
 python3 "$PROSE" config list --file <source> --json
 python3 "$PROSE" config list --file <target> --json
-python3 "$PROSE" config similar --file <source> --to <target> --json
 ```
 
 **Lint both before merging either.** Merging a malformed file produces a
 malformed file, and the errors then look like they came from the merge.
 
-`similar` reports pairs of rules that hold across the two files under different
-ids. Step 2 says what to do with them.
-
 ## Step 2: classify
 
-Every rule lands in one of four buckets. The first three are computed by rule id, exactly:
+```sh
+python3 "$PROSE" config classify --file <source> --to <target> --json
+```
 
-| Bucket | Test | Action |
+Every source rule comes back in `data.rules` with one of four buckets, and
+`target` naming the target rule it matched:
+
+| Bucket | Meaning | Action |
 |---|---|---|
-| new | no rule with that id, and nothing flagged similar | adopt as-is |
-| identical | same id, same `body_key` | skip silently |
-| colliding | same id, different `body_key` | one batched question |
-| similar | different id, same subject | one batched question |
+| new | the target has no rule with that id, and none scored similar | step 3 |
+| identical | same id, and the bodies match once comments and whitespace are set aside | skip silently |
+| colliding | same id, different body | step 4 |
+| similar | different id, and `candidates` lists the target rules that scored close | step 4 |
 
-**Compare `body_key`, not `body`.** `config list --json` returns both.
-`body_key` has HTML comments removed and whitespace collapsed, so two rules
-differing only by a `FILL` marker or a line rewrap are recognized as the same
-rule. Comparing raw bodies makes almost every shipped rule look like a
-collision, and a batch of twenty false collisions is a batch nobody reads.
+**The similar bucket is the one that matters.** Adopting a similar rule as new
+leaves the target holding the same instruction twice under two names, and a
+report can then cite only one of them.
 
-**The fourth bucket is the one that matters.** Two projects that wrote the same
-rule in their own words give it two different names, so it is `new` by id in
-both directions, and adopting it leaves the target holding the same instruction
-twice under two names. Nothing downstream can then be pointed at: a report cites
-one id, a conformance pass honors whichever it reads first, and a later run
-tries to reconcile rules that were never meant to differ.
-
-`config similar` finds the candidates. It scores every cross-file pair on the
-normalized body and on the overlap between the two names, and prints the pairs
-at or above a threshold. Two rules about the same subject usually get similar
-names.
-
-**The script surfaces candidates; it never decides.** Every pair it prints goes
-to the author in step 4 with both bodies in full. A score is a reason to look,
+**The script surfaces candidates; it never decides.** Every candidate goes to
+the author in step 4 with both bodies in full. A score is a reason to look,
 never a reason to merge.
 
-It is also a floor rather than a ceiling. Read the source rules against the
-target yourself and add any pair the score missed; two rules can say the same
-thing with no words in common. This is judgment, and it is the part of this
-skill the script cannot do.
+The score is also a floor rather than a ceiling. Read each `new` rule against
+the target yourself, and move any that states a target rule's point in other
+words to step 4 as similar. Two rules can say the same thing with no words in
+common. This is judgment, and it is the part of this step the script cannot do.
+The identical and colliding buckets are exact, so leave them as they came.
 
 ## Step 3: adopt the new rules
 

@@ -19,7 +19,7 @@ Commands:
     segments    the prose-eligible spans of each file, one per line
     patterns    where each rule's pattern matches those spans
     evidence    explicit tags + inferred edits + open questions
-    config      list | lint | check-id | similar | init | move
+    config      list | lint | check-id | similar | classify | init | move
     tags        check | list | insert | resolve | strip
     report      the findings for approval, and which of them overlap
     apply       apply approved rewrites
@@ -483,6 +483,14 @@ SECTION = re.compile(r"^[a-z][a-z0-9]*$")
 RULE_NAME = re.compile(r"^[a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*$")
 POSITIONAL = re.compile(r"^\d+$")
 MAX_NAME_WORDS = 4
+# The score at or above which two rules are worth the author's look.
+SIMILAR_THRESHOLD = 0.6
+# adopt-prose's buckets, in the order it acts on them.
+BUCKET_NEW = "new"
+BUCKET_IDENTICAL = "identical"
+BUCKET_COLLIDING = "colliding"
+BUCKET_SIMILAR = "similar"
+BUCKETS = (BUCKET_NEW, BUCKET_IDENTICAL, BUCKET_COLLIDING, BUCKET_SIMILAR)
 ANY_H3 = re.compile(r"^###\s+(.*)$")
 ANY_H2 = re.compile(r"^##\s+(.+?)\s*$")
 META_COMMENT = re.compile(r"^<!--\s*prose-rule\s*:\s*(.*?)\s*-->\s*$")
@@ -545,6 +553,66 @@ def rule_similarity(a, b):
     at, bt = set(a.name.split("-")), set(b.name.split("-"))
     name = len(at & bt) / float(len(at | bt)) if (at | bt) else 0.0
     return body, name, max(body, name)
+
+
+def similar_pairs(config, other, threshold):
+    """The pairs of rules across two files scoring at or above threshold.
+
+    A shared id is adopt-prose's identical or colliding bucket, so a pair
+    under one id is left out. These are the pairs that agree in substance
+    under two different names, which nothing else can see. Highest first.
+    """
+    pairs = []
+    for a in config.rules:
+        for b in other.rules:
+            if a.id == b.id:
+                continue
+            body, name, score = rule_similarity(a, b)
+            if score >= threshold:
+                pairs.append(
+                    {
+                        "source": a.id,
+                        "target": b.id,
+                        "score": round(score, 2),
+                        "body": round(body, 2),
+                        "name": round(name, 2),
+                    }
+                )
+    pairs.sort(key=lambda p: (-p["score"], p["source"], p["target"]))
+    return pairs
+
+
+def classify_rules(config, other, threshold):
+    """One entry per rule in config, in its order: the bucket it falls in
+    when adopted into other, and the rule of other it matched.
+
+    An id match settles a rule before any score is read. A rule the target
+    already names is a question about that rule, and the similar bucket is
+    for rules the target would otherwise take as new. Of two target rules
+    sharing an id, the first counts; `config lint` fails the second.
+    """
+    by_id = {}
+    for r in other.rules:
+        by_id.setdefault(r.id, r)
+    pairs = similar_pairs(config, other, threshold)
+    out = []
+    for a in config.rules:
+        match = by_id.get(a.id)
+        candidates = []
+        if match is not None:
+            same = a.body_key() == match.body_key()
+            bucket = BUCKET_IDENTICAL if same else BUCKET_COLLIDING
+            target = match.id
+        else:
+            candidates = [
+                {k: p[k] for k in ("target", "score", "body", "name")}
+                for p in pairs
+                if p["source"] == a.id
+            ]
+            bucket = BUCKET_SIMILAR if candidates else BUCKET_NEW
+            target = candidates[0]["target"] if candidates else None
+        out.append({"id": a.id, "bucket": bucket, "target": target, "candidates": candidates})
+    return out
 
 
 def parse_pattern(rest):
@@ -2815,26 +2883,7 @@ def cmd_config(args):
         other = Config(os.path.abspath(args.to))
         if not other.exists:
             raise Fatal("%s does not exist" % args.to)
-        pairs = []
-        for a in config.rules:
-            for b in other.rules:
-                # A shared id is already adopt-prose's identical or colliding
-                # bucket. This command is for the pairs that agree in substance
-                # under two different names, which nothing else can see.
-                if a.id == b.id:
-                    continue
-                body, name, score = rule_similarity(a, b)
-                if score >= args.threshold:
-                    pairs.append(
-                        {
-                            "source": a.id,
-                            "target": b.id,
-                            "score": round(score, 2),
-                            "body": round(body, 2),
-                            "name": round(name, 2),
-                        }
-                    )
-        pairs.sort(key=lambda p: (-p["score"], p["source"], p["target"]))
+        pairs = similar_pairs(config, other, args.threshold)
 
         def human():
             w = max([len(p["source"]) for p in pairs] + [8])
@@ -2857,6 +2906,34 @@ def cmd_config(args):
                 "target": os.path.abspath(args.to),
                 "threshold": args.threshold,
                 "pairs": pairs,
+            },
+            human=human,
+        )
+
+    if which == "classify":
+        other = Config(os.path.abspath(args.to))
+        if not other.exists:
+            raise Fatal("%s does not exist" % args.to)
+        rules = classify_rules(config, other, args.threshold)
+        counts = {b: sum(1 for r in rules if r["bucket"] == b) for b in BUCKETS}
+
+        def human():
+            w = max([len(r["id"]) for r in rules] + [8])
+            for r in rules:
+                arrow = "  -> %s" % r["target"] if r["target"] else ""
+                print("%-9s  %-*s%s" % (r["bucket"], w, r["id"], arrow))
+            print("\n" + ", ".join("%d %s" % (counts[b], b) for b in BUCKETS))
+
+        return emit(
+            args,
+            "config classify",
+            repo.root,
+            {
+                "source": config.path,
+                "target": os.path.abspath(args.to),
+                "threshold": args.threshold,
+                "rules": rules,
+                "counts": counts,
             },
             human=human,
         )
@@ -3983,6 +4060,7 @@ def build_parser():
         ("lint", "check the file"),
         ("check-id", "is this id well-formed and free"),
         ("similar", "rules two files state twice"),
+        ("classify", "which bucket each rule falls in when adopted"),
         ("init", "start one from the shipped rules"),
         ("move", "move a root prose-style.md to %s" % CONFIG_DIR),
     ]:
@@ -3999,11 +4077,11 @@ def build_parser():
         if name == "check-id":
             c.add_argument("--section", required=True)
             c.add_argument("--name", required=True, help="one to four lower-case words joined by -")
-        if name == "similar":
+        if name in ("similar", "classify"):
             c.add_argument(
                 "--to", required=True, metavar="PATH", help="the prose-style.md to compare against"
             )
-            c.add_argument("--threshold", type=float, default=0.6, metavar="N")
+            c.add_argument("--threshold", type=float, default=SIMILAR_THRESHOLD, metavar="N")
         if name == "move":
             c.add_argument("--dry-run", action="store_true", help="say what would be copied")
         if name == "init":
