@@ -265,15 +265,16 @@ already found obvious, or have not. Leave the judgment to them.
 > **Before.** The non-obvious result is in the bolded column.
 > **After.** The result in the bolded column:
 
-### register-skill-clauses-change-behavior: In a SKILL.md, every clause changes what the model does
+### register-skill-clauses-change-behavior: In a skill's instructions, every clause changes what the model does
 <!-- prose-rule: source=inferred -->
 
 A `SKILL.md` speaks to the model, which reads all of it on every run of the
-skill. A clause that records design history, or argues for the design to a
-contributor, costs context on each run and can read as an instruction. A reason
-stays when it changes a decision the model makes, or holds a line the model
-will be pressed to cross. The rest belongs in the script's docstring or the
-commit body.
+skill. So does a file in the plugin's `reference/` that the `SKILL.md` sends
+the model to read. A clause that records design history, or argues for the
+design to a contributor, costs context on each run and can read as an
+instruction. A reason stays when it changes a decision the model makes, or
+holds a line the model will be pressed to cross. The rest belongs in the
+plugin's `DESIGN.md`, the script's docstring or the commit body.
 
 **Check.** Delete the clause and ask whether the model would then do anything
 differently. If it would not, the clause goes.
