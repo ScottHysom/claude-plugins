@@ -89,6 +89,8 @@ If something must be edited first, re-run `evidence` afterwards.
 
 ## Step 4: the threshold for calling something a rule
 
+<!-- no-command: judgment. The model weighs each candidate against the threshold. -->
+
 A candidate becomes a rule when one of these holds:
 
 - it occurs **two or more times** independently, or
@@ -132,6 +134,8 @@ argue with a refusal; give it whole lines instead. Question ids are assigned by
 the script, never by hand.
 
 ## Step 6: the interview, once
+
+<!-- no-command: judgment. The author answers one batch of questions. -->
 
 **Budget: one `AskUserQuestion` batch of at most eight questions, plus one
 approval at the end.** A second round means the first asked the wrong things.
@@ -217,6 +221,8 @@ not reproduce its own evidence is wrong or incomplete; say which, and fix the
 rule rather than the document.
 
 ## Step 10: hand off
+
+<!-- no-command: hand-off to the author. The run ends with the working tree dirty. -->
 
 Report what changed, which files are dirty, and stop. **Never commit.** The
 project's own maintenance skill owns commit types, message format, and the

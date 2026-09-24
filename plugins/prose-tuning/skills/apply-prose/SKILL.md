@@ -135,6 +135,8 @@ the prose either side of it comes back as separate segments.
 
 ## Step 5: produce findings
 
+<!-- no-command: judgment. The model writes each finding, and step 6's report checks them. -->
+
 Each finding is one JSON object in a findings file:
 
 | Field | Content |
@@ -252,7 +254,11 @@ The engine rejects a finding rather than trusting it when:
 
 ## Step 8: report and stop
 
-Say what changed, per file and per rule id. Leave the working tree dirty.
+<!-- no-command: hand-off to the author. The output of apply in step 7 is the report. -->
+
+The output of `apply` in step 7 is the report of what changed: the edits per
+file and per rule id. Show it to the author as it stands. Leave the working
+tree dirty.
 **Never commit.** The project's own maintenance skill owns that.
 
 ## What this skill does not do

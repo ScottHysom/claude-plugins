@@ -104,6 +104,8 @@ left on an adopted rule.
 
 ## Step 4: questions, one batch
 
+<!-- no-command: judgment. The author resolves each colliding and similar pair. -->
+
 Ask one `AskUserQuestion` set covering every colliding and every similar pair, each
 showing both bodies in full. Never split them into two rounds: the author is
 deciding one thing, which is what the target's rulebook should say.
