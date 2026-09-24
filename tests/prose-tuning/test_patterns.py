@@ -212,6 +212,30 @@ class DescribePatternsCommand:
         assert envelope["data"]["matches"] == []
 
 
+# A document with one match of RULE, on line 3, and a line a finding of the
+# other rule rewrites, so a batch can hold a real edit beside a dismissal.
+PATTERNED_DOC = "Able to run.\n\nIn order to ship, it ran.\n"
+RULE_OWN = "sentences-own-subject"
+REASON = "the author keeps the phrase here"
+
+
+def patterned_doc(prose_repo):
+    (prose_repo.root / prose.CONFIG_PATH).write_text(STYLE)
+    (prose_repo.root / "doc.md").write_text(PATTERNED_DOC)
+
+
+def rewrite(prose_repo):
+    return prose_repo.finding(
+        1, file="doc.md", rule=RULE_OWN, text="Able to run.", replacement="It runs."
+    )
+
+
+def dismissal(prose_repo):
+    finding = prose_repo.finding(3, file="doc.md", rule=RULE, text="In order to", dismiss=REASON)
+    del finding["replacement"]
+    return finding
+
+
 class DescribeReportOnPatterns:
     def it_names_the_rules_checked_by_pattern(self, prose_repo, capsys):
         (prose_repo.root / prose.CONFIG_PATH).write_text(STYLE)
@@ -221,6 +245,113 @@ class DescribeReportOnPatterns:
         out = capsys.readouterr().out.splitlines()
         assert code == prose.OK
         assert ("checked by pattern: %s. Every other rule was checked by reading." % RULE) in out
+
+    def it_names_an_uncovered_match(self, prose_repo):
+        patterned_doc(prose_repo)
+        code, envelope = prose_repo.report([rewrite(prose_repo)])
+        assert code == prose.PROBLEMS
+        assert envelope["errors"] == [
+            'doc.md:3:0-11  %s  "In order to"  no finding or dismissal covers this match' % RULE
+        ]
+        assert [(m["file"], m["line"]) for m in envelope["data"]["uncovered"]] == [("doc.md", 3)]
+        assert envelope["data"]["token"] is None
+
+    def it_counts_a_finding_that_contains_the_match_as_covering(self, prose_repo):
+        patterned_doc(prose_repo)
+        finding = prose_repo.finding(
+            3, file="doc.md", rule=RULE, text="In order to ship, it ran.", replacement="It ran."
+        )
+        code, envelope = prose_repo.report([rewrite(prose_repo), finding])
+        assert code == prose.OK, envelope["errors"]
+        assert envelope["data"]["uncovered"] == []
+
+    def it_does_not_count_a_finding_of_another_rule_as_covering(self, prose_repo):
+        patterned_doc(prose_repo)
+        other = prose_repo.finding(3, file="doc.md", text="In order to ship", replacement="To ship")
+        code, envelope = prose_repo.report([rewrite(prose_repo), other])
+        assert code == prose.PROBLEMS
+        assert [m["line"] for m in envelope["data"]["uncovered"]] == [3]
+
+    def it_counts_a_dismissal_as_covering(self, prose_repo):
+        patterned_doc(prose_repo)
+        code, envelope = prose_repo.report([rewrite(prose_repo), dismissal(prose_repo)])
+        assert code == prose.OK, envelope["errors"]
+        assert envelope["data"]["dismissed"] == [
+            {
+                "finding": 2,
+                "file": "doc.md",
+                "line": 3,
+                "rule": RULE,
+                "current": "In order to",
+                "reason": REASON,
+            }
+        ]
+        assert envelope["data"]["token"]
+
+    def it_prints_a_dismissal_with_its_reason(self, prose_repo, capsys):
+        patterned_doc(prose_repo)
+        path = prose_repo.findings_file([rewrite(prose_repo), dismissal(prose_repo)])
+        capsys.readouterr()
+        code = prose.main(["report", "--findings", path, "-C", str(prose_repo.root)])
+        out = capsys.readouterr().out
+        assert code == prose.OK
+        assert (
+            "doc.md:3  %s  (finding 2)\n"
+            "  current   |In order to|\n"
+            "  dismissed %s\n" % (RULE, REASON)
+        ) in out
+
+    def it_checks_a_file_with_no_finding(self, prose_repo):
+        (prose_repo.root / prose.CONFIG_PATH).write_text(STYLE)
+        (prose_repo.root / "other.md").write_text("In order to run it.\n")
+        finding = prose_repo.finding(7, text="Curated, not collected.")
+        code, envelope = prose_repo.report([finding])
+        assert code == prose.PROBLEMS
+        assert [m["file"] for m in envelope["data"]["uncovered"]] == ["other.md"]
+        assert envelope["errors"][0].startswith("other.md:1:0-11  %s" % RULE)
+
+    def it_counts_a_finding_the_filters_leave_out(self, prose_repo):
+        patterned_doc(prose_repo)
+        findings = [rewrite(prose_repo), dismissal(prose_repo)]
+        code, envelope = prose_repo.report(findings, "--only", RULE_OWN)
+        assert code == prose.OK, envelope["errors"]
+
+    def it_refuses_to_report_on_a_rule_file_lint_refuses(self, prose_repo):
+        patterned_doc(prose_repo)
+        (prose_repo.root / prose.CONFIG_PATH).write_text(rule_with("**Pattern.** `(`"))
+        code, envelope = prose_repo.report([rewrite(prose_repo), dismissal(prose_repo)])
+        assert code == prose.PROBLEMS
+        assert envelope["data"]["token"] is None
+
+
+class DescribeDismissal:
+    def it_rejects_dismiss_with_replacement(self, prose_repo):
+        patterned_doc(prose_repo)
+        both = dict(dismissal(prose_repo), replacement="To")
+        code, envelope = prose_repo.report([rewrite(prose_repo), both])
+        assert code == prose.PROBLEMS
+        assert (
+            "doc.md:3  finding 2 has both dismiss and replacement; a dismissed match stays as it is"
+        ) in envelope["errors"]
+        code, _ = prose_repo.apply([rewrite(prose_repo), both])
+        assert code == prose.PROBLEMS
+        assert prose_repo.read("doc.md") == PATTERNED_DOC
+
+    def it_rejects_a_dismissal_with_no_reason(self, prose_repo):
+        patterned_doc(prose_repo)
+        empty = dict(dismissal(prose_repo), dismiss=" ")
+        code, envelope = prose_repo.report([rewrite(prose_repo), empty])
+        assert code == prose.PROBLEMS
+        assert "doc.md:3  finding 2: dismiss needs a reason the match stays" in envelope["errors"]
+
+    def it_does_not_apply_a_dismissal(self, prose_repo):
+        patterned_doc(prose_repo)
+        code, envelope = prose_repo.apply([rewrite(prose_repo), dismissal(prose_repo)])
+        assert code == prose.OK, envelope["errors"]
+        assert envelope["data"]["applied"] == [
+            {"file": "doc.md", "line": 1, "rule": RULE_OWN},
+        ]
+        assert prose_repo.read("doc.md") == PATTERNED_DOC.replace("Able to run.", "It runs.")
 
 
 class DescribeShippedPatterns:

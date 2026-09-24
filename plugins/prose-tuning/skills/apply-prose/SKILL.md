@@ -91,7 +91,9 @@ rules could, and every rule is checked by reading. Tell the author that
 A pattern finds places to look, so judge each match. A spaced hyphen can be a
 minus sign. Every match that breaks its rule becomes a finding in step 5,
 usually with a longer `text` than the match, since the rewrite is of the
-sentence.
+sentence. A match that stays as it is becomes a finding with `dismiss` and the
+reason in place of `replacement`. `report` runs the patterns again, and fails
+on a match that no finding or dismissal of its rule contains.
 
 **Never search the prose with a command of your own,** such as `grep` over
 the `segments` output. A search written during a run finds a different set on
@@ -145,6 +147,7 @@ Each finding is one JSON object in a findings file:
 | `rule` | the id from `prose-style.md`, exactly one |
 | `text` | the text as it stands |
 | `replacement` | the rewrite |
+| `dismiss` | in place of `replacement`, for a pattern's match that stays: one clause saying why |
 | `why` | one clause, in the rule's own terms |
 
 **A finding names exactly one rule.** A passage breaking two rules is two
@@ -174,6 +177,9 @@ one finding, with the newline and the next line's indent in `text`.
 `python3 "$PROSE" apply --help` describes every field of a finding, and which
 kinds of line a replacement may put a newline in.
 
+A dismissal carries `text` as the match gives it, and never a
+`replacement`. `apply` leaves its text alone.
+
 To cut text, give `"replacement":""`. A line that the cuts cover whole goes
 with its newline, and when a cut takes a whole block `apply` keeps one blank
 line between the blocks either side.
@@ -188,7 +194,8 @@ python3 "$PROSE" report --findings "${TMPDIR:-/tmp}/prose-findings.json"
 proposed text and why. It reads the current text from the file as it is now.
 Each line of a current or proposed text sits between `|` marks, so a space at
 either end shows. `(cut)` and `(nothing: this inserts)` stand for an empty
-text and carry no marks.
+text and carry no marks. A dismissal shows its reason under `dismissed` in
+place of a proposed text.
 Show the author that output as it stands. Never retype it into a table of
 your own, because the author then approves a text that `apply` never sees.
 Its next-to-last line names the rules `patterns` checked in every file, and
@@ -206,6 +213,9 @@ approved; step 7 needs it.
   sentences-no-restating-close)`. Each can apply alone, and the pair cannot.
   Put the pair to the author in this round, and let the author choose which
   one to keep. Never drop one yourself.
+- **a pattern's match that nothing covers**, named by its address, rule and
+  text, as `patterns` prints it. Add a finding that rewrites it, or a
+  dismissal when it stays, and run `report` again.
 
 Take one decision. It covers the whole set, a set of rule ids, or a set of
 files, and says which side of each overlap stays. Batch it; do not ask per
