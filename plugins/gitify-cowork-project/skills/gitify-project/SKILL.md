@@ -42,8 +42,8 @@ mkdir -p /tmp/gitify && ln -sfn "${CLAUDE_PLUGIN_ROOT:-${CLAUDE_SKILL_DIR}/../..
 ```
 
 This links the plugin at `/tmp/gitify/plugin`, a path short enough to repeat.
-Each call to your shell may start afresh, so every later command sets
-`GITIFY` again in front, as the steps below show. A command without it runs
+Each call to your shell starts afresh, so every later command sets `GITIFY`
+again in front, as the steps below show. A command without it runs
 `python3 ""`, which fails with "can't find '__main__' module" and names no
 script.
 

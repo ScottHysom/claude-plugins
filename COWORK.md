@@ -31,6 +31,10 @@ known", added back when there is one.
 - **Every `device_bash` call starts afresh,** in `$HOME`, with no variable or
   `cd` kept from the call before. A command that needs the project starts
   with its own `cd`.
+- **Every call to the container's shell starts afresh too.** A variable set
+  in one call is empty in the next, probed on 2026-09-23. Each call started
+  in `/home/claude`; whether a `cd` carries over was not probed. A command
+  that needs a plugin script sets its path in the same call.
 
 ## Moving files: `device_commit_files`
 
@@ -134,12 +138,6 @@ an existing folder", beside the same files run through Claude Code 2.1.274.
   first message of every conversation works without them.
 - **Keep scratch files out of the project.** The bridge could never delete
   them. Pass data on stdin, or use `$TMPDIR` on the device.
-
-## Not yet known
-
-- **Whether the container's shell keeps a variable from one call to the
-  next.** No probe has asked. A skill assumes it does not, and sets any
-  variable it needs again in each command, as Claude Code requires anyway.
 
 ## Probing
 
