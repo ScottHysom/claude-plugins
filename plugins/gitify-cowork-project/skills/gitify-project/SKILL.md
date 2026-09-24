@@ -38,14 +38,19 @@ retype file contents across them.
 ## Locate the script
 
 ```sh
-GITIFY="${CLAUDE_PLUGIN_ROOT:-${CLAUDE_SKILL_DIR}/../..}/scripts/gitify.py"
-python3 "$GITIFY" preflight
+mkdir -p /tmp/gitify && ln -sfn "${CLAUDE_PLUGIN_ROOT:-${CLAUDE_SKILL_DIR}/../..}" /tmp/gitify/plugin && GITIFY=/tmp/gitify/plugin/scripts/gitify.py && python3 "$GITIFY" preflight
 ```
+
+This links the plugin at `/tmp/gitify/plugin`, a path short enough to repeat.
+Each call to your shell may start afresh, so every later command sets
+`GITIFY` again in front, as the steps below show. A command without it runs
+`python3 ""`, which fails with "can't find '__main__' module" and names no
+script.
 
 - **0**: the templates are complete. Go on.
 - **1**: a template is malformed. This is a bug in the plugin; show the user
   the errors and stop.
-- **No such file**: the skill was installed without its plugin, for example
+- **No such file**, from `ln` or `python3`: the skill was installed without its plugin, for example
   through `propose_skills`. It needs a marketplace install. Say so and stop.
 
 ## Step 1: find the folder, and look at it
@@ -55,7 +60,7 @@ exactly as listed. The project folder is the connected folder itself, or a
 folder inside it; ask the user which when it is not obvious.
 
 ```sh
-python3 "$GITIFY" probe --connected-folder "<connected>" [--project-folder "<project>"] --json
+GITIFY=/tmp/gitify/plugin/scripts/gitify.py && python3 "$GITIFY" probe --connected-folder "<connected>" [--project-folder "<project>"] --json
 ```
 
 Exit 1 means one of the paths breaks a rule; `errors` says which. Otherwise run
@@ -75,7 +80,8 @@ chance at `setup.sh`, which shows every file before anything is committed.
 
 ## Step 2: the answers
 
-Write `/tmp/gitify/answers.json`, after `mkdir -p /tmp/gitify`:
+Write `/tmp/gitify/answers.json`, in the directory the "Locate the script"
+step made:
 
 ```json
 {
@@ -114,7 +120,7 @@ pass them.
 ## Step 3: render
 
 ```sh
-python3 "$GITIFY" render --answers /tmp/gitify/answers.json --json
+GITIFY=/tmp/gitify/plugin/scripts/gitify.py && python3 "$GITIFY" render --answers /tmp/gitify/answers.json --json
 ```
 
 - **0**: every file is staged under `/mnt/user-data/outputs/`.
@@ -186,7 +192,7 @@ To check whether a project's history skill has fallen behind, stage it with
 `device_stage_files`, then:
 
 ```sh
-python3 "$GITIFY" drift --skill <staged SKILL.md> --json
+GITIFY=/tmp/gitify/plugin/scripts/gitify.py && python3 "$GITIFY" drift --skill <staged SKILL.md> --json
 ```
 
 - **0**: every section matches the template. Substituted names and rewrapped

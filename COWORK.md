@@ -135,6 +135,12 @@ an existing folder", beside the same files run through Claude Code 2.1.274.
 - **Keep scratch files out of the project.** The bridge could never delete
   them. Pass data on stdin, or use `$TMPDIR` on the device.
 
+## Not yet known
+
+- **Whether the container's shell keeps a variable from one call to the
+  next.** No probe has asked. A skill assumes it does not, and sets any
+  variable it needs again in each command, as Claude Code requires anyway.
+
 ## Probing
 
 The model can't run Cowork from Claude Code. It writes a probe prompt, the
