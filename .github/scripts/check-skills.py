@@ -241,7 +241,6 @@ MARKER_LINE_RE = re.compile(r"^[ \t]*<!--[ \t]*no-command:(.*?)-->[ \t]*$")
 # {(SKILL.md path, step number): issue number}. An entry goes when its step
 # gains a command; `steps` fails until it does.
 KNOWN_GAPS = {
-    ("plugins/prose-tuning/skills/adopt-prose/SKILL.md", 2): 102,
     ("plugins/prose-tuning/skills/adopt-prose/SKILL.md", 3): 103,
     ("plugins/prose-tuning/skills/update-prose-config/SKILL.md", 9): 105,
 }

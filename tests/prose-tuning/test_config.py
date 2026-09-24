@@ -156,3 +156,93 @@ class DescribeBodyKey:
 
     def it_gives_different_bodies_different_keys(self):
         assert self.rule(["Same rule."]).body_key() != self.rule(["A different rule."]).body_key()
+
+
+class DescribeConfigClassify:
+    """adopt-prose's step 2. Every source rule lands in one bucket, and two
+    runs on the same pair of files land it in the same one.
+    """
+
+    HEAD = "---\nname: T\n---\n\n"
+    SHARED = "A sentence that borrows its subject from the heading above it is incomplete."
+
+    def rule(self, rid, body):
+        return "### %s: Title\n\n%s\n\n" % (rid, body)
+
+    def classify(self, prose_repo, source, target):
+        src, tgt = prose_repo.root / "source.md", prose_repo.root / "target-style.md"
+        src.write_text(self.HEAD + "## Sentences\n\n" + "".join(source))
+        tgt.write_text(self.HEAD + "## Sentences\n\n" + "".join(target))
+        code, env = prose_repo.run("config", "classify", "--file", str(src), "--to", str(tgt))
+        assert code == prose.OK
+        return {r["id"]: r for r in env["data"]["rules"]}
+
+    def it_puts_a_rule_the_target_lacks_in_new(self, prose_repo):
+        rules = self.classify(
+            prose_repo,
+            [self.rule("sentences-own-subject", self.SHARED)],
+            [self.rule("sentences-count-needs-list", "A count needs its list nearby.")],
+        )
+        assert rules["sentences-own-subject"]["bucket"] == prose.BUCKET_NEW
+        assert rules["sentences-own-subject"]["target"] is None
+
+    def it_puts_a_same_id_same_body_rule_in_identical(self, prose_repo):
+        rules = self.classify(
+            prose_repo,
+            [self.rule("sentences-own-subject", self.SHARED)],
+            [self.rule("sentences-own-subject", self.SHARED)],
+        )
+        got = rules["sentences-own-subject"]
+        assert (got["bucket"], got["target"]) == (prose.BUCKET_IDENTICAL, "sentences-own-subject")
+
+    def it_puts_a_same_id_different_body_rule_in_colliding(self, prose_repo):
+        rules = self.classify(
+            prose_repo,
+            [self.rule("sentences-own-subject", self.SHARED)],
+            [self.rule("sentences-own-subject", "Commit messages name the file they touch.")],
+        )
+        got = rules["sentences-own-subject"]
+        assert (got["bucket"], got["target"]) == (prose.BUCKET_COLLIDING, "sentences-own-subject")
+
+    def it_puts_a_renamed_rule_in_similar_with_its_candidate(self, prose_repo):
+        rules = self.classify(
+            prose_repo,
+            [self.rule("sentences-own-subject", self.SHARED)],
+            [self.rule("sentences-carries-subject", self.SHARED)],
+        )
+        got = rules["sentences-own-subject"]
+        assert got["bucket"] == prose.BUCKET_SIMILAR
+        assert got["target"] == "sentences-carries-subject"
+        assert [c["target"] for c in got["candidates"]] == ["sentences-carries-subject"]
+
+    def it_treats_a_body_differing_only_by_a_fill_marker_and_rewrap_as_identical(self, prose_repo):
+        """The bodies differ as text, so comparing `body` would make this a
+        collision, and nearly every shipped rule would look like one.
+        """
+        rewrapped = "A sentence that borrows its subject\nfrom the heading above it is incomplete."
+        rules = self.classify(
+            prose_repo,
+            [self.rule("sentences-own-subject", self.SHARED)],
+            [self.rule("sentences-own-subject", rewrapped + "\n<!-- FILL: an example. -->")],
+        )
+        assert rules["sentences-own-subject"]["bucket"] == prose.BUCKET_IDENTICAL
+
+    def it_settles_a_shared_id_before_scoring_similarity(self, prose_repo):
+        rules = self.classify(
+            prose_repo,
+            [self.rule("sentences-own-subject", self.SHARED)],
+            [
+                self.rule("sentences-own-subject", "Commit messages name the file they touch."),
+                self.rule("sentences-carries-subject", self.SHARED),
+            ],
+        )
+        got = rules["sentences-own-subject"]
+        assert (got["bucket"], got["candidates"]) == (prose.BUCKET_COLLIDING, [])
+
+    def it_refuses_a_missing_target_file(self, prose_repo):
+        src = prose_repo.root / "source.md"
+        src.write_text(self.HEAD + "## Sentences\n\n" + self.rule("sentences-own-subject", "x"))
+        missing = str(prose_repo.root / "nowhere.md")
+        code, env = prose_repo.run("config", "classify", "--file", str(src), "--to", missing)
+        assert (code, env) == (prose.CANNOT_RUN, None)
+        assert "nowhere.md does not exist" in prose_repo.err
