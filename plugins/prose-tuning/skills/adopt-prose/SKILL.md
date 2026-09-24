@@ -5,7 +5,7 @@ description: Copy prose rules from one project's prose-style.md into another, or
 
 # Move prose rules between projects
 
-This skill has two uses, and one flow serves both:
+The target depends on what was asked:
 
 - **"make this project sound like that one"**: the target is this project's
   `.claude/rules/prose-style.md`.
@@ -14,9 +14,7 @@ This skill has two uses, and one flow serves both:
   the rules `config init` starts a project from.
 
 The second is the only sanctioned route from a project back into the shipped
-rules. `update-prose-config` deliberately cannot do it: a skill that writes
-outside the repo it was invoked in is a skill whose blast radius depends on
-which machine it ran on.
+rules. `update-prose-config` deliberately cannot do it.
 
 ## Locate the script
 
@@ -79,12 +77,11 @@ tries to reconcile rules that were never meant to differ.
 `config similar` finds the candidates. It scores every cross-file pair on the
 normalized body and on the overlap between the two names, and prints the pairs
 at or above a threshold. Two rules about the same subject usually get similar
-names, which is a signal positional ids could not carry at all.
+names.
 
 **The script surfaces candidates; it never decides.** Every pair it prints goes
-to the author in step 4 with both bodies in full, which is the audit that
-automatic similarity merging denies, and the reason this skill refuses to do
-one. A score is a reason to look, never a reason to merge.
+to the author in step 4 with both bodies in full. A score is a reason to look,
+never a reason to merge.
 
 It is also a floor rather than a ceiling. Read the source rules against the
 target yourself and add any pair the score missed; two rules can say the same
@@ -103,8 +100,7 @@ Copy the body verbatim, including the worked example. Record where it came from:
 `origin` matters here more than anywhere else. An adopted rule is the one most
 likely to be wrong for its new home, and a year from now nothing else will
 explain why the project has a rule nobody in it wrote. It is also the only mark
-left on an adopted rule: a named id travels between projects unchanged, where a
-positional one had to be renumbered into whatever the target had free.
+left on an adopted rule.
 
 ## Step 4: questions, one batch
 
