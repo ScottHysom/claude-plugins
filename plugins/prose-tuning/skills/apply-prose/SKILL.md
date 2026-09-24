@@ -133,10 +133,6 @@ comments are notes for people rather than the document's prose, and a table's
 delimiter row is structure. A comment part way along a line is cut out, and
 the prose either side of it comes back as separate segments.
 
-Telling a model "do not touch code fences" is a rule that gets broken. Never
-showing it the fence makes the mistake unavailable, and shrinks the context at
-the same time.
-
 ## Step 5: produce findings
 
 Each finding is one JSON object in a findings file:

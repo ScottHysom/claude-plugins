@@ -135,9 +135,6 @@ the script, never by hand.
 
 **Budget: one `AskUserQuestion` batch of at most eight questions, plus one
 approval at the end.** A second round means the first asked the wrong things.
-The first run of this workflow by hand took nine exchanges, and almost all of
-them were settling conventions that are now either in `reference/` or enforced
-by the script.
 
 What always belongs in the batch:
 
@@ -158,9 +155,8 @@ python3 "$PROSE" config check-id --section sentences --name own-subject
 ```
 
 The name is one to four words saying what the rule means, and there is nothing
-to allocate: an ordinal would only record which rule happened to be written
-first. `check-id` exits non-zero when the name is malformed or already taken,
-which is worth knowing before the file is edited rather than after.
+to allocate. `check-id` exits non-zero when the name is malformed or already
+taken, which is worth knowing before the file is edited rather than after.
 
 Read `$ROOT/reference/prose-style-format.md` for the shape. Every rule carries a
 worked before-and-after taken from the actual edit, because that example is the
@@ -224,8 +220,7 @@ rule rather than the document.
 
 Report what changed, which files are dirty, and stop. **Never commit.** The
 project's own maintenance skill owns commit types, message format, and the
-bridge's lock-file workaround; duplicating any of that here would create a
-second source of truth for it.
+bridge's lock-file workaround.
 
 ## Abandoning a run
 
