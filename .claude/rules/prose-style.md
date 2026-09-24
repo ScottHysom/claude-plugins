@@ -265,6 +265,22 @@ already found obvious, or have not. Leave the judgment to them.
 > **Before.** The non-obvious result is in the bolded column.
 > **After.** The result in the bolded column:
 
+### register-skill-clauses-change-behavior: In a SKILL.md, every clause changes what the model does
+<!-- prose-rule: source=inferred -->
+
+A `SKILL.md` speaks to the model, which reads all of it on every run of the
+skill. A clause that records design history, or argues for the design to a
+contributor, costs context on each run and can read as an instruction. A reason
+stays when it changes a decision the model makes, or holds a line the model
+will be pressed to cross. The rest belongs in the script's docstring or the
+commit body.
+
+**Check.** Delete the clause and ask whether the model would then do anything
+differently. If it would not, the clause goes.
+
+> **Before.** `update-prose-config` deliberately cannot do it: a skill that writes outside the repo it was invoked in is a skill whose blast radius depends on which machine it ran on.
+> **After.** `update-prose-config` deliberately cannot do it.
+
 ## Settled decisions
 
 ### decisions-drop-alternatives: A closed decision drops its alternatives
