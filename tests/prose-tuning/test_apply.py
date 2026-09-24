@@ -53,8 +53,10 @@ class DescribeApply:
             text="Final paragraph.",
             replacement="The closing paragraph.",
         )
+        path = prose_repo.findings_file([finding])
+        token = prose_repo.token(path)
         monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps([finding])))
-        code, _ = prose_repo.run("apply", "--findings", "-")
+        code, _ = prose_repo.run("apply", "--findings", "-", "--token", token)
         assert code == prose.OK
         assert "The closing paragraph." in prose_repo.read()
 

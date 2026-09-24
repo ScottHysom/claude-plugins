@@ -191,8 +191,11 @@ either end shows. `(cut)` and `(nothing: this inserts)` stand for an empty
 text and carry no marks.
 Show the author that output as it stands. Never retype it into a table of
 your own, because the author then approves a text that `apply` never sees.
-Its last line names the rules `patterns` checked in every file, and says that
-every other rule was checked by reading.
+Its next-to-last line names the rules `patterns` checked in every file, and
+says that every other rule was checked by reading. Its last line, printed only
+when it exits 0, is the approval token, such as
+`approval token: 3f9a1c0e7b2d4a68`. Keep the token from the run the author
+approved; step 7 needs it.
 
 `report` exits 1 when a finding cannot apply, and says why on stderr:
 
@@ -209,13 +212,13 @@ files, and says which side of each overlap stays. Batch it; do not ask per
 finding.
 
 Then remove the side of each overlap the author turned down from the findings
-file, and run `report` again. It has to exit 0 before step 7.
+file, and run `report` again. It has to exit 0 before step 7, and its token is
+the one step 7 takes.
 
 ## Step 7: apply
 
-Hand the approval to `apply` as flags. Never edit the findings file to match
-it; the flags do the selecting. The one edit the file takes after step 5 is
-the removal of an overlap's losing side, in step 6.
+Hand the approval to `apply` as flags, with the token `report` printed.
+The flags select within the approved set and leave the token as it is.
 
 | Approved | Flags |
 |---|---|
@@ -228,12 +231,16 @@ Run it with `--dry-run` first, then without:
 
 ```sh
 python3 "$PROSE" apply --findings "${TMPDIR:-/tmp}/prose-findings.json" \
-  --only sentences-own-subject --file landscape.md --dry-run
+  --token 3f9a1c0e7b2d4a68 --only sentences-own-subject --file landscape.md --dry-run
 python3 "$PROSE" apply --findings "${TMPDIR:-/tmp}/prose-findings.json" \
-  --only sentences-own-subject --file landscape.md
+  --token 3f9a1c0e7b2d4a68 --only sentences-own-subject --file landscape.md
 ```
 
 A rule id or file that matches no finding is an error, not an empty run.
+
+`apply` exits 1 and writes nothing when the findings file, a document a finding
+names or `prose-style.md` has changed since that `report`. Run `report` again
+and show its output to the author before applying anything.
 
 `apply` is all-or-nothing by default, so a partial pass cannot leave half the addresses
 stale. `--partial` applies what is valid and reports the rest.
