@@ -166,6 +166,14 @@ Read `$ROOT/reference/prose-style-format.md` for the shape. Every rule carries a
 worked before-and-after taken from the actual edit, because that example is the
 rule's provenance as well as its explanation.
 
+**Decide whether the rule gets a pattern.** "When a rule gets a pattern", in
+the same file, says which rules do. For each one that does, write its
+`**Pattern.**` lines now, from the evidence behind the rule. `apply-prose` runs
+them in every file, and a rule without one is checked only by reading. Put each
+pattern in the final approval beside its rule, since a word list is a guess
+about scope that the author settles. When a rule already in the file gains a
+new form in this run's evidence, extend its pattern rather than adding a rule.
+
 **When a new rule contradicts an existing one, rewrite the body of the existing
 id.** Do not add a second rule, and do not mark the old one retired. The id is
 the identity, the body is current truth, and
@@ -186,7 +194,9 @@ than add a second under a name split finely enough to be free.
 python3 "$PROSE" config lint
 ```
 
-The lint must pass before going on.
+The lint must pass before going on. A pattern that misses its rule's Before example, or
+matches its After, is refused there. Fix the pattern, since the example is the
+evidence.
 
 ## Step 8: resolve the markup
 

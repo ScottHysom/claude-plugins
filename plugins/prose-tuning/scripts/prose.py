@@ -17,6 +17,7 @@ Commands:
     status      what is in the working tree right now
     scope       which files the prose rules govern
     segments    the prose-eligible spans of each file, one per line
+    patterns    where each rule's pattern matches those spans
     evidence    explicit tags + inferred edits + open questions
     config      list | lint | check-id | similar | init | move
     tags        check | list | insert | resolve | strip
@@ -472,6 +473,14 @@ ANY_H2 = re.compile(r"^##\s+(.+?)\s*$")
 META_COMMENT = re.compile(r"^<!--\s*prose-rule\s*:\s*(.*?)\s*-->\s*$")
 BEFORE_LINE = re.compile(r"^>\s*\*\*Before\.\*\*\s*(.*?)\s*$")
 AFTER_LINE = re.compile(r"^>\s*\*\*After\.\*\*\s*(.*?)\s*$")
+# A pattern a rule's breaches can be found by, as one code span after the lead
+# word. The backtick run is matched by length, so a pattern holding a backtick
+# is fenced in two.
+PATTERN_LINE = re.compile(r"^\*\*Pattern\.\*\*(.*)$")
+PATTERN_SPAN = re.compile(r"^\s+(`+)(.+?)\1\s*$")
+# A flag group such as (?i) anywhere but the start of a pattern. Python 3.11
+# refuses one; 3.9 accepts it with a warning, so lint refuses it on both.
+LATE_FLAGS = re.compile(r"(?<!\\)\(\?[aiLmsux]+\)")
 FM_KEY = re.compile(r"^([a-z][a-z0-9_-]*)\s*:\s*(.*?)\s*$")
 FM_SUBKEY = re.compile(r"^ {2}(include|exclude)\s*:\s*$")
 FM_ITEM = re.compile(r"^ {4}-\s+(.+?)\s*$")
@@ -523,6 +532,34 @@ def rule_similarity(a, b):
     return body, name, max(body, name)
 
 
+def parse_pattern(rest):
+    """(the regex a **Pattern.** line holds, None), or (None, a message).
+
+    rest is the line after the lead word. CommonMark strips one space from
+    each end of a code span that has one at both, so a pattern that starts or
+    ends with a backtick can be written `` `x` ``; this does the same.
+    """
+    m = PATTERN_SPAN.match(rest)
+    if not m:
+        return None, "a **Pattern.** line holds one code span and nothing else"
+    source = m.group(2)
+    if len(source) > 2 and source[0] == " " and source[-1] == " " and source.strip():
+        source = source[1:-1]
+    late = LATE_FLAGS.search(source, 1)
+    if late:
+        return None, "pattern %r sets the flag %s part way along; put it first" % (
+            source,
+            late.group(0),
+        )
+    try:
+        rx = re.compile(source)
+    except re.error as exc:
+        return None, "pattern %r does not compile: %s" % (source, exc)
+    if rx.match(""):
+        return None, "pattern %r matches an empty string, so it would match everywhere" % source
+    return source, None
+
+
 def unquote(s):
     if len(s) >= 2 and s[0] == s[-1] and s[0] in "\"'":
         return s[1:-1]
@@ -541,6 +578,10 @@ class Rule:
         self.body = []
         self.before = None
         self.after = None
+        # (line, regex source) for each **Pattern.** line that parses, and
+        # whether any did not.
+        self.patterns = []
+        self.bad_pattern = False
 
     def body_text(self):
         return "\n".join(self.body).strip()
@@ -571,6 +612,7 @@ class Rule:
                 if self.before is None and self.after is None
                 else {"before": self.before, "after": self.after}
             ),
+            "patterns": [source for _line, source in self.patterns],
         }
 
 
@@ -704,6 +746,14 @@ class Config:
                     k, v = pair.split("=", 1)
                     current.meta[k] = v
                 continue
+            pattern = PATTERN_LINE.match(raw)
+            if pattern:
+                source, problem = parse_pattern(pattern.group(1))
+                if problem:
+                    self._err(num, problem)
+                    current.bad_pattern = True
+                else:
+                    current.patterns.append((num, source))
             before, after = BEFORE_LINE.match(raw), AFTER_LINE.match(raw)
             if before:
                 current.before = before.group(1)
@@ -741,6 +791,7 @@ class Config:
                         rule.line,
                         "source=%s is not one of %s" % (v, ", ".join(sorted(META_SOURCES))),
                     )
+            self._check_patterns(rule)
             if not rule.body_text():
                 self._err(rule.line, "rule %s has no body" % rule.id)
             if rule.before is None and rule.after is None:
@@ -756,6 +807,28 @@ class Config:
                 )
         if self.exists and "name" not in self.front:
             self._warn(1, "front matter has no name:")
+
+    def _check_patterns(self, rule):
+        """A rule's patterns against its own worked example.
+
+        The example is the rule's evidence, so a pattern that misses the
+        Before text finds nothing the rule was written for, and one that
+        matches the After text flags the prose the rule holds up as right.
+        Skipped when the rule has no whole example, or when one of its
+        pattern lines did not parse, since the set is then incomplete and
+        that line already has its error.
+        """
+        if not rule.patterns or rule.bad_pattern or rule.before is None or rule.after is None:
+            return
+        compiled = [(line, source, re.compile(source)) for line, source in rule.patterns]
+        if not any(m.group(0) for _l, _s, rx in compiled for m in rx.finditer(rule.before)):
+            self._err(
+                rule.patterns[0][0],
+                "no pattern of %s finds anything in its Before example" % rule.id,
+            )
+        for line, source, rx in compiled:
+            if any(m.group(0) for m in rx.finditer(rule.after)):
+                self._err(line, "pattern %r matches the After example of %s" % (source, rule.id))
 
     def check_id(self, section, name):
         """(id, message or None). Grammar first, then whether it is taken.
@@ -781,6 +854,10 @@ class Config:
 
     def by_id(self):
         return dict((r.id, r) for r in self.rules)
+
+    def patterned(self):
+        """The rules that carry a pattern, in file order."""
+        return [r for r in self.rules if r.patterns]
 
 
 def config_path(repo, override=None):
@@ -1831,6 +1908,128 @@ def line_segments(text, blocks):
 
 
 # --------------------------------------------------------------------------
+# pattern matches
+# --------------------------------------------------------------------------
+
+# The segment kinds a pattern may read on into the next line from, and the
+# ones that continue the line before. A line that opens a new list item starts
+# afresh.
+RUN_KINDS = ("paragraph", "list-item", "list-continuation")
+CONTINUING_KINDS = ("paragraph", "list-continuation")
+
+
+class ProseRun:
+    """Segments that read as one passage, joined so a pattern can cross lines.
+
+    A sentence wrapped across two lines has a newline and the next line's
+    indent in the middle of it. The run holds each line break as one space,
+    which is how markdown renders it, so a pattern written for one line finds
+    a breach that wraps. `starts` and `ends` hold the file offset each
+    character of the run starts and ends at; a line break's space covers the
+    whole of the newline and indent it stands for.
+    """
+
+    def __init__(self):
+        self.chars = []
+        self.starts = []
+        self.ends = []
+        self.breaks = set()
+
+    def add(self, text, start, end):
+        if self.chars:
+            self.breaks.add(len(self.chars))
+            self.chars.append(" ")
+            self.starts.append(self.ends[-1])
+            self.ends.append(start)
+        self.chars.extend(text.s[start:end])
+        self.starts.extend(range(start, end))
+        self.ends.extend(range(start + 1, end + 1))
+
+    def string(self):
+        return "".join(self.chars)
+
+    def span(self, a, b):
+        """The file (start, end) of run characters [a, b), less any line break
+        at either edge. None when nothing but line breaks is left.
+        """
+        while a < b and a in self.breaks:
+            a += 1
+        while b > a and b - 1 in self.breaks:
+            b -= 1
+        if a == b:
+            return None
+        return self.starts[a], self.ends[b - 1]
+
+
+def prose_runs(text, blocks):
+    """The eligible prose of a file as runs, each one passage.
+
+    A segment joins the run before it when it is the next line of the same
+    paragraph or list item: the line before is one of RUN_KINDS, this line is
+    one of CONTINUING_KINDS, and neither is cut short by an HTML comment at the
+    line break. Anything else starts a new run.
+    """
+    runs, prev = [], None
+    for seg in segments_for(text, blocks):
+        line = seg["line"]
+        raw = text.bare(line)
+        piece = raw[seg["col_start"] : seg["col_end"]].rstrip()
+        start = text.offset(line) + seg["col_start"]
+        joins = (
+            prev is not None
+            and prev["line"] == line - 1
+            and prev["kind"] in RUN_KINDS
+            and prev["col_end"] >= len(text.bare(prev["line"]).rstrip())
+            and seg["kind"] in CONTINUING_KINDS
+            and seg["col_start"] == len(raw) - len(raw.lstrip())
+        )
+        if not joins:
+            runs.append(ProseRun())
+        runs[-1].add(text, start, start + len(piece))
+        prev = seg
+    return runs
+
+
+def pattern_matches(text, blocks, rules):
+    """Every place a rule's pattern matches the file's eligible prose.
+
+    Returns dicts of rule, line, col_start, end_line, col_end and text, where
+    text is exactly what the file holds there, newline and indent included when
+    the match wraps, so it can be copied into a finding as it stands. A match
+    that touches a code span is left out: a code span quotes code, which a
+    prose rule has nothing to say about. So is an empty match, and a second
+    pattern of the same rule matching the same text.
+    """
+    spans = blocks.code_span_offsets(blocks.protected_offsets())
+    compiled = [(r.id, re.compile(source)) for r in rules for _line, source in r.patterns]
+    out, seen = [], set()
+    for run in prose_runs(text, blocks):
+        s = run.string()
+        for rid, rx in compiled:
+            for m in rx.finditer(s):
+                where = run.span(m.start(), m.end())
+                if where is None:
+                    continue
+                a, b = where
+                if (rid, a, b) in seen or any(x < b and a < y for x, y in spans):
+                    continue
+                seen.add((rid, a, b))
+                line, end_line = text.line_of(a), text.line_of(b)
+                out.append(
+                    {
+                        "rule": rid,
+                        "line": line,
+                        "col_start": a - text.offset(line),
+                        "end_line": end_line,
+                        "col_end": b - text.offset(end_line),
+                        "text": text.s[a:b],
+                    }
+                )
+    out.sort(key=lambda x: (x["line"], x["col_start"], x["rule"]))
+    return out
+
+
+# --------------------------------------------------------------------------
 # evidence
 # --------------------------------------------------------------------------
 
@@ -2302,6 +2501,69 @@ def cmd_segments(args):
         )
 
     return emit(args, "segments", repo.root, data, errors=errors, human=human)
+
+
+def match_line(rel, m):
+    """One match as a line of text: its address, its rule, then its text.
+
+    The address is file:line:col_start-col_end, or file:line:col_start-
+    end_line:col_end for a match that wraps. The text is a JSON string, so a
+    wrapped match's newline shows as \\n and the text can be pasted into a
+    finding as it stands.
+    """
+    end = "%d" % m["col_end"]
+    if m["end_line"] != m["line"]:
+        end = "%d:%d" % (m["end_line"], m["col_end"])
+    return "%s:%d:%d-%s  %s  %s" % (
+        rel,
+        m["line"],
+        m["col_start"],
+        end,
+        m["rule"],
+        json.dumps(m["text"], ensure_ascii=False),
+    )
+
+
+def cmd_patterns(args):
+    """Every match of every rule's pattern, over the same spans segments gives.
+
+    A match is a place for the model to judge, not a finding: a spaced hyphen
+    can be a minus sign. So matches exit 0, like segments; a rule file lint
+    refuses exits 1 before anything is read, because a pattern it drops would
+    look like a rule with nothing to report.
+    """
+    repo, config, scope = load(args)
+    if config.errors:
+        return emit(
+            args,
+            "patterns",
+            repo.root,
+            {},
+            errors=[*config.errors, "%s  fix it first; see: prose.py config lint" % config.rel()],
+        )
+    rules = config.patterned()
+    targets = args.paths or scope.files()
+    matches, errors = [], []
+    for rel in targets:
+        path = repo.abspath(rel)
+        if not os.path.exists(path):
+            errors.append("%s  no such file" % rel)
+            continue
+        text = Text.read(path)
+        for m in pattern_matches(text, Blocks(text), rules):
+            matches.append(dict(m, file=rel))
+    matches.sort(key=lambda m: (m["file"], m["line"], m["col_start"], m["rule"]))
+    data = {"rules": [r.id for r in rules], "files": len(targets), "matches": matches}
+
+    def human():
+        for m in matches:
+            print(match_line(m["file"], m))
+        print(
+            "\n%d match(es) in %d file(s). Checked by pattern: %s"
+            % (len(matches), len(targets), ", ".join(data["rules"]) or "no rule carries one")
+        )
+
+    return emit(args, "patterns", repo.root, data, errors=errors, human=human)
 
 
 def cmd_evidence(args):
@@ -3219,6 +3481,10 @@ def cmd_report(args):
     the finding says is there, so the report cannot show one text and apply
     change another. A finding apply would refuse is an error here too, and so
     is each pair of findings apply could not do both of.
+
+    It ends by naming the rules that carry a pattern, which `patterns` checked
+    in every file, so the author can tell them from the rules checked by
+    reading.
     """
     repo, config, _ = load(args)
     by_file, rejected = select_findings(args, config)
@@ -3245,7 +3511,8 @@ def cmd_report(args):
                 % (rel, EditEngine.describe(x), EditEngine.describe(y))
             )
     rows.sort(key=lambda r: (r["file"], r["line"], r["finding"]))
-    data = {"findings": rows, "overlaps": overlaps}
+    patterned = [r.id for r in config.patterned()]
+    data = {"findings": rows, "overlaps": overlaps, "checked_by_pattern": patterned}
 
     def human():
         for r in rows:
@@ -3256,6 +3523,10 @@ def cmd_report(args):
                 print(report_field("why", r["why"]))
             print()
         print("%d finding(s) in %d file(s)" % (len(rows), len(set(r["file"] for r in rows))))
+        print(
+            "checked by pattern: %s. Every other rule was checked by reading."
+            % (", ".join(patterned) or "none")
+        )
 
     return emit(args, "report", repo.root, data, errors=rejected, human=human)
 
@@ -3491,6 +3762,18 @@ def build_parser():
         help="one line per file: segments, characters and protected lines, then the totals",
     )
     p.set_defaults(func=cmd_segments)
+
+    p = sub.add_parser(
+        "patterns",
+        parents=[common],
+        help="where each rule's pattern matches the eligible prose",
+        description="Run the pattern of every rule that carries one over the spans segments "
+        "gives, and print each match as FILE:LINE:COL_START-COL_END  RULE  TEXT, with "
+        "END_LINE:COL_END for a match that wraps. The text is a JSON string. With no path, "
+        "every file in scope.",
+    )
+    p.add_argument("paths", nargs="*", help="files to read (default: every file in scope)")
+    p.set_defaults(func=cmd_patterns)
 
     p = sub.add_parser(
         "evidence", parents=[common], help="explicit tags, inferred edits and open questions"

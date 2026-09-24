@@ -84,6 +84,9 @@ Ranges keep their en-dash. `20-30 hrs/wk`, `1988-2026`. That is a different
 mark doing a different job. Tables follow the same rules: a cell that reaches
 for an em-dash almost always wants a period or a colon instead.
 
+**Pattern.** `—`
+**Pattern.** `\s(?:--?|–)(?:\s|$)`
+
 > **Before.** The estimate holds - until the vendor changes its pricing.
 > **After.** The estimate holds. It stops holding when the vendor changes its pricing.
 
@@ -98,7 +101,16 @@ A run of three or more phrases becomes bullets under a lead-in line.
 ### standing-us-spelling: Use US spelling
 <!-- prose-rule: source=shipped -->
 
-Behavior, not behaviour. Judgment, not judgement.
+Behavior, not behaviour. Judgment, not judgement. The patterns list the
+British forms that turn up most. A word they miss is still wrong.
+
+**Pattern.** `(?i)\b(?:arm|behavi|col|endeavo|fav|flav|harb|hon|hum|lab|neighb|od|parl|rum|sav|splend|val|vig)our\w*`
+**Pattern.** `(?i)\b(?:analy|cataly|paraly)s(?:e|ed|ing)\b`
+**Pattern.** `(?i)\b(?:apolog|author|capital|categor|character|critic|custom|emphas|final|general|initial|maxim|memor|minim|normal|optim|organ|priorit|real|recogn|serial|special|stabil|standard|summar|synchron|util|visual)is(?:e|es|ed|ing|ation|ations)\b`
+**Pattern.** `(?i)\b(?:calib|cent|fib|lit|met|somb|spect|theat)r(?:e|es|ed)\b`
+**Pattern.** `(?i)\b(?:cancel|channel|counsel|fuel|label|level|marvel|model|signal|total|travel|tunnel)l(?:ed|ing|er|ers|or|ors|ous)\b`
+**Pattern.** `(?i)\b(?:defen|licen|offen|preten)ces?\b`
+**Pattern.** `(?i)\b(?:(?:acknowledge|judge)ments?|ageing|aluminium|amongst|analogue|catalogues?|cheques?|greys?|jewellery|learnt|manoeuvres?|moulds?|programmes?|sceptic(?:al|ism)?|storeys|tyres?|whilst)\b`
 
 ## Sentences
 

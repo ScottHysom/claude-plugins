@@ -108,6 +108,68 @@ instruction like "use US spelling" does not need one.
 `**Check.**` is conventional rather than required. A rule that can state a
 mechanical test should.
 
+## A pattern
+
+A rule whose breaches a regular expression can find carries a `**Pattern.**`
+line, and `prose.py patterns` runs it:
+
+```markdown
+### standing-no-em-dash: Prefer a period over the em-dash
+<!-- prose-rule: source=shipped -->
+
+Ranges keep their en-dash.
+
+**Pattern.** `—`
+**Pattern.** `\s(?:--?|–)(?:\s|$)`
+```
+
+**The line holds one code span and nothing else.** The span holds a Python
+regular expression. A pattern with a backtick in it goes in a span of two
+backticks, as markdown has it. A rule can carry any number of pattern lines,
+and a match of any one of them is a match for the rule. A word list reads more
+easily as one line per family of words than as one long alternation.
+
+**A flag such as `(?i)` goes at the very start.** Python 3.11 refuses one
+anywhere else, so `config lint` refuses it on every version.
+
+**A pattern reads what `segments` returns, and nothing else.** Front matter,
+fences, blockquotes, HTML comments and a table's delimiter row are never
+searched. A match that touches a code span is dropped too, since a code span
+quotes code. The lines of one paragraph or list item are searched as one
+passage, with each line break read as a single space, so `in order to` finds
+a sentence that wraps after `order`.
+
+`config lint` rejects a `**Pattern.**` line that is not one code span, a
+pattern that does not compile, and a pattern that matches an empty string,
+which would match everywhere.
+
+**A pattern answers to its rule's worked example.** When a rule has both
+halves of an example, at least one of its patterns must find something in the
+Before text, and none may match the After text. `config lint` fails the file
+otherwise. The example is the evidence the rule was written from, so a pattern
+that misses it finds nothing the rule is about, and one that matches the
+rewrite flags prose the rule holds up as right.
+
+A pattern finds places to look, and the model still judges each one. A
+spaced hyphen can be a minus sign. The pattern does not replace the rule's
+prose either. A misspelling missing from a word list still breaks the rule.
+
+### When a rule gets a pattern
+
+A rule gets a pattern when what breaks it is a fixed form: a character such as
+the em-dash, a word such as `behaviour`, or a phrase such as `in order to`. A
+pattern that matches every one of those forms and little else is exhaustive,
+and the rule is checked in every file on every run.
+
+A rule about meaning gets none. `sentences-own-subject` and
+`headings-noun-phrase` need a reading of the sentence, and a pattern
+approximating them would flag a pile of passages that are fine. The model
+then learns to skim the matches.
+
+Write the narrowest pattern that finds the rule's own Before text. A word
+list is written from the forms the evidence showed and the obvious members of
+the same family, one `**Pattern.**` line per family.
+
 ## No retired rules
 
 There is no `status: retired` and no `supersedes:`. When a later run contradicts
