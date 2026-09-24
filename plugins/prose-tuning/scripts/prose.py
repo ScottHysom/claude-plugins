@@ -23,17 +23,22 @@ Commands:
     report      the findings for approval, and which of them overlap
     apply       apply approved rewrites
     restore     put a file back to its committed state
-    where       which surface this is running on: local or cowork
+    setup       which surface this is running on, local or cowork, and
+                locally, copy this script into the project
     stage       copy this script and the shipped rules into Cowork's outputs
 
 Exit codes: 0 clean, 1 ran and found problems, 2 could not run.
 
-Where this runs. In Claude Code, beside the checkout. In Cowork, on the device
-side, because only the device can see the project; COWORK.md at the root of
-the claude-plugins repo says what Cowork allows and why. `stage` copies this
-script and the shipped rules into the project at .prose-tuning/, beside a
-.gitignore of `*` that keeps the whole folder out of the project's commits, and
-preflight refuses to run from a copy git would commit.
+Where this runs. From a copy in the project at .prose-tuning/, on every
+surface, beside the shipped rules and a .gitignore of `*` that keeps the whole
+folder out of the project's commits. preflight refuses to run from a copy git
+would commit. Each shell call a skill makes starts without the variables of
+the last, in Claude Code as on Cowork's device, so every command names the
+script again. From the project root, `PROSE=.prose-tuning/prose.py` is short
+enough to repeat, and the plugin's own install path is not. In Claude Code,
+`setup` makes the copy. In Cowork, `stage` does, and the copy runs on the
+device side, because only the device can see the project; COWORK.md at the
+root of the claude-plugins repo says what Cowork allows and why.
 
 Where the rules live. A project keeps them in .claude/rules/prose-style.md,
 with no paths: key. Claude Code and Cowork both load that folder into their
@@ -44,9 +49,9 @@ live and nothing loads it: preflight refuses one, and `config move` copies it
 across.
 
 The shipped rules. `config init` starts a project's prose-style.md from
-templates/prose-style.md in this plugin. The copy on the device has no plugin
-around it, so a copy in a .prose-tuning/ folder reads the rules `stage` put
-beside it, and never looks for a templates/ folder in the project. The name
+templates/prose-style.md in this plugin. The copy in the project has no plugin
+around it, so a copy in a .prose-tuning/ folder reads the rules `setup` or
+`stage` put beside it, and never looks for a templates/ folder in the project. The name
 init writes into it is the main working tree's folder, not the checkout's: run
 from a git worktree, the checkout's folder is a throwaway name
 (Repo.project_name has how).
@@ -96,13 +101,15 @@ LEGACY_CONFIG_PATH = CONFIG_NAME
 # no longer loads in every session. lint rejects it.
 PATHS_KEY = "paths"
 
-# Cowork. See "Where this runs" above.
+# The copy in the project. See "Where this runs" above.
 SCRIPT_PATH = os.path.abspath(__file__)
 OUTPUTS_ROOT = "/mnt/user-data/outputs"
 DEFAULT_STAGE = OUTPUTS_ROOT + "/prose-tuning"
-DEVICE_DIR = ".prose-tuning"
-DEVICE_SCRIPT = DEVICE_DIR + "/prose.py"
-DEVICE_TEMPLATE = DEVICE_DIR + "/prose-style.template.md"
+COPY_DIR = ".prose-tuning"
+COPY_SCRIPT = COPY_DIR + "/prose.py"
+# What a command starts with to reach the copy, from the project root.
+COPY_PREFIX = "PROSE=" + COPY_SCRIPT
+COPY_TEMPLATE = COPY_DIR + "/prose-style.template.md"
 # The rules a new prose-style.md starts from, relative to the plugin root, and
 # the placeholder in them that init fills with the project's name.
 SHIPPED_TEMPLATE = "templates/" + CONFIG_NAME
@@ -111,8 +118,8 @@ PROJECT_NAME_SLOT = "{{PROJECT_NAME}}"
 GIT_DIR_NAME = ".git"
 # Ignores the folder it sits in, itself included, so the project's .gitignore
 # never has to know this plugin exists.
-DEVICE_IGNORE = DEVICE_DIR + "/.gitignore"
-DEVICE_IGNORE_TEXT = b"*\n"
+COPY_IGNORE = COPY_DIR + "/.gitignore"
+COPY_IGNORE_TEXT = b"*\n"
 DEVICE_MOUNT_ROOT = "$HOME/mnt"
 
 DEFAULT_INCLUDE = ["**/*.md"]
@@ -2093,15 +2100,15 @@ def cmd_status(args):
     return emit(args, "status", repo.root, data, human=human)
 
 
-def unignored_device_copy(repo):
-    """This script's path in the repo when it is a device copy git would commit.
+def unignored_copy(repo):
+    """This script's path in the repo when it is a copy git would commit.
 
-    None when the script runs from anywhere but the repo's .prose-tuning/, as it
-    does in Claude Code, or when git ignores the copy.
+    None when the script runs from anywhere but the repo's .prose-tuning/, or
+    when git ignores the copy.
     """
     rel = os.path.relpath(os.path.realpath(SCRIPT_PATH), os.path.realpath(repo.root))
     rel = rel.replace(os.sep, "/")
-    if not rel.startswith(DEVICE_DIR + "/"):
+    if not rel.startswith(COPY_DIR + "/"):
         return None
     code, _, _ = repo.git("check-ignore", "-q", "--", rel)
     return None if code == 0 else rel
@@ -2134,11 +2141,12 @@ def cmd_preflight(args):
             blockers.append("%s  no config; run: prose.py config init" % config.rel())
     else:
         blockers += config.errors
-    unignored = unignored_device_copy(repo)
+    unignored = unignored_copy(repo)
     if unignored:
         blockers.append(
             "%s  not ignored, so the project's next commit would take it in; "
-            "stage and copy again, which puts %s beside it" % (unignored, DEVICE_IGNORE)
+            "run setup again, or on Cowork stage and copy again, which puts %s beside it"
+            % (unignored, COPY_IGNORE)
         )
 
     files = scope.files()
@@ -2354,8 +2362,8 @@ nothing here is ever marked retired.
 def shipped_template():
     """The shipped rules: beside the script on the device, else in the plugin."""
     here = os.path.dirname(SCRIPT_PATH)
-    if os.path.basename(here) == DEVICE_DIR:
-        path = os.path.join(here, os.path.basename(DEVICE_TEMPLATE))
+    if os.path.basename(here) == COPY_DIR:
+        path = os.path.join(here, os.path.basename(COPY_TEMPLATE))
     else:
         path = os.path.join(os.path.dirname(here), *SHIPPED_TEMPLATE.split("/"))
     if not os.path.isfile(path):
@@ -3231,13 +3239,48 @@ def cmd_restore(args):
     )
 
 
-def cmd_where(args):
+def copy_sources():
+    """(path in the project, bytes) for each file the copy in .prose-tuning/ holds."""
+    with open(SCRIPT_PATH, "rb") as fh:
+        script = fh.read()
+    with open(shipped_template(), "rb") as fh:
+        template = fh.read()
+    return [
+        (COPY_SCRIPT, script),
+        (COPY_IGNORE, COPY_IGNORE_TEXT),
+        (COPY_TEMPLATE, template),
+    ]
+
+
+def cmd_setup(args):
     """local or cowork, so a skill need not judge it from the tools it holds.
 
-    Cowork's container has its outputs directory and no project checkout.
+    Cowork's container has its outputs directory and no project checkout, so
+    there setup only reports; `stage` does the copying. Locally it copies this
+    script into the project, because each shell call starts without the
+    variables of the last, and the plugin's own path is too long to repeat.
     """
-    data = {"surface": "cowork" if os.path.isdir(OUTPUTS_ROOT) else "local"}
-    return emit(args, "where", None, data, human=lambda: print(data["surface"]))
+    if os.path.isdir(OUTPUTS_ROOT):
+        data = {"surface": "cowork", "files": [], "prefix": None, "dry_run": args.dry_run}
+        return emit(args, "setup", None, data, human=lambda: print("cowork"))
+
+    repo = Repo(args.repo)
+    files = []
+    for rel, content in copy_sources():
+        path = repo.abspath(rel)
+        if not args.dry_run:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            # In place, on purpose. See the module docstring.
+            with open(path, "wb") as fh:
+                fh.write(content)
+        files.append({"file": rel, "sha256": hashlib.sha256(content).hexdigest()})
+    data = {"surface": "local", "files": files, "prefix": COPY_PREFIX, "dry_run": args.dry_run}
+
+    def human():
+        print("local")
+        print("\nfrom %s, start every command with:\n%s && " % (repo.root, COPY_PREFIX))
+
+    return emit(args, "setup", repo.root, data, human=human)
 
 
 def normalize_folder(value, name):
@@ -3265,15 +3308,7 @@ def cmd_stage(args):
     if not mount:
         raise Fatal("--connected %s has no folder name to mount" % connected)
 
-    with open(SCRIPT_PATH, "rb") as fh:
-        script = fh.read()
-    with open(shipped_template(), "rb") as fh:
-        template = fh.read()
-    sources = [
-        (DEVICE_SCRIPT, script),
-        (DEVICE_IGNORE, DEVICE_IGNORE_TEXT),
-        (DEVICE_TEMPLATE, template),
-    ]
+    sources = copy_sources()
 
     stage = os.path.abspath(args.stage)
     warnings = []
@@ -3313,7 +3348,7 @@ def cmd_stage(args):
             {"stagedPath": f["staged_path"], "devicePath": f["device_path"]} for f in files
         ],
         "check_command": "\n".join(check),
-        "device_setup": "%s && PROSE=%s" % (cd, DEVICE_SCRIPT),
+        "device_setup": "%s && %s" % (cd, COPY_PREFIX),
     }
 
     def human():
@@ -3504,9 +3539,16 @@ def build_parser():
     p.add_argument("--ref", default="HEAD")
     p.set_defaults(func=cmd_restore)
 
-    # No -C on these two: they run in Cowork's container, which has no repo.
-    p = sub.add_parser("where", parents=[output], help="local or cowork")
-    p.set_defaults(func=cmd_where)
+    # -C is used only locally: in Cowork's container, setup has no repo to find.
+    p = sub.add_parser(
+        "setup",
+        parents=[common],
+        help="local or cowork, and locally copy this script into the project",
+    )
+    p.add_argument("--dry-run", action="store_true")
+    p.set_defaults(func=cmd_setup)
+
+    # No -C: stage runs in Cowork's container, which has no repo.
 
     p = sub.add_parser(
         "stage",

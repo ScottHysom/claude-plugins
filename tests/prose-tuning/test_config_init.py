@@ -62,7 +62,7 @@ def worktree_repo(fresh_repo, tmp_path):
 
 def install_copy(repo, monkeypatch):
     """Put a copy of the script where `stage` puts it on the device."""
-    copy = repo.root / prose.DEVICE_SCRIPT
+    copy = repo.root / prose.COPY_SCRIPT
     copy.parent.mkdir()
     shutil.copyfile(prose.SCRIPT_PATH, str(copy))
     monkeypatch.setattr(prose, "SCRIPT_PATH", str(copy))
@@ -144,7 +144,7 @@ class DescribeConfigInitInAWorktree:
 class DescribeConfigInitOnTheDevice:
     def it_reads_the_rules_staged_beside_the_copy(self, fresh_repo, monkeypatch):
         install_copy(fresh_repo, monkeypatch)
-        (fresh_repo.root / prose.DEVICE_TEMPLATE).write_text(SHIPPED_ONLY)
+        (fresh_repo.root / prose.COPY_TEMPLATE).write_text(SHIPPED_ONLY)
         code, env = fresh_repo.run("config", "init")
         assert code == prose.OK, env["errors"]
         assert ids(fresh_repo.root / prose.CONFIG_PATH) == ["sentences-from-stage"]

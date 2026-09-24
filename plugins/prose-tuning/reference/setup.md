@@ -9,22 +9,42 @@ step is a call into the script, and a missing one surfaces three commands later
 as something unrelated. In Cowork the plugin has to come from the marketplace.
 `propose_skills` carries a single `SKILL.md` and not the script.
 
-```sh
-python3 "$PROSE" where --json
-```
+The `setup` call at the end of that step reports `data.surface`:
 
-- **`local`:** run every command exactly as the skill shows it. Only "Rules
-  still at the project root", below, applies.
+- **`local`:** `setup` has copied the script into the project, at
+  `.prose-tuning/prose.py`. Run every command as "Locally: run each command
+  from the project root", below, says.
 - **`cowork`:** the project isn't visible from here, and `device_bash`, which
   can see it, can't read the plugin. Copy the script into the project and run
-  every command there, as below.
+  every command there, as the two sections on Cowork say.
+
+## Locally: run each command from the project root
+
+Each Bash call in Claude Code starts a fresh shell. The working directory
+carries over from the last call, and `$PROSE` does not. The plugin's own path
+is too long to repeat in every command, so every command reaches the copy
+instead, with `data.prefix` and `&&` in front:
+
+```sh
+PROSE=.prose-tuning/prose.py && python3 "$PROSE" preflight --for apply
+```
+
+- **Use the prefix on every call.** A call that leaves it out runs
+  `python3 ""`, which fails with "can't find '__main__' module" and names no
+  script.
+- **Run from the project root,** the `repo` in the `setup` result. The prefix
+  and every path the skill gives are relative to it.
+- **If preflight says `.prose-tuning/prose.py` is not ignored,** the
+  `.gitignore` beside it is missing. Run the "Locate the script" step again.
+  Never pass `--force` past this blocker.
 
 ## On Cowork: copy the script across
 
 1. Call `get_device_info`. The project is one of its `connectedFolders`, or a
    folder inside one. Ask the author which, if it isn't obvious.
 
-2. Stage:
+2. Stage, with the same `PROSE=` line the "Locate the script" step set in
+   front, since a new call may not still have it:
 
    ```sh
    python3 "$PROSE" stage --folder "<project folder>" --json
