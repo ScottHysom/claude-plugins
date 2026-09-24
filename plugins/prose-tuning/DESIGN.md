@@ -50,6 +50,12 @@ On Cowork, the project is visible from the user's computer, and the plugin is
 not. The skills therefore copy the script and the shipped rules into the
 project, under `.prose-tuning/`. The folder carries its own `.gitignore` of
 `*`, and preflight refuses to run from a copy git would commit.
+
+Claude Code makes the same copy, for a different reason. Each Bash call there
+starts a fresh shell, so a `$PROSE` set in one call is empty in the next. The
+plugin's install path runs past 200 characters, and a model left to repeat it
+pastes it into every command. From the project root, `.prose-tuning/prose.py`
+is short enough to repeat, and both surfaces then run the same commands.
 `reference/setup.md` has the steps the model follows.
 
 ## Why no skill commits

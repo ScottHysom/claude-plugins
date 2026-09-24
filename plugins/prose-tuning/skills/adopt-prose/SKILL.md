@@ -24,9 +24,11 @@ which machine it ran on.
 ROOT="${CLAUDE_PLUGIN_ROOT:-${CLAUDE_SKILL_DIR}/../..}"
 PROSE="$ROOT/scripts/prose.py"
 ls "$PROSE" || echo "prose-tuning is not installed as a plugin here"
+python3 "$PROSE" setup --json
 ```
 
-Then follow `$ROOT/reference/setup.md`. It says where every command below
+Run the block as one command, because the next command's shell will not have
+`$PROSE`. Then follow `$ROOT/reference/setup.md`. It says where every command below
 runs. On Cowork, both files have to be in connected folders, and a `--file`
 outside this project is given as
 `"$HOME/mnt"/<folder>/.claude/rules/prose-style.md`, or the `prose-style.md` at

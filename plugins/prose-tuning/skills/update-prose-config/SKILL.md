@@ -14,9 +14,11 @@ edits and works out what rule each one implies. It then writes the rules into `.
 ROOT="${CLAUDE_PLUGIN_ROOT:-${CLAUDE_SKILL_DIR}/../..}"
 PROSE="$ROOT/scripts/prose.py"
 ls "$PROSE" || echo "prose-tuning is not installed as a plugin here"
+python3 "$PROSE" setup --json
 ```
 
-Then follow `$ROOT/reference/setup.md`. It says where every command below
+Run the block as one command, because the next command's shell will not have
+`$PROSE`. Then follow `$ROOT/reference/setup.md`. It says where every command below
 runs.
 
 Read `$ROOT/reference/tag-vocabulary.md` before inserting any markup. It is
