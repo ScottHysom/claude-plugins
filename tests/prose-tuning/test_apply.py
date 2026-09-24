@@ -500,6 +500,63 @@ class DescribeSpansAcrossLines:
         assert prose_repo.read("doc.md") == "this.\n"
 
 
+class DescribeNewLinesInListItems:
+    """A new line in a list item's rewrite is indented to the item's text.
+
+    Written at column 0, it ended the item there, and a line starting with a
+    `-`, a `#` or a number and a dot became a block of its own (#80).
+    """
+
+    WRAPPED = "- First item starts here and\n  continues on this line.\n- Second item.\n"
+
+    def write(self, prose_repo, content):
+        (prose_repo.root / "doc.md").write_text(content)
+
+    @pytest.mark.parametrize("added", ["A new sentence.", "- A dash.", "# A hash.", "2. A number."])
+    def it_indents_a_new_line_on_a_continuation_line(self, prose_repo, added):
+        self.write(prose_repo, self.WRAPPED)
+        code, envelope = prose_repo.apply(
+            [anchored(prose_repo, 2, "continues on this line.", "continues here.\n" + added)]
+        )
+        assert code == prose.OK, envelope["errors"]
+        assert prose_repo.read("doc.md") == (
+            "- First item starts here and\n  continues here.\n  %s\n- Second item.\n" % added
+        )
+
+    def it_indents_a_new_line_in_a_span_that_starts_on_the_item(self, prose_repo):
+        self.write(prose_repo, self.WRAPPED)
+        code, envelope = prose_repo.apply(
+            [
+                anchored(
+                    prose_repo,
+                    1,
+                    "starts here and\n  continues on this line.",
+                    "starts here.\nIt goes on.",
+                )
+            ]
+        )
+        assert code == prose.OK, envelope["errors"]
+        assert prose_repo.read("doc.md") == (
+            "- First item starts here.\n  It goes on.\n- Second item.\n"
+        )
+
+    def it_leaves_a_new_line_indented_past_the_item_text_as_written(self, prose_repo):
+        self.write(prose_repo, self.WRAPPED)
+        code, envelope = prose_repo.apply(
+            [anchored(prose_repo, 2, "continues on this line.", "continues:\n    - deeper.")]
+        )
+        assert code == prose.OK, envelope["errors"]
+        assert prose_repo.read("doc.md") == (
+            "- First item starts here and\n  continues:\n    - deeper.\n- Second item.\n"
+        )
+
+    def it_leaves_a_new_line_in_a_paragraph_after_the_list_unindented(self, prose_repo):
+        self.write(prose_repo, "- An item.\n\nA paragraph.\n")
+        code, envelope = prose_repo.apply([anchored(prose_repo, 3, "A paragraph.", "One.\nTwo.")])
+        assert code == prose.OK, envelope["errors"]
+        assert prose_repo.read("doc.md") == "- An item.\n\nOne.\nTwo.\n"
+
+
 class DescribeHelp:
     def it_describes_every_field_of_a_finding(self, capsys):
         with pytest.raises(SystemExit) as exit:
