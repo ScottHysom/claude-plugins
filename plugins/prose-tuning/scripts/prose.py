@@ -3104,6 +3104,22 @@ def selected_files(repo, by_file, rejected):
 REPORT_NOTHING = "(nothing: this inserts)"
 REPORT_CUT = "(cut)"
 REPORT_LABEL_WIDTH = len("proposed") + 2
+# Each line of a current or proposed text is printed between these, so a
+# space at either end of it shows. A finding's text often starts with one: the
+# dash in "holds - until" is addressed as " - until".
+REPORT_FENCE = "|"
+
+
+def report_text(value, placeholder):
+    """A current or proposed text as the report prints it: each line fenced,
+    or the unfenced placeholder when the text is empty.
+
+    The placeholder stays unfenced so it cannot be read as a text, even one
+    that says "(cut)".
+    """
+    if not value:
+        return placeholder
+    return "\n".join(REPORT_FENCE + ln + REPORT_FENCE for ln in value.split("\n"))
 
 
 def report_field(label, value):
@@ -3161,8 +3177,8 @@ def cmd_report(args):
     def human():
         for r in rows:
             print("%s:%d  %s  (finding %d)" % (r["file"], r["line"], r["rule"], r["finding"]))
-            print(report_field("current", r["current"] or REPORT_NOTHING))
-            print(report_field("proposed", r["proposed"] or REPORT_CUT))
+            print(report_field("current", report_text(r["current"], REPORT_NOTHING)))
+            print(report_field("proposed", report_text(r["proposed"], REPORT_CUT)))
             if r["why"]:
                 print(report_field("why", r["why"]))
             print()
