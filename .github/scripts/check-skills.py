@@ -33,12 +33,21 @@ Every run lists each marked step and its reason, so a reviewer sees the list
 grow. A step waiting on an issue to give it a command is in KNOWN_GAPS instead,
 and passes with a warning naming that issue until it gains one.
 
+`fences` keeps a skill's shell fences to running the plugin's script. A fence
+holding `python3 -c`, `grep` or `awk` tells the model to compute by hand what
+the script should compute, and two runs of it need not agree. `fences` reads
+the same files as `commands`. Every fence there must carry an info string, so
+a shell block cannot pass for quoted markup. Every command in a shell fence
+must be a script invocation or match an entry in ALLOWED, which gives each
+entry's reason beside it.
+
 Run from anywhere in the clone:
 
     python3 .github/scripts/check-skills.py repeats
     python3 .github/scripts/check-skills.py descriptions
     python3 .github/scripts/check-skills.py commands
     python3 .github/scripts/check-skills.py steps
+    python3 .github/scripts/check-skills.py fences
 
 Commands:
 
@@ -50,6 +59,8 @@ Commands:
                 with that script's build_parser()
   steps         every `## Step` section of a SKILL.md runs a command `commands`
                 resolves, or carries a no-command marker with a reason
+  fences        every fence has an info string, and every command in a shell
+                fence runs a script or is on the ALLOWED list
 
 Every command takes --json and -C/--repo.
 
@@ -102,15 +113,16 @@ Things that look like bugs and are not, in `commands`:
   the plugin's own scripts/<name>, wherever a skill copies or links it. A
   literal path such as `.github/scripts/check-manifest-consistency.py` is read
   from the root of the clone.
-- Only fences whose info string is sh, bash or shell are read. A fence with no
-  info string, or a text fence, holds something the model does not run.
+- Only fences whose info string is sh, bash or shell are read. A text or
+  markdown fence holds something the model does not run. `fences` fails a
+  fence with no info string at all.
 - A `<placeholder>` becomes one word, PLACEHOLDER, and is passed as that text.
   An argument with `type=` or `choices` therefore needs a real value in the
   fence. `[optional]` parts lose their brackets and are checked, so an
   optional flag must exist too.
 - A heredoc's body is not read. It is data the command reads, not a command.
-- `python3 -c` and commands other than python are not checked here. Whether a
-  shell fence may hold them at all is a separate rule.
+- `python3 -c` and commands other than python are not checked here. `fences`
+  decides whether a shell fence may hold them at all.
 - It fails when it finds no invocation at all, or a script with no
   build_parser(), for the same reason as `repeats`.
 
@@ -131,11 +143,28 @@ Things that look like bugs and are not, in `steps`:
   done its job and should be removed.
 - It fails when it finds no step at all, for the same reason as `repeats`.
 
+Things that look like bugs and are not, in `fences`:
+
+- It judges each simple command, not each line. `cd "<dir>" && PROSE=... &&
+  python3 "$PROSE" ...` passes because each of its parts does, and
+  `python3 "$PROSE" segments | grep x` fails on the grep alone.
+- An invocation is any `python3` followed by a variable or a .py path. Whether
+  the script accepts the arguments is `commands`' job, not this one's.
+- An ALLOWED entry holds only in its position. `cd` may open a line but not
+  end one, and `echo` may only follow `ls "$VAR" ||`, so a bare
+  `echo "$x" | cut -f1` still fails.
+- A heredoc's body is not read, as in `commands`. The findings heredoc is
+  allowed because its body is the model's judgment, written for the script
+  to read.
+- It fails when it finds no shell fence at all, for the same reason as
+  `repeats`.
+
 All commands:
 
-- They only read. `repeats` and `descriptions` read through git and nothing
-  else. `commands` and `steps` also import each script a skill runs, from the
-  working tree, and call its build_parser(), since only the parser knows the
+- They only read. `repeats`, `descriptions` and `fences` read through git
+  and nothing else. `commands` and `steps` also import each script a skill
+  runs, from the working tree, and call its build_parser(), since only the
+  parser knows the
   commands the script accepts. The scripts run main() only under
   `if __name__ == "__main__":`, so importing one runs no command. None of the
   commands writes a file, so all are safe to run anywhere, including Cowork's
@@ -217,11 +246,83 @@ KNOWN_GAPS = {
     ("plugins/prose-tuning/skills/update-prose-config/SKILL.md", 9): 105,
 }
 
+# Where a command other than a script invocation may stand on its line.
+ANYWHERE = "anywhere"
+# In the run of LEADING commands that opens the line, each followed by `&&`,
+# with something after the run.
+LEADING = "leading"
+# Followed by `||` and a FALLBACK command, which ends the line.
+FALLIBLE = "fallible"
+# Last, after `||` and a FALLIBLE command.
+FALLBACK = "fallback"
+# The only command on its line.
+ALONE = "alone"
+
+# The plugin root as every "Locate the script" step spells it.
+PLUGIN_ROOT = r"\$\{CLAUDE_PLUGIN_ROOT:-\$\{CLAUDE_SKILL_DIR\}/\.\./\.\.\}"
+# One assignment of a script path, or of the plugin root the path is built on.
+PATH_ASSIGNMENT = r"[A-Za-z_]\w*=(?:\S*\%s|%s)" % (SCRIPT_SUFFIX, PLUGIN_ROOT)
+
+Allowed = collections.namedtuple("Allowed", "name pattern position reason")
+
+# What a shell fence may hold besides a script invocation `commands` resolves.
+# Each pattern is matched against one simple command, its words joined by
+# single spaces with the quotes gone. Anything else is the model computing by
+# hand what the script should compute.
+ALLOWED = (
+    Allowed(
+        "script path",
+        re.compile(r"^%s(?: %s)*$" % (PATH_ASSIGNMENT, PATH_ASSIGNMENT)),
+        ANYWHERE,
+        "names the script the invocations after it run, and runs nothing itself",
+    ),
+    Allowed(
+        "installed check",
+        re.compile(r"^ls \$\w+$"),
+        FALLIBLE,
+        '"Locate the script" checks the script is there before the first step',
+    ),
+    Allowed(
+        "not installed message",
+        re.compile(r"^echo .+$"),
+        FALLBACK,
+        "says why the ls before it failed",
+    ),
+    Allowed(
+        "findings heredoc",
+        re.compile(r"^cat > \$\{TMPDIR:-/tmp\}/[\w.-]+ <<-? \w+$"),
+        ALONE,
+        "writes the model's findings to a file the script reads; the body is data, and unread",
+    ),
+    Allowed(
+        "change directory",
+        re.compile(r"^cd \S+$"),
+        LEADING,
+        "moves into the project folder, since each shell call starts afresh",
+    ),
+    Allowed(
+        "link directory",
+        re.compile(r"^mkdir -p /tmp/[\w.-]+$"),
+        LEADING,
+        "makes the folder gitify links the plugin into",
+    ),
+    Allowed(
+        "plugin link",
+        re.compile(r"^ln -sfn %s /tmp/[\w.-]+/plugin$" % PLUGIN_ROOT),
+        LEADING,
+        "links the plugin at a path short enough to repeat in every command",
+    ),
+)
+
 WHERE_REPEATS = (
     'CLAUDE.md, under "Skills and scripts", says why a step shared by two skills '
     "lives once in the plugin's %s/." % REFERENCE
 )
 WHERE_DESCRIPTIONS = 'COWORK.md, under "How skills load", says why an upload rejects this.'
+WHERE_FENCES = (
+    'CLAUDE.md, under "Skills and scripts", says the script does whatever two runs '
+    "should agree on. A shell fence that computes it with other tools has the model do it by hand."
+)
 WHERE_COMMANDS = (
     'CLAUDE.md, under "Skills and scripts", says a SKILL.md names the command for '
     "each step. A command the script rejects sends the model back to doing the step by hand."
@@ -585,11 +686,12 @@ def shell_lines(fence):
     return out
 
 
-def simple_commands(text):
-    """The simple commands on one line, each as a list of words.
+def chain(text):
+    """The simple commands on one line, as [(words, separator after it)].
 
-    Placeholders become one word, the brackets of an optional part go, comments
-    go, and a redirection goes with its operand.
+    Placeholders become one word, the brackets of an optional part go and
+    comments go. Redirections stay as words, operand and all. The last
+    command's separator is None.
     """
     text = PLACEHOLDER_RE.sub(PLACEHOLDER, text)
     while OPTIONAL_RE.search(text):
@@ -600,19 +702,35 @@ def simple_commands(text):
         tokens = list(lexer)
     except ValueError as exc:
         raise Fatal("cannot split %r into words: %s" % (text, exc)) from exc
-    commands, current, skip = [], [], False
+    out, current = [], []
     for token in tokens:
-        if skip:
-            skip = False
-        elif token in SEPARATORS:
-            commands.append(current)
+        if token in SEPARATORS:
+            out.append((current, token))
             current = []
-        elif token in REDIRECTIONS:
-            skip = True
         else:
             current.append(token)
-    commands.append(current)
-    return [c for c in commands if c]
+    out.append((current, None))
+    return [(words, sep) for words, sep in out if words]
+
+
+def simple_commands(text):
+    """The simple commands on one line, each as a list of words.
+
+    As chain(), with each redirection gone along with its operand.
+    """
+    commands = []
+    for words, _ in chain(text):
+        kept, skip = [], False
+        for word in words:
+            if skip:
+                skip = False
+            elif word in REDIRECTIONS:
+                skip = True
+            else:
+                kept.append(word)
+        if kept:
+            commands.append(kept)
+    return commands
 
 
 def script_of(value, plugin):
@@ -955,6 +1073,112 @@ def cmd_steps(args, root):
 
 
 # --------------------------------------------------------------------------
+# what a shell fence may hold
+# --------------------------------------------------------------------------
+
+INVOCATION = "invocation"
+
+
+def is_invocation(words):
+    """Whether words run a script `commands` can resolve: python3 and a path."""
+    while words and re.match("^%s$" % PATH_ASSIGNMENT, words[0]):
+        words = words[1:]
+    if len(words) < 2 or words[0] not in PYTHONS:
+        return False
+    return bool(VARIABLE_RE.match(words[1])) or words[1].endswith(SCRIPT_SUFFIX)
+
+
+def matches(links, i, position):
+    """Whether links[i] matches an ALLOWED entry held to this position."""
+    text = " ".join(links[i][0])
+    return any(a.position == position and a.pattern.match(text) for a in ALLOWED)
+
+
+def placed(links, i, position):
+    """Whether links[i] stands where an entry with this position may."""
+    last = len(links) - 1
+    sep = links[i][1]
+    if position == ANYWHERE:
+        return True
+    if position == ALONE:
+        return last == 0
+    if position == LEADING:
+        before = all(links[j][1] == "&&" and matches(links, j, LEADING) for j in range(i))
+        return before and sep == "&&" and i < last
+    if position == FALLIBLE:
+        return sep == "||" and i + 1 == last and matches(links, last, FALLBACK)
+    if position == FALLBACK:
+        return i == last and i > 0 and links[i - 1][1] == "||" and matches(links, i - 1, FALLIBLE)
+    raise Fatal("ALLOWED names an unknown position %r" % position)
+
+
+def allowance(links, i):
+    """The name of what lets links[i] stand in a shell fence, or None."""
+    words = links[i][0]
+    if is_invocation(words):
+        return INVOCATION
+    text = " ".join(words)
+    for a in ALLOWED:
+        if a.pattern.match(text) and placed(links, i, a.position):
+            return a.name
+    return None
+
+
+def cmd_fences(args, root):
+    """Every fence says what it holds, and a shell fence runs only the script."""
+    found = instruction_files(repo_files(root))
+    scanned, commands, errors = [], [], []
+    shell = 0
+
+    for plugin in sorted(found):
+        for path in sorted(found[plugin]):
+            scanned.append(path)
+            try:
+                with open(os.path.join(root, path), encoding="utf-8", errors="replace") as fh:
+                    text = fh.read()
+            except OSError as exc:
+                raise Fatal("cannot read %s: %s" % (path, exc)) from exc
+            for fence in fences(text):
+                if not fence.info:
+                    errors.append(
+                        "%s:%d: fence has no info string. Label it %s if the model runs it, "
+                        "or with what it holds, such as markdown, text or json."
+                        % (path, fence.line, SHELL_INFOS[0])
+                    )
+                    continue
+                if fence.info not in SHELL_INFOS:
+                    continue
+                shell += 1
+                for line, command in shell_lines(fence):
+                    links = chain(command)
+                    for i, (words, _) in enumerate(links):
+                        allowed = allowance(links, i)
+                        commands.append(
+                            {"path": path, "line": line, "word": words[0], "allowed": allowed}
+                        )
+                        if allowed is None:
+                            errors.append(
+                                "%s:%d: `%s` in a shell fence: %s"
+                                % (path, line, words[0], command.strip())
+                            )
+
+    if not shell:
+        errors.append(
+            "found no shell fence under %s/; a check that scanned nothing has not passed" % PLUGINS
+        )
+
+    def human():
+        if not errors:
+            print(
+                "%d shell fence(s) in %d file(s) run only their scripts."
+                % (shell, len(set(c["path"] for c in commands)))
+            )
+
+    data = {"scanned": scanned, "commands": commands}
+    return emit(args, "fences", data, errors, None, human, WHERE_FENCES)
+
+
+# --------------------------------------------------------------------------
 # entry point
 # --------------------------------------------------------------------------
 
@@ -986,6 +1210,11 @@ def build_parser():
         "steps", parents=[common], help="every step runs a command, or says why it runs none"
     )
     p.set_defaults(func=cmd_steps)
+
+    p = sub.add_parser(
+        "fences", parents=[common], help="every fence is labeled; a shell fence runs only scripts"
+    )
+    p.set_defaults(func=cmd_fences)
 
     return ap
 

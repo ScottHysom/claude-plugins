@@ -172,7 +172,7 @@ The bridge cannot complete a `git commit`; the plugin's DESIGN.md, under "Why
 `commit.sh` exists", says why. So tell the user to run, from their own
 terminal:
 
-```
+```text
 cd "<project folder>" && sh setup.sh
 ```
 

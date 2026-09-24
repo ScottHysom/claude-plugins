@@ -16,6 +16,11 @@ model into a usage error mid-run. The tests give a throwaway plugin a small
 script with a real parser, and check that each form a skill writes a command
 in reaches that parser, and that a check which found nothing to resolve fails.
 
+`fences`: a shell fence that runs grep or `python3 -c` has the model compute by
+hand what the script should. The tests give each allowed setup line a case
+that passes where it belongs and fails where it does not, since an allowlist
+entry that holds anywhere is a hole.
+
 `steps`: a step with no command leaves its work to the model unless it says
 why. The tests build a skill whose steps run a command, carry a marker or do
 neither. They check each rule the marker and KNOWN_GAPS follow, and that the
@@ -47,7 +52,8 @@ LOCATE = (
     "## Locate the script\n\n"
     "```sh\n"
     'ROOT="${CLAUDE_PLUGIN_ROOT:-${CLAUDE_SKILL_DIR}/../..}"\n'
-    'ls "$ROOT/scripts/foo.py"\n'
+    'FOO="$ROOT/scripts/foo.py"\n'
+    'ls "$FOO" || echo "foo is not installed"\n'
     "```\n\n"
     "Then follow `$ROOT/reference/setup.md`.\n\n"
 )
@@ -673,6 +679,93 @@ class DescribeSteps:
 
 
 class DescribeFences:
+    def it_rejects_python_dash_c(self, make_repo, run):
+        root = make_repo(uses(sh('python3 "$FOO" lint', "python3 -c 'print(1)'")))
+        code, out, err = run("fences", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert out == ""
+        assert "%s:19: `python3`" % SKILL in err
+
+    def it_rejects_grep_in_a_pipeline(self, make_repo, run):
+        root = make_repo(uses(sh('python3 "$FOO" lint --json | grep -c ok')))
+        code, _, err = run("fences", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "%s:18: `grep`" % SKILL in err
+
+    def it_rejects_a_fence_without_an_info_string(self, make_repo, run):
+        root = make_repo(uses(sh('python3 "$FOO" lint') + "\n```\n<del>x</del>\n```\n"))
+        code, _, err = run("fences", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "%s:21: fence has no info string" % SKILL in err
+
+    def it_allows_the_findings_heredoc(self, make_repo, run):
+        fence = sh(
+            "cat > \"${TMPDIR:-/tmp}/foo-findings.json\" <<'END'",
+            '{"findings": []}',
+            "END",
+            'python3 "$FOO" lint --file "${TMPDIR:-/tmp}/foo-findings.json"',
+        )
+        root = make_repo(uses(fence))
+        code, _, err = run("fences", "-C", str(root))
+        assert code == cs.OK, err
+
+    def it_does_not_scan_a_heredoc_body(self, make_repo, run):
+        fence = sh("python3 \"$FOO\" lint --file - <<'END'", "grep -v x | awk '{print}'", "END")
+        root = make_repo(uses(fence))
+        code, _, err = run("fences", "-C", str(root))
+        assert code == cs.OK, err
+
+    def it_rejects_a_heredoc_that_is_not_the_findings_file(self, make_repo, run):
+        root = make_repo(uses(sh("cat > notes.txt <<'END'", "x", "END")))
+        code, _, err = run("fences", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "`cat`" in err
+
+    def it_rejects_the_findings_heredoc_sharing_its_line(self, make_repo, run):
+        line = 'python3 "$FOO" lint && cat > "${TMPDIR:-/tmp}/foo-findings.json" <<\'END\''
+        root = make_repo(uses(sh(line, "{}", "END")))
+        code, _, err = run("fences", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "`cat`" in err
+
+    def it_allows_a_leading_cd(self, make_repo, run):
+        root = make_repo(
+            uses(sh('cd "<project folder>" && FOO=.foo/foo.py && python3 "$FOO" lint'))
+        )
+        code, _, err = run("fences", "-C", str(root))
+        assert code == cs.OK, err
+
+    def it_rejects_cd_anywhere_but_the_start(self, make_repo, run):
+        root = make_repo(uses(sh('python3 "$FOO" lint && cd ..')))
+        code, _, err = run("fences", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "`cd`" in err
+
+    def it_rejects_echo_that_does_not_follow_the_installed_check(self, make_repo, run):
+        root = make_repo(uses(sh('echo "$FOO" | cut -d/ -f1')))
+        code, _, err = run("fences", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "`echo`" in err
+        assert "`cut`" in err
+
+    def it_allows_the_installed_check_in_locate_the_script(self, make_repo, run):
+        root = make_repo(uses(sh('ls "$FOO" || echo "foo is not installed"')))
+        code, _, err = run("fences", "-C", str(root))
+        assert code == cs.OK, err
+
+    def it_fails_when_it_finds_no_shell_fence(self, make_repo, run):
+        root = make_repo({SKILL: skill("foo", "```text\nls\n```\n")})
+        code, _, err = run("fences", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "found no shell fence" in err
+
+    def it_accepts_the_repo_as_it_stands(self, run):
+        code, out, err = run("fences", "--json", "-C", str(REPO_ROOT))
+        assert code == cs.OK, err
+        allowed = set(c["allowed"] for c in json.loads(out)["data"]["commands"])
+        assert cs.INVOCATION in allowed
+        assert "findings heredoc" in allowed
+
     def it_keeps_each_fences_info_string(self):
         text = "```sh\nls\n```\n\n```\nplain\n```\n\n~~~Text\nx\n~~~\n"
         assert [f.info for f in cs.fences(text)] == ["sh", "", "text"]
@@ -684,7 +777,7 @@ class DescribeFences:
 
 
 class DescribeMain:
-    @pytest.mark.parametrize("command", ["repeats", "descriptions", "commands", "steps"])
+    @pytest.mark.parametrize("command", ["repeats", "descriptions", "commands", "steps", "fences"])
     def it_prints_the_same_envelope_for_every_command(self, make_repo, run, command):
         root = make_repo(
             {

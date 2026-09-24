@@ -70,8 +70,12 @@ back them. What agents do:
 - **SKILL.md names the command for each step** and says what its result means.
   It does not describe how to do the step's logic by hand.
   `.github/scripts/check-skills.py commands` fails a pull request whose skill
-  names a subcommand or flag the script does not have. A step that is judgment
-  or a hand-off, and so runs no command, carries
+  names a subcommand or flag the script does not have. A shell fence runs the
+  script and nothing that computes beside it, such as `grep` or `python3 -c`.
+  Every fence carries an info string: `sh` for what the model runs, or what
+  it holds, such as `markdown` or `text`. `check-skills.py fences` fails a
+  pull request that breaks either.
+  A step that is judgment or a hand-off, and so runs no command, carries
   `<!-- no-command: <reason> -->` on its own line under its heading.
   `check-skills.py steps` fails a step with neither, and its module docstring
   covers `KNOWN_GAPS`, the list of steps waiting on an issue for a command.

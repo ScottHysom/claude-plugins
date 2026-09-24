@@ -181,3 +181,11 @@ jobs:
       # it has found no step at all.
       - name: Check each skill step runs a command or says why not
         run: python3 .github/scripts/check-skills.py steps
+
+      # A shell fence holding grep, awk or python3 -c has the model compute by
+      # hand what the plugin's script should, and two runs need not agree.
+      # This allows only script invocations and the few setup lines listed in
+      # the script, and needs every fence labeled so a shell block cannot pass
+      # as quoted markup. Like the others, it fails when it has found nothing.
+      - name: Check skills' shell fences run only their scripts
+        run: python3 .github/scripts/check-skills.py fences
