@@ -164,3 +164,11 @@ jobs:
       # it fails when it has scanned nothing.
       - name: Check skills share steps rather than copy them
         run: python3 .github/scripts/check-skills.py repeats
+
+      # A skill that names a subcommand or flag its script lacks reads fine,
+      # and the model meets the usage error mid-run and does the step by hand.
+      # This puts every script invocation in a skill's shell fences through
+      # that script's own parser. It runs here so the 3.9 matrix loads each
+      # plugin script too, and it fails when it has found nothing to resolve.
+      - name: Check skills name commands their scripts have
+        run: python3 .github/scripts/check-skills.py commands

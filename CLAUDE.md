@@ -69,6 +69,8 @@ back them. What agents do:
   eligible spans. Telling the model what to skip is a rule that gets broken.
 - **SKILL.md names the command for each step** and says what its result means.
   It does not describe how to do the step's logic by hand.
+  `.github/scripts/check-skills.py commands` fails a pull request whose skill
+  names a subcommand or flag the script does not have.
 - **Python for anything with logic.** Shell only for a short wrapper a person
   runs from their own terminal: POSIX `sh`, `#!/bin/sh` and `set -e`, no bash
   syntax. It must pass shellcheck (README.md says how). A deliberate warning is
