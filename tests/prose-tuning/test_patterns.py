@@ -220,9 +220,7 @@ class DescribeReportOnPatterns:
         code = prose.main(["report", "--findings", path, "-C", str(prose_repo.root)])
         out = capsys.readouterr().out.splitlines()
         assert code == prose.OK
-        assert out[-1] == (
-            "checked by pattern: %s. Every other rule was checked by reading." % RULE
-        )
+        assert ("checked by pattern: %s. Every other rule was checked by reading." % RULE) in out
 
 
 class DescribeShippedPatterns:

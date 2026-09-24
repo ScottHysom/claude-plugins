@@ -207,8 +207,23 @@ class ProseRepo:
         return code, json.loads(captured.out) if captured.out else None
 
     def apply(self, findings, *flags):
-        """Run `prose.py apply` on these findings. Returns what run() does."""
-        return self.run("apply", "--findings", self.findings_file(findings), *flags)
+        """Run `prose.py apply` on these findings, with the token they have now.
+
+        The token comes from approval_token rather than from a report run, so
+        a test of a finding apply refuses, which report would refuse too, still
+        reaches apply. Returns what run() does.
+        """
+        path = self.findings_file(findings)
+        return self.run("apply", "--findings", path, "--token", self.token(), *flags)
+
+    def token(self, path=None):
+        """The approval token for the findings file as it is now."""
+        path = path or str(self.root / "findings.json")
+        with open(path, "rb") as fh:
+            raw = fh.read()
+        repo = prose.Repo(str(self.root))
+        config = prose.Config(prose.config_path(repo))
+        return prose.approval_token(repo, config, raw, json.loads(raw))
 
     def report(self, findings, *flags):
         """Run `prose.py report` on these findings. Returns what run() does."""

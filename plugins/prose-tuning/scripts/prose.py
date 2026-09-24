@@ -69,7 +69,14 @@ Some things in here look like bugs and are not:
    bridge strands those locks because it cannot delete them, which is the whole
    reason the projects this runs against carry a commit.sh.
 
-3. apply can delete a blank line that no finding names. It does so when the
+3. report prints an approval token, and apply refuses to run without the same
+   one. The token is a hash of the findings, every document a finding names
+   and prose-style.md, so a batch or a file that changed after the author
+   approved the report is refused rather than written. Nothing records the
+   token on disk: apply recomputes it, because a state file on the Cowork
+   bridge could never be deleted. approval_token has what it covers.
+
+4. apply can delete a blank line that no finding names. It does so when the
    findings cut a whole block that sat between two blank lines, so that one
    blank line is left between its neighbors rather than two. plan_findings
    has the rule.
@@ -91,6 +98,14 @@ import sys
 ENVELOPE_VERSION = 1
 
 OK, PROBLEMS, CANNOT_RUN = 0, 1, 2
+
+# How many hex digits of the approval token report prints and apply compares.
+TOKEN_LENGTH = 16
+TOKEN_LABEL = "approval token: "
+TOKEN_STALE = (
+    "the findings, a document they name or %s changed since report ran, "
+    "or the token is not the one it printed; run report again and show it to the author"
+)
 
 CONFIG_NAME = "prose-style.md"
 # Where a project keeps it. See "Where the rules live" above.
@@ -2244,6 +2259,26 @@ def read_json(source, what):
         raise Fatal("%s is not valid JSON: %s" % (what, exc)) from exc
 
 
+def read_findings(source):
+    """(raw bytes, parsed findings) from a file, or from stdin when source is -.
+
+    The bytes are what the approval token hashes, so they are read once and
+    parsed from the same read. stdin cannot be read twice.
+    """
+    if source == "-":
+        raw = sys.stdin.read().encode("utf-8")
+    else:
+        try:
+            with open(source, "rb") as fh:
+                raw = fh.read()
+        except OSError as exc:
+            raise Fatal("cannot read findings: %s" % exc) from exc
+    try:
+        return raw, json.loads(raw.decode("utf-8"))
+    except ValueError as exc:
+        raise Fatal("findings is not valid JSON: %s" % exc) from exc
+
+
 def load(args):
     """repo, config, scope for one invocation.
 
@@ -3373,13 +3408,50 @@ example:
 """
 
 
-def select_findings(args, config):
+def approval_token(repo, config, raw, findings):
+    """The token report prints and apply requires, for this batch as it is now.
+
+    A sha256 over the findings' bytes, the path and bytes of every document any
+    finding names, and prose-style.md's bytes. --only and --file are left out:
+    they select within the approved set, so they must not change what was
+    approved. Every part carries its length, so bytes cannot move from one part
+    to the next and hash the same.
+    """
+    digest = hashlib.sha256()
+
+    def part(data):
+        digest.update(b"%d:" % len(data))
+        digest.update(data)
+
+    def document(path):
+        # A leading byte tells a missing file from an empty one, so creating
+        # or deleting a document changes the token too.
+        if not os.path.isfile(path):
+            digest.update(b"-")
+            return
+        digest.update(b"+")
+        with open(path, "rb") as fh:
+            part(fh.read())
+
+    part(raw)
+    names = set()
+    if isinstance(findings, list):
+        for f in findings:
+            if isinstance(f, dict) and isinstance(f.get("file"), str):
+                names.add(os.path.normpath(f["file"]))
+    for rel in sorted(names):
+        part(rel.encode("utf-8"))
+        document(repo.abspath(rel))
+    document(config.path)
+    return digest.hexdigest()[:TOKEN_LENGTH]
+
+
+def select_findings(args, config, findings):
     """The findings --only and --file keep, by file, and the ones refused.
 
     Returns (by_file, rejected). by_file maps each file to its
     findings as (place in the whole batch, counting from 1, finding).
     """
-    findings = read_json(args.findings, "findings")
     only = set(x.strip() for x in args.only.split(",")) if args.only else None
     files = set(os.path.normpath(p) for p in args.file) if args.file else None
     known = config.by_id()
@@ -3487,7 +3559,8 @@ def cmd_report(args):
     reading.
     """
     repo, config, _ = load(args)
-    by_file, rejected = select_findings(args, config)
+    raw, findings = read_findings(args.findings)
+    by_file, rejected = select_findings(args, config, findings)
     rows, overlaps = [], []
     for _path, rel, text, numbers, mine in selected_files(repo, by_file, rejected):
         staged = stage_findings(text, Blocks(text), rel, mine, numbers)
@@ -3512,7 +3585,15 @@ def cmd_report(args):
             )
     rows.sort(key=lambda r: (r["file"], r["line"], r["finding"]))
     patterned = [r.id for r in config.patterned()]
-    data = {"findings": rows, "overlaps": overlaps, "checked_by_pattern": patterned}
+    # No token for a report that failed: the author cannot approve a batch
+    # apply would refuse.
+    token = None if rejected else approval_token(repo, config, raw, findings)
+    data = {
+        "findings": rows,
+        "overlaps": overlaps,
+        "checked_by_pattern": patterned,
+        "token": token,
+    }
 
     def human():
         for r in rows:
@@ -3527,13 +3608,19 @@ def cmd_report(args):
             "checked by pattern: %s. Every other rule was checked by reading."
             % (", ".join(patterned) or "none")
         )
+        if token:
+            print(TOKEN_LABEL + token)
 
     return emit(args, "report", repo.root, data, errors=rejected, human=human)
 
 
 def cmd_apply(args):
     repo, config, _ = load(args)
-    by_file, rejected = select_findings(args, config)
+    raw, findings = read_findings(args.findings)
+    if args.token != approval_token(repo, config, raw, findings):
+        stale = TOKEN_STALE % config.rel()
+        return emit(args, "apply", repo.root, {"applied": []}, errors=[stale])
+    by_file, rejected = select_findings(args, config, findings)
     staged, applied = [], []
     for path, rel, text, numbers, mine in selected_files(repo, by_file, rejected):
         new, done, refused = plan_findings(text, Blocks(text), rel, mine, numbers)
@@ -3894,6 +3981,12 @@ def build_parser():
         "--partial",
         action="store_true",
         help="apply what is valid and report the rest, instead of writing nothing",
+    )
+    p.add_argument(
+        "--token",
+        required=True,
+        help="the approval token report printed for these findings; apply refuses "
+        "a batch, a document or rules that changed since",
     )
     p.add_argument("--dry-run", action="store_true", help="report without writing")
     p.set_defaults(func=cmd_apply)

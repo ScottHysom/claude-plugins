@@ -118,7 +118,8 @@ has every form they take.
 Ask Claude to apply the house style. Claude lists each passage that breaks a
 rule, with the file, the line, the rule's id and a proposed rewrite. Nothing
 changes until you approve. You can approve the whole list, or only some rules,
-or only some files.
+or only some files. If a document, the list or the rules change after you
+approve, nothing is written, and Claude shows you the list again.
 
 Two proposed rewrites sometimes touch the same passage, such as a fix inside a
 paragraph that another rewrite cuts. Only one of them can apply. Claude shows
