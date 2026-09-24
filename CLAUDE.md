@@ -75,6 +75,10 @@ back them. What agents do:
   Every fence carries an info string: `sh` for what the model runs, or what
   it holds, such as `markdown` or `text`. `check-skills.py fences` fails a
   pull request that breaks either.
+  A step that is judgment or a hand-off, and so runs no command, carries
+  `<!-- no-command: <reason> -->` on its own line under its heading.
+  `check-skills.py steps` fails a step with neither, and its module docstring
+  covers `KNOWN_GAPS`, the list of steps waiting on an issue for a command.
 - **Python for anything with logic.** Shell only for a short wrapper a person
   runs from their own terminal: POSIX `sh`, `#!/bin/sh` and `set -e`, no bash
   syntax. It must pass shellcheck (README.md says how). A deliberate warning is

@@ -173,6 +173,15 @@ jobs:
       - name: Check skills name commands their scripts have
         run: python3 .github/scripts/check-skills.py commands
 
+      # A step with no command leaves its work to the model, and nothing shows
+      # it did. Each step of a SKILL.md runs a command the check above
+      # resolves, or says why it runs none in a no-command marker. Every run
+      # lists the marked steps, and a step waiting on an issue for its command
+      # warns with that issue's number. Like the checks above, it fails when
+      # it has found no step at all.
+      - name: Check each skill step runs a command or says why not
+        run: python3 .github/scripts/check-skills.py steps
+
       # A shell fence holding grep, awk or python3 -c has the model compute by
       # hand what the plugin's script should, and two runs need not agree.
       # This allows only script invocations and the few setup lines listed in

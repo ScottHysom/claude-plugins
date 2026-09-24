@@ -101,6 +101,7 @@ directory under `plugins/` and one new entry in the catalog.
    python3 .github/scripts/check-manifest-consistency.py check
    python3 .github/scripts/check-skills.py descriptions
    python3 .github/scripts/check-skills.py commands
+   python3 .github/scripts/check-skills.py steps
    python3 .github/scripts/check-skills.py fences
    python3 .github/scripts/check-tests.py placement
    pytest
