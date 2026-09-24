@@ -84,6 +84,10 @@ the dash when the match wraps onto the next line. Then come the rule id and
 the matched text, as a JSON string that goes into a finding's `text` as it
 stands. The last line names the rules checked by pattern.
 
+When it says no rule carries one, the project's rules were written before
+rules could, and every rule is checked by reading. Tell the author that
+`adopt-prose` from the shipped rules brings in their patterns.
+
 A pattern finds places to look, so judge each match. A spaced hyphen can be a
 minus sign. Every match that breaks its rule becomes a finding in step 5,
 usually with a longer `text` than the match, since the rewrite is of the
