@@ -21,7 +21,7 @@ The interview adds one pair: `<q id="N">question</q>` and `<a>answer</a>`.
 
 ## A replacement is a del and an ins
 
-```
+```markdown
 <del>which is the whole point</del><ins></ins>
 ```
 
@@ -30,7 +30,7 @@ one replacement. Nothing else is needed for the common case.
 
 Wrap the pair in `<repl>` when commentary needs somewhere to attach:
 
-```
+```markdown
 <repl why="heading is a noun phrase">
   <del>The size arithmetic, which is the whole point</del>
   <ins>The size arithmetic</ins>
@@ -48,7 +48,7 @@ Commentary takes two keywords, `why` and `<alt>`.
 **`why` is the reason, and nothing else.** Short form is an attribute. Long
 form, or any text containing a double quote, is a child element:
 
-```
+```markdown
 <del why="restates the passage">A bookmark list is not this document.</del>
 ```
 
@@ -56,7 +56,7 @@ form, or any text containing a double quote, is a child element:
 or several. It repeats, and it is also valid on its own at the top level, tied
 to no passage:
 
-```
+```markdown
 <repl>
   <why>Three sentences carrying one claim.</why>
   <alt>Keep the sentence holding the fact; cut the rest.</alt>
@@ -73,7 +73,7 @@ swap; a `why` on the inner `<del>` describes only the deletion.
 
 ## The interview
 
-```
+```markdown
 <q id="3">Does the pirate register apply to headings?</q>
 <a>Body only. Headings stay plain noun phrases.</a>
 ```
