@@ -3056,6 +3056,8 @@ def cmd_tags(args):
 # of prose, such as a blank line, a heading or a table row, is structure that
 # a rewrite across it would erase.
 SPANNING_KINDS = ("paragraph", "list-item")
+# The field a finding carries in place of `replacement` for a match that stays.
+DISMISS_KEY = "dismiss"
 
 
 def locate(text, line, f, n):
@@ -3157,13 +3159,16 @@ class Staged:
     `accepted` holds (finding number, finding, start, end) for each finding
     that passed its checks, `applied` and `rejected` what plan_findings
     returns, and `engine` the edits, labeled with the findings they carry out.
+    `dismissed` holds the same four for each dismissal that passed, which
+    makes no edit.
     """
 
-    def __init__(self, engine, accepted, applied, rejected):
+    def __init__(self, engine, accepted, applied, rejected, dismissed):
         self.engine = engine
         self.accepted = accepted
         self.applied = applied
         self.rejected = rejected
+        self.dismissed = dismissed
 
 
 def stage_findings(text, blocks, rel, findings, numbers=None):
@@ -3192,14 +3197,29 @@ def stage_findings(text, blocks, rel, findings, numbers=None):
     The file keeps one blank line between the blocks either side of the cut,
     and no blank line at either end. A blank line that is protected or carries
     a finding of its own is left alone.
+
+    A dismissal passes the same checks on where it is, and then makes no edit.
     """
     engine = EditEngine(text)
-    applied, rejected, accepted, placed = [], [], [], []
+    applied, rejected, accepted, placed, dismissed = [], [], [], [], []
     for n, f in zip(numbers or range(1, len(findings) + 1), findings):
         line = int(f.get("line", 0))
         if line < 1 or line > text.line_count():
             rejected.append("%s:%s  line is outside the file" % (rel, line))
             continue
+        dismiss = f.get(DISMISS_KEY)
+        if dismiss is not None:
+            if "replacement" in f:
+                rejected.append(
+                    "%s:%d  finding %d has both dismiss and replacement; a dismissed "
+                    "match stays as it is" % (rel, line, n)
+                )
+                continue
+            if not isinstance(dismiss, str) or not dismiss.strip():
+                rejected.append(
+                    "%s:%d  finding %d: dismiss needs a reason the match stays" % (rel, line, n)
+                )
+                continue
         if blocks.is_protected(line):
             rejected.append(
                 "%s:%d  is a %s; prose rules do not apply there" % (rel, line, blocks.kind(line))
@@ -3239,6 +3259,9 @@ def stage_findings(text, blocks, rel, findings, numbers=None):
                 "%s:%d  %s an HTML comment; prose rules do not apply there" % (rel, line, where)
             )
             continue
+        if dismiss is not None:
+            dismissed.append((n, f, a, b))
+            continue
         new = f.get("replacement", "")
         if blocks.kind(line) == "table" and ("|" in new or "\n" in new):
             rejected.append("%s:%d  a table cell cannot contain | or a newline" % (rel, line))
@@ -3265,7 +3288,7 @@ def stage_findings(text, blocks, rel, findings, numbers=None):
     for start, end in cut_runs(text, blocks, cut, marked):
         inside = [x[4] for x in accepted if x[3] <= cut and start <= x[0] and x[1] <= end]
         engine.replace(start, end, "", FindingLabel(inside) if inside else None)
-    return Staged(engine, placed, applied, rejected)
+    return Staged(engine, placed, applied, rejected, dismissed)
 
 
 def indent_new_lines(new, column):
@@ -3387,6 +3410,10 @@ findings:
                sentence is one finding
   replacement  the rewrite; "" cuts the text, and a line cut whole goes
                with its newline. Defaults to ""
+  dismiss      in place of replacement: why a pattern's match stays as it
+               is, such as a hyphen that is a minus sign. apply leaves the
+               text alone, report lists the reason, and a finding with both
+               dismiss and replacement is refused
   col_start    optional: the 0-indexed column the text starts at, when it
                starts at more than one place on the line
   col_end      optional: the column the span ends at, on the same line.
@@ -3400,6 +3427,9 @@ findings:
   within paragraphs and list items. In a list item, apply indents each new
   line to the item's text, so it stays in the item. A table cell's
   replacement can hold neither a newline nor a |.
+
+  report runs every rule's pattern over every file in scope, and fails on a
+  match that no finding or dismissal of the same rule contains.
 
 example:
   [{"file": "notes.md", "line": 12, "rule": "sentences-own-subject",
@@ -3546,6 +3576,44 @@ def edit_refs(edit):
     return label.refs if isinstance(label, FindingLabel) else []
 
 
+def uncovered_matches(repo, config, scope, findings):
+    """Every pattern match in scope that no finding of the same rule contains.
+
+    The files are the ones `patterns` reads with no paths. Every finding in
+    the batch counts, dismissals included, whatever --only and --file select:
+    they choose within the approved batch, and the batch is what has to cover
+    the matches. A finding that does not locate covers nothing.
+    """
+    by_file = {}
+    for n, f in enumerate(findings, 1):
+        if isinstance(f, dict) and isinstance(f.get("file"), str):
+            by_file.setdefault(os.path.normpath(f["file"]), []).append((n, f))
+    rules = config.patterned()
+    out = []
+    for rel in scope.files():
+        text = Text.read(repo.abspath(rel))
+        matches = pattern_matches(text, Blocks(text), rules)
+        if not matches:
+            continue
+        spans = []
+        for n, f in by_file.get(os.path.normpath(rel), []):
+            try:
+                line = int(f.get("line", 0))
+            except (TypeError, ValueError):
+                continue
+            if not 1 <= line <= text.line_count():
+                continue
+            span, problem = locate(text, line, f, n)
+            if not problem:
+                spans.append((f.get("rule"), span[0], span[1]))
+        for m in matches:
+            a = text.offset(m["line"]) + m["col_start"]
+            b = text.offset(m["end_line"]) + m["col_end"]
+            if not any(r == m["rule"] and x <= a and b <= y for r, x, y in spans):
+                out.append(dict(m, file=rel))
+    return out
+
+
 def cmd_report(args):
     """The findings as the author approves them, read against the files now.
 
@@ -3554,17 +3622,29 @@ def cmd_report(args):
     change another. A finding apply would refuse is an error here too, and so
     is each pair of findings apply could not do both of.
 
-    It ends by naming the rules that carry a pattern, which `patterns` checked
-    in every file, so the author can tell them from the rules checked by
-    reading.
+    It runs every rule's pattern itself, as `patterns` does, and each match no
+    finding or dismissal covers is an error, so a match the model left out
+    fails the report rather than going unmentioned. It ends by naming those
+    rules, so the author can tell them from the rules checked by reading.
     """
-    repo, config, _ = load(args)
+    repo, config, scope = load(args)
     raw, findings = read_findings(args.findings)
     by_file, rejected = select_findings(args, config, findings)
-    rows, overlaps = [], []
+    rows, overlaps, dismissed = [], [], []
     for _path, rel, text, numbers, mine in selected_files(repo, by_file, rejected):
         staged = stage_findings(text, Blocks(text), rel, mine, numbers)
         rejected.extend(staged.rejected)
+        for n, f, a, b in staged.dismissed:
+            dismissed.append(
+                {
+                    "finding": n,
+                    "file": rel,
+                    "line": int(f["line"]),
+                    "rule": f["rule"],
+                    "current": text.s[a:b],
+                    "reason": f[DISMISS_KEY],
+                }
+            )
         for n, f, a, b in staged.accepted:
             rows.append(
                 {
@@ -3584,13 +3664,28 @@ def cmd_report(args):
                 % (rel, EditEngine.describe(x), EditEngine.describe(y))
             )
     rows.sort(key=lambda r: (r["file"], r["line"], r["finding"]))
+    dismissed.sort(key=lambda r: (r["file"], r["line"], r["finding"]))
+    uncovered = []
+    if config.errors:
+        # A pattern that cannot run would check nothing, and every match it
+        # missed would pass as covered.
+        rejected.extend(config.errors)
+        rejected.append("%s  fix it first; see: prose.py config lint" % config.rel())
+    else:
+        uncovered = uncovered_matches(repo, config, scope, findings)
+    rejected.extend(
+        "%s  no finding or dismissal covers this match" % match_line(m["file"], m)
+        for m in uncovered
+    )
     patterned = [r.id for r in config.patterned()]
     # No token for a report that failed: the author cannot approve a batch
     # apply would refuse.
     token = None if rejected else approval_token(repo, config, raw, findings)
     data = {
         "findings": rows,
+        "dismissed": dismissed,
         "overlaps": overlaps,
+        "uncovered": uncovered,
         "checked_by_pattern": patterned,
         "token": token,
     }
@@ -3603,7 +3698,14 @@ def cmd_report(args):
             if r["why"]:
                 print(report_field("why", r["why"]))
             print()
+        for r in dismissed:
+            print("%s:%d  %s  (finding %d)" % (r["file"], r["line"], r["rule"], r["finding"]))
+            print(report_field("current", report_text(r["current"], REPORT_NOTHING)))
+            print(report_field("dismissed", r["reason"]))
+            print()
         print("%d finding(s) in %d file(s)" % (len(rows), len(set(r["file"] for r in rows))))
+        if dismissed:
+            print("%d match(es) dismissed" % len(dismissed))
         print(
             "checked by pattern: %s. Every other rule was checked by reading."
             % (", ".join(patterned) or "none")
