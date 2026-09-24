@@ -265,7 +265,7 @@ already found obvious, or have not. Leave the judgment to them.
 > **Before.** The non-obvious result is in the bolded column.
 > **After.** The result in the bolded column:
 
-### register-skill-text-acts: In a SKILL.md, every clause changes what the model does
+### register-skill-clauses-change-behavior: In a SKILL.md, every clause changes what the model does
 <!-- prose-rule: source=inferred -->
 
 A `SKILL.md` speaks to the model, which reads all of it on every run of the
