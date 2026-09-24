@@ -70,7 +70,11 @@ back them. What agents do:
 - **SKILL.md names the command for each step** and says what its result means.
   It does not describe how to do the step's logic by hand.
   `.github/scripts/check-skills.py commands` fails a pull request whose skill
-  names a subcommand or flag the script does not have.
+  names a subcommand or flag the script does not have. A shell fence runs the
+  script and nothing that computes beside it, such as `grep` or `python3 -c`.
+  Every fence carries an info string: `sh` for what the model runs, or what
+  it holds, such as `markdown` or `text`. `check-skills.py fences` fails a
+  pull request that breaks either.
 - **Python for anything with logic.** Shell only for a short wrapper a person
   runs from their own terminal: POSIX `sh`, `#!/bin/sh` and `set -e`, no bash
   syntax. It must pass shellcheck (README.md says how). A deliberate warning is
