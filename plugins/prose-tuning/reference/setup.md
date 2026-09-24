@@ -1,8 +1,7 @@
 # Before the first command
 
 Every skill in this plugin starts here, straight after its "Locate the script"
-step. That step stays in each `SKILL.md` because Cowork fills in the skill's
-directory only there.
+step.
 
 If the `ls` in that step failed, stop: the plugin isn't installed here. Every
 step is a call into the script, and a missing one surfaces three commands later
