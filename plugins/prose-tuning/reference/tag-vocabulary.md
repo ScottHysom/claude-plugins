@@ -28,13 +28,6 @@ The interview adds one pair: `<q id="N">question</q>` and `<a>answer</a>`.
 A `<del>` immediately followed by an `<ins>`, with only whitespace between, is
 one replacement. Nothing else is needed for the common case.
 
-`<del>` and `<ins>` are real HTML5 elements. GitHub's sanitizer allows them and
-every markdown preview renders them as strikethrough and inserted text, so a
-replacement **looks like an edit** in the preview being read while tagging. An
-invented element, such as `<with>`, `<old>` or `<new>`, is auto-closed by the browser
-and shows both versions run together with nothing between them. That is the
-whole reason the vocabulary reuses these two rather than inventing a separator.
-
 Wrap the pair in `<repl>` when commentary needs somewhere to attach:
 
 ```
@@ -46,13 +39,11 @@ Wrap the pair in `<repl>` when commentary needs somewhere to attach:
 
 `<repl>` holds exactly one `<del>` then one `<ins>`, in that order. This is the
 only nesting the grammar permits between edit tags; `<ins>`, `<del>` and
-`<repl>` never otherwise contain each other. Forbidding the rest is what keeps
-the parser from needing to disambiguate which span a closing tag closes.
+`<repl>` never otherwise contain each other.
 
 ## Commentary
 
-Commentary takes two keywords, because rationale and exemplars are different inputs to a rule
-and routing them by hand is work the parser can do for free.
+Commentary takes two keywords, `why` and `<alt>`.
 
 **`why` is the reason, and nothing else.** Short form is an attribute. Long
 form, or any text containing a double quote, is a child element:
@@ -94,10 +85,9 @@ no `<a>` is reported as open by `status` and `evidence`.
 ## Inline and block form
 
 **The script picks the form, not the author.** `tags insert` uses inline form
-when the span fits on one line, and it never splits a line: a split survives the
-strip and leaves the document permanently reflowed. Block form is used only when
-the span starts and ends on block boundaries, and the tags are indented to match
-the span's own first line so an enclosing list survives.
+when the span fits on one line, and it never splits a line. Block form is used
+only when the span starts and ends on block boundaries, and the tags are
+indented to match the span's own first line.
 
 A span is refused when it starts mid-line and ends on a different line, or when
 it touches a code fence, a heading, a table or front matter. Markup inside any
@@ -108,8 +98,7 @@ vocabulary can quote it without being parsed as marked up.
 
 ## What the parser rejects
 
-One fault produces one message. A parser that says two things about one typo
-teaches the author to skim its output.
+One fault produces one message.
 
 | Written | Reported |
 |---|---|
@@ -123,5 +112,4 @@ teaches the author to skim its output.
 | two `<q id="1">` | `duplicate question id 1; first at line N` |
 
 `<a href="…">` is an HTML anchor and is skipped rather than reported. An `<a>`
-carrying any attribute is not an answer tag. Without that exemption ordinary
-markdown would fail to parse.
+carrying any attribute is not an answer tag.

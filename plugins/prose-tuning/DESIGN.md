@@ -39,6 +39,11 @@ can then read `sentences-own-subject at landscape.md:42` and be checked
 without opening the rules file. An id stays the same when its rule is
 reworded, and stays the same when the rule is copied into another project.
 
+The front matter allows only `key: value` pairs and one `scope:` block, and
+`config lint` rejects anything else. `prose.py` is standard library only and has
+no YAML parser, so a richer grammar would be parsed by guesswork. A key dropped
+without an error would be a scope override that appears to work.
+
 ## Packaging
 
 The skills call a bundled script, `scripts/prose.py`. Cowork's
@@ -99,6 +104,20 @@ separate calls cannot work, which the first run found out the hard way.
 For any batch, inserting markup and then stripping it returns the file
 byte-identical. Every span shape the grammar allows holds to this, which is
 what makes a tagging pass safe to undo.
+
+## The markup
+
+A replacement is a `<del>` followed by an `<ins>`. Both are real HTML elements,
+which GitHub's sanitizer allows and every markdown preview renders as an edit.
+An invented element, such as `<with>`, `<old>` or `<new>`, is closed early by
+the browser, which shows both versions run together.
+
+`<repl>` is the only edit tag that holds another, and it holds exactly one
+`<del>` and one `<ins>`. With no other nesting, the parser never has to decide
+which span a closing tag closes.
+
+The parser reports one message per fault. A parser that says two things about
+one typo teaches the author to skim its output.
 
 ## Editing the shipped rules
 
