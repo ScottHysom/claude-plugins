@@ -80,6 +80,8 @@ chance at `setup.sh`, which shows every file before anything is committed.
 
 ## Step 2: the answers
 
+<!-- no-command: judgment. The model writes the names, the description and the ignore list, and step 3's render checks them. -->
+
 Write `/tmp/gitify/answers.json`, in the directory the "Locate the script"
 step made:
 
@@ -133,6 +135,8 @@ GITIFY=/tmp/gitify/plugin/scripts/gitify.py && python3 "$GITIFY" render --answer
 
 ## Step 4: copy the files onto the device
 
+<!-- no-command: hand-off to the device bridge. device_bash and device_commit_files run what render printed. -->
+
 Take each value from `render`'s `data`, as printed:
 
 1. Run `precheck_command` through `device_bash`. It prints `clear` and exits 0
@@ -150,6 +154,8 @@ Do not `git init`. Step 6 covers why.
 
 ## Step 5: register the skill
 
+<!-- no-command: hand-off to the account. propose_skills registers the staged skill. -->
+
 Read the staged skill, the entry in `files` whose `file` ends in `SKILL.md`,
 from its `staged_path`. Call `propose_skills` with exactly that text. Same
 name, same description, same body. The user saves it from the review card.
@@ -159,6 +165,8 @@ the account copy is what actually runs. The generated skill carries its own
 drift check.
 
 ## Step 6: hand off
+
+<!-- no-command: hand-off to the user. The bridge cannot commit, so the user runs setup.sh. -->
 
 The bridge cannot complete a `git commit`; the plugin's DESIGN.md, under "Why
 `commit.sh` exists", says why. So tell the user to run, from their own
