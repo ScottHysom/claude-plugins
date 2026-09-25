@@ -232,15 +232,36 @@ REDIRECTIONS = ("<", "<<", ">", ">>")
 # `steps`: a step is a level-2 heading that starts "Step <number>".
 SECTION_LEVEL = 2
 STEP_RE = re.compile(r"^Step[ \t]+(\d+)\b")
+NO_COMMAND = "no-command"
+SEAM = "seam"
 MARKER_FORM = "<!-- no-command: <reason> -->"
+SEAM_FORM = "<!-- seam: <kind>: <reason> -->"
+MARKER_FORMS = {NO_COMMAND: MARKER_FORM, SEAM: SEAM_FORM}
 # Anything that looks like a marker, so a malformed one is reported, not missed.
-MARKER_RE = re.compile(r"<!--\s*no-command\b")
+MARKER_RE = re.compile(r"<!--\s*(no-command|seam)\b")
 # A marker as it must be written: alone on its line, with the reason after the colon.
 MARKER_LINE_RE = re.compile(r"^[ \t]*<!--[ \t]*no-command:(.*?)-->[ \t]*$")
+# A seam marker as it must be written: alone on its line, the kind, then the reason.
+SEAM_LINE_RE = re.compile(r"^[ \t]*<!--[ \t]*seam:[ \t]*([^:>]*?)[ \t]*:(.*?)-->[ \t]*$")
+# What may stand between two commands of one step: the model's judgment, which
+# the next command takes as input, or a tool no script can call.
+SEAM_KINDS = ("judgment", "platform")
 # Steps with no command yet, each waiting on the issue that will give it one:
 # {(SKILL.md path, step number): issue number}. An entry goes when its step
 # gains a command; `steps` fails until it does.
 KNOWN_GAPS = {}
+# Steps that ran more than one command with no seam marker before the rule
+# came in: {(SKILL.md path, step number): issue number}. Each passes with a
+# warning until the issue sifts it. An entry goes when its step runs one
+# command or gains a marker; `steps` fails until it does.
+KNOWN_SEAMS = {
+    ("plugins/prose-tuning/skills/adopt-prose/SKILL.md", 1): 131,
+    ("plugins/prose-tuning/skills/update-prose-config/SKILL.md", 1): 132,
+    ("plugins/prose-tuning/skills/update-prose-config/SKILL.md", 7): 132,
+    ("plugins/prose-tuning/skills/update-prose-config/SKILL.md", 8): 132,
+    ("plugins/prose-tuning/skills/apply-prose/SKILL.md", 2): 133,
+    ("plugins/prose-tuning/skills/apply-prose/SKILL.md", 7): 133,
+}
 
 # Where a command other than a script invocation may stand on its line.
 ANYWHERE = "anywhere"
@@ -325,7 +346,9 @@ WHERE_COMMANDS = (
 )
 WHERE_STEPS = (
     'CLAUDE.md, under "Skills and scripts", says a SKILL.md names the command for '
-    "each step. A step with none leaves its work to the model unless it says why."
+    "each step. A step with none leaves its work to the model unless it says why. "
+    "A step with more than one leaves the work between them to the model unless "
+    "a judgment or a platform seam sits there."
 )
 
 
@@ -896,14 +919,15 @@ def cmd_commands(args, root):
 
 
 def step_sections(text):
-    """The steps of a SKILL.md and the no-command markers in it.
+    """The steps of a SKILL.md and the no-command and seam markers in it.
 
     Returns (steps, markers). A step is {"line", "end", "heading", "number"}:
     it runs from its `## Step N` heading to the line before the next heading of
-    level 1 or 2, or to the end of the file. A marker is {"line", "reason",
-    "own_line", "step"}, where `step` is the step dict it sits in, or None.
-    Fences are skipped whole, so neither a `#` line nor a marker inside one
-    counts.
+    level 1 or 2, or to the end of the file. A marker is {"line", "type",
+    "kind", "reason", "own_line", "step"}, where `type` is NO_COMMAND or SEAM,
+    `kind` is a seam's kind and None for a no-command marker, and `step` is the
+    step dict it sits in, or None. Fences are skipped whole, so neither a `#`
+    line nor a marker inside one counts.
     """
     lines = text.splitlines()
     steps, markers = [], []
@@ -929,16 +953,28 @@ def step_sections(text):
                     "number": int(step.group(1)),
                 }
                 steps.append(current)
-        elif MARKER_RE.search(line):
-            m = MARKER_LINE_RE.match(line)
-            markers.append(
-                {
-                    "line": i + 1,
-                    "reason": m.group(1).strip() if m else "",
-                    "own_line": bool(m),
-                    "step": current,
-                }
-            )
+        else:
+            found = MARKER_RE.search(line)
+            if found:
+                kind, reason = None, ""
+                if found.group(1) == SEAM:
+                    m = SEAM_LINE_RE.match(line)
+                    if m:
+                        kind, reason = m.group(1), m.group(2).strip()
+                else:
+                    m = MARKER_LINE_RE.match(line)
+                    if m:
+                        reason = m.group(1).strip()
+                markers.append(
+                    {
+                        "line": i + 1,
+                        "type": found.group(1),
+                        "kind": kind,
+                        "reason": reason,
+                        "own_line": bool(m),
+                        "step": current,
+                    }
+                )
         i += 1
     return steps, markers
 
@@ -954,8 +990,8 @@ def cmd_steps(args, root):
         if inv["ok"]:
             resolved.setdefault(inv["path"], []).append(inv["line"])
 
-    scanned, steps, marked, errors, warnings = [], [], [], [], []
-    gaps_seen = set()
+    scanned, steps, marked, seams, errors, warnings = [], [], [], [], [], []
+    gaps_seen, seams_seen = set(), set()
 
     for path in sorted(p for paths in found.values() for p in paths):
         try:
@@ -969,28 +1005,77 @@ def cmd_steps(args, root):
             where = "%s:%d" % (path, m["line"])
             if m["step"] is None:
                 errors.append(
-                    "%s: a no-command marker sits outside any step. Put it under the "
-                    "heading of the step it explains." % where
+                    "%s: a %s marker sits outside any step. Put it under the "
+                    "heading of the step it explains." % (where, m["type"])
                 )
             elif not m["own_line"]:
                 errors.append(
-                    "%s: a no-command marker must be a line of its own, as `%s`, "
-                    "or Cowork does not strip it." % (where, MARKER_FORM)
+                    "%s: a %s marker must be a line of its own, as `%s`, "
+                    "or Cowork does not strip it." % (where, m["type"], MARKER_FORMS[m["type"]])
                 )
             elif not m["reason"]:
                 errors.append(
-                    "%s: a no-command marker gives no reason. Say why the step runs "
-                    "no command." % where
+                    "%s: a %s marker gives no reason. Say why the step %s."
+                    % (
+                        where,
+                        m["type"],
+                        "runs no command" if m["type"] == NO_COMMAND else "runs more than one",
+                    )
+                )
+            elif m["type"] == SEAM and m["kind"] not in SEAM_KINDS:
+                errors.append(
+                    "%s: a seam marker names the kind `%s`. A seam is %s; any other "
+                    "work between two commands belongs in the script."
+                    % (where, m["kind"], " or ".join(SEAM_KINDS))
                 )
 
         for s in sections:
             count = sum(1 for n in resolved.get(path, []) if s["line"] < n <= s["end"])
-            own = [m for m in markers if m["step"] is s]
-            reason = next((m["reason"] for m in own if m["own_line"] and m["reason"]), None)
+            mine = [m for m in markers if m["step"] is s]
+            own = [m for m in mine if m["type"] == NO_COMMAND]
+            seam_marks = [m for m in mine if m["type"] == SEAM]
+            valid = [m for m in own if m["own_line"] and m["reason"]]
+            reason = valid[0]["reason"] if valid else None
+            valid = [
+                m for m in seam_marks if m["own_line"] and m["reason"] and m["kind"] in SEAM_KINDS
+            ]
+            seam = {"kind": valid[0]["kind"], "reason": valid[0]["reason"]} if valid else None
             gap = KNOWN_GAPS.get((path, s["number"]))
             if gap is not None:
                 gaps_seen.add((path, s["number"]))
+            seam_gap = KNOWN_SEAMS.get((path, s["number"]))
+            if seam_gap is not None:
+                seams_seen.add((path, s["number"]))
             where = '%s:%d: "%s"' % (path, s["line"], s["heading"])
+
+            if count > 1 and not seam_marks:
+                if seam_gap is not None:
+                    warnings.append(
+                        "%s runs %d commands with no seam marker yet; #%d will sift it."
+                        % (where, count, seam_gap)
+                    )
+                else:
+                    errors.append(
+                        "%s runs %d commands, and the model does whatever joins them. Move "
+                        "that work into the script so one command does it, or add `%s` "
+                        "under the heading if the model's judgment or a platform tool "
+                        "sits between them." % (where, count, SEAM_FORM)
+                    )
+            if count <= 1 and seam_marks:
+                errors.append(
+                    "%s runs one command or none and carries a seam marker. The marker "
+                    "is stale; remove it." % where
+                )
+            if count <= 1 and seam_gap is not None:
+                errors.append(
+                    "%s now runs one command or none. Remove its KNOWN_SEAMS entry, "
+                    "which points to #%d." % (where, seam_gap)
+                )
+            if seam_marks and seam_gap is not None:
+                errors.append(
+                    "%s carries a seam marker and a KNOWN_SEAMS entry for #%d. Remove "
+                    "the entry." % (where, seam_gap)
+                )
 
             if count and own:
                 errors.append(
@@ -1025,17 +1110,37 @@ def cmd_steps(args, root):
                     "invocations": count,
                     "reason": reason,
                     "gap": gap,
+                    "seam": seam,
+                    "seam_gap": seam_gap,
                 }
             )
             if reason and not count:
                 marked.append(
                     {"path": path, "line": s["line"], "heading": s["heading"], "reason": reason}
                 )
+            if count > 1:
+                seams.append(
+                    {
+                        "path": path,
+                        "line": s["line"],
+                        "heading": s["heading"],
+                        "invocations": count,
+                        "kind": seam["kind"] if seam else None,
+                        "reason": seam["reason"] if seam else None,
+                        "gap": seam_gap,
+                    }
+                )
 
     for (path, number), issue in sorted(KNOWN_GAPS.items()):
         if (path, number) not in gaps_seen:
             errors.append(
                 "KNOWN_GAPS lists step %d of %s for #%d, and there is no such step. "
+                "Remove the entry, or move it to the step's new place." % (number, path, issue)
+            )
+    for (path, number), issue in sorted(KNOWN_SEAMS.items()):
+        if (path, number) not in seams_seen:
+            errors.append(
+                "KNOWN_SEAMS lists step %d of %s for #%d, and there is no such step. "
                 "Remove the entry, or move it to the step's new place." % (number, path, issue)
             )
 
@@ -1050,10 +1155,23 @@ def cmd_steps(args, root):
             print("Steps that run no command, and why:")
             for m in marked:
                 print("  %s:%d %s: %s" % (m["path"], m["line"], m["heading"], m["reason"]))
+        if seams:
+            print("Steps that run more than one command:")
+            for m in seams:
+                if m["kind"]:
+                    why = "%s: %s" % (m["kind"], m["reason"])
+                elif m["gap"] is not None:
+                    why = "unmarked until #%d" % m["gap"]
+                else:
+                    why = "unmarked"
+                print(
+                    "  %s:%d %s: %d commands, %s"
+                    % (m["path"], m["line"], m["heading"], m["invocations"], why)
+                )
         if not errors:
             print(
                 "%d step(s) in %d %s file(s): %d run a command, %d marked no-command, "
-                "%d known gap(s)."
+                "%d known gap(s), %d marked seam(s), %d known seam(s)."
                 % (
                     len(steps),
                     len(scanned),
@@ -1061,10 +1179,12 @@ def cmd_steps(args, root):
                     sum(1 for s in steps if s["invocations"]),
                     len(marked),
                     sum(1 for s in steps if s["gap"] is not None and not s["invocations"]),
+                    sum(1 for m in seams if m["kind"]),
+                    sum(1 for m in seams if not m["kind"] and m["gap"] is not None),
                 )
             )
 
-    data = {"scanned": scanned, "steps": steps, "marked": marked}
+    data = {"scanned": scanned, "steps": steps, "marked": marked, "seams": seams}
     return emit(args, "steps", data, errors, warnings, human, WHERE_STEPS)
 
 
