@@ -77,7 +77,13 @@ Some things in here look like bugs and are not:
    token on disk: apply recomputes it, because a state file on the Cowork
    bridge could never be deleted. approval_token has what it covers.
 
-4. apply can delete a blank line that no finding names. It does so when the
+4. evidence prints a token too, and tags insert refuses to run without the
+   same one. Every address in a batch is a line number read from evidence, so
+   a file in scope or prose-style.md that changed since is refused rather than
+   tagged at the wrong lines. It is recomputed, never stored, for the same
+   reason. evidence_token has what it covers.
+
+5. apply can delete a blank line that no finding names. It does so when the
    findings cut a whole block that sat between two blank lines, so that one
    blank line is left between its neighbors rather than two. plan_findings
    has the rule.
@@ -100,12 +106,18 @@ ENVELOPE_VERSION = 1
 
 OK, PROBLEMS, CANNOT_RUN = 0, 1, 2
 
-# How many hex digits of the approval token report prints and apply compares.
+# How many hex digits of a token: the one report prints for apply, and the one
+# evidence prints for tags insert.
 TOKEN_LENGTH = 16
 TOKEN_LABEL = "approval token: "
 TOKEN_STALE = (
     "the findings, a document they name or %s changed since report ran, "
     "or the token is not the one it printed; run report again and show it to the author"
+)
+EVIDENCE_TOKEN_LABEL = "evidence token: "
+EVIDENCE_STALE = (
+    "a file in scope or %s changed since evidence ran, or the token is not the one "
+    "it printed; run evidence again and build the batch from its output"
 )
 
 CONFIG_NAME = "prose-style.md"
@@ -2827,6 +2839,22 @@ def cmd_patterns(args):
     return emit(args, "patterns", repo.root, data, errors=errors, human=human)
 
 
+def evidence_token(repo, config, scope):
+    """The token evidence prints and tags insert requires, for the tree as it is now.
+
+    A sha256 over the sorted path and bytes of every file in scope, and
+    prose-style.md's bytes. Every address in the evidence is a working-tree line
+    number, so any write to one of those files leaves the batch built from it
+    pointing at the wrong lines.
+    """
+    digest = TokenHash()
+    for rel in sorted(os.path.normpath(r) for r in scope.files()):
+        digest.part(rel.encode("utf-8"))
+        digest.document(repo.abspath(rel))
+    digest.document(config.path)
+    return digest.token()
+
+
 def cmd_evidence(args):
     repo, config, scope = load(args)
     ref = args.since
@@ -2853,6 +2881,9 @@ def cmd_evidence(args):
         inferred += hunks
 
     unanswered = sum(1 for q in questions if q["answer"] is None)
+    # No token for evidence that failed: markup that does not parse is fixed
+    # first, and that edit would change the token anyway.
+    token = None if errors else evidence_token(repo, config, scope)
     data = {
         "base_ref": ref,
         "explicit": explicit,
@@ -2866,6 +2897,7 @@ def cmd_evidence(args):
             "unanswered": unanswered,
             "files": len(scope.files()),
         },
+        "token": token,
     }
 
     def human():
@@ -2889,6 +2921,8 @@ def cmd_evidence(args):
         )
         if new_files:
             print("untracked at %s: %s" % (ref, ", ".join(new_files)))
+        if token:
+            print(EVIDENCE_TOKEN_LABEL + token)
 
     return emit(args, "evidence", repo.root, data, errors=errors, human=human)
 
@@ -3482,6 +3516,9 @@ def cmd_tags(args):
         return emit(args, "tags " + which, repo.root, data, warnings=warnings, human=human)
 
     # insert
+    if args.token != evidence_token(repo, config, scope):
+        stale = EVIDENCE_STALE % config.rel()
+        return emit(args, "tags insert", repo.root, {"refused": 1}, errors=[stale])
     records = read_json(args.batch, "batch")
     if not isinstance(records, list):
         raise Fatal("batch must be a JSON array of records")
@@ -3917,42 +3954,54 @@ example:
 """
 
 
+class TokenHash:
+    """The sha256 behind a token, fed one part at a time.
+
+    Every part carries its length, so bytes cannot move from one part to the
+    next and hash the same.
+    """
+
+    def __init__(self):
+        self.digest = hashlib.sha256()
+
+    def part(self, data):
+        self.digest.update(b"%d:" % len(data))
+        self.digest.update(data)
+
+    def document(self, path):
+        # A leading byte tells a missing file from an empty one, so creating
+        # or deleting a document changes the token too.
+        if not os.path.isfile(path):
+            self.digest.update(b"-")
+            return
+        self.digest.update(b"+")
+        with open(path, "rb") as fh:
+            self.part(fh.read())
+
+    def token(self):
+        return self.digest.hexdigest()[:TOKEN_LENGTH]
+
+
 def approval_token(repo, config, raw, findings):
     """The token report prints and apply requires, for this batch as it is now.
 
     A sha256 over the findings' bytes, the path and bytes of every document any
     finding names, and prose-style.md's bytes. --only and --file are left out:
     they select within the approved set, so they must not change what was
-    approved. Every part carries its length, so bytes cannot move from one part
-    to the next and hash the same.
+    approved.
     """
-    digest = hashlib.sha256()
-
-    def part(data):
-        digest.update(b"%d:" % len(data))
-        digest.update(data)
-
-    def document(path):
-        # A leading byte tells a missing file from an empty one, so creating
-        # or deleting a document changes the token too.
-        if not os.path.isfile(path):
-            digest.update(b"-")
-            return
-        digest.update(b"+")
-        with open(path, "rb") as fh:
-            part(fh.read())
-
-    part(raw)
+    digest = TokenHash()
+    digest.part(raw)
     names = set()
     if isinstance(findings, list):
         for f in findings:
             if isinstance(f, dict) and isinstance(f.get("file"), str):
                 names.add(os.path.normpath(f["file"]))
     for rel in sorted(names):
-        part(rel.encode("utf-8"))
-        document(repo.abspath(rel))
-    document(config.path)
-    return digest.hexdigest()[:TOKEN_LENGTH]
+        digest.part(rel.encode("utf-8"))
+        digest.document(repo.abspath(rel))
+    digest.document(config.path)
+    return digest.token()
 
 
 def select_findings(args, config, findings):
@@ -4547,6 +4596,11 @@ def build_parser():
                 "--partial", action="store_true", help="apply what is valid instead of nothing"
             )
             t.add_argument("--dry-run", action="store_true", help="say what would be tagged")
+            t.add_argument(
+                "--token",
+                required=True,
+                help="the token evidence printed; insert refuses a tree that changed since",
+            )
         else:
             t.add_argument("paths", nargs="*")
         if name in ("resolve", "strip"):

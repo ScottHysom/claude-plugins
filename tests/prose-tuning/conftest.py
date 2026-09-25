@@ -225,6 +225,16 @@ class ProseRepo:
         config = prose.Config(prose.config_path(repo))
         return prose.approval_token(repo, config, raw, json.loads(raw))
 
+    def evidence_token(self):
+        """The token evidence would print for the tree as it is now.
+
+        Computed rather than read from an evidence run, because evidence needs
+        a commit to diff against and most tests here have none.
+        """
+        repo = prose.Repo(str(self.root))
+        config = prose.Config(prose.config_path(repo))
+        return prose.evidence_token(repo, config, prose.Scope(repo, config))
+
     def report(self, findings, *flags):
         """Run `prose.py report` on these findings. Returns what run() does."""
         return self.run("report", "--findings", self.findings_file(findings), *flags)

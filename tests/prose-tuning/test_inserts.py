@@ -378,7 +378,8 @@ class DescribeInsertCommand:
     def insert(self, prose_repo, batch_text, *flags):
         batch = prose_repo.root / "batch.json"
         batch.write_text(batch_text)
-        return prose_repo.run("tags", "insert", "--batch", str(batch), *flags)
+        token = prose_repo.evidence_token()
+        return prose_repo.run("tags", "insert", "--batch", str(batch), "--token", token, *flags)
 
     def it_reads_a_batch_file_and_writes_its_tags(self, prose_repo, target):
         record = {"file": "target.md", "kind": "q", "start": 8, "text": "earned?"}
@@ -439,7 +440,8 @@ class DescribeInsertCommand:
         2; insert has to do the same rather than end in a traceback.
         """
         missing = prose_repo.root / "no-such-batch.json"
-        code, envelope = prose_repo.run("tags", "insert", "--batch", str(missing))
+        token = prose_repo.evidence_token()
+        code, envelope = prose_repo.run("tags", "insert", "--batch", str(missing), "--token", token)
         assert code == prose.CANNOT_RUN
         assert envelope is None
         assert "cannot read batch" in prose_repo.err

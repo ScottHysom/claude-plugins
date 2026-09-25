@@ -85,7 +85,11 @@ markup back as author evidence.
 
 **Do not edit any file between `evidence` and `tags insert`.** Every address in
 the payload is a working-tree line number, and any write invalidates the rest.
-If something must be edited first, re-run `evidence` afterwards.
+The script enforces this. When `evidence` exits 0 it prints a token, as
+`data.token` and as its last line, such as `evidence token: 3f9a1c0e7b2d4a68`.
+Keep it for step 5. `tags insert` refuses a token from before a file in scope
+or `prose-style.md` changed. If something must be edited first, re-run
+`evidence` afterwards and build the batch from the new output.
 
 ## Step 4: the threshold for calling something a rule
 
@@ -103,10 +107,11 @@ document in the project forever.
 
 ## Step 5: tag what needs the author's eye
 
-Insert every tag in one call, as one batch, with JSON on stdin:
+Insert every tag in one call, as one batch, with JSON on stdin and the token
+`evidence` printed:
 
 ```sh
-python3 "$PROSE" tags insert --batch - <<'END'
+python3 "$PROSE" tags insert --token 3f9a1c0e7b2d4a68 --batch - <<'END'
 [{"file":"current-state.md","start":42,"kind":"del",
   "text":"Curated, not collected.","why":"restates the passage"},
  {"file":"landscape.md","start":60,
@@ -117,7 +122,8 @@ END
 **The batch is the only correct form.** Each insertion shifts every line number
 below it, so twenty separate calls would leave nineteen stale addresses. The
 script applies the whole batch bottom-up from one snapshot, and writes nothing
-at all if any record is refused.
+at all if any record is refused. A refused token means the tree changed since
+step 3: run `evidence` again and rebuild the batch from what it reports.
 
 | Field | Means |
 |---|---|
