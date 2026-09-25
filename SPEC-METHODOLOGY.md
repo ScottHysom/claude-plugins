@@ -3,7 +3,8 @@
 This file describes a way to record what a codebase is for, and to tie every
 behavior in it to that record. It is written for an agent that will adopt the
 method in another repository, and for the owner who approves that agent's
-work. Its examples come from claude-plugins, where it began.
+work. Its illustrations use a made-up car rental service, and its history
+comes from claude-plugins, where the method began.
 
 The method rests on one test. A behavior is justified by a need, which someone
 wants, or by a constraint, which the platform forces. A behavior with neither
@@ -65,8 +66,8 @@ comes from a source outside the code, such as the owner's words, a README, a
 ticket or a commit message.
 
 A constraint is a fact about the platform that forces a design, such as "the
-scripts must run on the Python 3.9 that macOS ships". A constraint cites where
-the fact is recorded.
+fleet vendor's API allows 60 calls a minute". A constraint cites where the fact
+is recorded.
 
 ### Requirements
 
@@ -119,10 +120,11 @@ between one command's output and the next command.
 
 Every seam is one of these kinds:
 
-- **Judgment.** The model decides something, and the next command takes the
-  decision as input. In claude-plugins, `report` prints an approval token, a
-  short hash of the findings the user approved, and `apply` refuses to run
-  without it.
+- **Judgment.** The model decides something, or relays the user's decision,
+  and the next command takes the decision as input. In the car rental
+  service, `rentals quote` prints a token, a short hash of the price the
+  renter was shown, and `rentals hold` refuses to reserve a car without it.
+  The token carries the renter's approval across the seam.
 - **Platform.** The model calls a tool no script can, such as one that asks the
   user a question or writes to the user's computer.
 - **Courier.** The model does work a script could do, in one of these ways:
@@ -160,51 +162,54 @@ folder out of anything that ships.
 A spec file follows this grammar, which a script can parse line by line:
 
 ```markdown
-# prose-tuning
+# rentals
 
 ## Out of scope
 
-- No skill commits. DESIGN.md, "Why no skill commits", says why.
-- adopt-prose never settles a collision between two rules for the author.
+- Selling cars. The service only rents them.
+- Setting prices, which the pricing service owns.
 
-## need adopted-rule-origin: Know where an adopted rule came from
+## need itemized-receipt: Check each charge on a returned car
 
-When a rule arrives from another project, the author wants to see which
-project, so they can find the evidence behind it or ask that project's owner.
+When a renter returns a car, they want every charge listed on the receipt, so
+they can check each one against the agreement they signed.
 
-- `adopt-writes-origin` (test): When `config adopt` copies a rule, it writes
-  `origin=<project>` beneath the rule's heading.
-- `adopt-origin-flag` (test): When the source's folder is not named after its
-  project, `config adopt --origin <project>` names it.
+- `receipt-lists-charges` (test): When `rentals close` ends a rental, it prints
+  one line per charge, with its amount and its reason.
+- `receipt-late-fee` (test): When the car comes back after the agreed time,
+  the receipt shows the late fee on a line of its own.
 
-## need one-question-round: Settle every conflict in one sitting
+## need one-question-round: Book a car in one sitting
 
-When two projects' rules collide, the author wants to see every conflict at
-once, so they decide what the rulebook says in one pass.
+When a renter books through the booking skill, they want every open question
+asked at once, so the booking takes a single exchange.
 
-- `adopt-one-batch` (step): When the source has colliding rules, adopt-prose
-  puts every pair to the author in one batch.
+- `booking-one-batch` (step): When a booking has open questions, the booking
+  skill puts all of them to the renter in one batch.
 
-## constraint python-floor: The scripts run on the Python macOS ships
+## constraint fleet-rate-limit: The fleet API allows 60 calls a minute
 
-README.md, "Running the tests", records that macOS still ships Python 3.9.
+The fleet vendor's API reference, under "Rate limits".
 
-- `runs-on-floor` (check): Every script runs under Python 3.9, which CI tests.
+- `sync-under-limit` (test): When `rentals sync` updates the fleet, it sends
+  at most 60 requests in any one minute.
 ```
 
 The rules for a spec file:
 
 - An "Out of scope" section comes first. It lists what the component
   deliberately does not do, so an agent can see that a feature is unwanted
-  before building it.
+  before building it. Each item names the thing that is out of scope, such as
+  "Selling cars". An item written as a negative, such as "No sales", can read
+  as though the absence were what the section rules out.
 - A need heading reads `## need <id>: <title>`, and a constraint heading reads
   `## constraint <id>: <title>`. The line beneath says who wants what and why,
   or where the constraint is recorded.
 - A requirement is a bullet beneath its heading: the id in backticks, the kind
   of verification in parentheses, a colon, and one sentence.
 - An id says what it means, in one to four lower-case words joined by hyphens.
-  A report can then name `adopt-writes-origin` and be checked without opening
-  the file. An id keeps its name when its sentence is reworded.
+  A report can then name `receipt-late-fee` and be checked without opening the
+  file. An id keeps its name when its sentence is reworded.
 - Ids are unique within a file. A requirement in `specs/repo.md` is named from
   another file as `repo:<id>`.
 - A requirement that goes is deleted. Version control keeps what it said.
@@ -215,8 +220,8 @@ A test cites the requirements it verifies with a tag its runner can read. In
 pytest, that is a marker:
 
 ```python
-@pytest.mark.spec("adopt-writes-origin")
-def it_writes_the_origin_comment(self, prose_repo): ...
+@pytest.mark.spec("receipt-late-fee")
+def test_late_return_adds_a_late_fee_line(rental): ...
 ```
 
 Register the marker, and run pytest with `--strict-markers`, so a misspelled
@@ -228,9 +233,9 @@ own line under the step's heading. A step that runs more than one command also
 says which kind of seam sits between them:
 
 ```markdown
-## Step 4: copy the files onto the device
-<!-- spec: copy-verified -->
-<!-- seam: platform: device_commit_files copies what render staged -->
+## Step 2: ask the open questions
+<!-- spec: booking-one-batch -->
+<!-- seam: platform: the renter answers through the question tool -->
 ```
 
 claude-plugins' COWORK.md records Claude Code stripping block-level HTML
