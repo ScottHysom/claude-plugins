@@ -22,10 +22,12 @@ that passes where it belongs and fails where it does not, since an allowlist
 entry that holds anywhere is a hole.
 
 `steps`: a step with no command leaves its work to the model unless it says
-why. The tests build a skill whose steps run a command, carry a marker or do
-neither. They check each rule the marker and KNOWN_GAPS follow, and that the
-check fails when it finds no step. KNOWN_GAPS is emptied for every test, since
-a throwaway repo holds none of the real steps it lists.
+why, and a step running two commands leaves the work between them to the
+model unless it names the seam. The tests build a skill whose steps run a
+command, two commands, carry a marker or do neither. They check each rule the
+markers, KNOWN_GAPS and KNOWN_SEAMS follow, and that the check fails when it
+finds no step. KNOWN_GAPS and KNOWN_SEAMS are emptied for every test, since a
+throwaway repo holds none of the real steps they list.
 """
 
 import importlib.util
@@ -81,12 +83,14 @@ def isolated_git(monkeypatch):
 
 
 REAL_GAPS = dict(cs.KNOWN_GAPS)
+REAL_SEAMS = dict(getattr(cs, "KNOWN_SEAMS", {}))
 
 
 @pytest.fixture(autouse=True)
 def no_known_gaps(monkeypatch):
-    """A throwaway repo has none of the real skills, so none of their gaps."""
+    """A throwaway repo has none of the real skills, so none of their gaps or seams."""
     monkeypatch.setattr(cs, "KNOWN_GAPS", {})
+    monkeypatch.setattr(cs, "KNOWN_SEAMS", {}, raising=False)
 
 
 @pytest.fixture
@@ -573,6 +577,13 @@ def marker(reason):
     return "<!-- no-command: %s -->\n" % reason
 
 
+def seam(kind, reason):
+    return "<!-- seam: %s: %s -->\n" % (kind, reason)
+
+
+TWO = sh('python3 "$FOO" lint', 'python3 "$FOO" lint')
+
+
 class DescribeSteps:
     def it_accepts_steps_that_run_a_command_or_say_why_not(self, make_repo, run):
         root = make_repo(steps(RUNS, marker("the author decides")))
@@ -669,8 +680,98 @@ class DescribeSteps:
         assert code == cs.PROBLEMS
         assert "found no `## Step` heading" in err
 
+    def it_rejects_two_commands_with_no_seam_marker(self, make_repo, run):
+        root = make_repo(steps(RUNS, TWO))
+        code, _, err = run("steps", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert '%s:21: "Step 2: s2" runs 2 commands' % SKILL in err
+        assert "<!-- seam: <kind>: <reason> -->" in err
+
+    @pytest.mark.parametrize("kind", ["judgment", "platform"])
+    def it_accepts_two_commands_under_a_named_seam(self, make_repo, run, kind):
+        root = make_repo(steps(seam(kind, "the author approves the report") + "\n" + TWO))
+        code, _, err = run("steps", "-C", str(root))
+        assert code == cs.OK, err
+
+    def it_rejects_a_seam_of_an_unknown_kind(self, make_repo, run):
+        root = make_repo(steps(seam("courier", "passes the list along") + "\n" + TWO))
+        code, _, err = run("steps", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "kind `courier`" in err
+        assert "judgment or platform" in err
+
+    def it_rejects_a_seam_marker_without_a_reason(self, make_repo, run):
+        root = make_repo(steps(seam("judgment", "") + "\n" + TWO))
+        code, _, err = run("steps", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "a seam marker gives no reason" in err
+
+    def it_rejects_a_seam_marker_inside_a_line(self, make_repo, run):
+        body = "Decide. <!-- seam: judgment: the author decides -->\n\n" + TWO
+        root = make_repo(steps(body))
+        code, _, err = run("steps", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "a seam marker must be a line of its own" in err
+
+    def it_rejects_a_seam_marker_outside_a_step(self, make_repo, run):
+        root = make_repo(steps(RUNS, head=seam("judgment", "stray") + "\n"))
+        code, _, err = run("steps", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "a seam marker sits outside any step" in err
+
+    def it_rejects_a_stale_seam_marker(self, make_repo, run):
+        root = make_repo(steps(seam("judgment", "the author decides") + "\n" + RUNS))
+        code, _, err = run("steps", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "runs one command or none and carries a seam marker" in err
+
+    def it_lists_each_step_that_runs_more_than_one_command(self, make_repo, run):
+        root = make_repo(steps(RUNS, seam("platform", "device_bash") + "\n" + TWO))
+        code, out, err = run("steps", "-C", str(root))
+        assert code == cs.OK, err
+        assert "Steps that run more than one command:" in out
+        assert "%s:21 Step 2: s2: 2 commands, platform: device_bash" % SKILL in out
+        code, out, _ = run("steps", "--json", "-C", str(root))
+        seams = json.loads(out)["data"]["seams"]
+        assert [(s["heading"], s["invocations"], s["kind"], s["reason"]) for s in seams] == [
+            ("Step 2: s2", 2, "platform", "device_bash"),
+        ]
+
+    def it_warns_for_a_known_seam(self, make_repo, run, monkeypatch):
+        monkeypatch.setattr(cs, "KNOWN_SEAMS", {(SKILL, 2): 131})
+        root = make_repo(steps(RUNS, TWO))
+        code, out, err = run("steps", "-C", str(root))
+        assert code == cs.OK, err
+        assert (
+            'warning: %s:21: "Step 2: s2" runs 2 commands with no seam marker yet; #131' % SKILL
+            in err
+        )
+        assert "%s:21 Step 2: s2: 2 commands, unmarked until #131" % SKILL in out
+
+    def it_rejects_a_known_seam_that_runs_one_command(self, make_repo, run, monkeypatch):
+        monkeypatch.setattr(cs, "KNOWN_SEAMS", {(SKILL, 1): 131})
+        root = make_repo(steps(RUNS))
+        code, _, err = run("steps", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "Remove its KNOWN_SEAMS entry, which points to #131" in err
+
+    def it_rejects_a_known_seam_with_no_step(self, make_repo, run, monkeypatch):
+        monkeypatch.setattr(cs, "KNOWN_SEAMS", {(SKILL, 7): 131})
+        root = make_repo(steps(RUNS))
+        code, _, err = run("steps", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "KNOWN_SEAMS lists step 7" in err
+
+    def it_rejects_a_known_seam_that_also_has_a_marker(self, make_repo, run, monkeypatch):
+        monkeypatch.setattr(cs, "KNOWN_SEAMS", {(SKILL, 1): 131})
+        root = make_repo(steps(seam("judgment", "the author decides") + "\n" + TWO))
+        code, _, err = run("steps", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "a seam marker and a KNOWN_SEAMS entry for #131" in err
+
     def it_accepts_the_repo_as_it_stands(self, run, monkeypatch):
         monkeypatch.setattr(cs, "KNOWN_GAPS", REAL_GAPS)
+        monkeypatch.setattr(cs, "KNOWN_SEAMS", REAL_SEAMS, raising=False)
         code, out, err = run("steps", "--json", "-C", str(REPO_ROOT))
         assert code == cs.OK, err
         data = json.loads(out)["data"]
