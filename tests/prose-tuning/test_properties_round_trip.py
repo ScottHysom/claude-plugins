@@ -39,6 +39,32 @@ for _n in PROSE_LINES:
         _RUNS.append([_n])
 RUN_OF = {_n: _run for _run in _RUNS for _n in _run}
 WORDS = st.text(alphabet="abc ", min_size=1, max_size=8)
+_TEXT = prose.Text(SAMPLE)
+
+
+def starts_at(text, line):
+    """The columns on line where text starts, as the planner looks for it."""
+    base = _TEXT.offset(line)
+    width = len(_TEXT.bare(line))
+    return [c for c in range(width + 1) if SAMPLE.startswith(text, base + c)]
+
+
+@st.composite
+def passages(draw, line, wrap=True):
+    """Text copied from the file at line: a slice of it, or, within a run of
+    prose and when wrap allows, its lines whole from the first word, as a
+    skill copies them.
+    """
+    bare = _TEXT.bare(line)
+    run = [n for n in RUN_OF.get(line, [line]) if n >= line]
+    if wrap and len(run) > 1 and draw(st.booleans()):
+        end = draw(st.sampled_from(run[1:]))
+        a = _TEXT.offset(line) + len(bare) - len(bare.lstrip())
+        return SAMPLE[a : _TEXT.offset(end) + len(_TEXT.bare(end))]
+    if not bare:
+        return ""
+    a = draw(st.integers(0, len(bare) - 1))
+    return bare[a : draw(st.integers(a + 1, len(bare)))]
 
 
 @st.composite
@@ -61,13 +87,23 @@ def records(draw, max_records=3):
         if kind in ("q", "alt"):
             rec["text"] = draw(WORDS)
         else:
-            if draw(st.booleans()):
+            shape = draw(st.sampled_from(("lines", "columns", "text")))
+            if shape == "lines":
                 rec["end"] = draw(st.integers(start, min(LINES, start + 3)))
-            else:
+            elif shape == "columns":
                 rec["col_start"] = draw(
                     st.one_of(st.integers(0, max(width, 1)), st.integers(-2, 90))
                 )
                 rec["col_end"] = draw(st.one_of(st.integers(0, max(width, 1)), st.integers(-2, 90)))
+            else:
+                # Copied from the file, from some other line, or made up, and
+                # sometimes with a col_start that may or may not be one of its
+                # matches.
+                other = draw(st.sampled_from(PROSE_LINES))
+                anchor = draw(st.one_of(passages(start), passages(other), WORDS))
+                rec["after" if kind == "ins" else "text"] = anchor
+                if draw(st.booleans()):
+                    rec["col_start"] = draw(st.integers(-2, max(width, 1)))
             if kind == "repl":
                 rec["with"] = draw(WORDS)
             if kind == "ins":
@@ -151,10 +187,25 @@ def well_formed(draw):
         return rec
     width = len(prose.Text(SAMPLE).bare(line))
     if kind == "ins":
-        rec["col_start"] = rec["col_end"] = draw(st.integers(0, width))
         rec["text"] = draw(WORDS)
+        if draw(st.booleans()):
+            rec["after"] = draw(passages(line, wrap=False))
+            found = starts_at(rec["after"], line)
+            if len(found) > 1:
+                rec["col_start"] = draw(st.sampled_from(found))
+        else:
+            rec["col_start"] = rec["col_end"] = draw(st.integers(0, width))
         return rec
-    if draw(st.booleans()):
+    shape = draw(st.sampled_from(("lines", "columns", "text")))
+    if shape == "text":
+        # The text a skill copies, and the col_start the refusal would ask
+        # for when it starts at more than one place on the line.
+        anchor = draw(passages(line))
+        rec["text"] = anchor
+        found = starts_at(anchor, line)
+        if len(found) > 1:
+            rec["col_start"] = draw(st.sampled_from(found))
+    elif shape == "lines":
         # Within one unbroken stretch of prose. Drawing an end line and then
         # filtering threw away a quarter of every run, which is budget spent
         # generating nothing.
