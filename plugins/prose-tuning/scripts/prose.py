@@ -83,10 +83,11 @@ Some things in here look like bugs and are not:
    tagged at the wrong lines. It is recomputed, never stored, for the same
    reason. evidence_token has what it covers.
 
-5. apply can delete a blank line that no finding names. It does so when the
-   findings cut a whole block that sat between two blank lines, so that one
-   blank line is left between its neighbors rather than two. plan_findings
-   has the rule.
+5. apply and tags resolve can delete a blank line that nothing names. They do
+   so when a whole block that sat between two blank lines is cut, by findings
+   or by a block-form <del>, so that one blank line is left between its
+   neighbors rather than two. plan_findings has the rule, and resolve_scanned
+   says why tags strip never does this.
 
 Python 3.9 is the floor. No match statements, no X | Y unions.
 """
@@ -1664,11 +1665,35 @@ def resolved(node, text, mode):
 def resolve_text(text, mode, blocks=None, path="<text>"):
     """Return (new_text, scanner). Errors live on the scanner."""
     scanner = TagScanner(text, blocks, path)
+    return resolve_scanned(text, scanner, mode), scanner
+
+
+def resolve_scanned(text, scanner, mode):
+    """The text with every tag the scanner found resolved.
+
+    On accept, a block-form tag that resolves to nothing takes its whole lines
+    with it, and cut_runs drops a blank line beside them by the rule
+    plan_findings gives for apply. Without that, cutting a paragraph that
+    stood between two blank lines left the two touching. A blank line inside a
+    tag that is kept is never taken.
+
+    Reject leaves every blank line where it was. Strip has to return the file
+    byte for byte as it was before insert, and evidence diffs against it.
+    """
     engine = EditEngine(text)
+    cut, touched = set(), set()
     for node in scanner.roots:
         start, end = node_span(node, text)
-        engine.replace(start, end, top_replacement(node, text, mode))
-    return engine.result(), scanner
+        new = top_replacement(node, text, mode)
+        lines = set(range(text.line_of(start), text.line_of(max(end - 1, start)) + 1))
+        if mode == ACCEPT and not new and is_block_form(node, text):
+            cut |= lines
+            continue
+        touched |= lines
+        engine.replace(start, end, new)
+    for start, end in cut_runs(text, scanner.blocks, cut, touched):
+        engine.replace(start, end, "")
+    return engine.result()
 
 
 def neutralize(text, blocks=None, path="<text>"):
@@ -1694,23 +1719,6 @@ def resolve_warnings(scanner, text):
                 "the list still reads as one list" % (scanner.path, node.line, node.kind)
             )
     return out
-
-
-def resolve_file(path, relpath, mode, dry_run=False):
-    text = Text.read(path)
-    blocks = Blocks(text)
-    scanner = TagScanner(text, blocks, relpath)
-    if scanner.errors:
-        return None, scanner, []
-    engine = EditEngine(text)
-    for node in scanner.roots:
-        start, end = node_span(node, text)
-        engine.replace(start, end, top_replacement(node, text, mode))
-    new = engine.result()
-    warnings = resolve_warnings(scanner, text)
-    if not dry_run and new != text.s:
-        Text(new).write(path)
-    return new, scanner, warnings
 
 
 # --------------------------------------------------------------------------
@@ -3490,11 +3498,7 @@ def cmd_tags(args):
                 continue
             if not scanner.all:
                 continue
-            engine = EditEngine(text)
-            for node in scanner.roots:
-                start, end = node_span(node, text)
-                engine.replace(start, end, top_replacement(node, text, mode))
-            pending.append((path, rel, engine.result(), len(scanner.all)))
+            pending.append((path, rel, resolve_scanned(text, scanner, mode), len(scanner.all)))
             warnings += resolve_warnings(scanner, text)
         if errors:
             errors.append("nothing was written; fix the markup and re-run")

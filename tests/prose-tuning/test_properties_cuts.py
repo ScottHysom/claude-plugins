@@ -7,6 +7,8 @@ line nobody cut survives in order. Before #75, cutting a passage broke the
 first of these for every passage longer than a line.
 
 The findings go straight to plan_findings, so hypothesis needs no repo.
+tags resolve makes the same promise for paragraphs cut by a block-form <del>,
+which it broke before #93.
 """
 
 from hypothesis import given
@@ -108,3 +110,45 @@ class DescribeWholeLineCuts:
             if line and n not in removed:
                 expected.append("z" + line[1:] if n in rewritten else line)
         assert [ln for ln in new.split("\n") if ln] == expected
+
+
+@st.composite
+def tagged_cuts(draw):
+    """A document with some whole paragraphs wrapped in a block-form <del>.
+
+    Returns the tagged source and the paragraphs left once the cuts are taken.
+    """
+    paragraphs = draw(st.lists(PARAGRAPH, min_size=1, max_size=5))
+    cuts = draw(st.lists(st.booleans(), min_size=len(paragraphs), max_size=len(paragraphs)))
+    blocks = [
+        "<del>\n%s\n</del>" % "\n".join(p) if c else "\n".join(p) for p, c in zip(paragraphs, cuts)
+    ]
+    source = "\n\n".join(blocks) + ("\n" if draw(st.booleans()) else "")
+    kept = [p for p, c in zip(paragraphs, cuts) if not c]
+    return source, kept
+
+
+def accept(source):
+    got, scanner = prose.resolve_text(prose.Text(source), prose.ACCEPT, None, "doc.md")
+    assert scanner.errors == []
+    return got
+
+
+class DescribeResolvedBlockCuts:
+    @given(batch=tagged_cuts())
+    def it_leaves_no_two_blank_lines_together(self, batch):
+        source, _ = batch
+        assert "\n\n\n" not in accept(source)
+
+    @given(batch=tagged_cuts())
+    def it_leaves_no_blank_line_at_either_end(self, batch):
+        source, _ = batch
+        new = accept(source)
+        assert not new.startswith("\n")
+        assert not new.endswith("\n\n")
+
+    @given(batch=tagged_cuts())
+    def it_keeps_every_paragraph_nobody_cut_in_order(self, batch):
+        source, kept = batch
+        new = accept(source).rstrip("\n")
+        assert new == "\n\n".join("\n".join(p) for p in kept)
