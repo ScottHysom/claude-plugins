@@ -53,7 +53,8 @@ The method names these roles:
 - **The agent** is the AI model doing the work, such as Claude in Claude Code.
 - **A contributor** is anyone changing the code, the agent included.
 - **The model** is an AI model following written instructions at run time,
-  such as a Claude Code skill: a file of instructions for one kind of task.
+  such as Claude following a skill, a file of instructions for one kind of
+  task.
   A repository with no such instructions can skip what the method says about
   them.
 - **The user** is whoever uses what the codebase ships.
@@ -238,9 +239,10 @@ says which kind of seam sits between them:
 <!-- seam: platform: the renter answers through the question tool -->
 ```
 
-claude-plugins' COWORK.md records Claude Code stripping block-level HTML
-comments from the instruction files it loads, which keeps these markers out of
-the model's context. Check the same before relying on it in another tool.
+A comment on a line of its own does not show when the markdown is rendered.
+Whether the model reads it depends on the tool that loads the instructions,
+since some tools strip such comments first. Check that tool before counting on
+the markers to cost no context.
 
 Code does not cite requirements. The tests that run the code do, and coverage
 connects the two.
@@ -295,8 +297,8 @@ Notes for the agent that builds them:
 
 ## Rules for agents
 
-Put these rules in the file an agent reads at the start of every session, such
-as CLAUDE.md or AGENTS.md:
+Put these rules where the agent reads them in every session. That is CLAUDE.md
+for Claude, or AGENTS.md for a tool that reads that file instead.
 
 ```markdown
 - Build only what a requirement in `specs/` asks for. Before adding a
@@ -445,9 +447,6 @@ drawn criticism the method is built to avoid:
 - **False control.** An agent can ignore a spec it only reads. Here CI checks
   each link, and admission rides on the owner's approval.
 
-The ticket stays the record of each change. The method adds no proposal, plan
-or task files beside it.
-
 ## Growing it
 
 The method grows with the codebase without changing shape:
@@ -462,6 +461,54 @@ The method grows with the codebase without changing shape:
 - **More owners** each confirm the needs in their own components. A CODEOWNERS
   file, which GitHub reads to request reviewers by path, routes each spec
   change to the right one.
+
+## Schemes considered
+
+This section records, at the owner's request, the schemes weighed and set
+aside before this one was chosen, so a new reader can see why the method looks
+as it does.
+
+### Use cases
+
+A use case, in Alistair Cockburn's sense, describes how someone reaches a goal
+through a system. It names:
+
+- the actor
+- the trigger
+- the main flow
+- the situations that change it
+- what stays true when it fails
+
+A use case states a need well, and this method keeps that part. A need heading
+carries the outcome. Requirements that open with "When" carry the situations.
+The out-of-scope list comes from the same habit.
+
+As the unit a test cites, a use case is too coarse. Many behaviors can cite one
+broad use case, so a new behavior can arrive without adding a line to the spec,
+and the owner never sees it.
+
+### Executable examples
+
+Behavior-driven development writes each behavior as a scenario, in the form
+Given a starting state, When something happens, Then an outcome. Each scenario
+runs as a test, or as an eval for the model's half. Scenarios cannot drift from
+the code, and this method keeps that part too: the tests are its examples, and
+evals can verify the model's half later.
+
+A scenario states what happens, and never whether anyone wants it. A scenario
+for an unneeded behavior passes every check, and the only statement of need
+sits at the top of a feature, shared by all its scenarios. Evals also cost money
+and minutes on every run, which makes them a poor gate for every change.
+
+### Adopting a spec-driven tool whole
+
+Tools such as OpenSpec and GitHub Spec Kit have an agent write a spec before
+the code. Each brings its own record of change, such as a proposal folder per
+change or a spec, a plan and a task list per feature. A repository that already
+records change in tickets, with approval before work starts, would keep two
+records that drift apart. This method borrows their formats, such as
+requirements with scenarios and lists of what a change adds and removes, and
+keeps the ticket as the only record of change.
 
 ## Sources
 
