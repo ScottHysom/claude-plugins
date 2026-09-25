@@ -249,6 +249,126 @@ class DescribeRefusalsTheRoundTripPropertyFound:
         assert engine.conflicts() == []
 
 
+class DescribeAnchoredRecords:
+    """A record may name its text and leave the columns out.
+
+    The model used to count a record's columns itself, which is the mistake
+    #76 fixed for apply's findings: a column off by one and the script refused
+    a good edit. These mirror test_apply.py's DescribeAnchoredFindings.
+    """
+
+    LIST = "- First item starts here and\n  continues on this line.\n- Second.\n"
+
+    def tag(self, content, record):
+        """The file with the record's tags in it, or the refusal as a string."""
+        text = prose.Text(content)
+        engine, refusals, _ = prose.apply_inserts(
+            text, prose.Blocks(text), [dict(record, file="doc.md")], "doc.md", 1
+        )
+        return refusals[0] if refusals else engine.result()
+
+    def it_finds_the_text_on_its_start_line(self):
+        assert (
+            self.tag("the cat sat.\n", {"kind": "del", "start": 1, "text": "cat"})
+            == "the <del>cat</del> sat.\n"
+        )
+
+    def it_replaces_the_text_it_names(self):
+        record = {"kind": "repl", "start": 1, "text": "cat", "with": "dog"}
+        assert self.tag("the cat sat.\n", record) == "the <del>cat</del><ins>dog</ins> sat.\n"
+
+    def it_refuses_text_that_does_not_start_on_its_line(self):
+        record = {"kind": "del", "start": 1, "text": "Another line."}
+        assert self.tag("One line.\nAnother line.\n", record) == (
+            "doc.md:1  record 1 refused: text: 'Another line.' does not start on this "
+            "line. Re-run evidence."
+        )
+
+    def it_refuses_text_that_starts_more_than_once_on_its_line(self):
+        record = {"kind": "del", "start": 1, "text": "the"}
+        assert self.tag("the cat and the dog\n", record) == (
+            "doc.md:1  record 1 refused: text: 'the' starts at columns 0, 12 on this "
+            "line; add col_start to say which"
+        )
+
+    def it_takes_col_start_to_say_which_match(self):
+        record = {"kind": "del", "start": 1, "text": "the", "col_start": 12}
+        assert self.tag("the cat and the dog\n", record) == "the cat and <del>the</del> dog\n"
+
+    def it_refuses_a_col_start_past_the_end_of_the_line(self):
+        """Text.offset adds the column blind, so col_start=11 on a short line
+        would look for the text on a later line instead.
+        """
+        record = {"kind": "del", "start": 1, "text": "cat", "col_start": 11}
+        assert self.tag("Short.\nThe cat sat.\n", record) == (
+            "doc.md:1  record 1 refused: column 11 is outside the line (6 characters)"
+        )
+
+    def it_marks_whole_lines_named_by_a_wrapped_text(self):
+        """A wrapped list item is one record, in block form."""
+        record = {
+            "kind": "del",
+            "start": 1,
+            "text": "- First item starts here and\n  continues on this line.",
+        }
+        assert self.tag(self.LIST, record) == (
+            "<del>\n- First item starts here and\n  continues on this line.\n</del>\n- Second.\n"
+        )
+
+    def it_takes_a_wrapped_text_without_its_first_lines_indent(self):
+        content = "  An indented paragraph\n  that wraps.\n"
+        record = {"kind": "del", "start": 1, "text": "An indented paragraph\n  that wraps."}
+        assert self.tag(content, record) == (
+            "  <del>\n  An indented paragraph\n  that wraps.\n  </del>\n"
+        )
+
+    @pytest.mark.parametrize(
+        "wrapped",
+        [
+            pytest.param("item starts here and\n  continues on this line.", id="starts-mid-line"),
+            pytest.param("- First item starts here and\n  continues", id="ends-mid-line"),
+        ],
+    )
+    def it_refuses_a_wrapped_text_that_covers_part_of_a_line(self, wrapped):
+        """Block form marks whole lines, so a text naming part of one would
+        quietly tag more than it said.
+        """
+        refusal = self.tag(self.LIST, {"kind": "del", "start": 1, "text": wrapped})
+        assert refusal == (
+            "doc.md:1  record 1 refused: a text that crosses lines marks them whole; copy "
+            "each line from its start to its end, list marker included, or keep it inside "
+            "one line"
+        )
+
+    def it_refuses_an_end_that_disagrees_with_the_text(self):
+        record = {
+            "kind": "del",
+            "start": 1,
+            "end": 1,
+            "text": "- First item starts here and\n  continues on this line.",
+        }
+        assert self.tag(self.LIST, record) == (
+            "doc.md:1  record 1 refused: end is line 1, but the text ends on line 2; leave end out"
+        )
+
+    def it_places_an_insertion_after_the_text_it_follows(self):
+        record = {"kind": "ins", "start": 1, "after": "the cat", "text": " quietly"}
+        assert self.tag("the cat sat.\n", record) == "the cat<ins> quietly</ins> sat.\n"
+
+    def it_refuses_an_insertion_after_a_text_that_crosses_lines(self):
+        record = {"kind": "ins", "start": 1, "after": "here and\n  ", "text": "x"}
+        assert self.tag(self.LIST, record) == (
+            "doc.md:1  record 1 refused: <ins> inserts at a point; give an after on one line"
+        )
+
+    def it_refuses_an_insertion_after_a_text_that_is_not_there(self):
+        record = {"kind": "ins", "start": 1, "after": "the dog", "text": "x"}
+        assert self.tag("the cat sat.\n", record) == (
+            "doc.md:1  record 1 refused: after: 'the dog' does not start on this line. "
+            "Re-run evidence."
+        )
+
+
 class DescribeInsertCommand:
     """`tags insert` driven the way the skills drive it, with the batch in a
     file. The planner tests above hand records straight to apply_inserts, so
@@ -268,6 +388,30 @@ class DescribeInsertCommand:
         lines = target.split("\n")
         lines.insert(7, '<q id="1">earned?</q>')
         assert prose_repo.read() == "\n".join(lines)
+
+    def it_tags_a_record_addressed_by_its_text(self, prose_repo, target):
+        record = {
+            "file": "target.md",
+            "kind": "del",
+            "start": 7,
+            "text": "Curated, not collected.",
+            "why": "restates",
+        }
+        code, envelope = self.insert(prose_repo, json.dumps([record]))
+        assert code == prose.OK, envelope["errors"]
+        assert prose_repo.read() == target.replace(
+            "Curated, not collected.", '<del why="restates">Curated, not collected.</del>'
+        )
+
+    def it_writes_nothing_when_a_records_text_is_not_on_its_line(self, prose_repo, target):
+        record = {"file": "target.md", "kind": "del", "start": 7, "text": "Final paragraph."}
+        code, envelope = self.insert(prose_repo, json.dumps([record]))
+        assert code == prose.PROBLEMS
+        assert envelope["errors"][0] == (
+            "target.md:7  record 1 refused: text: 'Final paragraph.' does not start on "
+            "this line. Re-run evidence."
+        )
+        assert prose_repo.read() == target
 
     def it_leaves_the_file_alone_on_a_dry_run(self, prose_repo, target):
         record = {"file": "target.md", "kind": "q", "start": 8, "text": "earned?"}

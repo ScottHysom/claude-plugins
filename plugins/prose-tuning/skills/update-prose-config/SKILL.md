@@ -107,8 +107,8 @@ Insert every tag in one call, as one batch, with JSON on stdin:
 
 ```sh
 python3 "$PROSE" tags insert --batch - <<'END'
-[{"file":"current-state.md","start":42,"col_start":0,"col_end":58,
-  "kind":"del","why":"restates the passage"},
+[{"file":"current-state.md","start":42,"kind":"del",
+  "text":"Curated, not collected.","why":"restates the passage"},
  {"file":"landscape.md","start":60,
   "kind":"q","text":"Did the vendor count change as a fact, or as prose?"}]
 END
@@ -121,12 +121,18 @@ at all if any record is refused.
 
 | Field | Means |
 |---|---|
-| `start`, `end` | 1-indexed lines. `end` defaults to `start` |
-| `col_start`, `col_end` | 0-indexed columns. Both default to the whole line |
+| `start` | the 1-indexed line the record starts on |
 | `kind` | `ins`, `del`, `repl`, `q` or `alt` |
-| `why` | short rationale, becomes an attribute |
+| `text` | for `del` and `repl`, the text to mark, copied exactly from the line. For `ins`, `q` and `alt`, the content the tag adds |
+| `after` | for `ins`, the text on the line that the insertion follows |
 | `with` | the replacement text, for `repl` |
-| `text` | the content, for `ins`, `q` and `alt` |
+| `why` | short rationale, becomes an attribute |
+
+Leave the columns out: the script finds the text on its line. When it is
+refused because the text starts at more than one place, add the `col_start` the
+refusal lists. A `text` that runs onto later lines holds each line whole, from
+its list marker or first word to its end, with the newlines and indents between.
+`python3 "$PROSE" tags insert --help` describes every field.
 
 The script picks inline or block form, never splits a line, and refuses a span
 that straddles blocks or touches a fence, heading, table or front matter. Do not

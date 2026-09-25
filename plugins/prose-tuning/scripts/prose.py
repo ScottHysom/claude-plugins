@@ -1700,14 +1700,21 @@ def resolve_file(path, relpath, mode, dry_run=False):
 # --------------------------------------------------------------------------
 # inserting markup
 #
-# Addressed by line and column, applied as one batch, bottom-up from a single
-# snapshot. A loop of twenty single invocations cannot work: each insertion
+# Addressed by line and the text a record names, or by line and column,
+# applied as one batch, bottom-up from a single snapshot. A loop of twenty single invocations cannot work: each insertion
 # shifts every line number below it, so anchors two onward are already stale.
 # The first run of this workflow used twenty exact-match anchor strings and
 # three of them failed. Batch is correctness here, not convenience.
 # --------------------------------------------------------------------------
 
 INSERTABLE = ("ins", "del", "repl", "q", "alt")
+# The field that names the text a record marks. `text` is the content an
+# <ins>, <q> or <alt> adds, so an <ins> names the text it follows instead.
+ANCHOR_KEY = "text"
+INS_ANCHOR_KEY = "after"
+# What to run again when a text is no longer where it was addressed.
+REPORT_RERUN = "Re-run the report."
+EVIDENCE_RERUN = "Re-run evidence."
 UNSAFE_SPAN_KINDS = ("frontmatter", "fence", "heading", "table")
 
 # <q> and <alt> go in as a whole new line above the one they ask about, so they
@@ -1758,15 +1765,25 @@ def plan_one_insert(text, blocks, rec, path, qid):
         at = text.offset(start_line, 0)
         return [(at, at, "%s<%s%s>%s</%s>\n" % (indent, kind, ident, body, kind))]
 
+    key = INS_ANCHOR_KEY if kind == "ins" else ANCHOR_KEY
+    if rec.get(key) is not None:
+        found, col_start, col_end = anchored_columns(text, rec, start_line, key)
+        if "end" in rec and end_line != found:
+            raise InsertRefusal(
+                "end is line %d, but the %s ends on line %d; leave end out" % (end_line, key, found)
+            )
+        end_line = found
+    else:
+        col_start = int(rec.get("col_start", 0))
+        col_end = int(rec.get("col_end", len(text.bare(end_line))))
+
     for line in range(start_line, end_line + 1):
         if blocks.kind(line) in UNSAFE_SPAN_KINDS:
             raise InsertRefusal(
                 "line %d is a %s; markup there would break it" % (line, blocks.kind(line))
             )
 
-    col_start = int(rec.get("col_start", 0))
     last = text.bare(end_line)
-    col_end = int(rec.get("col_end", len(last)))
 
     # Columns are bounds-checked here because Text.offset does not check them:
     # it validates the line and then adds the column blind. A col_end past the
@@ -1883,6 +1900,38 @@ def plan_one_insert(text, blocks, rec, path, qid):
         tail,
     )
     return [(block_start, block_end, out)]
+
+
+def anchored_columns(text, rec, start_line, key):
+    """(end line, col_start, col_end) of the text rec[key] names. Raises InsertRefusal.
+
+    For an <ins>, the text is what the insertion follows, so both columns are
+    the point just after it, and it has to end on its start line.
+
+    A text that crosses lines has to cover them whole, which is the block
+    form. Indentation before it on its first line counts as covered, so a
+    text naming whole list items need not copy their indentation, but their
+    markers are part of the line and have to be in the text.
+    """
+    span, problem = locate(text, start_line, rec, key, EVIDENCE_RERUN, key)
+    if problem:
+        raise InsertRefusal(problem)
+    a, b = span
+    end_line = text.line_of(b)
+    col_start = a - text.offset(start_line)
+    col_end = b - text.offset(end_line)
+    if key == INS_ANCHOR_KEY:
+        if end_line != start_line:
+            raise InsertRefusal("<ins> inserts at a point; give an %s on one line" % key)
+        return start_line, col_end, col_end
+    if end_line != start_line:
+        if text.bare(start_line)[:col_start].strip() or col_end != len(text.bare(end_line)):
+            raise InsertRefusal(
+                "a %s that crosses lines marks them whole; copy each line from its "
+                "start to its end, list marker included, or keep it inside one line" % key
+            )
+        col_start = 0
+    return end_line, col_start, col_end
 
 
 def next_question_id(repo, files):
@@ -2307,6 +2356,41 @@ def apply_inserts(text, blocks, records, path, qid_start):
         for a, b, replacement in edits:
             engine.replace(a, b, replacement)
     return engine, refusals, qid
+
+
+INSERT_HELP = """\
+records:
+  Each record is one JSON object with these fields.
+
+  file       the document, relative to the repository root
+  start      the 1-indexed line the record starts on
+  kind       ins, del, repl, q or alt
+  text       for del and repl: the text to mark, copied exactly. insert
+             finds it among the places that start on the line and refuses a
+             record whose text starts at none of them, or at more than one.
+             A text holding a newline ends on a later line, and has to cover
+             each of its lines whole, list marker included.
+             For ins, q and alt: the content the tag adds
+  after      for ins: the text the insertion follows, found the same way,
+             on one line
+  with       for repl: the replacement text
+  why        optional: a short rationale, which becomes an attribute
+  end        optional: the last line, when there is no text to say it.
+             With a text, a different end is refused
+  col_start  optional: the 0-indexed column the text or after starts at,
+             when it starts at more than one place on the line
+  col_end    optional: the column a span ends at. With both columns, text
+             may be left out, and without it they default to the whole line
+
+  q and alt go in as a new line of their own above start, so they mark no
+  text. Question ids are assigned here.
+
+example:
+  [{"file": "notes.md", "start": 42, "kind": "del",
+    "text": "Curated, not collected.", "why": "restates the passage"},
+   {"file": "notes.md", "start": 60, "kind": "q",
+    "text": "Did the count change as a fact, or as prose?"}]
+"""
 
 
 # --------------------------------------------------------------------------
@@ -3321,19 +3405,20 @@ SPANNING_KINDS = ("paragraph", "list-item")
 DISMISS_KEY = "dismiss"
 
 
-def locate(text, line, f, n):
-    """The absolute (start, end) that finding n covers, or (None, why not).
+def locate(text, line, f, label, rerun=REPORT_RERUN, key="text"):
+    """The absolute (start, end) that a finding or record covers, or (None, why not).
 
-    With no columns, the finding's text is looked for among the places that
+    With no columns, the text in f[key] is looked for among the places that
     start on its line, and it has to start at exactly one of them. col_start
     alone says which, and the span runs as far as the text does, onto a later
     line if the text holds a newline. col_end pins the end on the same line,
     which is the one form that needs no text; without text, the columns
-    default to the whole line.
+    default to the whole line. label names the finding or field in a refusal,
+    and rerun says what to run again when the text has moved.
     """
     width = len(text.bare(line))
     base = text.offset(line)
-    want = f.get("text")
+    want = f.get(key)
     col_start, col_end = f.get("col_start"), f.get("col_end")
     if want is None or col_end is not None:
         col_start = int(col_start if col_start is not None else 0)
@@ -3355,28 +3440,26 @@ def locate(text, line, f, n):
         a = base + col_start
         b = a + len(want)
     elif not want:
-        return None, "finding %d: an empty text needs col_start to say where it goes" % n
+        return None, "%s: an empty text needs col_start to say where it goes" % label
     else:
         # Up to and including the line's end, so a text that starts with the
         # newline, to join this line to the next, still has a place to start.
         starts = [c for c in range(width + 1) if text.s.startswith(want, base + c)]
         if not starts:
-            return None, "finding %d: %r does not start on this line. Re-run the report." % (
-                n,
-                want[:60],
-            )
+            return None, "%s: %r does not start on this line. %s" % (label, want[:60], rerun)
         if len(starts) > 1:
             return None, (
-                "finding %d: %r starts at columns %s on this line; add col_start to say which"
-                % (n, want[:60], ", ".join(str(c) for c in starts))
+                "%s: %r starts at columns %s on this line; add col_start to say which"
+                % (label, want[:60], ", ".join(str(c) for c in starts))
             )
         a = base + starts[0]
         b = a + len(want)
     current = text.s[a:b]
     if want is not None and current != want:
-        return None, "the text moved; expected %r, found %r. Re-run the report." % (
+        return None, "the text moved; expected %r, found %r. %s" % (
             want[:60],
             current[:60],
+            rerun,
         )
     return (a, b), None
 
@@ -3486,7 +3569,7 @@ def stage_findings(text, blocks, rel, findings, numbers=None):
                 "%s:%d  is a %s; prose rules do not apply there" % (rel, line, blocks.kind(line))
             )
             continue
-        span, problem = locate(text, line, f, n)
+        span, problem = locate(text, line, f, "finding %d" % n)
         if problem:
             rejected.append("%s:%d  %s" % (rel, line, problem))
             continue
@@ -3864,7 +3947,7 @@ def uncovered_matches(repo, config, scope, findings):
                 continue
             if not 1 <= line <= text.line_count():
                 continue
-            span, problem = locate(text, line, f, n)
+            span, problem = locate(text, line, f, "finding %d" % n)
             if not problem:
                 spans.append((f.get("rule"), span[0], span[1]))
         for m in matches:
@@ -4304,7 +4387,10 @@ def build_parser():
         ("resolve", "accept the edits and remove markup"),
         ("strip", "abandon the edits and remove markup"),
     ]:
-        t = tsub.add_parser(name, parents=[common], help=helptext)
+        extra = {}
+        if name == "insert":
+            extra = dict(epilog=INSERT_HELP, formatter_class=argparse.RawDescriptionHelpFormatter)
+        t = tsub.add_parser(name, parents=[common], help=helptext, **extra)
         if name == "insert":
             t.add_argument(
                 "--batch",
@@ -4315,7 +4401,7 @@ def build_parser():
             t.add_argument(
                 "--partial", action="store_true", help="apply what is valid instead of nothing"
             )
-            t.add_argument("--dry-run", action="store_true")
+            t.add_argument("--dry-run", action="store_true", help="say what would be tagged")
         else:
             t.add_argument("paths", nargs="*")
         if name in ("resolve", "strip"):
