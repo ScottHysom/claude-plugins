@@ -509,6 +509,8 @@ FM_SUBKEY = re.compile(r"^ {2}(include|exclude)\s*:\s*$")
 FM_ITEM = re.compile(r"^ {4}-\s+(.+?)\s*$")
 
 META_KEYS = {"source", "origin"}
+# source is the route a rule took into the file, and origin the project an
+# adopted rule came from. reference/prose-style-format.md says what each means.
 META_SOURCE_ADOPTED = "adopted"
 META_SOURCES = {"shipped", "inferred", "interview", META_SOURCE_ADOPTED}
 # The line config adopt writes under an adopted rule's heading.

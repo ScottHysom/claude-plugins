@@ -85,7 +85,9 @@ python3 "$PROSE" config adopt --file <source> --to <target> --rule <id> --rule <
 Pass every rule still in the new bucket after step 2, each as its own
 `--rule`. Do not edit the copied rules or their `prose-rule` comment by hand.
 The command copies each one as the source has it, puts it under its section,
-and writes `source=adopted origin=<project>` beneath its heading.
+and writes `source=adopted origin=<project>` beneath its heading. `source`
+names the route the rule took into the file, and `origin` names the project,
+so never put a project name in `source`: `config lint` rejects it.
 
 `origin` defaults to the folder name of the source's repository. Pass
 `--origin <project>` when the command says it cannot tell, or when that folder
