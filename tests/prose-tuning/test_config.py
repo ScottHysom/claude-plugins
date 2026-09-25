@@ -246,3 +246,212 @@ class DescribeConfigClassify:
         code, env = prose_repo.run("config", "classify", "--file", str(src), "--to", missing)
         assert (code, env) == (prose.CANNOT_RUN, None)
         assert "nowhere.md does not exist" in prose_repo.err
+
+
+class DescribeConfigAdopt:
+    """adopt-prose's step 3. A new rule reaches the target as the source wrote
+    it, with only its metadata replaced, and never over a rule the target has.
+    """
+
+    HEAD = "---\nname: T\n---\n\n"
+    # Odd wrapping, a pattern and a worked example: everything a hand copy
+    # could lose.
+    OWN_SUBJECT = (
+        "### sentences-own-subject: Carries its own subject\n"
+        "<!-- prose-rule: source=inferred -->\n"
+        "\n"
+        "A sentence that borrows its subject\n"
+        "   from the heading   above it is incomplete.\n"
+        "\n"
+        "**Pattern.** `^Able to`\n"
+        "\n"
+        "> **Before.** Able to state it.\n"
+        "> **After.** A reader can state it.\n"
+    )
+    COUNT = (
+        "### sentences-count-needs-list: A count needs a list\n"
+        "\n"
+        "A count needs its list nearby.\n"
+        "\n"
+        "> **Before.** Three rules apply.\n"
+        "> **After.** These rules apply:\n"
+    )
+    TONE = (
+        "### register-plain-words: Plain words\n"
+        "\n"
+        "Use plain words over jargon.\n"
+        "\n"
+        "> **Before.** Leverage it.\n"
+        "> **After.** Use it.\n"
+    )
+
+    def files(self, prose_repo, source, target):
+        src, tgt = prose_repo.root / "source.md", prose_repo.root / "target-style.md"
+        src.write_text(self.HEAD + source)
+        tgt.write_text(self.HEAD + target)
+        return src, tgt
+
+    def adopt(self, prose_repo, src, tgt, *argv):
+        return prose_repo.run("config", "adopt", "--file", str(src), "--to", str(tgt), *argv)
+
+    def it_copies_a_rule_byte_for_byte(self, prose_repo):
+        src, tgt = self.files(
+            prose_repo, "## Sentences\n\n" + self.OWN_SUBJECT, "## Sentences\n\n" + self.COUNT
+        )
+        code, _ = self.adopt(prose_repo, src, tgt, "--rule", "sentences-own-subject")
+        assert code == prose.OK
+        body = self.OWN_SUBJECT.split("\n", 2)[2]
+        assert "\n" + body in tgt.read_text()
+
+    def it_writes_the_origin_comment(self, prose_repo):
+        src, tgt = self.files(
+            prose_repo, "## Sentences\n\n" + self.OWN_SUBJECT, "## Sentences\n\n" + self.COUNT
+        )
+        code, env = self.adopt(prose_repo, src, tgt, "--rule", "sentences-own-subject")
+        assert (code, env["data"]["origin"]) == (prose.OK, "repo")
+        text = tgt.read_text()
+        assert (
+            "### sentences-own-subject: Carries its own subject\n"
+            "<!-- prose-rule: source=adopted origin=repo -->\n\n"
+        ) in text
+        assert "source=inferred" not in text
+
+    def it_takes_the_origin_it_is_given(self, prose_repo):
+        src, tgt = self.files(prose_repo, "## Sentences\n\n" + self.OWN_SUBJECT, "")
+        self.adopt(prose_repo, src, tgt, "--rule", "sentences-own-subject", "--origin", "game")
+        assert "source=adopted origin=game -->" in tgt.read_text()
+
+    def it_refuses_an_origin_with_a_space(self, prose_repo):
+        src, tgt = self.files(prose_repo, "## Sentences\n\n" + self.OWN_SUBJECT, "")
+        code, _ = self.adopt(
+            prose_repo, src, tgt, "--rule", "sentences-own-subject", "--origin", "two words"
+        )
+        assert code == prose.CANNOT_RUN
+
+    def it_refuses_an_id_the_target_has(self, prose_repo):
+        src, tgt = self.files(
+            prose_repo,
+            "## Sentences\n\n" + self.OWN_SUBJECT,
+            "## Sentences\n\n" + self.OWN_SUBJECT.replace("incomplete", "unfinished"),
+        )
+        before = tgt.read_bytes()
+        code, env = self.adopt(prose_repo, src, tgt, "--rule", "sentences-own-subject")
+        assert code == prose.PROBLEMS
+        assert [r["id"] for r in env["data"]["refused"]] == ["sentences-own-subject"]
+        assert "collision" in env["errors"][0]
+        assert tgt.read_bytes() == before
+
+    def it_refuses_an_id_the_source_lacks(self, prose_repo):
+        src, tgt = self.files(prose_repo, "## Sentences\n\n" + self.OWN_SUBJECT, "")
+        code, env = self.adopt(prose_repo, src, tgt, "--rule", "sentences-no-such-rule")
+        assert code == prose.PROBLEMS
+        assert [r["id"] for r in env["data"]["refused"]] == ["sentences-no-such-rule"]
+
+    def it_places_a_rule_after_the_last_of_its_section(self, prose_repo):
+        src, tgt = self.files(
+            prose_repo,
+            "## Sentences\n\n" + self.OWN_SUBJECT,
+            "## Sentences\n\n" + self.COUNT + "\n## Register\n\n" + self.TONE,
+        )
+        code, env = self.adopt(prose_repo, src, tgt, "--rule", "sentences-own-subject")
+        assert code == prose.OK
+        text = tgt.read_text()
+        assert (
+            text.index("sentences-count-needs-list")
+            < text.index("sentences-own-subject")
+            < text.index("## Register")
+        )
+        assert "> **After.** These rules apply:\n\n### sentences-own-subject" in text
+        assert "> **After.** A reader can state it.\n\n## Register" in text
+        line = env["data"]["adopted"][0]["line"]
+        assert text.split("\n")[line - 1].startswith("### sentences-own-subject:")
+
+    def it_adds_the_section_heading_when_the_target_has_none(self, prose_repo):
+        src, tgt = self.files(
+            prose_repo,
+            "## Register\n\n" + self.TONE,
+            "## Sentences\n\n" + self.COUNT,
+        )
+        code, _ = self.adopt(prose_repo, src, tgt, "--rule", "register-plain-words")
+        assert code == prose.OK
+        assert "These rules apply:\n\n## Register\n\n### register-plain-words" in tgt.read_text()
+
+    def it_keeps_the_source_order_for_rules_going_to_one_place(self, prose_repo):
+        src, tgt = self.files(
+            prose_repo,
+            "## Sentences\n\n" + self.OWN_SUBJECT + "\n" + self.COUNT,
+            "## Register\n\n" + self.TONE,
+        )
+        code, _ = self.adopt(
+            prose_repo,
+            src,
+            tgt,
+            "--rule",
+            "sentences-count-needs-list",
+            "--rule",
+            "sentences-own-subject",
+        )
+        assert code == prose.OK
+        text = tgt.read_text()
+        assert text.count("## Sentences") == 1
+        assert text.index("sentences-own-subject") < text.index("sentences-count-needs-list")
+
+    def it_writes_nothing_on_a_dry_run(self, prose_repo):
+        src, tgt = self.files(prose_repo, "## Sentences\n\n" + self.OWN_SUBJECT, "")
+        before = tgt.read_bytes()
+        code, env = self.adopt(prose_repo, src, tgt, "--rule", "sentences-own-subject", "--dry-run")
+        assert code == prose.OK
+        assert [a["id"] for a in env["data"]["adopted"]] == ["sentences-own-subject"]
+        assert tgt.read_bytes() == before
+
+    def it_writes_nothing_when_one_id_is_refused(self, prose_repo):
+        src, tgt = self.files(
+            prose_repo, "## Sentences\n\n" + self.OWN_SUBJECT, "## Sentences\n\n" + self.COUNT
+        )
+        before = tgt.read_bytes()
+        code, env = self.adopt(
+            prose_repo, src, tgt, "--rule", "sentences-own-subject", "--rule", "sentences-nope"
+        )
+        assert (code, env["data"]["adopted"]) == (prose.PROBLEMS, [])
+        assert tgt.read_bytes() == before
+
+    def it_writes_the_rest_with_partial(self, prose_repo):
+        src, tgt = self.files(
+            prose_repo, "## Sentences\n\n" + self.OWN_SUBJECT, "## Sentences\n\n" + self.COUNT
+        )
+        code, _ = self.adopt(
+            prose_repo,
+            src,
+            tgt,
+            "--rule",
+            "sentences-own-subject",
+            "--rule",
+            "sentences-nope",
+            "--partial",
+        )
+        assert code == prose.PROBLEMS
+        assert "### sentences-own-subject" in tgt.read_text()
+
+    def it_leaves_a_target_that_lints_clean(self, prose_repo):
+        src, tgt = self.files(
+            prose_repo,
+            "## Sentences\n\n" + self.OWN_SUBJECT + "\n## Register\n\n" + self.TONE,
+            "## Sentences\n\n" + self.COUNT,
+        )
+        self.adopt(
+            prose_repo,
+            src,
+            tgt,
+            "--rule",
+            "sentences-own-subject",
+            "--rule",
+            "register-plain-words",
+        )
+        code, env = prose_repo.run("config", "lint", "--file", str(tgt))
+        assert (code, env["data"]["rules"]) == (prose.OK, 3)
+
+    def it_refuses_a_source_that_does_not_lint(self, prose_repo):
+        src, tgt = self.files(prose_repo, "## Sentences\n\n### sentences-01: Bad\n\nBody.\n", "")
+        code, _ = self.adopt(prose_repo, src, tgt, "--rule", "sentences-01")
+        assert code == prose.CANNOT_RUN
+        assert "does not lint clean" in prose_repo.err

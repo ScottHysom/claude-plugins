@@ -83,9 +83,16 @@ Nothing enforces the naming discipline. `config lint` checks the grammar and the
 word count and stops there, the same way it cannot tell that two rules
 contradict each other. Both are left to judgment.
 
-**The metadata comment carries at most two keys.** `source` is one of `shipped`,
-`inferred`, `interview` or `adopted`. `origin=<project>` appears only on a rule
-that arrived through `adopt-prose`.
+**The metadata comment carries at most two keys.** `source` names the route a
+rule took into the file, and `config lint` accepts only these:
+
+- `shipped`: `config init` copied it from the rules prose-tuning ships.
+- `inferred`: `update-prose-config` drew it from the author's edits.
+- `interview`: `update-prose-config` wrote it from the author's answer to a question.
+- `adopted`: `adopt-prose` copied it from another project's `prose-style.md`.
+
+`origin=<project>` names that other project, and appears only beside
+`source=adopted`.
 
 **The example is a two-line blockquote** with fixed lead words, `> **Before.**`
 and `> **After.**`. They come as a pair; half an example is an error. A rule

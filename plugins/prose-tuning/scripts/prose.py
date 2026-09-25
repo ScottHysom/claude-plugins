@@ -19,7 +19,7 @@ Commands:
     segments    the prose-eligible spans of each file, one per line
     patterns    where each rule's pattern matches those spans
     evidence    explicit tags + inferred edits + open questions
-    config      list | lint | check-id | similar | classify | init | move
+    config      list | lint | check-id | similar | classify | adopt | init | move
     tags        check | list | insert | resolve | strip
     report      the findings for approval, and which of them overlap
     apply       apply approved rewrites
@@ -509,7 +509,14 @@ FM_SUBKEY = re.compile(r"^ {2}(include|exclude)\s*:\s*$")
 FM_ITEM = re.compile(r"^ {4}-\s+(.+?)\s*$")
 
 META_KEYS = {"source", "origin"}
-META_SOURCES = {"shipped", "inferred", "interview", "adopted"}
+# source is the route a rule took into the file, and origin the project an
+# adopted rule came from. reference/prose-style-format.md says what each means.
+META_SOURCE_ADOPTED = "adopted"
+META_SOURCES = {"shipped", "inferred", "interview", META_SOURCE_ADOPTED}
+# The line config adopt writes under an adopted rule's heading.
+ADOPTED_COMMENT = "<!-- prose-rule: source=%s origin=%s -->\n"
+# An origin is one metadata value, and metadata pairs split on whitespace.
+ORIGIN = re.compile(r"^[^\s=]+$")
 
 
 def validate_rule_name(name):
@@ -2822,6 +2829,180 @@ def config_move(args, repo, config):
     )
 
 
+def heading_end(lines, start):
+    """The index of the first line after lines[start] that opens a ## or ###
+    heading, or len(lines). A rule's block, as Config._parse_rules reads it.
+    """
+    end = start + 1
+    while end < len(lines):
+        raw = lines[end].rstrip("\n").rstrip("\r")
+        if ANY_H2.match(raw) or ANY_H3.match(raw):
+            break
+        end += 1
+    return end
+
+
+def adopted_block(lines, rule, origin):
+    """A rule's lines as the source has them, with its metadata replaced.
+
+    The block is sliced from the file rather than rendered from Rule, so that
+    wrapping, the worked example and anything the parser does not model come
+    across byte for byte. Only the prose-rule comment changes: whatever the
+    source said about the rule's origin, it came to the target from origin.
+    Trailing blank lines go, since the target decides its own spacing.
+    """
+    start = rule.line - 1
+    body = [
+        ln
+        for ln in lines[start + 1 : heading_end(lines, start)]
+        if not META_COMMENT.match(ln.strip())
+    ]
+    while body and not body[-1].strip():
+        body.pop()
+    block = [lines[start], *body]
+    block = [ln if ln.endswith("\n") else ln + "\n" for ln in block]
+    block.insert(1, ADOPTED_COMMENT % (META_SOURCE_ADOPTED, origin))
+    return block
+
+
+def adopt_origin(args, config):
+    """The project an adopted rule came from: --origin, else the folder name
+    of the repository holding the source file.
+    """
+    origin = args.origin
+    if origin is None:
+        try:
+            origin = Repo(os.path.dirname(config.path)).project_name()
+        except Fatal as exc:
+            raise Fatal("%s is not inside a git repository; pass --origin" % config.path) from exc
+    if not ORIGIN.match(origin):
+        raise Fatal("origin %r must be one word with no spaces or '='; pass --origin" % origin)
+    return origin
+
+
+def plan_adoption(config, source_lines, target, target_lines, ids, origin):
+    """(the target's new lines, the ids adopted, the ids refused with why).
+
+    Every insertion point is found on the target as read, then applied from the
+    bottom up, so an earlier insertion cannot move a later one. A rule goes
+    after the last target rule of its section; failing that, under a ## heading
+    matching the one it sat under in the source; failing that, at the end under
+    a new copy of that heading. Rules going to one place keep the source's order.
+    """
+    source_ids = config.by_id()
+    target_ids = target.by_id()
+    refused, chosen, seen = [], [], set()
+    for rid in ids:
+        if rid in seen:
+            refused.append({"id": rid, "reason": "%s is named twice" % rid})
+        elif rid not in source_ids:
+            refused.append({"id": rid, "reason": "%s has no rule %s" % (config.rel(), rid)})
+        elif rid in target_ids:
+            refused.append(
+                {
+                    "id": rid,
+                    "reason": "%s already has %s; that is a collision, not a new rule"
+                    % (target.rel(), rid),
+                }
+            )
+        else:
+            chosen.append(source_ids[rid])
+        seen.add(rid)
+    chosen.sort(key=lambda r: r.line)
+
+    h2s = {}
+    for i, ln in enumerate(target_lines):
+        m = ANY_H2.match(ln.rstrip("\n").rstrip("\r"))
+        if m:
+            h2s.setdefault(m.group(1), i)
+
+    # (position, heading to open or None) -> blocks, in first-seen order.
+    spots = {}
+    for rule in chosen:
+        mine = [r for r in target.rules if r.section == rule.section]
+        if mine:
+            key = (heading_end(target_lines, mine[-1].line - 1), None)
+        elif rule.group in h2s:
+            key = (heading_end(target_lines, h2s[rule.group]), None)
+        else:
+            key = (len(target_lines), rule.group or None)
+        spots.setdefault(key, []).append(adopted_block(source_lines, rule, origin))
+
+    by_pos = {}
+    for (pos, heading), blocks in spots.items():
+        piece = ["## %s\n" % heading, "\n"] if heading else []
+        for i, block in enumerate(blocks):
+            piece += (["\n"] if i else []) + block
+        by_pos.setdefault(pos, []).append(piece)
+
+    out = list(target_lines)
+    if out and not out[-1].endswith("\n"):
+        out[-1] += "\n"
+    for pos in sorted(by_pos, reverse=True):
+        chunk = []
+        for i, piece in enumerate(by_pos[pos]):
+            chunk += (["\n"] if i else []) + piece
+        if pos > 0 and out[pos - 1].strip():
+            chunk.insert(0, "\n")
+        if pos < len(out):
+            chunk.append("\n")
+        out[pos:pos] = chunk
+    return out, [r.id for r in chosen], refused
+
+
+def config_adopt(args, repo, config):
+    """Copy named rules from this file into --to, each marked as adopted.
+
+    adopt-prose's step 3. Refuses an id the target already has, because a
+    shared id is step 4's question, and writes nothing while any id is refused
+    unless --partial is passed.
+    """
+    target = Config(os.path.abspath(args.to))
+    if not target.exists:
+        raise Fatal("%s does not exist" % args.to)
+    for cfg in (config, target):
+        if cfg.errors:
+            raise Fatal(
+                "%s does not lint clean; run: prose.py config lint --file %s" % (cfg.path, cfg.path)
+            )
+    origin = adopt_origin(args, config)
+    source_lines = Text.read(config.path).lines
+    target_lines = Text.read(target.path).lines
+    out, adopted, refused = plan_adoption(
+        config, source_lines, target, target_lines, args.rule, origin
+    )
+    errors = [r["reason"] for r in refused]
+    write = adopted and not (refused and not args.partial)
+    if refused and not args.partial:
+        errors.append("nothing was written; pass --partial to adopt the rest")
+        adopted = []
+    if write and not args.dry_run:
+        Text("".join(out)).write(target.path)
+
+    lines = {}
+    for i, ln in enumerate(out):
+        m = RULE_HEADING.match(ln.rstrip("\n").rstrip("\r"))
+        if m:
+            lines.setdefault("%s-%s" % (m.group(1), m.group(2)), i + 1)
+    data = {
+        "source": config.path,
+        "target": target.path,
+        "origin": origin,
+        "dry_run": args.dry_run,
+        "adopted": [{"id": rid, "line": lines[rid]} for rid in adopted],
+        "refused": refused,
+    }
+
+    def human():
+        verb = "would adopt" if args.dry_run else "adopted"
+        for a in data["adopted"]:
+            print("%s  %s  at line %d" % (verb, a["id"], a["line"]))
+        for r in refused:
+            print("refused  %s" % r["id"])
+
+    return emit(args, "config adopt", repo.root, data, errors=errors, human=human)
+
+
 def cmd_config(args):
     repo, config, scope = load(args)
     which = args.config_cmd
@@ -2865,6 +3046,9 @@ def cmd_config(args):
         if not args.config_file and os.path.exists(legacy_config_path(repo)):
             raise Fatal("%s does not exist; run: prose.py config move" % config.path)
         raise Fatal("%s does not exist; run: prose.py config init" % config.path)
+
+    if which == "adopt":
+        return config_adopt(args, repo, config)
 
     if which == "check-id":
         rid, problem = config.check_id(args.section, args.name)
@@ -4061,6 +4245,7 @@ def build_parser():
         ("check-id", "is this id well-formed and free"),
         ("similar", "rules two files state twice"),
         ("classify", "which bucket each rule falls in when adopted"),
+        ("adopt", "copy new rules into another file, marked as adopted"),
         ("init", "start one from the shipped rules"),
         ("move", "move a root prose-style.md to %s" % CONFIG_DIR),
     ]:
@@ -4082,6 +4267,22 @@ def build_parser():
                 "--to", required=True, metavar="PATH", help="the prose-style.md to compare against"
             )
             c.add_argument("--threshold", type=float, default=SIMILAR_THRESHOLD, metavar="N")
+        if name == "adopt":
+            c.add_argument(
+                "--to", required=True, metavar="PATH", help="the prose-style.md to copy into"
+            )
+            c.add_argument(
+                "--rule", required=True, action="append", metavar="ID", help="repeatable"
+            )
+            c.add_argument(
+                "--origin",
+                metavar="NAME",
+                help="the project the rules came from (default: the source's repository folder)",
+            )
+            c.add_argument("--dry-run", action="store_true", help="say what would be copied")
+            c.add_argument(
+                "--partial", action="store_true", help="adopt what is valid instead of nothing"
+            )
         if name == "move":
             c.add_argument("--dry-run", action="store_true", help="say what would be copied")
         if name == "init":

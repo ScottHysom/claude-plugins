@@ -78,17 +78,25 @@ The identical and colliding buckets are exact, so leave them as they came.
 
 ## Step 3: adopt the new rules
 
-Copy the body verbatim, including the worked example. Record where it came from:
-
-```markdown
-### register-plain-in-headings: The register stays plain in headings
-<!-- prose-rule: source=adopted origin=solo-game-research -->
+```sh
+python3 "$PROSE" config adopt --file <source> --to <target> --rule <id> --rule <id> --json
 ```
 
-`origin` matters here more than anywhere else. An adopted rule is the one most
-likely to be wrong for its new home, and a year from now nothing else will
-explain why the project has a rule nobody in it wrote. It is also the only mark
-left on an adopted rule.
+Pass every rule still in the new bucket after step 2, each as its own
+`--rule`. Do not edit the copied rules or their `prose-rule` comment by hand.
+The command copies each one as the source has it, puts it under its section,
+and writes `source=adopted origin=<project>` beneath its heading. `source`
+names the route the rule took into the file, and `origin` names the project,
+so never put a project name in `source`: `config lint` rejects it.
+
+`origin` defaults to the folder name of the source's repository. Pass
+`--origin <project>` when the command says it cannot tell, or when that folder
+name is not what the project is called. A year from now `origin` is the only
+thing that will explain why the project has a rule nobody in it wrote.
+
+The command exits 1 and writes nothing while any id is refused. An id refused
+because the target already has it is a colliding rule: take it to step 4 and
+run the command again without it.
 
 ## Step 4: questions, one batch
 
