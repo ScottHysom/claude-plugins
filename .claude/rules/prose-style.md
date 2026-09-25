@@ -300,4 +300,4 @@ full pros and cons. A section qualifies when either of these holds:
 2. The owner explicitly asked to record it for posterity. Say in the section
    that its purpose is to record the options.
 
-No section in this repo is deliberately a comparison yet.
+"Schemes considered" in SPEC-METHODOLOGY.md is one, kept at the owner's request.
