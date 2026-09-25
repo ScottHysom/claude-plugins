@@ -19,6 +19,7 @@ Commands:
     segments    the prose-eligible spans of each file, one per line
     patterns    where each rule's pattern matches those spans
     evidence    explicit tags + inferred edits + open questions
+    reproduce   whether the rules' patterns reproduce the edits since HEAD
     config      list | lint | check-id | similar | classify | adopt | init | move
     tags        check | list | insert | resolve | strip
     report      the findings for approval, and which of them overlap
@@ -137,6 +138,9 @@ GIT_DIR_NAME = ".git"
 COPY_IGNORE = COPY_DIR + "/.gitignore"
 COPY_IGNORE_TEXT = b"*\n"
 DEVICE_MOUNT_ROOT = "$HOME/mnt"
+
+# What evidence, reproduce and restore compare the working tree against.
+BASE_REF = "HEAD"
 
 DEFAULT_INCLUDE = ["**/*.md"]
 DEFAULT_EXCLUDE = [
@@ -2287,14 +2291,24 @@ def question_records(scanner, text, rel):
     return out
 
 
-def inferred_records(repo, rel, text, neutral, ref, ignore):
+def bare_lines(text):
+    return [text.bare(i + 1) for i in range(text.line_count())]
+
+
+def inferred_hunks(repo, rel, text, neutral, ref, ignore):
+    """(hunks, the file at ref as a Text), or (None, None) for a file new
+    since ref. Each hunk is (its record, the index of its first line at ref).
+
+    Lines are cut as Text cuts them, so a hunk's index at ref addresses the
+    same line in the Text returned.
+    """
     base = repo.show(ref, rel)
     if base is None:
-        return [], True
-    base_lines = base.splitlines()
-    neutral_lines = neutral.splitlines()
-    work_lines = [text.bare(i + 1) for i in range(text.line_count())]
-    to_work = line_map(neutral_lines, work_lines)
+        return None, None
+    base_text = Text(base)
+    base_lines = bare_lines(base_text)
+    neutral_lines = bare_lines(Text(neutral))
+    to_work = line_map(neutral_lines, bare_lines(text))
     out = []
     sm = difflib.SequenceMatcher(None, base_lines, neutral_lines, autojunk=False)
     for tag, i1, i2, j1, j2 in sm.get_opcodes():
@@ -2305,18 +2319,71 @@ def inferred_records(repo, rel, text, neutral, ref, ignore):
         line = nearest(to_work, j1, j1) + 1
         if "%s:%d" % (rel, line) in ignore:
             continue
-        out.append(
-            {
-                "file": rel,
-                "start": line,
-                "end": nearest(to_work, max(j2 - 1, j1), j2) + 1,
-                "change": tag,
-                "old_lines": old,
-                "new_lines": new,
-                "signal": classify_signal("\n".join(old), "\n".join(new)),
-            }
-        )
-    return out, False
+        rec = {
+            "file": rel,
+            "start": line,
+            "end": nearest(to_work, max(j2 - 1, j1), j2) + 1,
+            "change": tag,
+            "old_lines": old,
+            "new_lines": new,
+            "signal": classify_signal("\n".join(old), "\n".join(new)),
+        }
+        out.append((rec, i1))
+    return out, base_text
+
+
+def inferred_records(repo, rel, text, neutral, ref, ignore):
+    hunks, base_text = inferred_hunks(repo, rel, text, neutral, ref, ignore)
+    if base_text is None:
+        return [], True
+    return [rec for rec, _first in hunks], False
+
+
+def changed_spans(base_text, first, old_lines, new_lines):
+    """The file offsets at ref of what one hunk changed, as (start, end).
+
+    The diff is by character within the hunk, so a hunk that changed one word
+    of a line does not claim the rest of it. A pure insertion is an empty span
+    at the point it went in.
+    """
+    old, new = "\n".join(old_lines), "\n".join(new_lines)
+    sm = difflib.SequenceMatcher(None, old, new, autojunk=False)
+    out = []
+    for tag, a1, a2, _b1, _b2 in sm.get_opcodes():
+        if tag == "equal":
+            continue
+        out.append((hunk_offset(base_text, first, old, a1), hunk_offset(base_text, first, old, a2)))
+    return out
+
+
+def hunk_offset(base_text, first, old, pos):
+    """The file offset of character pos of a hunk's old lines joined by \\n.
+
+    A hunk with no old lines, a pure insertion, has none of its own; it sits
+    at the start of the line it went in before, or at the end of the file.
+    """
+    if first >= base_text.line_count():
+        return base_text.end
+    k = old.count("\n", 0, pos)
+    return base_text.offset(first + 1 + k) + pos - (old.rfind("\n", 0, pos) + 1)
+
+
+def reproduced_by(base_text, matches, spans):
+    """The matches, of those made at ref, that overlap what a hunk changed.
+
+    A match overlaps a span when they share a character, and an empty span
+    when it falls within the match or at either edge of it: a comma inserted
+    right after a matched word is still an edit to what the pattern found.
+    """
+    out = []
+    for m in matches:
+        a = base_text.offset(m["line"]) + m["col_start"]
+        b = base_text.offset(m["end_line"]) + m["col_end"]
+        for x, y in spans:
+            if (a <= x <= b) if x == y else (x < b and a < y):
+                out.append(m)
+                break
+    return out
 
 
 def apply_inserts(text, blocks, records, path, qid_start):
@@ -2824,6 +2891,74 @@ def cmd_evidence(args):
             print("untracked at %s: %s" % (ref, ", ".join(new_files)))
 
     return emit(args, "evidence", repo.root, data, errors=errors, human=human)
+
+
+def cmd_reproduce(args):
+    """Whether the rules reproduce the edits made since HEAD.
+
+    Each edit is a hunk as `evidence` reports it under `inferred`, read once
+    the markup is resolved, so the author's tagged edits are plain hunks too.
+    Every rule's pattern runs over the file as it was at HEAD, and an edit is
+    reproduced when some match overlaps what it changed; changed_spans and
+    reproduced_by have what counts. The matches carry line numbers at HEAD,
+    since that is the text they were found in.
+
+    An edit a pattern does not reproduce is for the model to check against the
+    rules with no pattern, which are listed by id. A pure insertion is never
+    reproduced, because there was nothing before it for a pattern to find. So
+    an unreproduced edit exits 0, like a match in `patterns`; a rule file lint
+    refuses exits 1 before anything is read.
+    """
+    repo, config, scope = load(args)
+    if config.errors:
+        return emit(
+            args,
+            "reproduce",
+            repo.root,
+            {},
+            errors=[*config.errors, "%s  fix it first; see: prose.py config lint" % config.rel()],
+        )
+    rules = config.patterned()
+    edits, new_files = [], []
+    for rel in scope.files():
+        path = repo.abspath(rel)
+        if not os.path.exists(path):
+            continue
+        text = Text.read(path)
+        neutral = neutralize(text, Blocks(text), rel)
+        hunks, base_text = inferred_hunks(repo, rel, text, neutral, BASE_REF, set())
+        if base_text is None:
+            new_files.append(rel)
+            continue
+        if not hunks:
+            continue
+        matches = pattern_matches(base_text, Blocks(base_text), rules)
+        for rec, first in hunks:
+            spans = changed_spans(base_text, first, rec["old_lines"], rec["new_lines"])
+            found = reproduced_by(base_text, matches, spans)
+            edits.append(dict(rec, reproduced=bool(found), matches=found))
+    data = {
+        "base_ref": BASE_REF,
+        "edits": edits,
+        "patterned": [r.id for r in rules],
+        "unpatterned": [r.id for r in config.rules if not r.patterns],
+        "new_files": new_files,
+    }
+
+    def human():
+        for e in edits:
+            if e["reproduced"]:
+                rules = ", ".join(sorted({m["rule"] for m in e["matches"]}))
+                print("%s:%d  reproduced  %s" % (e["file"], e["start"], rules))
+            else:
+                print("%s:%d  NOT reproduced" % (e["file"], e["start"]))
+        done = sum(1 for e in edits if e["reproduced"])
+        print("\n%d of %d edit(s) reproduced by a pattern." % (done, len(edits)))
+        print("Checked by reading, no pattern: %s" % (", ".join(data["unpatterned"]) or "none"))
+        if new_files:
+            print("untracked at %s: %s" % (BASE_REF, ", ".join(new_files)))
+
+    return emit(args, "reproduce", repo.root, data, human=human)
 
 
 CONFIG_SKELETON = """---
@@ -4311,7 +4446,7 @@ def build_parser():
     p = sub.add_parser(
         "evidence", parents=[common], help="explicit tags, inferred edits and open questions"
     )
-    p.add_argument("--since", default="HEAD", metavar="REF")
+    p.add_argument("--since", default=BASE_REF, metavar="REF")
     p.add_argument(
         "--ignore",
         action="append",
@@ -4319,6 +4454,16 @@ def build_parser():
         help="suppress one inferred hunk (repeatable)",
     )
     p.set_defaults(func=cmd_evidence)
+
+    p = sub.add_parser(
+        "reproduce",
+        parents=[common],
+        help="whether the rules' patterns reproduce the edits since HEAD",
+        description="Diff every file in scope against HEAD, run the pattern of every rule "
+        "that carries one over each file as it was at HEAD, and say for each edit whether a "
+        "match overlaps what it changed. Rules with no pattern are listed by id.",
+    )
+    p.set_defaults(func=cmd_reproduce)
 
     p = sub.add_parser("config", parents=[common], help="the rule file")
     csub = p.add_subparsers(dest="config_cmd", required=True)
@@ -4460,7 +4605,7 @@ def build_parser():
 
     p = sub.add_parser("restore", parents=[common], help="put a file back to its committed state")
     p.add_argument("--file", dest="target", required=True, metavar="PATH")
-    p.add_argument("--ref", default="HEAD")
+    p.add_argument("--ref", default=BASE_REF)
     p.set_defaults(func=cmd_restore)
 
     # -C is used only locally: in Cowork's container, setup has no repo to find.
