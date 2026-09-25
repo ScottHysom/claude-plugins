@@ -64,6 +64,33 @@ back them. What agents do:
   script its proposed changes as JSON, each carrying its address and the text it
   expects to find there. The script checks every one against the file as it is
   now and rejects what is stale or breaks a rule, rather than trusting it.
+- **The model sits between two commands only at a judgment or a platform
+  seam.** A seam is the gap between one command's output and the next command,
+  where the model does whatever joins them. The two kinds that belong to the
+  model:
+  - **Judgment.** The model decides, or relays the author's decision, and the
+    next command takes the decision as input. `report`'s approval token goes
+    to `apply`, and `evidence`'s token goes to `tags insert`. Each token proves
+    the judgment was made on the files as they are.
+  - **Platform.** The model calls a tool no script can, such as Cowork's
+    `device_bash`, `device_commit_files` or `propose_skills`, or asks the user
+    a question.
+
+  Everywhere else the script does the joining work, in one command, or in a
+  command that takes the model's decision as input. SPEC-METHODOLOGY.md, under
+  "Where the model sits", lists the joining work that belongs to the script.
+  `check-skills.py steps` lists every step that runs more than one script
+  command, and fails one without `<!-- seam: <kind>: <reason> -->` on its own
+  line under its heading, where the kind is `judgment` or `platform`. Its
+  module docstring covers `KNOWN_SEAMS`, the steps that ran more than one
+  command before the rule, which warn until they are sifted.
+- **A command that stops says what to do next.** Its error names the remedy
+  for the cause it found, so a SKILL.md does not map exit codes to remedies. A
+  table in the skill fits one cause of an exit code and gets applied to all of
+  them.
+- **Small commands stay small inside the script.** A step's command composes
+  them, and tests still reach each one through `main(argv)`. What moves into
+  the script is the composing, not the pieces.
 - **Show the model only what it may act on.** When part of a file is off-limits
   (code blocks, front matter, quoted material), a command returns just the
   eligible spans. Telling the model what to skip is a rule that gets broken.

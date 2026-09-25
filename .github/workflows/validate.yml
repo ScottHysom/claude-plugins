@@ -177,8 +177,10 @@ jobs:
       # it did. Each step of a SKILL.md runs a command the check above
       # resolves, or says why it runs none in a no-command marker. Every run
       # lists the marked steps, and a step waiting on an issue for its command
-      # warns with that issue's number. Like the checks above, it fails when
-      # it has found no step at all.
+      # warns with that issue's number. A step that runs more than one command
+      # names the judgment or platform seam between them in a seam marker, or
+      # warns with the issue that will sift it. Like the checks above, it fails
+      # when it has found no step at all.
       - name: Check each skill step runs a command or says why not
         run: python3 .github/scripts/check-skills.py steps
 

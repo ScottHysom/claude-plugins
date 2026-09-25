@@ -33,6 +33,20 @@ Every run lists each marked step and its reason, so a reviewer sees the list
 grow. A step waiting on an issue to give it a command is in KNOWN_GAPS instead,
 and passes with a warning naming that issue until it gains one.
 
+`steps` also keeps the model out of the gap between two commands, unless it
+belongs there. A step that runs two commands leaves the model to do whatever
+joins them, and CLAUDE.md allows that only at a judgment seam, where the next
+command takes the model's decision as input, or a platform seam, where the
+model calls a tool no script can. Such a step names its seam in a marker under
+its heading:
+
+    <!-- seam: <kind>: <reason> -->
+
+where the kind is `judgment` or `platform`. Every run lists each step that
+runs more than one command, with its seam. The steps that ran more than one
+before the rule came in are in KNOWN_SEAMS, and pass with a warning naming the
+issue that will sift them.
+
 `fences` keeps a skill's shell fences to running the plugin's script. A fence
 holding `python3 -c`, `grep` or `awk` tells the model to compute by hand what
 the script should compute, and two runs of it need not agree. `fences` reads
@@ -58,7 +72,8 @@ Commands:
   commands      every `python3 <script> ...` in a skill's shell fences parses
                 with that script's build_parser()
   steps         every `## Step` section of a SKILL.md runs a command `commands`
-                resolves, or carries a no-command marker with a reason
+                resolves, or carries a no-command marker with a reason; one
+                that runs more than one carries a seam marker
   fences        every fence has an info string, and every command in a shell
                 fence runs a script or is on the ALLOWED list
 
@@ -141,6 +156,14 @@ Things that look like bugs and are not, in `steps`:
 - A marker on a step that also runs a command is stale and fails, as does a
   KNOWN_GAPS entry whose step now runs one, or whose step is gone. Each has
   done its job and should be removed.
+- Commands are counted by invocation: two lines running the script in one
+  fence are two commands, and so are two fences. One seam marker covers a
+  step however many commands it runs.
+- A seam marker on a step that runs one command or none is stale and fails,
+  as does a KNOWN_SEAMS entry whose step now runs one, has gained a marker, or
+  is gone.
+- A command in a reference/ file that a step sends the model to is not
+  counted for that step, for seams as for no-command markers.
 - It fails when it finds no step at all, for the same reason as `repeats`.
 
 Things that look like bugs and are not, in `fences`:
