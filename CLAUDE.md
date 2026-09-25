@@ -66,9 +66,9 @@ requirement is admitted.
 - **A behavior is justified by a need or a constraint.** A need is something
   someone wants. A constraint is something the platform forces. Symmetry,
   completeness and "it might be useful" are neither.
-- **When no requirement covers the work, propose one and wait for Scott.** A
-  new need goes in the issue, and enters `specs/` only once Scott approves
-  that issue. A new requirement under an existing need is listed in the pull
+- **When no requirement covers the work, propose one and wait for the
+  owner.** A new need goes in the issue, and enters `specs/` only once the
+  owner approves that issue. A new requirement under an existing need is listed in the pull
   request description.
 - **Asked why a behavior exists, answer with its requirement and its need.**
   If it has none, say so and file an issue. Do not argue for it from the
