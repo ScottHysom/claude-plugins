@@ -240,9 +240,7 @@ MARKER_LINE_RE = re.compile(r"^[ \t]*<!--[ \t]*no-command:(.*?)-->[ \t]*$")
 # Steps with no command yet, each waiting on the issue that will give it one:
 # {(SKILL.md path, step number): issue number}. An entry goes when its step
 # gains a command; `steps` fails until it does.
-KNOWN_GAPS = {
-    ("plugins/prose-tuning/skills/update-prose-config/SKILL.md", 9): 105,
-}
+KNOWN_GAPS = {}
 
 # Where a command other than a script invocation may stand on its line.
 ANYWHERE = "anywhere"

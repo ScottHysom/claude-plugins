@@ -221,10 +221,24 @@ eyeballing, because a tag between two list items ends the list.
 
 ## Step 9: validate by reproduction
 
-Run `apply-prose` in its report mode over the files this run touched. The rules
-just written should reproduce the edits the author just made. A rule that does
-not reproduce its own evidence is wrong or incomplete; say which, and fix the
-rule rather than the document.
+```sh
+python3 "$PROSE" reproduce --json
+```
+
+`reproduce` runs every rule's pattern over each file as it was at HEAD. It
+reports each edit made since then as one entry in `edits`:
+
+- **`reproduced: true`** means a pattern matched what the edit changed. The
+  entry's `matches` name the rule and the text at HEAD, with HEAD's line
+  numbers.
+- **`reproduced: false`** means no pattern did. Check the edit by reading it
+  against the rules listed in `unpatterned`, which no command can check. An
+  edit the interview settled as a fact, not a style choice, needs no rule.
+
+An edit that no pattern reproduces and no unpatterned rule accounts for shows
+a rule that is wrong or incomplete. Say which, and fix the rule rather than
+the document: extend its pattern, or write the rule it is missing. Then run
+`config lint` and `reproduce` again.
 
 ## Step 10: hand off
 
