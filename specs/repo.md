@@ -10,6 +10,8 @@ requirements.
 - Code shared between plugins. Each plugin installs on its own and cannot
   import another's.
 - Packages outside the Python standard library in a plugin script.
+- Editing this repo from Cowork. Contributors change it from Claude Code, and
+  its plugins serve Cowork sessions in the user's own projects.
 
 ## need model-at-seams: Keep the model to judgment and platform seams
 
@@ -93,14 +95,6 @@ two files that each validate cannot drift apart.
 
 Source: README.md, under "Adding a plugin", step 4.
 
-## need edit-from-cowork: Commit this repo from a Cowork session
-
-When the owner edits this repo from Cowork, they want to commit from their own
-terminal with the message the session wrote, so a lock file the device bridge
-strands does not block the commit.
-
-Source: README.md, under "Editing this repo from Cowork".
-
 ## constraint marketplace-from-repo: The marketplace is this repository as it stands
 
 Claude reads the marketplace straight from this repository's GitHub address.
@@ -113,10 +107,11 @@ marketplace" and "Layout".
 
 ## constraint bridge-cannot-delete: Cowork's device bridge cannot delete files
 
-A git write through the device bridge strands a `.git/HEAD.lock` that blocks
-every later write.
+A git write through the bridge strands a `.git/*.lock` that blocks every
+later write. The constraint binds every plugin script that runs on the user's
+device through the bridge.
 
-Source: README.md, under "Editing this repo from Cowork", and COWORK.md.
+Source: CLAUDE.md, under "Script conventions", and COWORK.md.
 
 ## constraint propose-skills-one-file: propose_skills takes a single SKILL.md
 
