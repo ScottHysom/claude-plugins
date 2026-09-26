@@ -34,6 +34,8 @@ back them. What agents do:
   - **What's wrong**: what happens, and a command that shows it.
   - **Evidence**: file and line, commit, pull request, output.
   - **Done when**: what a fix has to make true.
+  - **Requirements**: the ids in `specs/` the issue adds, changes or removes,
+    or the id a bug breaks.
 - **Label it** with one of `bug`, `enhancement` or `docs`, and one area:
   `plugin:<name>` or `repo`. Never `approved`.
 - **Work only on issues labeled `approved`.** Scott may also ask for work
@@ -51,6 +53,26 @@ back them. What agents do:
 - **Close it through the pull request.** Put `Closes #N` in the description.
   If the fix turns out different from what the issue describes, say so on the
   issue.
+
+## Specs
+
+`specs/` records what each plugin, and the repo as a whole, is for: the needs
+someone has, and the requirement lines that serve them. SPEC-METHODOLOGY.md
+has the grammar, the steps that backfill a component, and how a need or a
+requirement is admitted.
+
+- **Build only what a requirement asks for.** Before adding a command,
+  option, key, value, refusal or branch, find the requirement it serves.
+- **A behavior is justified by a need or a constraint.** A need is something
+  someone wants. A constraint is something the platform forces. Symmetry,
+  completeness and "it might be useful" are neither.
+- **When no requirement covers the work, propose one and wait for the
+  owner.** A new need goes in the issue, and enters `specs/` only once the
+  owner approves that issue. A new requirement under an existing need is listed in the pull
+  request description.
+- **Asked why a behavior exists, answer with its requirement and its need.**
+  If it has none, say so and file an issue. Do not argue for it from the
+  design's own consistency.
 
 ## Skills and scripts
 

@@ -67,6 +67,8 @@ plugins/
     skills/
       <skill-name>/
         SKILL.md           plus any files the skill bundles
+specs/                     what each plugin, and the repo, is for. The grammar
+                           is in SPEC-METHODOLOGY.md. Outside every install
 tests/
   <plugin-name>/           optional. pytest suite for that plugin's scripts.
                            Not under plugins/, which is copied into every install

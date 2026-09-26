@@ -29,6 +29,13 @@ body:
       label: Evidence
       description: File and line, commit, pull request, error output.
   - type: textarea
+    id: requirements
+    attributes:
+      label: Requirements
+      description: >-
+        The requirement ids in specs/ this issue adds, changes or removes, or
+        the id a bug breaks. SPEC-METHODOLOGY.md, under "Admission", says why.
+  - type: textarea
     id: done
     attributes:
       label: Done when
