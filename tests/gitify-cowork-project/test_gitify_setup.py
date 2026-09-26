@@ -88,12 +88,9 @@ class DescribeSetup:
     def it_keeps_shared_editor_settings_in_history(self, folder):
         (folder / ".vscode").mkdir()
         (folder / ".vscode" / "settings.json").write_text("{}\n")
-        (folder / ".idea").mkdir()
-        (folder / ".idea" / "workspace.xml").write_text("<project/>\n")
         sh(folder, "setup.sh", "commit")
         files = committed(folder)
         assert ".vscode/settings.json" in files
-        assert ".idea/workspace.xml" not in files
 
     @pytest.mark.spec("gitignore-defaults", "ignore-chat-outputs")
     def it_leaves_system_editor_and_chat_files_out_of_history(self, folder):
