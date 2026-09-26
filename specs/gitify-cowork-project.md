@@ -11,7 +11,10 @@ steps that add its requirements.
 - Taking over a folder that is already a git repository, which has a history
   of its own.
 - Writing documents, or rules about what documents say or how they read. Those
-  belong to the project.
+  belong to the project. The exception is `history-in-git`, which keeps change
+  history out of the documents.
+- Conventions for commit messages or dates, such as Conventional Commits or ISO
+  dates.
 
 ## need version-history: Keep a history of a Cowork Project's documents
 
@@ -21,6 +24,16 @@ from an edit that went wrong.
 
 Source: README.md, the opening section and "When to use it", and the
 gitify-project description.
+
+## need history-in-git: Leave change history to git
+
+When an agent edits a document in a git-backed Cowork Project, the owner wants
+it to leave the record of the change out of the document, such as dated
+sections or "updated on <date>" notes, and rely on git, so the document holds
+only what is current. An agent that does not know git is there records the
+history in the document instead.
+
+Source: the owner's review of #139.
 
 ## need answer-from-history: Ask Claude about the history
 
@@ -56,15 +69,6 @@ read it, so the standing instructions have a history like any other file.
 Source: README.md, under "Setting it up" and "Changing the standing
 instructions", and the gitify-project description.
 
-## need history-skill: Keep the history the same way in every session
-
-When Claude commits or answers about the history, the user wants it to follow
-a skill written for the project: how a commit is made from Cowork, commit
-messages in the Conventional Commits format with the reasons in the body, and
-ISO dates, so the history reads the same whichever session wrote it.
-
-Source: README.md, under "What you get", and the gitify-project description.
-
 ## need commit-from-cowork: Commit from a Cowork session
 
 When the user asks Claude to commit what changed, they want Claude to write the
@@ -72,25 +76,6 @@ message and leave them one command to run, so the commit is made even though
 Claude cannot make it from Cowork.
 
 Source: README.md, under "Committing a change".
-
-## need skill-copy-in-repo: Keep a history of the history skill
-
-When the user changes the history skill, they want the original in the project
-folder, committed like any other file, so an edit to the skill can be seen and
-undone.
-
-Source: README.md, under "Changing the history skill", and the gitify-project
-description.
-
-## need catch-up-with-plugin: Bring a history skill up to the plugin's version
-
-When the plugin changes its history skill template, the user wants Claude to
-show which sections of a project's skill differ from it, and carry across only
-the ones they agree with, so updating the plugin never rewrites a project's
-skill unseen.
-
-Source: README.md, under "Catching up with the plugin", and the gitify-project
-description.
 
 ## constraint no-commit-from-cowork: Claude cannot make a commit from Cowork
 
@@ -103,11 +88,3 @@ Source: README.md, under "Committing a change", and COWORK.md.
 Only the user can change what the field holds.
 
 Source: README.md, under "Setting it up", step 3.
-
-## constraint skill-saved-by-user: Claude can only propose a skill for the account
-
-A skill reaches the user's account only when the user saves it from the review
-card, or uploads it under Customize, Skills.
-
-Source: README.md, under "Setting it up", step 2, and "Changing the history
-skill".
