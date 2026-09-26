@@ -382,7 +382,7 @@ whatever the agent cannot place. Take one component at a time:
 | Instruction | Would the model act differently without it? | Cut it |
 | Seam between commands | Is there a judgment or a platform tool in it? | Merge it into the script |
 | Test | Which requirement does it verify? | It goes with the behavior it tests |
-| Untested code | Is it part of an unneeded behavior, required error handling, or a real case with no test? | Remove it, keep it, or add a test |
+| Untested code | Is it part of an unneeded behavior, required error handling, or a real case with no test? Can any input reach it? | Remove it, keep it, or add a test. Code no input reaches gets a ticket of its own |
 
 An item is placed only under a need that has a source. "The code does it" is
 not a source.

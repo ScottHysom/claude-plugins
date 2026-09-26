@@ -11,6 +11,7 @@ import prose
 
 
 class DescribeText:
+    @pytest.mark.spec("lines-kept-exactly")
     @pytest.mark.parametrize(
         "source",
         [
@@ -26,5 +27,6 @@ class DescribeText:
     def it_rejoins_lines_into_the_original(self, source):
         assert "".join(prose.Text(source).lines) == source
 
+    @pytest.mark.spec("lines-kept-exactly")
     def it_rejoins_the_sample_document_into_the_original(self, sample):
         assert "".join(prose.Text(sample).lines) == sample

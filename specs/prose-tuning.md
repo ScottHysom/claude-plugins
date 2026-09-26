@@ -20,6 +20,9 @@ mistake.
 
 Source: README.md, under "When to use it" and "What it adds to your project".
 
+- `rules-load-everywhere` (test): When the front matter of `prose-style.md`
+  carries a `paths:` key, `config lint` refuses it.
+
 ## need learn-from-edits: Teach the style by editing
 
 When the user has edited documents the way they want them to read, they want
@@ -61,6 +64,13 @@ rule are the owner's figure, in the ruling on #132.
 - `fix-the-rule` (step): When an edit is reproduced by no pattern and
   accounted for by no unpatterned rule, update-prose-config fixes the rule
   rather than the document.
+- `teaching-starts-clean` (test): When `preflight --for config` runs, it
+  exits 1 on markup that does not parse or a `prose-style.md` with errors.
+- `rules-listed` (test): When `config list --json` runs, it gives every rule
+  in `prose-style.md` with its id, its title and its worked example.
+- `rule-shape-checked` (test): When a rule has no body, half a worked example
+  or the id of another rule, `config lint` names it and exits 1, and it warns
+  on a rule with no example.
 
 ## need one-question-round: Answer every open question at once
 
@@ -141,6 +151,9 @@ round trip". The owner confirmed the need in the ruling on #132.
   `<del>` text stays, `<ins>` text goes, and every blank line is kept.
 - `insert-strip-round-trip` (test): When `tags strip` follows a `tags insert`
   batch, every file is byte-identical to what it was before the insert.
+- `restore-from-head` (test): When `restore --file` runs, it writes the file
+  as it is at the last commit, and names a file the last commit does not
+  hold.
 
 ## need checkable-reports: Check a report against the rule it names
 
@@ -157,6 +170,13 @@ update-prose-config description.
   checked by pattern, and says every other rule was checked by reading.
 - `one-rule-per-finding` (step): When a passage breaks two rules, apply-prose
   writes two findings, one for each rule.
+- `id-grammar` (test): When a rule's id is not a lower-case section word and
+  a name of one to four lower-case words, none starting with a digit,
+  `config lint` names it once and exits 1. A name that repeats its section is
+  a warning.
+- `new-id-checked` (test): When `config check-id` is given a section and a
+  name, it prints the id when it is well formed and free, and otherwise names
+  the fault and exits 1.
 
 ## need approve-before-rewrite: Approve each rewrite before it is made
 
@@ -280,6 +300,8 @@ ruling on #133.
   takes a rewrite.
 - `read-segments-only` (step): When apply-prose judges whether prose
   conforms, it reads only what `segments` returns, never the raw file.
+- `lines-kept-exactly` (test): When the script reads a file into lines and
+  writes it back, every byte comes back as it was, line endings included.
 
 ## need one-pass-at-a-time: Keep teaching and applying apart
 
@@ -293,6 +315,9 @@ description.
 - `apply-waits-for-teaching` (step): When apply-prose starts, it runs
   `preflight --for apply`, and stops on markup in a governed file or an
   uncommitted governed document.
+- `preflight-blocks-apply` (test): When `preflight --for apply` runs, it
+  exits 1 on markup in a file in scope or an uncommitted file in scope, and
+  not on an uncommitted `prose-style.md`.
 
 ## need choose-checked-files: Decide which files are checked
 
@@ -305,6 +330,19 @@ description.
 
 - `scope-by-default` (test): When `segments` or `patterns` is given no file,
   it reads every file in scope, and names a file given that does not exist.
+- `front-matter-grammar` (test): When the front matter holds anything but
+  `key: value` pairs and one `scope:` block of `include:` and `exclude:`
+  lists, or is not opened and closed by `---`, `config lint` names the line
+  and exits 1.
+- `scope-block-read` (test): When the front matter carries a `scope:` block,
+  its `include` and `exclude` lists decide which markdown files are in scope.
+- `globs-match-whole-path` (test): When a scope pattern is matched, `**/`
+  matches any number of folders, `**` anything, `*` anything within one
+  folder and `?` one character, against the whole path from the project root.
+- `rules-file-never-scoped` (test): When `scope` lists the files in scope, it
+  leaves out `prose-style.md` whatever the scope says.
+- `scope-explains` (test): When `scope --all` runs, it lists every markdown
+  file with the pattern that included or excluded it.
 
 ## need start-from-defaults: Start a rules file without writing one
 
@@ -318,6 +356,21 @@ Source: README.md, under "Setting up".
 - `shipped-patterns` (test): When a project starts from the shipped rules,
   they lint clean, and their patterns find a British spelling and a dash doing
   an em-dash's job, and leave a US spelling alone.
+- `init-from-shipped` (test): When `config init` runs with no option, it
+  writes the shipped rules to `.claude/rules/prose-style.md`, creating the
+  folder, with the project's name where the rules leave a slot, and the file
+  lints clean.
+- `init-project-name` (test): When `config init` names the project, it uses
+  the folder of the main working tree from any worktree, and the name of a
+  bare repository without its `.git`.
+- `init-from-or-empty` (test): When `config init` is given `--from`, it copies
+  that file, and given `--empty`, it writes a skeleton with no rules. It
+  refuses both together, and names a `--from` file that does not exist.
+- `init-never-overwrites` (test): When `.claude/rules/prose-style.md` exists,
+  `config init` refuses and leaves it as it was.
+- `no-rules-names-init` (test): When a project has no `prose-style.md`,
+  `preflight --for apply` and every `config` command but `init` stop and name
+  `config init`.
 
 ## need share-rules: Copy rules from another project
 
@@ -404,6 +457,9 @@ descriptions.
   reports what changed and which files are dirty, and commits nothing.
 - `apply-never-commits` (step): When apply-prose finishes, it shows `apply`'s
   output to the author and commits nothing.
+- `copy-never-committed` (test): When `setup` or `stage` writes the copy of
+  the script, a `.gitignore` of `*` beside it keeps the copy out of the
+  project's commits, and `preflight` exits 1 on a copy git would commit.
 
 ## need works-in-cowork: Use the same skills in Cowork
 
@@ -412,6 +468,36 @@ Claude Code, installed from the same marketplace, so one house style serves
 both.
 
 Source: README.md, the opening section and "Setting up".
+
+- `setup-names-surface` (test): When `setup` runs inside Cowork's container,
+  it reports `cowork` and copies nothing, and anywhere else it reports
+  `local`.
+- `stage-for-device` (test): When `stage` runs, it writes byte-identical
+  copies of the script, its `.gitignore` and the shipped rules, and gives
+  `device_commit_files` a path for each under the project folder.
+- `stage-checksums` (test): When `stage` runs, it gives a command that checks
+  every staged file's checksum from the project's folder on the device, and a
+  prefix that starts every device command there.
+- `stage-folder-checked` (test): When `--folder` or `--connected` is not an
+  absolute path, or `--folder` sits outside `--connected`, `stage` names it
+  and exits 2.
+- `init-reads-staged-rules` (test): When the script runs from its copy in
+  `.prose-tuning/`, `config init` starts from the rules staged beside it, and
+  never from a `templates/` folder in the project.
+
+## constraint fresh-shell: Each shell call starts without the last one's variables
+
+Each Bash call in Claude Code, and each `device_bash` call on Cowork, starts a
+fresh shell. The plugin's install path runs past 200 characters, too long to
+repeat in every command, so a skill reaches the script by a shorter path.
+
+Source: CLAUDE.md, under "A shell variable lasts one command", and DESIGN.md,
+under "Packaging". The owner confirmed the constraint in the ruling on #134.
+
+- `setup-copies-locally` (test): When `setup` runs outside Cowork's
+  container, it copies the script and the shipped rules byte for byte into
+  `.prose-tuning/`, and gives the prefix `PROSE=.prose-tuning/prose.py`,
+  which reaches the copy from the project root.
 
 ## constraint cowork-rules-partial: Cowork does not always load .claude/rules/
 
@@ -427,3 +513,6 @@ uncommitted changes against the last commit, so a project has to be tracked by
 git.
 
 Source: the owner's review of #139, and README.md, under "When to use it".
+
+- `needs-a-repo` (test): When a command runs outside a git repository, or
+  git is not installed, it names the cause and exits 2.
