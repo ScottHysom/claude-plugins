@@ -358,13 +358,17 @@ whatever the agent cannot place. Take one component at a time:
 1. **Freeze.** Add the rules for agents, and run `trace` as a warning, so new
    work arrives traced while the old work is sifted.
 2. **Inventory.** Run `inventory` on the component, and post its output on the
-   component's ticket.
+   component's ticket. Coverage measures the component's scripts, and not
+   the files it copies into a project, such as shell scripts it renders from
+   templates. Read those by hand for behavior no test runs.
 3. **Needs.** Draft the needs and constraints from sources outside the code:
    the README, the descriptions of the model's instructions, design notes,
    platform notes, tickets and commit messages. Cite the source of each. The
    owner confirms the list before anything is matched to it.
 4. **Seams.** Label each seam in the model's instructions as judgment, platform
-   or courier.
+   or courier. Post the labels on the ticket. A courier seam goes on the
+   ruling list as a merge, since the seam check accepts only a judgment or a
+   platform marker.
 5. **Placing.** Match each inventory item to a confirmed need or constraint,
    and write its requirement. The question depends on the kind of item:
 
@@ -414,6 +418,20 @@ These rules hold throughout:
   and keeps accepting it, so existing files still work.
 - When removing a behavior breaks a test other than its own, the behavior had a
   caller the inventory missed. Stop, and ask the owner again.
+- A test that checks a kept behavior, and also asserts something a ruling
+  removes, cites the kept behavior's requirement. The ruling's pull request
+  edits the assertion. A test of the ruled behavior alone stays on the list of
+  untraced items, keyed to the ruling's ticket.
+- Every requirement needs a test or a step that verifies it. When a kept
+  behavior has none, the spec pull request adds the test. A test changes no
+  behavior.
+- A behavior that follows a convention of the whole repository, such as how
+  every script prints its output, gets its requirement in `specs/repo.md`.
+  The component's tests cite it as `repo:<id>`.
+- Before filing a ticket for a ruling, search the open tickets, and comment on
+  a match instead. A recommendation with a condition, such as "keep if a
+  folder can hold several projects", can be settled either way by the owner's
+  answer. The ticket that follows says how it read the answer.
 
 ### Order of work
 
