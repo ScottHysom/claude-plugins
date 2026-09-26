@@ -37,6 +37,7 @@ class DescribePlanOneInsert:
 class DescribeSegmentsFor:
     """Which spans of a document are offered up for review at all."""
 
+    @pytest.mark.spec("segments-prose-only")
     def it_skips_protected_regions(self, sample):
         """Front matter and code are not prose. Offering them for review invites
         a rewrite of a config key or a variable name.
@@ -47,6 +48,7 @@ class DescribeSegmentsFor:
         assert not any("x = 1" in b for b in bodies)
         assert not any("title: sample" in b for b in bodies)
 
+    @pytest.mark.spec("segments-prose-only")
     def it_includes_table_cells_and_headings(self, sample):
         text = prose.Text(sample)
         kinds = {s["kind"] for s in prose.segments_for(text, prose.Blocks(text))}

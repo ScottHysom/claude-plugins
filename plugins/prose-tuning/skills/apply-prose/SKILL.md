@@ -27,6 +27,7 @@ Run the block as one command, because the next command's shell will not have
 runs.
 
 ## Step 1: refuse early
+<!-- spec: apply-waits-for-teaching -->
 
 ```sh
 python3 "$PROSE" preflight --for apply
@@ -64,6 +65,7 @@ python3 "$PROSE" scope --all
 which prints every markdown file with the pattern that included or excluded it.
 
 ## Step 3: run the rules' patterns
+<!-- spec: patterns-judged -->
 
 ```sh
 python3 "$PROSE" patterns
@@ -103,6 +105,7 @@ reading turns up anyway is still a finding. Tell the author the pattern
 missed it, since the pattern is theirs to extend.
 
 ## Step 4: read only the eligible prose
+<!-- spec: read-segments-only -->
 
 ```sh
 python3 "$PROSE" segments
@@ -136,6 +139,7 @@ delimiter row is structure. A comment part way along a line is cut out, and
 the prose either side of it comes back as separate segments.
 
 ## Step 5: produce findings
+<!-- spec: one-rule-per-finding, facts-kept -->
 
 <!-- no-command: judgment. The model writes each finding, and step 6's report checks them. -->
 
@@ -185,6 +189,7 @@ with its newline, and when a cut takes a whole block `apply` keeps one blank
 line between the blocks either side.
 
 ## Step 6: one approval round
+<!-- spec: report-shown-whole -->
 
 ```sh
 python3 "$PROSE" report --findings "${TMPDIR:-/tmp}/prose-findings.json"
@@ -270,6 +275,7 @@ The engine rejects a finding rather than trusting it when:
 - two findings overlap, which `report` names in step 6
 
 ## Step 8: report and stop
+<!-- spec: apply-never-commits -->
 
 <!-- no-command: hand-off to the author. The output of apply in step 7 is the report. -->
 

@@ -151,6 +151,13 @@ and check the report themselves.
 Source: README.md, under "What it adds to your project", and the
 update-prose-config description.
 
+- `finding-rule-defined` (test): When a finding names a rule `prose-style.md`
+  does not define, `report` and `apply` refuse it.
+- `pattern-rules-named` (test): When `report` runs, it names the rules it
+  checked by pattern, and says every other rule was checked by reading.
+- `one-rule-per-finding` (step): When a passage breaks two rules, apply-prose
+  writes two findings, one for each rule.
+
 ## need approve-before-rewrite: Approve each rewrite before it is made
 
 When the user asks Claude to apply the house style, they want a list of every
@@ -161,6 +168,71 @@ document changes in a way they did not see.
 Source: README.md, under "Checking your documents", and the apply-prose
 description.
 
+- `finding-by-text` (test): When a finding gives its text, `report` and
+  `apply` look for it among the places that start on its line, and refuse it
+  when it starts at none of them, or at more than one and no `col_start` says
+  which.
+- `wrapped-finding` (test): When a finding's text holds a newline, `report`
+  shows it whole and `apply` rewrites the span as one finding, keeping a
+  newline its rewrite carries.
+- `stale-finding-refused` (test): When a finding's text no longer matches its
+  file, or its line or its file does not exist, `report` and `apply` refuse it
+  and name it by its place in the batch.
+- `report-reads-file` (test): When `report` prints a finding, it shows the
+  text at the finding's place in the file as it is now, each line between `|`
+  marks, with `(cut)` for an empty rewrite, and it writes no file.
+- `approval-token` (test): When `report` exits 0, it prints a token as its
+  last line, and otherwise prints none.
+- `apply-needs-token` (test): When the token passed to `apply` is not the one
+  `report` would print for the findings, the documents they name and
+  `prose-style.md` as they are now, `apply` refuses the batch and writes
+  nothing.
+- `apply-writes-approved` (test): When `apply` runs with a current token, it
+  writes each selected finding's rewrite in place, and reports the edits per
+  file and per rule.
+- `apply-filters` (test): When `apply` is given `--only`, `--file` or both, it
+  writes only the findings that pass every filter given, and with none it
+  writes every finding.
+- `filter-matches-nothing` (test): When a filter given to `apply` matches no
+  finding, alone or with the other filter, `apply` names it and writes
+  nothing.
+- `overlaps-named` (test): When two findings overlap, `report` and `apply`
+  name both, and `apply` writes neither.
+- `edits-one-snapshot` (test): When `apply` writes several findings to one
+  file, it plans them against one snapshot of it, so the result does not
+  depend on the order they came in.
+- `unreadable-findings-stop` (test): When the findings file cannot be read,
+  or is not JSON, `report` and `apply` name the fault and exit 2.
+- `findings-help` (test): When `apply --help` runs, it describes every field
+  of a finding, and where a rewrite may hold a newline.
+- `pattern-lines-read` (test): When a rule carries `**Pattern.**` lines,
+  `config` reads every one, fenced in one or two backticks, and lists them
+  with the rule.
+- `pattern-lint` (test): When a pattern cannot run, matches its rule's After
+  example or finds nothing in its Before example, `config lint` names it and
+  exits 1. A rule with no example leaves its patterns unchecked.
+- `patterns-find-matches` (test): When a rule carries a pattern, `patterns`
+  prints each place it matches in the segments' spans once, with its address,
+  its rule and its text as a JSON string that `apply` accepts as a finding's
+  `text`, including a match that wraps within a passage. It leaves out a
+  match in a code span, and one made only of a line break.
+- `patterns-refuse-unlinted` (test): When `prose-style.md` does not lint
+  clean, `patterns` and `report` name the fault and exit 1 before reading any
+  document.
+- `uncovered-match-fails` (test): When a pattern matches text in a file in
+  scope that no finding or dismissal of the same rule contains, `report`
+  names the match and exits 1.
+- `dismissal-kept` (test): When a finding carries `dismiss`, `report` prints
+  its reason and `apply` leaves its text alone. A dismissal with no reason, or
+  with a `replacement`, is refused.
+- `patterns-judged` (step): When `patterns` prints a match, apply-prose makes
+  it a finding or a dismissal, and never searches the prose with a command of
+  its own.
+- `report-shown-whole` (step): When `report` exits 0, apply-prose shows its
+  output to the author as it stands, and takes one decision over the whole
+  set, a set of rule ids or a set of files, with the side of each overlap that
+  stays.
+
 ## need keep-the-meaning: Keep what a document says through a rewrite
 
 When Claude rewrites a passage, the user wants its numbers, names, dates and
@@ -168,6 +240,46 @@ claims kept as they are, so a style pass changes how a sentence reads and never
 what it says.
 
 Source: README.md, under "Checking your documents".
+
+- `facts-kept` (step): When apply-prose writes a finding, its rewrite changes
+  how the sentence reads, and keeps its numbers, names, dates and claims.
+
+## need leave-non-prose: Leave what is not prose alone
+
+When the user applies the house style, they want only the document's own
+prose checked and rewritten, never its code, front matter, comments, a table's
+structure or someone else's words, so a style pass cannot break what is not
+prose.
+
+Source: the apply-prose description. The owner confirmed the need in the
+ruling on #133.
+
+- `segments-prose-only` (test): When `segments` or `patterns` reads a file,
+  it gives headings and table cells, and leaves out front matter, fences,
+  blockquotes, HTML comments and a table's delimiter row.
+- `comment-cut-out` (test): When an HTML comment opens part way along a line
+  of prose, `segments` gives the prose either side as separate segments. A
+  comment that never closes is read as prose.
+- `segment-lines` (test): When `segments` prints, it gives one line per
+  segment, with its address, its kind and its text.
+- `list-items-mapped` (test): When a line continues a list item, by its
+  indent or lazily, `segments` reports it as the item's, and a paragraph after
+  the list as a paragraph.
+- `refuse-non-prose` (test): When a finding reaches a protected line, touches
+  an HTML comment, or crosses a line that is not part of a paragraph or a list
+  item, `report` and `apply` refuse it, with or without `--partial`.
+- `structure-kept` (test): When a rewrite would put a `|` or a newline in a
+  table cell, or a newline in a line it does not already cross outside a
+  paragraph, `apply` refuses it.
+- `list-item-indent` (test): When a rewrite in a list item holds a newline,
+  `apply` indents each new line to the item's text, unless it is indented that
+  far already.
+- `cut-leaves-one-blank` (test): When findings cut whole lines, `apply`
+  removes them with their newlines, leaves one blank line between the blocks
+  either side and none at either end of the file, and keeps a line that also
+  takes a rewrite.
+- `read-segments-only` (step): When apply-prose judges whether prose
+  conforms, it reads only what `segments` returns, never the raw file.
 
 ## need one-pass-at-a-time: Keep teaching and applying apart
 
@@ -178,6 +290,10 @@ of changes.
 Source: README.md, under "Checking your documents", and the apply-prose
 description.
 
+- `apply-waits-for-teaching` (step): When apply-prose starts, it runs
+  `preflight --for apply`, and stops on markup in a governed file or an
+  uncommitted governed document.
+
 ## need choose-checked-files: Decide which files are checked
 
 When the user applies the house style, they want the `scope:` list in
@@ -187,6 +303,9 @@ file was skipped, so the check covers the documents they meant.
 Source: README.md, under "Checking your documents", and the apply-prose
 description.
 
+- `scope-by-default` (test): When `segments` or `patterns` is given no file,
+  it reads every file in scope, and names a file given that does not exist.
+
 ## need start-from-defaults: Start a rules file without writing one
 
 When the user first runs update-prose-config in a project, they want to start
@@ -195,6 +314,10 @@ rules or from an empty file, so the first rules need not be written from
 nothing.
 
 Source: README.md, under "Setting up".
+
+- `shipped-patterns` (test): When a project starts from the shipped rules,
+  they lint clean, and their patterns find a British spelling and a dash doing
+  an em-dash's job, and leave a US spelling alone.
 
 ## need share-rules: Copy rules from another project
 
@@ -279,6 +402,8 @@ descriptions.
 
 - `learning-never-commits` (step): When update-prose-config finishes, it
   reports what changed and which files are dirty, and commits nothing.
+- `apply-never-commits` (step): When apply-prose finishes, it shows `apply`'s
+  output to the author and commits nothing.
 
 ## need works-in-cowork: Use the same skills in Cowork
 

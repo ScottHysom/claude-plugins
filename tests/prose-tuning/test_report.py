@@ -7,6 +7,8 @@ would refuse, and names every pair of findings that apply could not do both
 of, before the author is asked anything.
 """
 
+import pytest
+
 import prose
 
 # A wrapped sentence, then a paragraph whose dash fix sits inside a cut of the
@@ -60,6 +62,7 @@ def human_report(prose_repo, capsys, findings):
 
 
 class DescribeReport:
+    @pytest.mark.spec("wrapped-finding")
     def it_shows_a_finding_across_a_line_break_with_its_text_whole(self, prose_repo):
         write_doc(prose_repo)
         code, envelope = prose_repo.report([wrapped(prose_repo)])
@@ -77,6 +80,7 @@ class DescribeReport:
         ]
         assert envelope["data"]["overlaps"] == []
 
+    @pytest.mark.spec("wrapped-finding")
     def it_indents_a_wrapped_text_under_its_first_line_on_stdout(self, prose_repo, capsys):
         write_doc(prose_repo)
         path = prose_repo.findings_file([wrapped(prose_repo)])
@@ -93,6 +97,7 @@ class DescribeReport:
             "  why       it borrows its subject\n" % wrapped(prose_repo)["rule"]
         ) in out
 
+    @pytest.mark.spec("report-reads-file")
     def it_fences_a_text_so_a_leading_or_trailing_space_shows(self, prose_repo, capsys):
         write_doc(prose_repo)
         finding = dict(dash(prose_repo), replacement=". It stops holding until ")
@@ -100,6 +105,7 @@ class DescribeReport:
         assert "  current   | - until|\n" in out
         assert "  proposed  |. It stops holding until |\n" in out
 
+    @pytest.mark.spec("report-reads-file")
     def it_shows_a_text_of_only_spaces_as_its_fence(self, prose_repo, capsys):
         write_doc(prose_repo)
         # Line 4 opens with the two spaces that indent the wrapped sentence.
@@ -108,6 +114,7 @@ class DescribeReport:
         assert "  current   |  |\n" in out
         assert "  proposed  | |\n" in out
 
+    @pytest.mark.spec("report-reads-file")
     def it_leaves_the_placeholder_for_an_empty_text_unfenced(self, prose_repo, capsys):
         write_doc(prose_repo)
         out = human_report(prose_repo, capsys, [cut(prose_repo)])
@@ -122,6 +129,7 @@ class DescribeReport:
         assert code == prose.OK
         assert envelope["data"]["findings"][0]["current"] == "Intro"
 
+    @pytest.mark.spec("overlaps-named")
     def it_names_both_findings_of_an_overlapping_pair(self, prose_repo):
         write_doc(prose_repo)
         findings = [wrapped(prose_repo), dash(prose_repo), cut(prose_repo)]
@@ -139,6 +147,7 @@ class DescribeReport:
         # Every finding is still shown, so the author can choose between them.
         assert [r["finding"] for r in envelope["data"]["findings"]] == [1, 2, 3]
 
+    @pytest.mark.spec("overlaps-named", "repo:plain-output-streams")
     def it_writes_the_overlap_to_stderr_and_the_findings_to_stdout(self, prose_repo, capsys):
         write_doc(prose_repo)
         path = prose_repo.findings_file([dash(prose_repo), cut(prose_repo)])
@@ -162,6 +171,7 @@ class DescribeReport:
         assert code == prose.OK
         assert [r["finding"] for r in envelope["data"]["findings"]] == [1]
 
+    @pytest.mark.spec("stale-finding-refused")
     def it_refuses_a_finding_whose_text_has_moved(self, prose_repo):
         write_doc(prose_repo)
         code, envelope = prose_repo.report([wrapped(prose_repo, text="Able to say")])
@@ -169,6 +179,7 @@ class DescribeReport:
         assert "does not start on this line" in envelope["errors"][0]
         assert envelope["data"]["findings"] == []
 
+    @pytest.mark.spec("report-reads-file")
     def it_leaves_the_file_as_it_was(self, prose_repo):
         write_doc(prose_repo)
         prose_repo.report([wrapped(prose_repo), dash(prose_repo), cut(prose_repo)])

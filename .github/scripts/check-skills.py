@@ -288,8 +288,8 @@ KNOWN_SEAMS = {
     ("plugins/prose-tuning/skills/update-prose-config/SKILL.md", 1): 181,
     ("plugins/prose-tuning/skills/update-prose-config/SKILL.md", 7): 183,
     ("plugins/prose-tuning/skills/update-prose-config/SKILL.md", 8): 184,
-    ("plugins/prose-tuning/skills/apply-prose/SKILL.md", 2): 133,
-    ("plugins/prose-tuning/skills/apply-prose/SKILL.md", 7): 133,
+    ("plugins/prose-tuning/skills/apply-prose/SKILL.md", 2): 196,
+    ("plugins/prose-tuning/skills/apply-prose/SKILL.md", 7): 190,
 }
 
 # Where a command other than a script invocation may stand on its line.
