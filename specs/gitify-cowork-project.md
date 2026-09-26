@@ -9,7 +9,8 @@ steps that add its requirements.
 - Running in Claude Code. The plugin needs a Cowork Project with a connected
   folder.
 - Taking over a folder that is already a git repository, which has a history
-  of its own.
+  of its own. The exception is `history-in-git`, which such a folder needs as
+  much as one the plugin put under git.
 - Writing documents, or rules about what documents say or how they read. Those
   belong to the project. The exception is `history-in-git`, which keeps change
   history out of the documents.
@@ -27,10 +28,10 @@ gitify-project description.
 
 ## need history-in-git: Leave change history to git
 
-When an agent edits a document in a git-backed Cowork Project, the owner wants
-it to leave the record of the change out of the document, such as dated
-sections or "updated on <date>" notes, and rely on git, so the document holds
-only what is current. An agent that does not know git is there records the
+When an agent edits a document in a git-backed Cowork Project, whether or not
+the plugin put it under git, the owner wants it to leave the record of the
+change out of the document, such as dated sections or "updated on <date>"
+notes, and rely on git, so the document holds only what is current. An agent that does not know git is there records the
 history in the document instead.
 
 Source: the owner's review of #139.
