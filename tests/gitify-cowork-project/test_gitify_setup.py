@@ -103,6 +103,7 @@ class DescribeSetup:
             "drafts/.plan.md.swp",
             "notes.md~",
             "notes.md.bak",
+            "export.tmp",
             "Claude outputs/summary.md",
         ]
         for rel in kept_out:

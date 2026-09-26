@@ -161,14 +161,16 @@ Source: README.md, under "Setting it up", step 3.
 
 ## need gitignore-defaults: Keep system and editor files out of history
 
-When the folder goes under git, the user wants the standard macOS files and
-editor swap and backup files left out, since they are not usually versioned.
+When the folder goes under git, the user wants the standard macOS files,
+editor swap and backup files, and temporary files left out, since they are not
+usually versioned.
 
-Source: the owner's ruling on #130, item 11.
+Source: the owner's ruling on #130, item 11, and the owner's answer on #162
+for temporary files.
 
 - `gitignore-defaults` (test): When `render` writes `.gitignore`, it leaves
-  out macOS's `.DS_Store`, `.AppleDouble`, `.LSOverride` and `._*` files and
-  editor swap and backup files, and keeps shared editor settings such as
+  out macOS's `.DS_Store`, `.AppleDouble`, `.LSOverride` and `._*` files,
+  editor swap and backup files, and `*.tmp` files, and keeps shared editor settings such as
   `.vscode/settings.json`.
 
 ## constraint execute-bits-lost: Files copied through the bridge lose their execute bit
