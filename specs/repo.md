@@ -10,7 +10,6 @@ requirements.
 - Code shared between plugins. Each plugin installs on its own and cannot
   import another's.
 - Packages outside the Python standard library in a plugin script.
-- Contributor-only files, such as tests and specs, inside an install.
 
 ## need model-at-seams: Keep the model to judgment and platform seams
 
@@ -36,6 +35,17 @@ marketplace once and install any plugin listed in it, so each plugin needs no
 setup of its own.
 
 Source: README.md, under "Adding this marketplace".
+
+## need install-holds-runtime-only: Install only what a plugin runs
+
+When the user installs a plugin, the owner wants the install to hold only what
+the user needs to run it, so no contributor-only file, such as a test or a
+spec, ships to every user.
+
+Source: the owner's review of #139, and CLAUDE.md, under "Tests".
+
+- `tests-outside-plugins` (check): When a pull request adds a test file under
+  `plugins/`, `check-tests.py placement` fails it.
 
 ## need surface-stated: Know which surface a plugin needs before installing it
 
@@ -90,3 +100,27 @@ terminal with the message the session wrote, so a lock file the device bridge
 strands does not block the commit.
 
 Source: README.md, under "Editing this repo from Cowork".
+
+## constraint marketplace-from-repo: The marketplace is this repository as it stands
+
+Claude reads the marketplace straight from this repository's GitHub address.
+No CI step builds a package in between, so an install copies a plugin's
+directory whole, and a file stays out of an install only by sitting outside
+`plugins/<plugin>/`.
+
+Source: the owner's review of #139, and README.md, under "Adding this
+marketplace" and "Layout".
+
+## constraint bridge-cannot-delete: Cowork's device bridge cannot delete files
+
+A git write through the device bridge strands a `.git/HEAD.lock` that blocks
+every later write.
+
+Source: README.md, under "Editing this repo from Cowork", and COWORK.md.
+
+## constraint propose-skills-one-file: propose_skills takes a single SKILL.md
+
+Cowork's `propose_skills` delivers one `SKILL.md` and no bundled files, so a
+plugin that bundles a script cannot reach Cowork that way.
+
+Source: README.md, under "Adding a plugin", step 2.

@@ -141,3 +141,10 @@ Claude Code, installed from the same marketplace, so one house style serves
 both.
 
 Source: README.md, the opening section and "Setting up".
+
+## constraint cowork-rules-partial: Cowork does not always load .claude/rules/
+
+Cowork leaves `.claude/rules/` out of some parts of a conversation, so the
+rules need a line in the project's Instructions field to reach every part.
+
+Source: README.md, under "Setting up".

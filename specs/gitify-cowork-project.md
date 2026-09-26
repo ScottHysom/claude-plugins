@@ -91,3 +91,23 @@ skill unseen.
 
 Source: README.md, under "Catching up with the plugin", and the gitify-project
 description.
+
+## constraint no-commit-from-cowork: Claude cannot make a commit from Cowork
+
+A commit has to run from the user's own terminal.
+
+Source: README.md, under "Committing a change", and COWORK.md.
+
+## constraint instructions-field-closed: Claude cannot write the Project Instructions field
+
+Only the user can change what the field holds.
+
+Source: README.md, under "Setting it up", step 3.
+
+## constraint skill-saved-by-user: Claude can only propose a skill for the account
+
+A skill reaches the user's account only when the user saves it from the review
+card, or uploads it under Customize, Skills.
+
+Source: README.md, under "Setting it up", step 2, and "Changing the history
+skill".
