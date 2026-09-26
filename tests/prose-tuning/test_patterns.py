@@ -239,6 +239,14 @@ class DescribePatternsCommand:
         assert code == prose.PROBLEMS
         assert envelope["data"] == {}
 
+    @pytest.mark.spec("scope-by-default")
+    def it_names_a_file_given_that_does_not_exist(self, prose_repo):
+        (prose_repo.root / prose.CONFIG_PATH).write_text(STYLE)
+        code, envelope = prose_repo.run("patterns", "target.md", "missing.md")
+        assert code == prose.PROBLEMS
+        assert envelope["errors"] == ["missing.md  no such file"]
+        assert envelope["data"]["files"] == 2
+
     @pytest.mark.spec("patterns-find-matches")
     def it_says_so_when_no_rule_carries_a_pattern(self, prose_repo):
         code, envelope = prose_repo.run("patterns")
