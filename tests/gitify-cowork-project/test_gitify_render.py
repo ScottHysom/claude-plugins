@@ -26,6 +26,7 @@ def assert_nothing_staged(runner):
 
 
 class DescribeACleanRender:
+    @pytest.mark.spec("render-stages-files", "render-no-leftovers")
     def it_stages_every_file_with_no_placeholder_left(self, runner, make_answers, skill_rel):
         code, env = runner.render(make_answers())
         assert code == gitify.OK, env["errors"]
@@ -41,6 +42,7 @@ class DescribeACleanRender:
             with open(f["staged_path"], "rb") as fh:
                 assert hashlib.sha256(fh.read()).hexdigest() == f["sha256"]
 
+    @pytest.mark.spec("render-stages-files")
     def it_pairs_each_staged_file_with_its_device_path(self, runner, make_answers, project):
         _, env = runner.render(make_answers())
         data = env["data"]
@@ -56,6 +58,7 @@ class DescribeACleanRender:
         assert "`%s`" % project["project"] in skill
         assert "$HOME/mnt/Projects/Foo Research/.commit-msg" in skill
 
+    @pytest.mark.spec("render-stages-files")
     def it_allows_the_project_to_be_the_connected_folder_itself(
         self, runner, make_answers, project
     ):
@@ -64,6 +67,7 @@ class DescribeACleanRender:
         assert env["data"]["project_mount"] == "Projects"
         assert env["data"]["files"][0]["device_path"] == project["connected"] + "/.gitignore"
 
+    @pytest.mark.spec("field-pointer")
     def it_tells_claude_to_read_the_file_when_the_project_is_the_connected_folder(
         self, runner, make_answers, project
     ):
@@ -84,6 +88,7 @@ class DescribeACleanRender:
         assert project["project"] in pointer
         assert "\n" not in pointer
 
+    @pytest.mark.spec("field-pointer", "repo:plain-output-streams")
     def it_prints_the_pointer_in_its_plain_output(self, runner, make_answers, project):
         path = runner.tmp / "answers.json"
         path.write_text(json.dumps(make_answers(project_folder=None)))
@@ -93,6 +98,7 @@ class DescribeACleanRender:
         pointer = gitify.FIELD_POINTER.format(path=project["connected"])
         assert "Project Instructions field:\n%s\n" % pointer in runner.out
 
+    @pytest.mark.spec("repo:dry-run-writes-nothing")
     def it_reports_and_writes_nothing_on_a_dry_run(self, runner, make_answers):
         code, env = runner.render(make_answers(), "--dry-run")
         assert code == gitify.OK
@@ -104,6 +110,7 @@ class DescribeACleanRender:
         _, env = runner.render(make_answers())
         assert any("device_commit_files will reject it" in w for w in env["warnings"])
 
+    @pytest.mark.spec("repo:plain-output-streams")
     def it_sends_human_output_to_stdout_and_warnings_to_stderr(self, runner, make_answers):
         path = runner.tmp / "answers.json"
         path.write_text(json.dumps(make_answers()))
@@ -123,12 +130,14 @@ class DescribeACleanRender:
 
 
 class DescribeTheInstructions:
+    @pytest.mark.spec("instructions-empty-is-null")
     def it_writes_only_the_header_when_the_field_is_empty(self, runner, make_answers):
         runner.render(make_answers())
         text = runner.staged("CLAUDE.md")
         assert text.startswith("# Foo Research\n")
         assert "./commit.sh" in text
 
+    @pytest.mark.spec("claude-md-note-hidden")
     def it_keeps_its_notes_for_people_out_of_claudes_context(self, runner, make_answers):
         # Block-level HTML comments in CLAUDE.md are stripped before it is
         # loaded, in Cowork as in Claude Code, so the header costs Claude one line.
@@ -137,6 +146,7 @@ class DescribeTheInstructions:
         loaded = re.sub(r"(?ms)^<!--.*?-->[ \t]*\n", "", text)
         assert loaded.split() == ["#", "Foo", "Research"]
 
+    @pytest.mark.spec("instructions-verbatim")
     def it_copies_the_field_verbatim_after_the_header(self, runner, make_answers):
         field = "I am a {{PROJECT_NAME}} fan.\n\n- Budget: $500 <!-- a note -->\n"
         runner.render(make_answers())
@@ -146,6 +156,7 @@ class DescribeTheInstructions:
         assert code == gitify.OK, env["errors"]
         assert runner.staged("CLAUDE.md") == header + "\n" + field
 
+    @pytest.mark.spec("instructions-verbatim")
     def it_ends_the_copied_field_with_a_newline(self, runner, make_answers):
         runner.render(make_answers(instructions="no newline at the end"))
         assert runner.staged("CLAUDE.md").endswith("\n\nno newline at the end\n")
@@ -158,6 +169,7 @@ class DescribeTheInstructions:
             (["a"], "must be the field's text"),
         ],
     )
+    @pytest.mark.spec("instructions-empty-is-null")
     def it_rejects_instructions_that_are_not_text(self, runner, make_answers, value, message):
         code, env = runner.render(make_answers(instructions=value))
         assert code == gitify.PROBLEMS
@@ -166,11 +178,13 @@ class DescribeTheInstructions:
 
 
 class DescribeTheIgnorePatterns:
+    @pytest.mark.spec("ignore-answer")
     def it_appends_them_under_their_own_heading(self, runner, make_answers):
         runner.render(make_answers(ignore=["exports/", "*.mov"]))
         text = runner.staged(".gitignore")
         assert text.endswith("Claude outputs/\n\n# This project\nexports/\n*.mov\n")
 
+    @pytest.mark.spec("ignore-answer")
     def it_leaves_the_template_as_it_is_when_there_are_none(self, runner, make_answers):
         runner.render(make_answers(ignore=[]))
         template = (runner.templates_copy() / "gitignore").read_text()
@@ -185,6 +199,7 @@ class DescribeTheIgnorePatterns:
             ("*.mov", "must be a list"),
         ],
     )
+    @pytest.mark.spec("ignore-answer")
     def it_rejects_a_bad_pattern_and_writes_nothing(self, runner, make_answers, value, message):
         code, env = runner.render(make_answers(ignore=value))
         assert code == gitify.PROBLEMS
@@ -232,6 +247,7 @@ class DescribeValidatingAValue:
         code, env = runner.render(data)
         assert code == gitify.OK, env["errors"]
 
+    @pytest.mark.spec("repo:answers-checked")
     def it_names_an_unknown_value(self, runner, make_answers):
         data = make_answers()
         data["values"]["NOT_A_THING"] = "x"
@@ -239,6 +255,7 @@ class DescribeValidatingAValue:
         assert code == gitify.PROBLEMS
         assert "values.NOT_A_THING is not a placeholder" in errors_of(env)
 
+    @pytest.mark.spec("repo:answers-checked")
     def it_refuses_a_computed_value(self, runner, make_answers):
         data = make_answers()
         data["values"]["PROJECT_PATH"] = "/x"
@@ -246,6 +263,7 @@ class DescribeValidatingAValue:
         assert code == gitify.PROBLEMS
         assert any("computed from the folders" in e for e in errors_of(env))
 
+    @pytest.mark.spec("repo:answers-checked")
     def it_names_an_unknown_answers_key(self, runner, make_answers):
         code, env = runner.render(make_answers(extra={}))
         assert code == gitify.PROBLEMS
@@ -263,6 +281,7 @@ FOLDER_CASES = [
 
 
 class DescribeValidatingTheFolders:
+    @pytest.mark.spec("repo:answers-checked")
     @pytest.mark.parametrize(("change", "message"), FOLDER_CASES)
     def it_rejects_a_bad_folder(self, runner, make_answers, change, message):
         code, env = runner.render(make_answers(**change))
@@ -277,6 +296,7 @@ class DescribeValidatingTheFolders:
 
 
 class DescribeRefusingToRun:
+    @pytest.mark.spec("repo:answers-checked")
     def it_cannot_run_on_a_duplicate_key_in_the_answers(self, runner, make_answers):
         raw = json.dumps(make_answers())[:-1] + ', "ignore": []}'
         code, env = runner.render(None, raw=raw)
@@ -284,6 +304,7 @@ class DescribeRefusingToRun:
         assert env is None
         assert "appears twice" in runner.err
 
+    @pytest.mark.spec("repo:answers-checked")
     def it_cannot_run_on_answers_that_are_not_json(self, runner):
         code, _ = runner.render(None, raw="not json")
         assert code == gitify.CANNOT_RUN
@@ -299,6 +320,7 @@ class DescribeRefusingToRun:
 
 
 class DescribeLeftovers:
+    @pytest.mark.spec("render-no-leftovers")
     def it_stops_render_when_a_template_placeholder_has_no_value(self, runner, make_answers):
         # preflight names an unknown placeholder; this is what stops one that
         # reached render anyway from landing in a project.
@@ -320,9 +342,11 @@ class DescribeLeftovers:
         assert "CLAUDE.md: output still contains {{, }}" in env["errors"]
         assert_nothing_staged(runner)
 
+    @pytest.mark.spec("render-no-leftovers")
     @pytest.mark.parametrize("text", ["{{PROJECT_NAME}}", "a }} b", "{{ x"])
     def it_names_a_surviving_placeholder_or_brace(self, text):
         assert gitify.leftovers(text)
 
+    @pytest.mark.spec("render-no-leftovers")
     def it_passes_text_with_no_braces(self):
         assert gitify.leftovers("# Foo\n") == []
