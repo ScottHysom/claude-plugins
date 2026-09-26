@@ -101,20 +101,12 @@ nothing.
 
 Source: README.md, under "Setting up".
 
-## need move-old-rules: Find rules an earlier version left behind
-
-When a project keeps `prose-style.md` at its top level from an earlier version
-of the plugin, the user wants the skills to stop and offer to copy it into
-`.claude/rules/`, so the rules are loaded again.
-
-Source: README.md, under "Setting up".
-
 ## need share-rules: Copy rules from another project
 
 When the user wants another project's prose rules, they want the rules this
-project lacks copied across with a note of where each came from, and the rules
-that collide on an id or say the same thing under two ids shown side by side in
-one round, so they settle each conflict once.
+project lacks copied across, and the rules that collide on an id or say the
+same thing under two ids shown side by side in one round, so they settle each
+conflict once.
 
 Source: README.md, under "Sharing rules between projects", and the adopt-prose
 description.
@@ -148,3 +140,11 @@ Cowork leaves `.claude/rules/` out of some parts of a conversation, so the
 rules need a line in the project's Instructions field to reach every part.
 
 Source: README.md, under "Setting up".
+
+## constraint edits-in-git: The pending edits are read from git
+
+The plugin finds the user's pending prose edits in git, as the staged and
+uncommitted changes against the last commit, so a project has to be tracked by
+git.
+
+Source: the owner's review of #139, and README.md, under "When to use it".
