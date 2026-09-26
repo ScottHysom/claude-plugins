@@ -1,0 +1,16 @@
+# Coverage for the plugin scripts, read by pytest-cov when CI runs `pytest --cov`.
+# .github/scripts/check-coverage.py holds each script to its floor in
+# .github/coverage-floors.json and fails a new line no test runs. README.md,
+# under "Running the tests", says how to run it locally.
+
+[run]
+branch = True
+# source rather than include, so a plugin script no test imports is reported at
+# 0% instead of left out.
+source = plugins
+
+[report]
+# The tests drive each script through main(argv), so the guard that calls it
+# for a person at a shell never runs under the suite.
+exclude_also =
+    if __name__ == .__main__.:

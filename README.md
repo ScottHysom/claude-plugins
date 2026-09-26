@@ -193,6 +193,41 @@ macOS is still 3.9, so no walrus in a comprehension and no `X | Y` unions. The
 floor constrains the test dependencies as well; `requirements-dev.txt` says
 how, next to the pins it applies to.
 
+### Coverage
+
+CI measures how much of each plugin script the suite runs, with
+[coverage.py](https://coverage.readthedocs.io/) under pytest-cov. The figure
+counts branches as well as statements: an `if` whose false side never runs
+counts against it even when every line under it runs. `.coveragerc` configures
+the measurement, and `.github/scripts/check-coverage.py` checks the result. Its
+docstring covers the details. To run the same checks locally, from the venv:
+
+```sh
+pytest --cov --cov-report=json:coverage.json --cov-report=term-missing:skip-covered
+python3 .github/scripts/check-coverage.py floors --base origin/main
+python3 .github/scripts/check-coverage.py diff --base origin/main
+python3 .github/scripts/check-coverage.py pragmas
+```
+
+A pull request fails in any of these cases:
+
+- **A script falls below its floor.** Each plugin script has a floor in
+  `.github/coverage-floors.json`, and a floor only rises. When a script's
+  figure passes its floor, `floors` warns with the new figure. Raise the floor
+  to it in the same pull request.
+- **An added line runs under no test.** `diff` names each one. A floor alone
+  would let a new untested line hide behind an old tested one.
+- **An exclusion gives no reason.** A line that no test can reasonably run
+  carries `# pragma: no cover - <reason>`, the reason on the line itself, as a
+  `# noqa` does. `pragmas` fails one without it.
+
+A new plugin script gets its floor in the pull request that adds it. `floors`
+fails until it has one, and prints the figure to use.
+
+CI checks the floors and the added lines on the 3.13 leg only, because Python
+versions differ in how they count branches. A local run on 3.9 can land a
+little either side of a floor.
+
 ### Properties
 
 `test_properties_*.py` state what is true for every input rather than for a

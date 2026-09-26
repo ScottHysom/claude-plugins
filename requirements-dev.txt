@@ -21,3 +21,14 @@ ruff==0.16.7
 # not, or miss ones it does. This package is the shellcheck binary itself, so
 # nothing else needs installing. Bump it on its own, with any fixes it asks for.
 shellcheck-py==0.11.0.1
+
+# Coverage, pinned exactly: the floors in .github/coverage-floors.json are one
+# coverage.py version's figures, and another version can count branches
+# differently. coverage.py dropped Python 3.9 in 7.11, so the 3.9 leg gets the
+# last release that supports it. CI checks the floors on the 3.13 leg only, so
+# that pin only has to install and run. Bump the 3.10+ pin on its own, in a
+# commit that also resets any floor the new version moves. pytest-cov is what
+# runs coverage under `pytest --cov`; .coveragerc configures both.
+coverage==7.10.7; python_version < "3.10"
+coverage==7.16.1; python_version >= "3.10"
+pytest-cov==7.1.0

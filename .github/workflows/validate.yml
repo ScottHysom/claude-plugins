@@ -101,7 +101,11 @@ jobs:
       matrix:
         python-version: ["3.9", "3.13"]
     steps:
+      # The whole history, so the coverage checks below can find where a pull
+      # request left its base.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
@@ -139,7 +143,32 @@ jobs:
       # - is the only thing standing between a tagging pass and a mangled
       # document, so it runs on every push.
       - name: Run the test suite
-        run: pytest
+        run: pytest --cov --cov-report=json:coverage.json --cov-report=term-missing:skip-covered
+
+      # A suite can pass while whole branches of its script never run, and a
+      # spec traced through the tests cannot see a line no test runs. Each
+      # plugin script's coverage, branches included, has a floor in
+      # .github/coverage-floors.json that only ever rises. Branch arcs differ
+      # between Python versions, so the floors are the 3.13 leg's figures and
+      # only that leg checks them.
+      - name: Check plugin scripts keep their coverage floors
+        if: matrix.python-version == '3.13'
+        env:
+          BASE: ${{ github.base_ref }}
+        run: python3 .github/scripts/check-coverage.py floors ${BASE:+--base "origin/$BASE"}
+
+      # A floor holds the total, so a new untested line can hide behind an old
+      # tested one. This fails each line a pull request adds that no test runs.
+      - name: Check every new plugin line runs under the suite
+        if: matrix.python-version == '3.13' && github.event_name == 'pull_request'
+        env:
+          BASE: ${{ github.base_ref }}
+        run: python3 .github/scripts/check-coverage.py diff --base "origin/$BASE"
+
+      # `# pragma: no cover` takes a line out of both checks above, so it says
+      # why on the line, as `# noqa` does.
+      - name: Check coverage exclusions give their reason
+        run: python3 .github/scripts/check-coverage.py pragmas
 
       # Everything under plugins/<name>/ is copied verbatim into every install,
       # and nothing in the manifest can hold a file back - so a test file left
