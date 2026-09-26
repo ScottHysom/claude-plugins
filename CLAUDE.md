@@ -73,6 +73,13 @@ requirement is admitted.
 - **Asked why a behavior exists, answer with its requirement and its need.**
   If it has none, say so and file an issue. Do not argue for it from the
   design's own consistency.
+- **Cite the requirement from what verifies it.** A new test carries
+  `@pytest.mark.spec("<id>")`, a new skill step carries
+  `<!-- spec: <id> -->` under its heading, and a workflow step that runs a
+  `check` requirement carries `# spec: <id>` above its `- name:`.
+  `check-specs.py trace` fails one that cites nothing, unless
+  `.github/untraced.json` lists it for a backfill issue. That list only
+  shrinks. README.md, under "Requirements", has the rest.
 
 ## Skills and scripts
 

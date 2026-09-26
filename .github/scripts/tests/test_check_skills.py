@@ -215,6 +215,18 @@ class DescribeRepeats:
         code, _, _ = run("repeats", "-C", str(root))
         assert code == cs.OK
 
+    @pytest.mark.spec("repeats-skips-markers")
+    def it_ignores_a_marker_two_skills_share(self, make_repo, run):
+        shared = "<!-- spec: one-question-round -->\n"
+        root = make_repo(
+            {
+                A: skill("a", "## Step 1: ask\n" + shared + "\nOnly a.\n"),
+                B: skill("b", "## Step 2: ask\n" + shared + "\nOnly b.\n"),
+            }
+        )
+        code, _, err = run("repeats", "-C", str(root))
+        assert code == cs.OK, err
+
     def it_ignores_front_matter(self, make_repo, run):
         front = "---\nname: same\ndescription: same\n---\n\n"
         root = make_repo({A: front + "Only a.\n", B: front + "Only b.\n"})
@@ -883,7 +895,9 @@ class DescribeMain:
         root = make_repo(
             {
                 A: skill("a", FOO_LOCATE + "## Step 1\n\n" + sh('python3 "$FOO" lint')),
-                B: skill("b", LOCATE + "## Step 1\n\n" + marker("only skill b says this")),
+                B: skill(
+                    "b", LOCATE + "## Step 1\n\n" + marker("only skill b says this") + "\nOnly b.\n"
+                ),
                 FOO_SCRIPT: FOO_PY,
             }
         )

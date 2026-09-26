@@ -95,6 +95,10 @@ Things that look like bugs and are not, in `repeats`:
   LOCATE_SECTION below.
 - Headings are skipped. "## Step 1: refuse early" in two skills is two skills
   with the same shape, not a copied instruction.
+- A comment on a line of its own, such as a `<!-- spec: <id> -->` marker, is
+  skipped. Cowork strips it before the model reads the file, so it is not an
+  instruction, and two skills citing the same requirement cite it in the same
+  words.
 - Each list item is its own block. Comparing whole lists would miss one bullet
   copied into a list that otherwise differs.
 - Skills are compared only within a plugin. Each plugin installs on its own and
@@ -224,6 +228,8 @@ FRONT_MATTER = "---"
 FENCE_RE = re.compile(r"^(?P<indent>[ \t]*)(?P<marker>`{3,}|~{3,})[ \t]*(?P<info>[^`\s]*)")
 HEADING_RE = re.compile(r"^#{1,6}[ \t]+(.*?)[ \t#]*$")
 LIST_ITEM_RE = re.compile(r"^[ \t]*(?:[-*+]|\d+[.)])[ \t]+")
+# A comment alone on its line, which `repeats` skips.
+COMMENT_LINE_RE = re.compile(r"^[ \t]*<!--.*-->[ \t]*$")
 # How much of a repeated block an error quotes.
 QUOTE_CHARS = 72
 DESCRIPTION_RE = re.compile(r"^description:(.*)$")
@@ -507,7 +513,8 @@ def fences(text):
 def blocks(text):
     """The comparable blocks of a SKILL.md, as [(line, normalized text)].
 
-    Front matter, headings and the LOCATE_SECTION section are left out.
+    Front matter, headings, comment lines and the LOCATE_SECTION section are
+    left out.
     """
     lines = text.splitlines()
     out = []
@@ -541,7 +548,7 @@ def blocks(text):
         elif heading:
             flush()
             exempt = heading.group(1).strip() == LOCATE_SECTION
-        elif not line.strip():
+        elif not line.strip() or COMMENT_LINE_RE.match(line):
             flush()
         elif LIST_ITEM_RE.match(line):
             flush()
