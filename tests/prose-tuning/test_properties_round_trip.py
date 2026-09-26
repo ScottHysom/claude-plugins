@@ -16,6 +16,7 @@ correct outcome - most of prose.py's safety is refusal - so the test says
 nothing about which records ought to be refused. test_inserts.py does that.
 """
 
+import pytest
 from hypothesis import HealthCheck, event, example, given, settings
 from hypothesis import strategies as st
 
@@ -136,6 +137,7 @@ def insert_then_strip(batch):
 class DescribeGeneratedRecords:
     """Records shaped the way a skill emits them, miscounts included."""
 
+    @pytest.mark.spec("insert-strip-round-trip")
     @settings(suppress_health_check=[HealthCheck.too_slow])
     @given(records())
     @example([{"file": "sample.md", "kind": "q", "start": 19, "text": "why?"}])
@@ -163,6 +165,7 @@ class DescribeGeneratedRecords:
         if outcome == "round-tripped":
             assert back == SAMPLE
 
+    @pytest.mark.spec("repo:answers-checked")
     @settings(suppress_health_check=[HealthCheck.too_slow])
     @given(records())
     def it_names_a_reason_for_every_refusal(self, batch):
@@ -220,6 +223,7 @@ def well_formed(draw):
 
 
 class DescribeWellFormedRecords:
+    @pytest.mark.spec("insert-strip-round-trip")
     @settings(suppress_health_check=[HealthCheck.too_slow])
     @given(well_formed())
     def it_accepts_a_well_formed_record_and_returns_the_original_bytes(self, record):
@@ -238,6 +242,7 @@ class DescribeWellFormedRecords:
         assert outcome == "round-tripped"
         assert back == SAMPLE
 
+    @pytest.mark.spec("insert-strip-round-trip")
     @settings(suppress_health_check=[HealthCheck.too_slow])
     @given(st.lists(well_formed(), min_size=2, max_size=3))
     @example(

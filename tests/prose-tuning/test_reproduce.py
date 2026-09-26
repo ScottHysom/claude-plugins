@@ -8,6 +8,8 @@ the edit changed, and names the rules with no pattern, which only reading can
 check.
 """
 
+import pytest
+
 import prose
 
 # The conftest's rule, which has no pattern, beside one that has.
@@ -55,6 +57,7 @@ def reproduce(prose_repo, after):
 
 
 class DescribeReproduce:
+    @pytest.mark.spec("reproduce-overlap")
     def it_reports_an_edit_a_pattern_reproduces(self, prose_repo):
         data = reproduce(prose_repo, BEFORE.replace("in order to", "to"))
         [edit] = data["edits"]
@@ -63,11 +66,13 @@ class DescribeReproduce:
             (RULE, 3, "in order to")
         ]
 
+    @pytest.mark.spec("reproduce-overlap")
     def it_reports_an_edit_no_pattern_reproduces(self, prose_repo):
         data = reproduce(prose_repo, BEFORE.replace("It keeps", "The rule keeps"))
         [edit] = data["edits"]
         assert (edit["start"], edit["reproduced"], edit["matches"]) == (5, False, [])
 
+    @pytest.mark.spec("reproduce-overlap")
     def it_does_not_credit_a_match_on_a_line_the_edit_changed_elsewhere(self, prose_repo):
         """The pattern matches the line, but not the words the edit changed,
         so the rule did not make this edit.
@@ -76,21 +81,25 @@ class DescribeReproduce:
         [edit] = data["edits"]
         assert edit["reproduced"] is False
 
+    @pytest.mark.spec("reproduce-overlap")
     def it_credits_an_insertion_at_the_edge_of_a_match(self, prose_repo):
         data = reproduce(prose_repo, BEFORE.replace("in order to", "in order to,"))
         [edit] = data["edits"]
         assert edit["reproduced"] is True
 
+    @pytest.mark.spec("reproduce-overlap")
     def it_never_credits_a_pure_insertion(self, prose_repo):
         data = reproduce(prose_repo, BEFORE + "\nWe run it in order to see.\n")
         [edit] = data["edits"]
         assert (edit["change"], edit["reproduced"]) == ("insert", False)
 
+    @pytest.mark.spec("reproduce-lists-unpatterned")
     def it_lists_the_rules_with_no_pattern_by_id(self, prose_repo):
         data = reproduce(prose_repo, BEFORE.replace("It keeps", "The rule keeps"))
         assert data["unpatterned"] == [UNPATTERNED]
         assert data["patterned"] == [RULE]
 
+    @pytest.mark.spec("reproduce-overlap")
     def it_finds_a_match_on_a_later_line_of_a_hunk(self, prose_repo):
         """The heading, the blank line and the sentence all changed, so one
         hunk spans them, and the match on its third line has to be placed on
@@ -104,6 +113,7 @@ class DescribeReproduce:
         assert (edit["change"], edit["reproduced"]) == ("replace", True)
         assert [m["line"] for m in edit["matches"]] == [3]
 
+    @pytest.mark.spec("repo:plain-output-streams")
     def it_prints_each_edit_and_the_rules_left_to_reading(self, prose_repo, capsys):
         reproduce(prose_repo, BEFORE.replace("in order to", "to"))
         capsys.readouterr()
@@ -112,6 +122,16 @@ class DescribeReproduce:
         assert "target.md:3  reproduced  %s" % RULE in out
         assert "Checked by reading, no pattern: %s" % UNPATTERNED in out
 
+    @pytest.mark.spec("repo:plain-output-streams")
+    def it_prints_an_edit_no_pattern_reproduces(self, prose_repo, capsys):
+        reproduce(prose_repo, BEFORE.replace("It keeps", "The rule keeps"))
+        capsys.readouterr()
+        assert prose.main(["reproduce", "-C", str(prose_repo.root)]) == prose.OK
+        out = capsys.readouterr().out
+        assert "target.md:5  NOT reproduced\n" in out
+        assert "0 of 1 edit(s) reproduced by a pattern." in out
+
+    @pytest.mark.spec("reproduce-refuses-unlinted")
     def it_refuses_to_run_on_a_rule_file_lint_refuses(self, prose_repo):
         (prose_repo.root / prose.CONFIG_PATH).write_text(
             STYLE.replace("`(?i)in order to`", "`in order (to`")

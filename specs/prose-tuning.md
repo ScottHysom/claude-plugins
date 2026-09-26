@@ -28,7 +28,39 @@ Claude to work out the rules behind the uncommitted edits and write them into
 writing rules.
 
 Source: README.md, the opening section and "Teaching it your style", and the
-update-prose-config description.
+update-prose-config description. The two occurrences that make a candidate a
+rule are the owner's figure, in the ruling on #132.
+
+- `inferred-hunks` (test): When the author has edited a file in scope without
+  markup, `evidence` reports each changed run of lines since the last commit
+  as one inferred record, with its lines before and after.
+- `markup-not-evidence` (test): When a file holds markup, `evidence` diffs it
+  with the markup taken out, and numbers each hunk by its line in the working
+  file.
+- `explicit-records` (test): When a file holds the author's `<ins>`, `<del>`
+  or `<repl>`, `evidence` reports each as an explicit record with its old and
+  new text, and the `why` and `<alt>` it carries.
+- `hunk-signal` (test): When an inferred hunk changed only numbers, only link
+  targets or only whitespace, `evidence` marks it `numeric-only`, `link-only`
+  or `whitespace-only`.
+- `signal-to-interview` (step): When a hunk carries a signal,
+  update-prose-config takes it to the interview and never straight into a
+  rule.
+- `rule-threshold` (step): When a candidate occurs two or more times
+  independently, carries a `why` or an `<alt>`, or is settled by an answered
+  question, update-prose-config makes it a rule, and anything else a
+  question.
+- `reproduce-overlap` (test): When `reproduce` runs, it reports each edit since
+  the last commit as reproduced when a rule's pattern, run over the file as it
+  was at the last commit, matches text the edit changed. A pure insertion is
+  never reproduced.
+- `reproduce-lists-unpatterned` (test): When `reproduce` runs, it lists by id
+  every rule with no pattern.
+- `reproduce-refuses-unlinted` (test): When `prose-style.md` does not lint
+  clean, `reproduce` names the fault and exits 1 before reading any file.
+- `fix-the-rule` (step): When an edit is reproduced by no pattern and
+  accounted for by no unpatterned rule, update-prose-config fixes the rule
+  rather than the document.
 
 ## need one-question-round: Answer every open question at once
 
@@ -38,6 +70,10 @@ question asked in one round, so learning the rules takes a single exchange.
 Source: README.md, under "Teaching it your style", step 3, and the
 update-prose-config description.
 
+- `interview-one-batch` (step): When update-prose-config has open questions,
+  it puts all of them to the author in one `AskUserQuestion` call, with every
+  hunk that carries a signal asked as one question.
+
 ## need explain-in-place: Say why an edit was made, in the document
 
 When an edit needs explaining, the user wants to mark it in the document
@@ -46,6 +82,65 @@ remove the markup once the rules are written, so none of it reaches a commit.
 
 Source: README.md, under "Teaching it your style", and the update-prose-config
 description.
+
+- `markup-faults-named` (test): When markup breaks the grammar in
+  `reference/tag-vocabulary.md`, the scanner reports each fault once, with its
+  file and line.
+- `code-markup-is-prose` (test): When a tag sits inside a code fence or a
+  code span, the scanner reads it as prose.
+- `bare-pair-is-replacement` (test): When a `<del>` is followed directly by an
+  `<ins>`, the scanner and `evidence` read the pair as one replacement.
+- `resolve-accepts-edits` (test): When `tags resolve` runs, `<ins>` text
+  stays, `<del>` text goes, `<repl>` keeps its replacement, and every tag is
+  removed.
+- `resolve-tidies-cuts` (test): When a resolved cut removes whole paragraphs,
+  one blank line is left where they were, none at either end of the file, and
+  no newline is added to a file that had none.
+- `resolve-list-warning` (test): When `tags resolve` removes a block-form tag
+  inside a list, it warns with the tag's file and line.
+- `resolve-refuses-bad-markup` (test): When a file's markup does not parse,
+  `tags resolve` and `tags strip` write no file and name the fault.
+
+## need answer-in-document: Answer questions in the document
+
+When the author is not there to answer, they want Claude's questions written
+into the documents, and the answers they write there read on the next run, so
+a run can finish without them.
+
+Source: update-prose-config's step 6 and its description, "to tag passages
+for a style pass". The owner confirmed the need in the ruling on #132.
+
+- `question-inserted` (test): When update-prose-config inserts a `<q>`, `tags
+  insert` writes it on its own line before the line given, numbered one past
+  the highest question id in scope.
+- `question-not-in-structure` (test): When a `<q>` would land inside a code
+  fence, a table, front matter or a blockquote, `tags insert` refuses it.
+- `answers-read` (test): When an `<a>` follows a `<q>` before any other `<q>`,
+  `evidence` reports it as that question's answer, and reports a `<q>` with
+  none as open.
+- `evidence-token` (test): When `evidence` finds no fault in the markup, it
+  prints a token, as `data.token` and as its last line, and otherwise prints
+  none.
+- `insert-needs-token` (test): When the token passed to `tags insert` is not
+  the one `evidence` would print for the tree as it is now, the command
+  refuses the batch and writes nothing.
+- `tags-one-batch` (step): When update-prose-config inserts markup, it passes
+  every tag of the run to one `tags insert` call, with the token `evidence`
+  printed.
+
+## need abandon-a-run: Give up a run and get the documents back
+
+When the author gives up a run partway, they want every tag removed and the
+tagged edits reverted in one command, so the documents are as they were before
+the run.
+
+Source: update-prose-config's "Abandoning a run", and DESIGN.md, under "The
+round trip". The owner confirmed the need in the ruling on #132.
+
+- `strip-reverts` (test): When `tags strip` runs, every tag is removed,
+  `<del>` text stays, `<ins>` text goes, and every blank line is kept.
+- `insert-strip-round-trip` (test): When `tags strip` follows a `tags insert`
+  batch, every file is byte-identical to what it was before the insert.
 
 ## need checkable-reports: Check a report against the rule it names
 
@@ -181,6 +276,9 @@ review and commit them their usual way.
 
 Source: README.md, under "What it adds to your project", and all three skill
 descriptions.
+
+- `learning-never-commits` (step): When update-prose-config finishes, it
+  reports what changed and which files are dirty, and commits nothing.
 
 ## need works-in-cowork: Use the same skills in Cowork
 

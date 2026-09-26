@@ -71,6 +71,7 @@ class DescribeRefusalsTheRoundTripPropertyFound:
             prose.plan_one_insert(text, prose.Blocks(text), record, "sample.md", 1)
         return str(caught.value)
 
+    @pytest.mark.spec("question-not-in-structure")
     def it_refuses_a_question_inside_a_fence(self, sample):
         """A <q> goes in as a new line, so it skipped the span check that
         refuses a <del> on the same line. Inside a fence the scanner then
@@ -81,6 +82,7 @@ class DescribeRefusalsTheRoundTripPropertyFound:
             sample, {"kind": "q", "start": 19, "text": "does this belong here?"}
         )
 
+    @pytest.mark.spec("question-inserted")
     def it_allows_a_question_above_a_heading(self, sample):
         """The other side of that fix. A new line above a heading leaves the
         heading alone, so refusing it would be over-correction.
@@ -381,6 +383,7 @@ class DescribeInsertCommand:
         token = prose_repo.evidence_token()
         return prose_repo.run("tags", "insert", "--batch", str(batch), "--token", token, *flags)
 
+    @pytest.mark.spec("question-inserted")
     def it_reads_a_batch_file_and_writes_its_tags(self, prose_repo, target):
         record = {"file": "target.md", "kind": "q", "start": 8, "text": "earned?"}
         code, envelope = self.insert(prose_repo, json.dumps([record]))
@@ -404,6 +407,7 @@ class DescribeInsertCommand:
             "Curated, not collected.", '<del why="restates">Curated, not collected.</del>'
         )
 
+    @pytest.mark.spec("repo:answers-checked")
     def it_writes_nothing_when_a_records_text_is_not_on_its_line(self, prose_repo, target):
         record = {"file": "target.md", "kind": "del", "start": 7, "text": "Final paragraph."}
         code, envelope = self.insert(prose_repo, json.dumps([record]))
@@ -414,12 +418,14 @@ class DescribeInsertCommand:
         )
         assert prose_repo.read() == target
 
+    @pytest.mark.spec("repo:dry-run-writes-nothing")
     def it_leaves_the_file_alone_on_a_dry_run(self, prose_repo, target):
         record = {"file": "target.md", "kind": "q", "start": 8, "text": "earned?"}
         code, _ = self.insert(prose_repo, json.dumps([record]), "--dry-run")
         assert code == prose.OK
         assert prose_repo.read() == target
 
+    @pytest.mark.spec("repo:answers-checked")
     @pytest.mark.parametrize(
         ("batch_text", "problem"),
         [
@@ -434,6 +440,7 @@ class DescribeInsertCommand:
         assert problem in prose_repo.err
         assert prose_repo.read() == target
 
+    @pytest.mark.spec("repo:answers-checked")
     def it_stops_the_run_with_a_message_on_a_missing_batch_file(self, prose_repo):
         """The skills write the batch and then name it, so a wrong path is a
         typo away. apply reports a missing findings file as a message and exit
@@ -445,3 +452,61 @@ class DescribeInsertCommand:
         assert code == prose.CANNOT_RUN
         assert envelope is None
         assert "cannot read batch" in prose_repo.err
+
+    @pytest.mark.spec("repo:answers-checked")
+    @pytest.mark.parametrize(
+        ("record", "problem"),
+        [
+            pytest.param({"kind": "zap", "start": 8, "text": "a"}, "kind 'zap'", id="unknown-kind"),
+            pytest.param(
+                {"kind": "q", "start": 99, "text": "a"},
+                "line 99 is outside the file",
+                id="line-outside-the-file",
+            ),
+            pytest.param(
+                {"kind": "q", "start": 8, "end": 99, "text": "a"},
+                "end line 99 is outside the span",
+                id="end-outside-the-file",
+            ),
+            pytest.param({"kind": "q", "start": 8}, "<q> needs text", id="no-text"),
+            pytest.param({"kind": "q", "start": "eight", "text": "a"}, "malformed", id="malformed"),
+        ],
+    )
+    def it_names_a_record_it_cannot_place_and_writes_nothing(
+        self, prose_repo, target, record, problem
+    ):
+        good = {"file": "target.md", "kind": "q", "start": 20, "text": "fine?"}
+        code, envelope = self.insert(prose_repo, json.dumps([good, dict(record, file="target.md")]))
+        assert code == prose.PROBLEMS
+        assert "record 2" in envelope["errors"][0]
+        assert problem in envelope["errors"][0]
+        assert prose_repo.read() == target
+
+    @pytest.mark.spec("repo:answers-checked")
+    def it_refuses_a_record_for_a_file_that_does_not_exist(self, prose_repo, target):
+        record = {"file": "gone.md", "kind": "q", "start": 1, "text": "a"}
+        code, envelope = self.insert(prose_repo, json.dumps([record]))
+        assert code == prose.PROBLEMS
+        assert envelope["errors"][0] == "gone.md  no such file"
+
+    @pytest.mark.spec("question-inserted")
+    def it_numbers_a_question_after_the_highest_id_in_scope(self, prose_repo, target):
+        """Ids are unique across the project, so the author's answer in one
+        file cannot be read as the answer to a question in another.
+        """
+        (prose_repo.root / "other.md").write_text('Earlier.\n\n<q id="4">asked before?</q>\n')
+        record = {"file": "target.md", "kind": "q", "start": 8, "text": "earned?"}
+        code, envelope = self.insert(prose_repo, json.dumps([record]))
+        assert code == prose.OK, envelope["errors"]
+        assert '<q id="5">earned?</q>\n' in prose_repo.read()
+
+    @pytest.mark.spec("repo:plain-output-streams")
+    def it_prints_each_tag_it_wrote(self, prose_repo, capsys):
+        record = {"file": "target.md", "kind": "q", "start": 8, "text": "earned?"}
+        batch = prose_repo.root / "batch.json"
+        batch.write_text(json.dumps([record]))
+        token = prose_repo.evidence_token()
+        capsys.readouterr()
+        argv = ["tags", "insert", "--batch", str(batch), "--token", token]
+        assert prose.main([*argv, "-C", str(prose_repo.root)]) == prose.OK
+        assert capsys.readouterr().out == "target.md:8  q\n\n1 file(s) written\n"

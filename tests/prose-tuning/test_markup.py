@@ -17,10 +17,12 @@ def scan(src):
 
 
 class DescribeTagScanner:
+    @pytest.mark.spec("code-markup-is-prose")
     def it_leaves_markup_inside_a_code_fence_as_prose(self, sample):
         """The sample's python fence contains a <del> that must stay prose."""
         assert scan(sample).all == []
 
+    @pytest.mark.spec("code-markup-is-prose")
     def it_leaves_markup_inside_a_code_span_as_prose(self):
         src = (
             "A `<del>` in prose is a quotation.\n\n"
@@ -31,6 +33,7 @@ class DescribeTagScanner:
         assert scanner.errors == []
         assert [n.kind for n in scanner.roots] == ["del"]
 
+    @pytest.mark.spec("bare-pair-is-replacement")
     def it_reads_a_bare_del_ins_pair_as_one_replacement(self):
         pairs, _ = scan("<del>a</del><ins>b</ins>\n").pairs()
         assert len(pairs) == 1
@@ -39,6 +42,7 @@ class DescribeTagScanner:
 class DescribeMalformedMarkup:
     """What the scanner says when the markup is wrong, and how much of it."""
 
+    @pytest.mark.spec("markup-faults-named")
     @pytest.mark.parametrize(
         ("src", "expected"),
         [
@@ -56,11 +60,22 @@ class DescribeMalformedMarkup:
             pytest.param(
                 "<ins><del>no</del></ins>\n", "not allowed inside", id="del-nested-in-ins"
             ),
+            pytest.param("<del why=x>a</del>\n", "need quotes", id="unquoted-attribute"),
         ],
     )
     def it_names_what_is_wrong_with_the_markup(self, src, expected):
         assert any(expected in e for e in scan(src).errors), "errors were %s" % (scan(src).errors,)
 
+    @pytest.mark.spec("markup-faults-named")
+    def it_warns_of_a_question_with_no_id_at_its_line(self):
+        """A hand-written <q> is legal markup, so this is a warning, not an
+        error: `tags insert` numbers every question it writes.
+        """
+        scanner = scan("One.\n\n<q>why?</q>\n")
+        assert scanner.errors == []
+        assert [w.split("  ")[0] for w in scanner.warnings] == ["t.md:3"]
+
+    @pytest.mark.spec("markup-faults-named")
     @pytest.mark.parametrize(
         "src",
         [

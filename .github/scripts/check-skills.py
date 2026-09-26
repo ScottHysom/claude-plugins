@@ -285,9 +285,9 @@ KNOWN_GAPS = {}
 # command or gains a marker; `steps` fails until it does.
 KNOWN_SEAMS = {
     ("plugins/prose-tuning/skills/adopt-prose/SKILL.md", 1): 131,
-    ("plugins/prose-tuning/skills/update-prose-config/SKILL.md", 1): 132,
-    ("plugins/prose-tuning/skills/update-prose-config/SKILL.md", 7): 132,
-    ("plugins/prose-tuning/skills/update-prose-config/SKILL.md", 8): 132,
+    ("plugins/prose-tuning/skills/update-prose-config/SKILL.md", 1): 181,
+    ("plugins/prose-tuning/skills/update-prose-config/SKILL.md", 7): 183,
+    ("plugins/prose-tuning/skills/update-prose-config/SKILL.md", 8): 184,
     ("plugins/prose-tuning/skills/apply-prose/SKILL.md", 2): 133,
     ("plugins/prose-tuning/skills/apply-prose/SKILL.md", 7): 133,
 }

@@ -66,6 +66,7 @@ class DescribeInsertThenStrip:
             ]
         )
 
+    @pytest.mark.spec("insert-strip-round-trip")
     def it_strips_a_batch_of_mixed_kinds(self, round_trip):
         """Inserts are planned together and applied back to front. A batch is
         where offsets computed against the original text go stale.
