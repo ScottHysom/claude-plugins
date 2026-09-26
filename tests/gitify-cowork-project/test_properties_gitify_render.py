@@ -14,6 +14,7 @@ import json
 import os
 import tempfile
 
+import pytest
 from hypothesis import HealthCheck, example, given, settings
 from hypothesis import strategies as st
 
@@ -68,6 +69,7 @@ def read(path):
 
 
 class DescribeRender:
+    @pytest.mark.spec("instructions-verbatim", "ignore-answer")
     @settings(suppress_health_check=[HealthCheck.too_slow], deadline=None)
     @given(INSTRUCTIONS, st.lists(PATTERN, unique=True, max_size=4))
     @example("{{PROJECT_NAME}}\r\n## Dates\n<!-- a note -->", ["*.mov"])

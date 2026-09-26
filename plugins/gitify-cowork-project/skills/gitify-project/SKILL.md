@@ -54,6 +54,7 @@ script.
   through `propose_skills`. It needs a marketplace install. Say so and stop.
 
 ## Step 1: find the folder, and look at it
+<!-- spec: probe-lists-folder, probe-stops-missing, probe-stops-repo, ask-about-unwanted -->
 
 Call `get_device_info`. `connected_folder` is one of its `connectedFolders`,
 exactly as listed. The project folder is the connected folder itself, or a
@@ -79,6 +80,7 @@ one you find. Patterns they agree to go in `ignore` below. They get a second
 chance at `setup.sh`, which shows every file before anything is committed.
 
 ## Step 2: the answers
+<!-- spec: copy-field-exactly, ignore-answer -->
 
 <!-- no-command: judgment. The model writes the names, the description and the ignore list, and step 3's render checks them. -->
 
@@ -120,6 +122,7 @@ step made:
 pass them.
 
 ## Step 3: render
+<!-- spec: render-stages-files, repo:answers-checked -->
 
 ```sh
 GITIFY=/tmp/gitify/plugin/scripts/gitify.py && python3 "$GITIFY" render --answers /tmp/gitify/answers.json --json
@@ -134,6 +137,7 @@ GITIFY=/tmp/gitify/plugin/scripts/gitify.py && python3 "$GITIFY" render --answer
 `--dry-run` checks the answers without writing.
 
 ## Step 4: copy the files onto the device
+<!-- spec: stop-on-precheck, recopy-on-failure, check-after-copy -->
 
 <!-- no-command: hand-off to the device bridge. device_bash and device_commit_files run what render printed. -->
 
@@ -165,6 +169,7 @@ the account copy is what actually runs. The generated skill carries its own
 drift check.
 
 ## Step 6: hand off
+<!-- spec: hand-off-setup, hand-off-field -->
 
 <!-- no-command: hand-off to the user. The bridge cannot commit, so the user runs setup.sh. -->
 

@@ -61,6 +61,7 @@ def committed(folder):
 
 
 class DescribeSetup:
+    @pytest.mark.spec("setup-stages-first")
     def it_stages_everything_and_commits_nothing_on_the_first_run(self, folder):
         result = sh(folder, "setup.sh")
         assert result.returncode == 0, result.stderr
@@ -70,6 +71,7 @@ class DescribeSetup:
             assert rel in result.stdout
         assert "sh setup.sh commit" in result.stdout
 
+    @pytest.mark.spec("setup-late-ignore")
     def it_leaves_out_a_file_ignored_after_it_was_staged(self, folder):
         sh(folder, "setup.sh")
         with open(folder / ".gitignore", "a") as fh:
@@ -82,6 +84,7 @@ class DescribeSetup:
         assert "film.mov" not in files
         assert {"notes.md", "drafts/plan.md", "CLAUDE.md", ".gitignore"} <= files
 
+    @pytest.mark.spec("gitignore-defaults")
     def it_keeps_shared_editor_settings_in_history(self, folder):
         (folder / ".vscode").mkdir()
         (folder / ".vscode" / "settings.json").write_text("{}\n")
@@ -92,17 +95,38 @@ class DescribeSetup:
         assert ".vscode/settings.json" in files
         assert ".idea/workspace.xml" not in files
 
+    @pytest.mark.spec("gitignore-defaults", "ignore-chat-outputs")
+    def it_leaves_system_editor_and_chat_files_out_of_history(self, folder):
+        kept_out = [
+            ".DS_Store",
+            "._notes.md",
+            "drafts/.plan.md.swp",
+            "notes.md~",
+            "notes.md.bak",
+            "Claude outputs/summary.md",
+        ]
+        for rel in kept_out:
+            (folder / rel).parent.mkdir(parents=True, exist_ok=True)
+            (folder / rel).write_text("x\n")
+        sh(folder, "setup.sh", "commit")
+        # Split on lines, not whitespace: one of the paths has a space in it.
+        files = set(git(folder, "ls-files").stdout.splitlines())
+        assert "notes.md" in files
+        assert files.isdisjoint(kept_out), files & set(kept_out)
+
     def it_names_the_plugin_in_the_first_commit(self, folder):
         sh(folder, "setup.sh", "commit")
         subject = git(folder, "log", "-1", "--format=%s").stdout.strip()
         assert "gitify-cowork-project" in subject
         assert "existing folder" in subject
 
+    @pytest.mark.spec("setup-sets-exec-bits")
     def it_makes_both_scripts_executable(self, folder):
         sh(folder, "setup.sh")
         assert os.access(folder / "setup.sh", os.X_OK)
         assert os.access(folder / "commit.sh", os.X_OK)
 
+    @pytest.mark.spec("setup-keeps-history")
     def it_does_nothing_to_a_repo_with_history(self, folder):
         sh(folder, "setup.sh", "commit")
         (folder / "new.md").write_text("new\n")
@@ -111,6 +135,7 @@ class DescribeSetup:
         assert "Already a git repo with history" in result.stdout
         assert git(folder, "rev-list", "--count", "HEAD").stdout.strip() == "1"
 
+    @pytest.mark.spec("setup-usage")
     def it_rejects_an_unknown_argument(self, folder):
         result = sh(folder, "setup.sh", "comit")
         assert result.returncode == 2
@@ -118,6 +143,7 @@ class DescribeSetup:
 
 
 class DescribeCommit:
+    @pytest.mark.spec("commit-refuses-first")
     def it_refuses_to_make_the_first_commit(self, folder):
         sh(folder, "setup.sh")
         result = sh(folder, "commit.sh", "chore: too early")
@@ -125,6 +151,7 @@ class DescribeCommit:
         assert "sh setup.sh" in result.stderr
         assert not has_commits(folder)
 
+    @pytest.mark.spec("commit-after-first")
     def it_commits_after_the_first_one(self, folder):
         sh(folder, "setup.sh", "commit")
         (folder / "notes.md").write_text("more notes\n")

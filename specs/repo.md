@@ -21,6 +21,9 @@ spends context on work a script could do, or gets that work wrong.
 
 Source: #126, and CLAUDE.md, under "Skills and scripts".
 
+- `answers-checked` (test): When a script takes the model's answers as data,
+  it checks every one, names each that fails, and writes nothing if any does.
+
 ## need shared-flags: Read every script's flags the same way
 
 When a contributor runs or writes a repo script, they want the flags every
@@ -29,6 +32,11 @@ same thing in each script, so a skill can read any result and preview or batch
 any change the same way.
 
 Source: CLAUDE.md, under "Script conventions".
+
+- `dry-run-writes-nothing` (test): When a command that writes is given
+  `--dry-run`, it reports what it would write and writes nothing.
+- `plain-output-streams` (test): When a command runs without `--json`, it
+  prints its result on stdout, and its warnings and errors on stderr.
 
 ## need install-from-marketplace: Install any plugin from one marketplace
 
