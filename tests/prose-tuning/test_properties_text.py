@@ -25,6 +25,7 @@ EXOTIC_BREAKS = "\v\f\x1c\x1d\x1e\x85\u2028\u2029"
 
 
 class DescribeText:
+    @pytest.mark.spec("lines-kept-exactly")
     @given(st.text())
     @example("")
     @example("a")
@@ -35,6 +36,7 @@ class DescribeText:
     def it_rejoins_lines_into_the_original(self, source):
         assert "".join(prose.Text(source).lines) == source
 
+    @pytest.mark.spec("lines-kept-exactly")
     @given(st.text())
     @example("a\fb")
     @example("a\u2028b")
@@ -52,6 +54,7 @@ class DescribeText:
             1 if source and not source.endswith("\n") else 0
         )
 
+    @pytest.mark.spec("lines-kept-exactly")
     @given(st.text())
     def it_slices_each_line_from_the_original_at_its_offset(self, source):
         """line(n) is a slice of the original at offset(n), every time."""
@@ -60,6 +63,7 @@ class DescribeText:
             start = text.offset(n)
             assert text.s[start : start + len(text.line(n))] == text.line(n)
 
+    @pytest.mark.spec("lines-kept-exactly")
     @given(st.text())
     def it_lays_each_line_where_the_one_before_it_ended(self, source):
         """Each line begins where the one before it ended - no gap, no overlap."""
@@ -67,6 +71,7 @@ class DescribeText:
         for n in range(1, text.line_count()):
             assert text.offset(n) + len(text.line(n)) == text.offset(n + 1)
 
+    @pytest.mark.spec("lines-kept-exactly")
     @given(st.text())
     @example("a\r\nb")
     def it_maps_an_offset_back_to_its_line(self, source):
@@ -76,6 +81,7 @@ class DescribeText:
             for col in range(len(text.bare(n)) + 1):
                 assert text.line_of(text.offset(n, col)) == n
 
+    @pytest.mark.spec("lines-kept-exactly")
     @given(st.text())
     def it_returns_a_line_without_its_ending(self, source):
         text = prose.Text(source)
@@ -84,6 +90,7 @@ class DescribeText:
             assert raw.startswith(bare)
             assert raw[len(bare) :] in ("", "\n", "\r\n")
 
+    @pytest.mark.spec("lines-kept-exactly")
     @given(st.text(alphabet=EXOTIC_BREAKS, min_size=1))
     def it_treats_an_exotic_separator_as_ordinary_text(self, source):
         """One line, however many form feeds are on it."""
@@ -92,6 +99,7 @@ class DescribeText:
         assert text.line_count() == 1
         assert text.bare(1) == source
 
+    @pytest.mark.spec("lines-kept-exactly")
     def it_counts_no_lines_in_an_empty_file(self):
         """The one asymmetry worth pinning: line_of answers for offset 0 even
         though there is no line 1 for offset() to find.

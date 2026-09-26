@@ -32,6 +32,7 @@ class DescribeValidateRuleName:
     fails here whichever branch it is.
     """
 
+    @pytest.mark.spec("id-grammar")
     @given(st.text(alphabet=NAME_CHARS, max_size=12))
     @example("own-subject")
     @example("sentences-01")
@@ -42,6 +43,7 @@ class DescribeValidateRuleName:
         ok = bool(prose.RULE_NAME.match(name)) and len(name.split("-")) <= prose.MAX_NAME_WORDS
         assert (prose.validate_rule_name(name) is None) is ok
 
+    @pytest.mark.spec("id-grammar")
     @given(st.text(alphabet=NAME_CHARS, max_size=12))
     def it_quotes_the_name_it_refused(self, name):
         problem = prose.validate_rule_name(name)
@@ -52,6 +54,7 @@ class DescribeValidateRuleName:
 class DescribeGlobTranslation:
     """Scope patterns are author-written and arrive unvalidated."""
 
+    @pytest.mark.spec("globs-match-whole-path")
     @given(st.text(alphabet="ab/*?.[]()+|^$\\", max_size=10))
     def it_compiles_any_pattern(self, pattern):
         """Everything that is not a wildcard goes through re.escape, so no
@@ -59,11 +62,13 @@ class DescribeGlobTranslation:
         """
         assert prose.glob_to_regex(pattern) is not None
 
+    @pytest.mark.spec("globs-match-whole-path")
     @given(st.text(alphabet=PATH_CHARS, max_size=10))
     def it_matches_a_pattern_with_no_wildcard_only_against_itself(self, path):
         assume("*" not in path and "?" not in path)
         assert bool(prose.glob_to_regex(path).match(path))
 
+    @pytest.mark.spec("globs-match-whole-path")
     @given(
         st.text(alphabet=PATH_CHARS, max_size=8),
         st.text(alphabet=PATH_CHARS, min_size=1, max_size=8),

@@ -24,6 +24,7 @@ def legacy_repo(prose_repo):
 
 
 class DescribeConfigInitLocation:
+    @pytest.mark.spec("init-from-shipped")
     def it_creates_the_rules_folder_when_the_project_has_none(self, legacy_repo):
         (legacy_repo.root / prose.LEGACY_CONFIG_PATH).unlink()
         code, env = legacy_repo.run("config", "init")
@@ -92,6 +93,7 @@ class DescribePreflightWithARootFile:
 
 
 class DescribePathsKey:
+    @pytest.mark.spec("rules-load-everywhere")
     @pytest.mark.parametrize("line", ['paths: ["**/*.md"]', "paths: docs/**"])
     def it_rejects_a_paths_key_that_would_stop_the_file_loading(self, config_from, line):
         config = config_from("---\nname: X\n%s\n---\n" % line)

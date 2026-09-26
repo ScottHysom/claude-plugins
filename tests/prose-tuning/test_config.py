@@ -47,40 +47,49 @@ BAD_ID_ERRORS = [
 
 
 class DescribeWellFormedRuleFile:
+    @pytest.mark.spec("rules-listed")
     def it_reads_every_rule(self, config_from):
         assert len(config_from(WELL_FORMED).rules) == 2
 
+    @pytest.mark.spec("scope-block-read")
     def it_parses_the_scope_block(self, config_from):
         cfg = config_from(WELL_FORMED)
         assert cfg.scope_include == ["**/*.md"]
         assert cfg.scope_exclude == ["x.md"]
 
+    @pytest.mark.spec("rule-shape-checked")
     def it_reports_a_duplicate_id(self, config_from):
         assert any("duplicate rule id" in e for e in config_from(WELL_FORMED).errors)
 
+    @pytest.mark.spec("rules-listed")
     def it_extracts_the_worked_example(self, config_from):
         rule = config_from(WELL_FORMED).rules[0]
         assert (rule.before, rule.after) == ("a", "b")
 
+    @pytest.mark.spec("new-id-checked")
     def it_refuses_a_taken_id(self, config_from):
         _, problem = config_from(WELL_FORMED).check_id("sentences", "own-subject")
         assert problem is not None
 
+    @pytest.mark.spec("new-id-checked")
     def it_allows_a_free_id(self, config_from):
         rid, problem = config_from(WELL_FORMED).check_id("sentences", "name-the-role")
         assert (rid, problem) == ("sentences-name-the-role", None)
 
 
 class DescribeRuleIdGrammar:
+    @pytest.mark.spec("id-grammar")
     @pytest.mark.parametrize("message", BAD_ID_ERRORS)
     def it_names_each_bad_id_once(self, config_from, message):
         hits = [e for e in config_from(BAD_IDS).errors if message in e]
         assert len(hits) == 1, "matched %d: %s" % (len(hits), hits)
 
+    @pytest.mark.spec("id-grammar")
     def it_reports_nothing_else(self, config_from):
         errors = config_from(BAD_IDS).errors
         assert len(errors) == len(BAD_ID_ERRORS), errors
 
+    @pytest.mark.spec("id-grammar")
     def it_only_warns_about_a_name_that_repeats_its_section(self, config_from):
         """Readable but redundant - sentences-sentences-subject. Worth a
         nudge, not worth refusing the file.
@@ -89,17 +98,127 @@ class DescribeRuleIdGrammar:
         opens = [w for w in cfg.warnings if "opens with its own section" in w]
         assert len(opens) == 1
 
+    @pytest.mark.spec("id-grammar")
     def it_keeps_a_good_name(self, config_from):
         assert config_from(BAD_IDS).rules[-1].name == "own-subject"
 
 
 class DescribeFrontMatter:
+    @pytest.mark.spec("front-matter-grammar")
     def it_refuses_a_key_outside_the_grammar(self, config_from):
         """Silently ignoring a key the author meant to set is worse than refusing
         the file, because the rule file looks like it took effect.
         """
         cfg = config_from("---\nname: T\nscope:\n  nested:\n    deep: 1\n---\n")
         assert cfg.errors
+
+    @pytest.mark.spec("front-matter-grammar")
+    @pytest.mark.parametrize(
+        ("source", "line", "message"),
+        [
+            ("name: T\n", 1, "no front matter"),
+            ("---\nname: T\n", 1, "front matter is never closed"),
+            ("---\n  include:\n---\n", 2, "include: is only valid inside scope:"),
+            ('---\n    - "a.md"\n---\n', 2, "list item outside include: or exclude:"),
+            ("---\n  stray\n---\n", 2, "indented line is not a scope key"),
+            ("---\nname T\n---\n", 2, "not a key: value pair"),
+            ("---\nscope: all\n---\n", 2, "scope: takes no value"),
+        ],
+    )
+    def it_names_the_line_of_each_break_from_the_grammar(self, config_from, source, line, message):
+        errors = config_from(source).errors
+        assert [e for e in errors if message in e and ":%d " % line in e], errors
+
+    @pytest.mark.spec("front-matter-grammar", "repo:plain-output-streams")
+    def it_fails_lint_and_reports_on_stderr(self, prose_repo, capsys):
+        (prose_repo.root / prose.CONFIG_PATH).write_text("---\nname T\n---\n")
+        capsys.readouterr()
+        code = prose.main(["config", "lint", "-C", str(prose_repo.root)])
+        captured = capsys.readouterr()
+        assert code == prose.PROBLEMS
+        assert "not a key: value pair" in captured.err
+        assert "1 error(s)" in captured.out
+
+
+class DescribeRuleShape:
+    HEAD = "---\nname: T\n---\n\n## Sentences\n\n"
+
+    @pytest.mark.spec("rule-shape-checked")
+    def it_refuses_a_rule_with_no_body(self, config_from):
+        cfg = config_from(self.HEAD + "### sentences-own-subject: Title\n")
+        assert any("rule sentences-own-subject has no body" in e for e in cfg.errors)
+
+    @pytest.mark.spec("rule-shape-checked")
+    def it_refuses_half_a_worked_example(self, config_from):
+        cfg = config_from(
+            self.HEAD + "### sentences-own-subject: Title\n\nBody.\n\n> **Before.** a\n"
+        )
+        assert any("half an example" in e for e in cfg.errors)
+
+    @pytest.mark.spec("rule-shape-checked", "repo:plain-output-streams")
+    def it_warns_on_stderr_about_a_rule_with_no_example(self, prose_repo, capsys):
+        (prose_repo.root / prose.CONFIG_PATH).write_text(
+            self.HEAD + "### sentences-own-subject: Title\n\nBody.\n"
+        )
+        capsys.readouterr()
+        code = prose.main(["config", "lint", "-C", str(prose_repo.root)])
+        captured = capsys.readouterr()
+        assert code == prose.OK
+        assert "warning: " in captured.err
+        assert "has no worked example" in captured.err
+        assert "1 warning(s)" in captured.out
+
+
+class DescribeConfigList:
+    @pytest.mark.spec("rules-listed")
+    def it_gives_every_rule_with_its_id_title_and_example(self, prose_repo):
+        code, env = prose_repo.run("config", "list")
+        assert code == prose.OK
+        [rule] = env["data"]["rules"]
+        assert (rule["id"], rule["title"]) == ("sentences-own-subject", "Carries its own subject")
+        assert rule["example"] == {
+            "before": "Curated, not collected.",
+            "after": "The list is curated, not collected.",
+        }
+
+    @pytest.mark.spec("rules-listed", "repo:plain-output-streams")
+    def it_prints_one_line_per_rule_without_json(self, prose_repo, capsys):
+        capsys.readouterr()
+        code = prose.main(["config", "list", "-C", str(prose_repo.root)])
+        out = capsys.readouterr().out
+        assert code == prose.OK
+        assert "sentences-own-subject" in out
+        assert "1 rule(s)" in out
+
+
+class DescribeCheckIdCommand:
+    def check(self, prose_repo, capsys, section, name):
+        capsys.readouterr()
+        code = prose.main(
+            ["config", "check-id", "--section", section, "--name", name, "-C", str(prose_repo.root)]
+        )
+        return code, capsys.readouterr()
+
+    @pytest.mark.spec("new-id-checked")
+    def it_prints_a_free_id(self, prose_repo, capsys):
+        code, captured = self.check(prose_repo, capsys, "sentences", "name-the-role")
+        assert (code, captured.out) == (prose.OK, "sentences-name-the-role\n")
+
+    @pytest.mark.spec("new-id-checked")
+    @pytest.mark.parametrize(
+        ("section", "name", "message"),
+        [
+            ("sentences", "own-subject", "is already the id"),
+            ("Sentences", "name-the-role", "not a lower-case word"),
+            ("sentences", "Name_The_Role", "Name_The_Role"),
+        ],
+    )
+    def it_prints_no_id_for_a_taken_or_malformed_one(
+        self, prose_repo, capsys, section, name, message
+    ):
+        code, captured = self.check(prose_repo, capsys, section, name)
+        assert (code, captured.out) == (prose.PROBLEMS, "")
+        assert message in captured.err
 
 
 class DescribeRuleSimilarity:
