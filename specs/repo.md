@@ -37,6 +37,9 @@ Source: CLAUDE.md, under "Script conventions".
   `--dry-run`, it reports what it would write and writes nothing.
 - `plain-output-streams` (test): When a command runs without `--json`, it
   prints its result on stdout, and its warnings and errors on stderr.
+- `partial-applies-rest` (test): When a command that writes a batch refuses
+  part of it, it writes nothing and exits 1, and with `--partial` it writes
+  the rest and still exits 1.
 
 ## need install-from-marketplace: Install any plugin from one marketplace
 
