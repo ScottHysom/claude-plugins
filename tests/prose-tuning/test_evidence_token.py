@@ -34,6 +34,7 @@ def insert_with(prose_repo, token, *flags):
 
 
 class DescribeEvidenceToken:
+    @pytest.mark.spec("insert-needs-token")
     def it_accepts_a_token_from_the_current_tree(self, prose_repo, target):
         prose_repo.commit()
         token = evidence_token(prose_repo)
@@ -41,6 +42,7 @@ class DescribeEvidenceToken:
         assert code == prose.OK, envelope["errors"]
         assert '<q id="1">earned?</q>' in prose_repo.read()
 
+    @pytest.mark.spec("evidence-token")
     def it_prints_the_token_as_the_last_line_of_its_human_output(self, prose_repo, capsys):
         prose_repo.commit()
         token = evidence_token(prose_repo)
@@ -50,6 +52,7 @@ class DescribeEvidenceToken:
         out = capsys.readouterr().out
         assert out.rstrip("\n").split("\n")[-1] == prose.EVIDENCE_TOKEN_LABEL + token
 
+    @pytest.mark.spec("insert-needs-token")
     def it_refuses_insert_without_a_token(self, prose_repo, target, capsys):
         path = batch_file(prose_repo)
         with pytest.raises(SystemExit) as exc:
@@ -58,6 +61,7 @@ class DescribeEvidenceToken:
         assert "--token" in capsys.readouterr().err
         assert prose_repo.read() == target
 
+    @pytest.mark.spec("insert-needs-token")
     @pytest.mark.parametrize(
         "flags",
         [
@@ -77,6 +81,7 @@ class DescribeEvidenceToken:
         assert "run evidence again" in envelope["errors"][0]
         assert prose_repo.read() == target
 
+    @pytest.mark.spec("insert-needs-token")
     def it_refuses_after_the_rules_change(self, prose_repo, target):
         prose_repo.commit()
         token = evidence_token(prose_repo)
@@ -87,6 +92,7 @@ class DescribeEvidenceToken:
         assert "run evidence again" in envelope["errors"][0]
         assert prose_repo.read() == target
 
+    @pytest.mark.spec("evidence-token")
     def it_prints_no_token_when_the_markup_does_not_parse(self, prose_repo):
         prose_repo.commit()
         (prose_repo.root / "other.md").write_text("An <ins>open tag.\n")

@@ -84,14 +84,17 @@ class DescribeClassifySignal:
 
     VALUES = (None, "numeric-only", "whitespace-only", "link-only")
 
+    @pytest.mark.spec("hunk-signal")
     @given(st.text(max_size=20), st.text(max_size=20))
     def it_always_answers_with_one_of_four_values(self, before, after):
         assert prose.classify_signal(before, after) in self.VALUES
 
+    @pytest.mark.spec("hunk-signal")
     @given(st.text(max_size=20))
     def it_calls_a_line_against_itself_whitespace_only(self, line):
         assert prose.classify_signal(line, line) == "whitespace-only"
 
+    @pytest.mark.spec("hunk-signal")
     @given(st.text(max_size=20), st.text(max_size=20))
     def it_answers_the_same_whichever_side_is_which(self, before, after):
         """evidence computes old-to-new; a caller comparing the other way round
