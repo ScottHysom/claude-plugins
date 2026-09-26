@@ -14,6 +14,7 @@ PROTECTED = ["frontmatter", "blockquote", "fence", "comment"]
 
 
 class DescribeBlocks:
+    @pytest.mark.spec("segments-prose-only")
     def it_classifies_each_line_as_the_map_says(self, target, target_lines):
         """conftest's TARGET_LINES is load-bearing - other tests address spans in
         that document by kind. Editing the document without editing the map would
@@ -26,11 +27,13 @@ class DescribeBlocks:
         assert got == {kind: kind for kind in named}
         assert blocks.kind(last) == "paragraph"
 
+    @pytest.mark.spec("segments-prose-only")
     @pytest.mark.parametrize("kind", PROTECTED)
     def it_protects_a_line_of_a_protected_kind(self, target, target_lines, kind):
         blocks = prose.Blocks(prose.Text(target))
         assert blocks.is_protected(target_lines[kind]) is True
 
+    @pytest.mark.spec("segments-prose-only")
     @pytest.mark.parametrize("kind", ["heading", "paragraph", "table"])
     def it_leaves_a_line_of_prose_unprotected(self, target, target_lines, kind):
         blocks = prose.Blocks(prose.Text(target))
@@ -50,25 +53,32 @@ class DescribeListItems:
     belongs to one, and segments reports it as a list-continuation.
     """
 
+    @pytest.mark.spec("list-items-mapped")
     def it_gives_an_indented_continuation_line_to_its_item(self):
         assert items("- First\n  continues.\n- Second.\n") == [1, 1, 3]
 
+    @pytest.mark.spec("list-items-mapped")
     def it_gives_a_lazy_continuation_line_to_its_item(self):
         assert items("- First\ncontinues lazily.\n") == [1, 1]
 
+    @pytest.mark.spec("list-items-mapped")
     def it_gives_an_indented_paragraph_after_a_blank_line_to_its_item(self):
         assert items("- First.\n\n  A second paragraph.\n") == [1, None, 1]
 
+    @pytest.mark.spec("list-items-mapped")
     def it_ends_the_list_at_an_unindented_paragraph_after_a_blank_line(self):
         assert items("- First.\n\nNot in the list.\n") == [1, None, None]
 
+    @pytest.mark.spec("list-items-mapped")
     def it_ends_the_list_at_a_heading(self):
         assert items("- First.\n# Heading\nProse.\n") == [1, None, None]
 
+    @pytest.mark.spec("list-items-mapped")
     def it_gives_a_line_to_the_innermost_item_its_indent_reaches(self):
         src = "- Outer\n  - Inner\n    inner text.\n\n  outer text.\n"
         assert items(src) == [1, 2, 2, None, 1]
 
+    @pytest.mark.spec("list-items-mapped")
     def it_records_the_column_the_item_text_starts_at(self):
         blocks = prose.Blocks(prose.Text("10. Item\n    more.\n"))
         assert blocks.item(2) == (1, 4)

@@ -29,6 +29,7 @@ def errors_of(envelope):
 class DescribeApply:
     """The path everything else in this file is a refusal of."""
 
+    @pytest.mark.spec("apply-writes-approved")
     def it_writes_a_clean_finding(self, prose_repo, target_lines):
         code, envelope = prose_repo.apply(
             [
@@ -44,6 +45,43 @@ class DescribeApply:
         assert code == prose.OK
         assert envelope["errors"] == []
         assert "The closing paragraph." in prose_repo.read()
+
+    @pytest.mark.spec("apply-writes-approved", "repo:plain-output-streams")
+    def it_prints_the_edits_per_file_and_per_rule(self, prose_repo, target_lines, capsys):
+        finding = prose_repo.finding(
+            target_lines["last-paragraph"],
+            text="Final paragraph.",
+            replacement="The closing paragraph.",
+        )
+        path = prose_repo.findings_file([finding])
+        token = prose_repo.token(path)
+        capsys.readouterr()
+        code = prose.main(
+            ["apply", "--findings", path, "--token", token, "-C", str(prose_repo.root)]
+        )
+        out, err = capsys.readouterr()
+        assert code == prose.OK
+        assert err == ""
+        assert out == "target.md  1 edit(s)\n  %-16s 1\n\n1 edit(s) written\n" % finding["rule"]
+
+    @pytest.mark.spec("unreadable-findings-stop")
+    @pytest.mark.parametrize("command", ["report", "apply"])
+    @pytest.mark.parametrize(
+        ("content", "message"),
+        [
+            pytest.param(None, "cannot read findings", id="missing"),
+            pytest.param("[{", "findings is not valid JSON", id="not-json"),
+        ],
+    )
+    def it_stops_on_a_findings_file_it_cannot_read(self, prose_repo, command, content, message):
+        path = prose_repo.root / "findings.json"
+        if content is not None:
+            path.write_text(content)
+        flags = ["--token", "0" * prose.TOKEN_LENGTH] if command == "apply" else []
+        code, envelope = prose_repo.run(command, "--findings", str(path), *flags)
+        assert code == prose.CANNOT_RUN
+        assert envelope is None
+        assert message in prose_repo.err
 
     def it_reads_the_findings_from_stdin_given_a_dash(self, prose_repo, target_lines, monkeypatch):
         finding = prose_repo.finding(
@@ -64,6 +102,7 @@ class DescribeApply:
 class DescribeGuards:
     """One malformed finding, one named rejection, and nothing on disk."""
 
+    @pytest.mark.spec("refuse-non-prose")
     @pytest.mark.parametrize("kind", ["frontmatter", "blockquote", "fence", "comment"])
     def it_refuses_a_protected_line(self, prose_repo, target_lines, kind):
         before = prose_repo.read()
@@ -78,6 +117,7 @@ class DescribeGuards:
         ]
         assert prose_repo.read() == before
 
+    @pytest.mark.spec("stale-finding-refused")
     @pytest.mark.parametrize(
         "line",
         [
@@ -93,6 +133,7 @@ class DescribeGuards:
         assert errors_of(envelope) == ["target.md:%d  line is outside the file" % line]
         assert prose_repo.read() == before
 
+    @pytest.mark.spec("stale-finding-refused")
     def it_refuses_a_missing_file(self, prose_repo):
         code, envelope = prose_repo.apply(
             [
@@ -102,6 +143,7 @@ class DescribeGuards:
         assert code == prose.PROBLEMS
         assert errors_of(envelope) == ["nowhere.md  no such file"]
 
+    @pytest.mark.spec("finding-rule-defined")
     def it_refuses_a_rule_the_config_does_not_define(self, prose_repo, target_lines):
         code, envelope = prose_repo.apply(
             [
@@ -113,6 +155,7 @@ class DescribeGuards:
             "finding 1 names rule 'made-up-rule', which is not in .claude/rules/prose-style.md"
         ]
 
+    @pytest.mark.spec("stale-finding-refused")
     def it_refuses_text_that_moved_since_the_report(self, prose_repo, target_lines):
         """The report and the rewrite are two runs. If the document changed
         between them the offsets still resolve, they just resolve onto the
@@ -133,6 +176,7 @@ class DescribeGuards:
         assert "the text moved" in errors_of(envelope)[0]
         assert prose_repo.read() == before
 
+    @pytest.mark.spec("structure-kept")
     @pytest.mark.parametrize(
         "replacement",
         [
@@ -179,6 +223,7 @@ class DescribeGuards:
         assert "are outside the line" in errors_of(envelope)[0]
         assert prose_repo.read() == before
 
+    @pytest.mark.spec("structure-kept")
     def it_refuses_a_multi_line_replacement_outside_a_paragraph(self, prose_repo, target_lines):
         code, envelope = prose_repo.apply(
             [
@@ -192,6 +237,7 @@ class DescribeGuards:
             "target.md:%d  a heading replacement cannot span lines" % target_lines["heading"]
         ]
 
+    @pytest.mark.spec("refuse-non-prose")
     @pytest.mark.parametrize(
         "cols",
         [
@@ -214,6 +260,7 @@ class DescribeGuards:
         ]
         assert prose_repo.read("notes.md") == before
 
+    @pytest.mark.spec("refuse-non-prose")
     @pytest.mark.parametrize(
         ("cols", "after"),
         [
@@ -236,6 +283,7 @@ class DescribeGuards:
         assert code == prose.OK
         assert prose_repo.read("notes.md") == after
 
+    @pytest.mark.spec("overlaps-named")
     def it_refuses_two_edits_on_the_same_span_and_names_both(self, prose_repo, target_lines):
         """EditEngine applies a batch from one snapshot. Overlapping spans have
         no defined result, so the batch is turned down rather than resolved by
@@ -273,6 +321,7 @@ class DescribeWholeLineCuts:
     def write(self, prose_repo, content):
         (prose_repo.root / "doc.md").write_text(content)
 
+    @pytest.mark.spec("cut-leaves-one-blank")
     def it_removes_a_cut_passage_and_keeps_one_blank_line(self, prose_repo):
         self.write(prose_repo, "Keep this.\n\nCut this line.\nAnd this one.\n\nKeep this too.\n")
         code, _ = prose_repo.apply(
@@ -281,12 +330,14 @@ class DescribeWholeLineCuts:
         assert code == prose.OK
         assert prose_repo.read("doc.md") == "Keep this.\n\nKeep this too.\n"
 
+    @pytest.mark.spec("cut-leaves-one-blank")
     def it_joins_the_lines_around_one_cut_from_a_paragraph(self, prose_repo):
         self.write(prose_repo, "One.\nTwo.\nThree.\n")
         code, _ = prose_repo.apply([cut(prose_repo, 2, "Two.")])
         assert code == prose.OK
         assert prose_repo.read("doc.md") == "One.\nThree.\n"
 
+    @pytest.mark.spec("cut-leaves-one-blank")
     def it_removes_a_line_that_two_findings_empty_between_them(self, prose_repo):
         self.write(prose_repo, "One.\nFirst half, second half.\nThree.\n")
         code, _ = prose_repo.apply(
@@ -298,12 +349,14 @@ class DescribeWholeLineCuts:
         assert code == prose.OK
         assert prose_repo.read("doc.md") == "One.\nThree.\n"
 
+    @pytest.mark.spec("cut-leaves-one-blank")
     def it_leaves_the_rest_of_a_partly_cut_line_alone(self, prose_repo):
         self.write(prose_repo, "One.\nKeep, cut.\nThree.\n")
         code, _ = prose_repo.apply([cut(prose_repo, 2, " cut.", col_start=5, col_end=10)])
         assert code == prose.OK
         assert prose_repo.read("doc.md") == "One.\nKeep,\nThree.\n"
 
+    @pytest.mark.spec("cut-leaves-one-blank")
     def it_keeps_a_line_that_also_takes_a_replacement(self, prose_repo):
         self.write(prose_repo, "One.\nOld words.\nThree.\n")
         code, _ = prose_repo.apply(
@@ -315,6 +368,7 @@ class DescribeWholeLineCuts:
         assert code == prose.OK
         assert prose_repo.read("doc.md") == "One.\nNew\nThree.\n"
 
+    @pytest.mark.spec("cut-leaves-one-blank")
     @pytest.mark.parametrize(
         ("content", "line", "text", "after"),
         [
@@ -332,6 +386,7 @@ class DescribeWholeLineCuts:
         assert code == prose.OK
         assert prose_repo.read("doc.md") == after
 
+    @pytest.mark.spec("cut-leaves-one-blank")
     def it_still_rewrites_a_later_line_after_a_cut(self, prose_repo):
         """Every edit is planned against one snapshot, so removing lines does
         not shift the address of a finding below them.
@@ -359,6 +414,7 @@ class DescribeAnchoredFindings:
     def write(self, prose_repo, content):
         (prose_repo.root / "doc.md").write_text(content)
 
+    @pytest.mark.spec("finding-by-text")
     def it_finds_the_text_on_its_line(self, prose_repo):
         self.write(prose_repo, "- First item starts here and\n  continues on this line.\n")
         code, envelope = prose_repo.apply(
@@ -367,6 +423,7 @@ class DescribeAnchoredFindings:
         assert code == prose.OK, envelope["errors"]
         assert prose_repo.read("doc.md") == "- First item starts here and\n  goes on here.\n"
 
+    @pytest.mark.spec("finding-by-text")
     def it_refuses_text_that_does_not_start_on_its_line(self, prose_repo):
         self.write(prose_repo, "One line.\nAnother line.\n")
         before = prose_repo.read("doc.md")
@@ -377,6 +434,7 @@ class DescribeAnchoredFindings:
         ]
         assert prose_repo.read("doc.md") == before
 
+    @pytest.mark.spec("finding-by-text")
     def it_refuses_text_that_starts_more_than_once_on_its_line(self, prose_repo):
         self.write(prose_repo, "the cat and the dog\n")
         before = prose_repo.read("doc.md")
@@ -388,12 +446,14 @@ class DescribeAnchoredFindings:
         ]
         assert prose_repo.read("doc.md") == before
 
+    @pytest.mark.spec("finding-by-text")
     def it_takes_col_start_to_say_which_match(self, prose_repo):
         self.write(prose_repo, "the cat and the dog\n")
         code, _ = prose_repo.apply([anchored(prose_repo, 1, "the", "a", col_start=12)])
         assert code == prose.OK
         assert prose_repo.read("doc.md") == "the cat and a dog\n"
 
+    @pytest.mark.spec("finding-by-text")
     def it_refuses_a_col_start_past_the_end_of_the_line(self, prose_repo):
         """Text.offset adds the column blind, so col_start=40 on a short line
         would look for the text on a later line instead.
@@ -411,6 +471,7 @@ class DescribeAnchoredFindings:
             "doc.md:1  finding 1: an empty text needs col_start to say where it goes"
         ]
 
+    @pytest.mark.spec("stale-finding-refused")
     def it_names_each_finding_by_its_place_in_the_batch(self, prose_repo):
         self.write(prose_repo, "One line.\nAnother line.\n")
         code, envelope = prose_repo.apply(
@@ -432,6 +493,7 @@ class DescribeSpansAcrossLines:
     def write(self, prose_repo, content):
         (prose_repo.root / "doc.md").write_text(content)
 
+    @pytest.mark.spec("wrapped-finding")
     def it_rewrites_a_wrapped_sentence_as_one_finding(self, prose_repo):
         self.write(prose_repo, self.WRAPPED)
         code, envelope = prose_repo.apply(
@@ -447,6 +509,7 @@ class DescribeSpansAcrossLines:
         assert code == prose.OK, envelope["errors"]
         assert prose_repo.read("doc.md") == "- One item.\n"
 
+    @pytest.mark.spec("wrapped-finding")
     def it_keeps_a_newline_in_the_rewrite_of_a_span_that_crossed_one(self, prose_repo):
         """A list item may not take a newline it did not have. A span that
         already crossed a line in one may put one back.
@@ -465,6 +528,7 @@ class DescribeSpansAcrossLines:
         assert code == prose.OK, envelope["errors"]
         assert prose_repo.read("doc.md") == "- First item starts here\n  and goes on.\n"
 
+    @pytest.mark.spec("refuse-non-prose")
     def it_refuses_a_span_that_crosses_a_blank_line(self, prose_repo):
         self.write(prose_repo, "One.\n\nTwo.\n")
         before = prose_repo.read("doc.md")
@@ -476,6 +540,7 @@ class DescribeSpansAcrossLines:
         ]
         assert prose_repo.read("doc.md") == before
 
+    @pytest.mark.spec("refuse-non-prose")
     def it_refuses_a_span_that_reaches_a_protected_line(self, prose_repo):
         self.write(prose_repo, "Some prose.\n> A quotation.\n")
         before = prose_repo.read("doc.md")
@@ -484,6 +549,7 @@ class DescribeSpansAcrossLines:
         assert errors_of(envelope) == ["doc.md:2  is a blockquote; prose rules do not apply there"]
         assert prose_repo.read("doc.md") == before
 
+    @pytest.mark.spec("cut-leaves-one-blank")
     def it_removes_the_lines_a_span_cuts_whole(self, prose_repo):
         self.write(prose_repo, "Keep this.\n\nCut this line.\nAnd this one.\n\nKeep this too.\n")
         code, envelope = prose_repo.apply(
@@ -492,6 +558,7 @@ class DescribeSpansAcrossLines:
         assert code == prose.OK, envelope["errors"]
         assert prose_repo.read("doc.md") == "Keep this.\n\nKeep this too.\n"
 
+    @pytest.mark.spec("wrapped-finding")
     def it_joins_what_is_left_when_a_span_cuts_part_of_a_line(self, prose_repo):
         """The first line is covered whole, but the span goes on into the
         second, so the span's own edit removes the newline between them.
@@ -514,6 +581,7 @@ class DescribeNewLinesInListItems:
     def write(self, prose_repo, content):
         (prose_repo.root / "doc.md").write_text(content)
 
+    @pytest.mark.spec("list-item-indent")
     @pytest.mark.parametrize("added", ["A new sentence.", "- A dash.", "# A hash.", "2. A number."])
     def it_indents_a_new_line_on_a_continuation_line(self, prose_repo, added):
         self.write(prose_repo, self.WRAPPED)
@@ -525,6 +593,7 @@ class DescribeNewLinesInListItems:
             "- First item starts here and\n  continues here.\n  %s\n- Second item.\n" % added
         )
 
+    @pytest.mark.spec("list-item-indent")
     def it_indents_a_new_line_in_a_span_that_starts_on_the_item(self, prose_repo):
         self.write(prose_repo, self.WRAPPED)
         code, envelope = prose_repo.apply(
@@ -542,6 +611,7 @@ class DescribeNewLinesInListItems:
             "- First item starts here.\n  It goes on.\n- Second item.\n"
         )
 
+    @pytest.mark.spec("list-item-indent")
     def it_leaves_a_new_line_indented_past_the_item_text_as_written(self, prose_repo):
         self.write(prose_repo, self.WRAPPED)
         code, envelope = prose_repo.apply(
@@ -552,6 +622,7 @@ class DescribeNewLinesInListItems:
             "- First item starts here and\n  continues:\n    - deeper.\n- Second item.\n"
         )
 
+    @pytest.mark.spec("list-item-indent")
     def it_leaves_a_new_line_in_a_paragraph_after_the_list_unindented(self, prose_repo):
         self.write(prose_repo, "- An item.\n\nA paragraph.\n")
         code, envelope = prose_repo.apply([anchored(prose_repo, 3, "A paragraph.", "One.\nTwo.")])
@@ -560,6 +631,7 @@ class DescribeNewLinesInListItems:
 
 
 class DescribeHelp:
+    @pytest.mark.spec("findings-help")
     def it_describes_every_field_of_a_finding(self, capsys):
         with pytest.raises(SystemExit) as exit:
             prose.main(["apply", "--help"])
@@ -590,6 +662,7 @@ class DescribePartial:
             prose_repo.finding(target_lines["fence"]),
         ]
 
+    @pytest.mark.spec("repo:partial-applies-rest")
     def it_writes_nothing_when_one_finding_is_bad(self, prose_repo, target_lines):
         before = prose_repo.read()
         code, envelope = prose_repo.apply(self.records(prose_repo, target_lines))
@@ -598,12 +671,14 @@ class DescribePartial:
         assert envelope["errors"][-1] == "nothing was written; pass --partial to apply the rest"
         assert prose_repo.read() == before
 
+    @pytest.mark.spec("repo:partial-applies-rest")
     def it_writes_the_good_finding_with_partial(self, prose_repo, target_lines):
         code, envelope = prose_repo.apply(self.records(prose_repo, target_lines), "--partial")
         assert code == prose.PROBLEMS
         assert [a["line"] for a in envelope["data"]["applied"]] == [target_lines["last-paragraph"]]
         assert "The closing paragraph." in prose_repo.read()
 
+    @pytest.mark.spec("refuse-non-prose", "repo:partial-applies-rest")
     def it_still_leaves_the_protected_line_alone_with_partial(self, prose_repo, target_lines):
         prose_repo.apply(self.records(prose_repo, target_lines), "--partial")
         line = prose_repo.read().splitlines()[target_lines["fence"] - 1]
@@ -611,6 +686,7 @@ class DescribePartial:
 
 
 class DescribeDryRun:
+    @pytest.mark.spec("repo:dry-run-writes-nothing")
     def it_reports_without_writing(self, prose_repo, target_lines):
         before = prose_repo.read()
         code, envelope = prose_repo.apply(
@@ -687,16 +763,19 @@ class DescribeFilters:
                 pairs.add((rel, OTHER_RULE))
         return pairs
 
+    @pytest.mark.spec("apply-filters")
     def it_writes_every_finding_given_no_filter(self, prose_repo, four):
         code, _ = prose_repo.apply(four)
         assert code == prose.OK
         assert len(self.written(prose_repo)) == 4
 
+    @pytest.mark.spec("apply-filters")
     def it_writes_only_the_named_rules(self, prose_repo, four):
         code, _ = prose_repo.apply(four, "--only", OTHER_RULE)
         assert code == prose.OK
         assert self.written(prose_repo) == {("target.md", OTHER_RULE), ("other.md", OTHER_RULE)}
 
+    @pytest.mark.spec("apply-filters")
     def it_writes_only_the_named_files(self, prose_repo, four):
         before = prose_repo.read("other.md")
         code, _ = prose_repo.apply(four, "--file", "target.md")
@@ -707,22 +786,26 @@ class DescribeFilters:
         }
         assert prose_repo.read("other.md") == before
 
+    @pytest.mark.spec("apply-filters")
     def it_writes_every_file_named_by_a_repeated_flag(self, prose_repo, four):
         code, _ = prose_repo.apply(four, "--file", "target.md", "--file", "other.md")
         assert code == prose.OK
         assert len(self.written(prose_repo)) == 4
 
+    @pytest.mark.spec("apply-filters")
     def it_writes_only_findings_that_pass_both_filters(self, prose_repo, four):
         code, envelope = prose_repo.apply(four, "--only", OTHER_RULE, "--file", "other.md")
         assert code == prose.OK
         assert self.written(prose_repo) == {("other.md", OTHER_RULE)}
         assert len(envelope["data"]["applied"]) == 1
 
+    @pytest.mark.spec("apply-filters")
     def it_matches_a_file_given_with_a_leading_dot_slash(self, prose_repo, four):
         code, _ = prose_repo.apply(four, "--file", "./other.md")
         assert code == prose.OK
         assert {rel for rel, _ in self.written(prose_repo)} == {"other.md"}
 
+    @pytest.mark.spec("filter-matches-nothing")
     @pytest.mark.parametrize(
         ("flags", "error"),
         [
@@ -743,6 +826,7 @@ class DescribeFilters:
         assert errors_of(envelope) == [error]
         assert self.written(prose_repo) == set()
 
+    @pytest.mark.spec("filter-matches-nothing")
     def it_refuses_filters_whose_combination_matches_no_finding(self, prose_repo, four):
         """Each value matches some finding, so neither is a typo, but no
         finding passes both. That is still a run that would write nothing.

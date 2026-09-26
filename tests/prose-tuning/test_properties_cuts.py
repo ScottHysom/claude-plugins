@@ -85,6 +85,7 @@ def plan(source, findings):
 
 
 class DescribeWholeLineCuts:
+    @pytest.mark.spec("cut-leaves-one-blank")
     @given(batch=batches())
     def it_leaves_no_two_blank_lines_together(self, batch):
         source, findings, _ = batch
@@ -92,6 +93,7 @@ class DescribeWholeLineCuts:
         assert rejected == []
         assert "\n\n\n" not in new
 
+    @pytest.mark.spec("cut-leaves-one-blank")
     @given(batch=batches())
     def it_leaves_no_blank_line_at_either_end(self, batch):
         source, findings, _ = batch
@@ -99,6 +101,7 @@ class DescribeWholeLineCuts:
         assert not new.startswith("\n")
         assert not new.endswith("\n\n")
 
+    @pytest.mark.spec("cut-leaves-one-blank")
     @given(batch=batches())
     def it_keeps_every_line_nobody_cut_in_order(self, batch):
         source, findings, removed = batch
