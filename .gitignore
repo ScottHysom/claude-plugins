@@ -24,5 +24,10 @@ __pycache__/
 .pytest_cache/
 .hypothesis/
 .ruff_cache/
+# What `pytest --cov` writes. README.md, under "Running the tests".
+.coverage
+.coverage.*
+coverage.json
+htmlcov/
 .venv/
 venv/

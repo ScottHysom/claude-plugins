@@ -229,6 +229,10 @@ requirement is admitted.
   numbers, and which stream the output went to.
 - A change a script makes and can undo gets a property test that the round
   trip returns the original bytes.
+- Every line a change adds to a plugin script runs under some test, or carries
+  `# pragma: no cover - <reason>`. A script's coverage floor only rises: when
+  `check-coverage.py floors` warns that a script passed its floor, raise the
+  floor in the same pull request. README.md, under "Coverage", has the rest.
 - A new test is not finished until it has failed. Break the code it guards and
   confirm the test notices; the Properties section of the README says how, and
   why a green first run proves little.
