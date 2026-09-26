@@ -14,3 +14,9 @@ source = plugins
 # for a person at a shell never runs under the suite.
 exclude_also =
     if __name__ == .__main__.:
+
+[json]
+# Each line's tests, when the suite runs with --cov-context=test, which is what
+# .github/scripts/check-specs.py inventory reads. A run without it records no
+# tests, and the report is otherwise the same.
+show_contexts = True

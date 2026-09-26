@@ -228,6 +228,39 @@ CI checks the floors and the added lines on the 3.13 leg only, because Python
 versions differ in how they count branches. A local run on 3.9 can land a
 little either side of a floor.
 
+### Requirements
+
+Each test cites the requirements in `specs/` it verifies, and
+`.github/scripts/check-specs.py trace` checks the citations on every pull
+request. SPEC-METHODOLOGY.md, under "Citing requirements", explains the idea.
+What cites a requirement depends on its kind:
+
+| Kind | Cited by |
+|---|---|
+| `test` | `@pytest.mark.spec("<id>")` on the test or its `Describe` class |
+| `step` | `<!-- spec: <id>, <id> -->` on its own line under a SKILL.md step's heading |
+| `check` | `# spec: <id>` in the comment lines directly above a step's `- name:` in `.github/workflows/` |
+
+A plugin's tests and skill steps cite ids in that plugin's spec. The repo's
+own tests and the workflows cite ids in `specs/repo.md`. Either can name a repo
+requirement as `repo:<id>`.
+
+`trace` fails a test or a step that cites nothing, a citation of an id its
+spec lacks, and a requirement that nothing of its kind cites. The tests and
+steps from before the check are listed in `.github/untraced.json`, each with
+the backfill issue that will trace it, and pass with a warning. When one gains
+a citation, its entry goes in the same pull request, and `trace` fails until
+it does.
+
+`inventory` lists what a plugin's backfill has to trace. It reads a coverage
+report that records which test ran each line:
+
+```sh
+pytest --cov --cov-context=test --cov-report=json:coverage.json
+python3 .github/scripts/check-specs.py inventory prose-tuning
+python3 .github/scripts/check-specs.py trace
+```
+
 ### Properties
 
 `test_properties_*.py` state what is true for every input rather than for a

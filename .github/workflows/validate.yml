@@ -174,6 +174,7 @@ jobs:
       # and nothing in the manifest can hold a file back - so a test file left
       # beside a script ships to every user, and no diff says so. This is what
       # keeps the next suite from landing there.
+      # spec: tests-outside-plugins
       - name: Check tests stay out of plugins/
         run: python3 .github/scripts/check-tests.py placement
 
@@ -220,3 +221,13 @@ jobs:
       # as quoted markup. Like the others, it fails when it has found nothing.
       - name: Check skills' shell fences run only their scripts
         run: python3 .github/scripts/check-skills.py fences
+
+      # A test can verify a behavior no requirement in specs/ asks for, and a
+      # requirement can lose its last test, and every check above still
+      # passes. This fails a test or skill step that cites no requirement, a
+      # citation of an id its spec lacks, and a requirement nothing verifies
+      # the way its kind says. The tests and steps from before the check wait
+      # in .github/untraced.json, each warning with its backfill issue.
+      # spec: trace-in-ci
+      - name: Check tests and skill steps cite a requirement
+        run: python3 .github/scripts/check-specs.py trace

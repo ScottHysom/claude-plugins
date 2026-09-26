@@ -95,6 +95,52 @@ two files that each validate cannot drift apart.
 
 Source: README.md, under "Adding a plugin", step 4.
 
+## need traced-behavior: Tie each behavior to the need behind it
+
+When a contributor adds a behavior, the owner wants CI to tie each test and
+skill step to a requirement in `specs/`, so no behavior arrives that no need
+asked for, and no requirement loses the last thing that verifies it.
+
+Source: #114, #129, and SPEC-METHODOLOGY.md, under "The chain".
+
+- `trace-uncited` (test): When a test or a skill step cites no requirement,
+  and `.github/untraced.json` does not list it, `check-specs.py trace` fails
+  it.
+- `trace-unknown-id` (test): When a test, a skill step or a workflow step
+  cites an id its component's spec does not hold, `trace` fails the citation.
+- `trace-unverified` (test): When nothing of a requirement's kind cites it, a
+  test for `test`, a skill step for `step` and a workflow step for `check`,
+  `trace` fails the requirement.
+- `trace-listed-warns` (test): When `.github/untraced.json` lists a test or a
+  step that cites nothing, `trace` passes it with a warning naming the issue
+  that will trace it.
+- `trace-list-shrinks` (test): When a listed test or step cites a requirement,
+  or no longer exists, `trace` fails until its entry is removed.
+- `trace-spec-grammar` (test): When a spec file has a requirement outside a
+  need or a constraint, a malformed requirement, a duplicate id or a kind
+  nothing in the repo verifies, `trace` fails it.
+- `trace-scans-something` (test): When `trace` finds no spec, no test or no
+  skill step, it fails.
+- `trace-in-ci` (check): When a pull request is opened or updated, CI runs
+  `trace`.
+- `inventory-surface` (test): When `check-specs.py inventory` lists a plugin,
+  it gives every subcommand, option and `choices` value its script's
+  `build_parser()` accepts, each with the skill text that names it.
+- `inventory-collections` (test): When `inventory` lists a plugin, it gives
+  every module-level set, tuple or list of strings in its script.
+- `inventory-tests` (test): When `inventory` lists a plugin, it gives every
+  test in `tests/<plugin>/`, with the script lines each one runs.
+- `inventory-steps` (test): When `inventory` lists a plugin, it gives every
+  step of its skills, with the commands each one runs.
+- `inventory-unrun` (test): When `inventory` lists a plugin, it gives every
+  line of its script that no test runs.
+- `inventory-per-test-report` (test): When the coverage report does not say
+  which test ran each line, `inventory` stops and names the command that
+  writes one that does.
+- `repeats-skips-markers` (test): When two of a plugin's skills carry the same
+  comment line, such as one spec marker, `check-skills.py repeats` does not
+  report it as a copied block.
+
 ## constraint marketplace-from-repo: The marketplace is this repository as it stands
 
 Claude reads the marketplace straight from this repository's GitHub address.
