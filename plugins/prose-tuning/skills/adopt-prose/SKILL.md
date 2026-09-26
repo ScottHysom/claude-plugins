@@ -47,6 +47,7 @@ python3 "$PROSE" config list --file <target> --json
 malformed file, and the errors then look like they came from the merge.
 
 ## Step 2: classify
+<!-- spec: classify-new, classify-identical, classify-colliding, classify-similar, reread-new-rules -->
 
 ```sh
 python3 "$PROSE" config classify --file <source> --to <target> --json
@@ -77,6 +78,7 @@ common. This is judgment, and it is the part of this step the script cannot do.
 The identical and colliding buckets are exact, so leave them as they came.
 
 ## Step 3: adopt the new rules
+<!-- spec: adopt-passes-new, adopt-byte-for-byte, adopt-placement -->
 
 ```sh
 python3 "$PROSE" config adopt --file <source> --to <target> --rule <id> --rule <id> --json
@@ -99,6 +101,7 @@ because the target already has it is a colliding rule: take it to step 4 and
 run the command again without it.
 
 ## Step 4: questions, one batch
+<!-- spec: conflicts-one-round, resolved-keeps-target-id -->
 
 <!-- no-command: judgment. The author resolves each colliding and similar pair. -->
 
@@ -126,6 +129,7 @@ python3 "$PROSE" config lint --file <target>
 The lint must pass.
 
 ## Step 6: when the target is the shipped rules
+<!-- spec: promote-obligations -->
 
 Promoting into them carries three extra obligations, because the shipped rules are part of the plugin:
 

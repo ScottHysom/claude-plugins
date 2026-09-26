@@ -109,7 +109,56 @@ same thing under two ids shown side by side in one round, so they settle each
 conflict once.
 
 Source: README.md, under "Sharing rules between projects", and the adopt-prose
-description.
+description. The 0.6 score at which two rules count as similar is the owner's,
+in the ruling on #131.
+
+- `classify-new` (test): When the target has no rule with a source rule's id,
+  and no target rule scores 0.6 or more against it, `config classify` puts it
+  in `new`.
+- `classify-identical` (test): When a target rule has a source rule's id, and
+  their bodies match once HTML comments are dropped and whitespace is
+  collapsed, `config classify` puts the source rule in `identical`.
+- `classify-colliding` (test): When a target rule has a source rule's id and
+  the bodies differ, `config classify` puts the source rule in `colliding`.
+- `classify-similar` (test): When the target has no rule with a source rule's
+  id, and a target rule scores 0.6 or more against it, `config classify` puts
+  it in `similar` and lists each such target rule as a candidate.
+- `similarity-score` (test): When `config classify` scores two rules, the
+  score is the higher of how alike their bodies are and how many words their
+  names share.
+- `classify-id-first` (test): When a target rule has a source rule's id,
+  `config classify` settles it as identical or colliding and lists no
+  candidates.
+- `missing-file-stops` (test): When the file given to `--to` does not exist,
+  `config classify` and `config adopt` name it and exit 2.
+- `reread-new-rules` (step): When `config classify` puts a rule in `new`,
+  adopt-prose reads it against the target and treats it as similar if it
+  states a target rule's point in other words.
+- `adopt-passes-new` (step): When rules remain in `new`, adopt-prose passes
+  each to `config adopt` as its own `--rule`.
+- `adopt-byte-for-byte` (test): When `config adopt` copies a rule, the target
+  gets the rule's lines as the source has them, with only its metadata
+  comment replaced.
+- `adopt-placement` (test): When `config adopt` copies a rule, it puts it
+  after the target's last rule from the same section, or failing that under
+  the target's `##` heading matching the source's, or failing that at the end
+  under a new copy of that heading.
+- `adopt-source-order` (test): When `config adopt` puts several rules in one
+  place, they keep the source's order.
+- `adopt-lints-clean` (test): When `config adopt` writes, the target still
+  lints clean.
+- `adopt-refuses-collision` (test): When the target already has an id passed
+  to `config adopt`, the command refuses it as a collision.
+- `adopt-refuses-unknown` (test): When the source has no rule with an id
+  passed to `config adopt`, or the id is passed twice, the command refuses
+  it.
+- `adopt-refuses-unlinted` (test): When the source or the target does not
+  lint clean, `config adopt` names the lint command and exits 2.
+- `conflicts-one-round` (step): When the classification leaves colliding or
+  similar rules, adopt-prose puts every pair to the author in one round,
+  with both bodies in full.
+- `resolved-keeps-target-id` (step): When the author settles a pair with a
+  combination or a rewrite, the resulting rule keeps the target's id.
 
 ## need promote-shipped-rule: Ship a rule with the plugin
 
@@ -117,6 +166,13 @@ When the owner finds a rule worth having in every project, they want to add it
 to the rules prose-tuning ships, so every new `prose-style.md` starts with it.
 
 Source: the adopt-prose description.
+
+- `fill-marker-ignored` (test): When two rules differ only by a `FILL`
+  marker, `config classify` treats their bodies as the same.
+- `promote-obligations` (step): When the target is the shipped rules,
+  adopt-prose bumps prose-tuning's version in both manifests, says that
+  projects already started from the shipped rules now differ, and replaces a
+  project's own example with a `FILL` marker.
 
 ## need review-then-commit: Commit each change the user's usual way
 

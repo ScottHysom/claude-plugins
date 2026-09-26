@@ -12,6 +12,7 @@ changes the answer for inputs no example happened to use passes every example
 test; it cannot pass these without the rule here being changed too.
 """
 
+import pytest
 from hypothesis import assume, example, given
 from hypothesis import strategies as st
 
@@ -110,11 +111,13 @@ class DescribeRuleSimilarity:
 
     BODIES = st.lists(st.text(alphabet="abcde ", max_size=20), max_size=4)
 
+    @pytest.mark.spec("similarity-score")
     @given(BODIES)
     def it_scores_a_rule_identical_to_itself(self, body):
         same = prose.rule_similarity(self.rule("thing", body), self.rule("thing", body))
         assert same == (1.0, 1.0, 1.0)
 
+    @pytest.mark.spec("similarity-score")
     @given(BODIES, BODIES)
     def it_returns_every_score_as_a_proportion(self, one, two):
         body, name, score = prose.rule_similarity(self.rule("a", one), self.rule("b", two))
@@ -122,6 +125,7 @@ class DescribeRuleSimilarity:
         assert 0.0 <= name <= 1.0
         assert score == max(body, name)
 
+    @pytest.mark.spec("similarity-score")
     def it_scores_a_body_asymmetrically(self):
         """Pinned, not endorsed, and deliberately not written as @given.
 
@@ -145,6 +149,7 @@ class DescribeBodyKey:
 
     WORDS = st.lists(st.text(alphabet="abc", min_size=1, max_size=4), min_size=1, max_size=8)
 
+    @pytest.mark.spec("classify-identical")
     @given(WORDS, st.integers(1, 4))
     def it_keeps_the_key_when_a_body_is_rewrapped(self, words, width):
         flat = DescribeRuleSimilarity.rule("thing", [" ".join(words)])
@@ -153,6 +158,7 @@ class DescribeBodyKey:
         )
         assert flat.body_key() == wrapped.body_key()
 
+    @pytest.mark.spec("classify-identical", "fill-marker-ignored")
     @given(WORDS, st.text(alphabet="abc ", max_size=10))
     def it_keeps_the_key_when_a_comment_is_added(self, words, note):
         plain = DescribeRuleSimilarity.rule("thing", [" ".join(words)])
