@@ -55,13 +55,16 @@ NOT_LINKED = [
 
 class DescribeLinkedIssues:
     @pytest.mark.parametrize(("text", "numbers"), LINKED)
+    @pytest.mark.spec("linked-keywords")
     def it_links_an_issue_named_by_a_closing_keyword(self, text, numbers):
         assert cli.linked_issues(text, REPO) == (numbers, [])
 
     @pytest.mark.parametrize("text", NOT_LINKED)
+    @pytest.mark.spec("linked-keywords")
     def it_links_nothing_without_a_closing_keyword(self, text):
         assert cli.linked_issues(text, REPO) == ([], [])
 
+    @pytest.mark.spec("linked-other-repo")
     def it_keeps_a_link_to_another_repository_apart(self):
         assert cli.linked_issues("Fixes other/repo#3", REPO) == ([], [("other/repo", 3)])
 
@@ -126,10 +129,12 @@ class DescribeTheApprovedLabelRule:
     has labeled it approved.
     """
 
+    @pytest.mark.spec("linked-needs-approved")
     def it_passes_an_approved_issue(self):
         gh = FakeGitHub(issues={12: issue("bug", "approved")})
         assert cli.problems(event(body="Closes #12"), REPO, "tok", gh) == ([12], [])
 
+    @pytest.mark.spec("linked-needs-approved")
     def it_fails_an_unapproved_issue_with_the_way_to_fix_it(self):
         gh = FakeGitHub(issues={12: issue("bug")})
         linked, found = cli.problems(event(body="Closes #12"), REPO, "tok", gh)
@@ -142,24 +147,29 @@ class DescribeTheApprovedLabelRule:
         gh = FakeGitHub(issues={12: issue("Approved")})
         assert cli.problems(event(body="Fixes #12"), REPO, "tok", gh)[1] == []
 
+    @pytest.mark.spec("linked-needs-approved")
     def it_counts_a_link_in_the_title(self):
         gh = FakeGitHub(issues={12: issue()})
         assert cli.problems(event(title="fix: thing (fixes #12)"), REPO, "tok", gh)[1]
 
+    @pytest.mark.spec("linked-needs-approved")
     def it_counts_a_link_in_a_commit_message(self):
         gh = FakeGitHub(issues={12: issue()}, commits=["fix: a\n\nFixes #12"])
         assert cli.problems(event(), REPO, "tok", gh)[1]
 
+    @pytest.mark.spec("linked-needs-approved")
     def it_reads_commit_messages_past_the_first_page(self):
         commits = ["chore: %d" % i for i in range(cli.PER_PAGE)] + ["fix: last\n\nFixes #12"]
         gh = FakeGitHub(issues={12: issue()}, commits=commits)
         assert cli.problems(event(), REPO, "tok", gh)[1]
 
+    @pytest.mark.spec("linked-not-an-issue")
     def it_names_a_missing_issue_and_a_pull_request(self):
         gh = FakeGitHub(issues={13: issue("approved", pr=True)})
         _, found = cli.problems(event(body="Fixes #12, fixes #13"), REPO, "tok", gh)
         assert found == ["#12 does not exist", "#13 is a pull request, not an issue"]
 
+    @pytest.mark.spec("linked-other-repo")
     def it_fails_another_repository_without_fetching_it(self):
         gh = FakeGitHub()
         _, found = cli.problems(event(body="Fixes other/repo#3"), REPO, "tok", gh)
@@ -172,6 +182,7 @@ class DescribeTheClaimBranchRule:
     `issue/N` branch that claiming made, so two agents cannot both work it.
     """
 
+    @pytest.mark.spec("linked-from-claim-branch")
     def it_passes_an_issue_closed_from_its_claim_branch(self):
         gh = FakeGitHub(issues={12: issue("approved")}, branches={"issue/12"})
         assert cli.problems(event(body="Closes #12"), REPO, "tok", gh) == ([12], [])
@@ -185,6 +196,7 @@ class DescribeTheClaimBranchRule:
             ("issue/12", "someone/fork"),
         ],
     )
+    @pytest.mark.spec("linked-from-claim-branch")
     def it_fails_an_issue_closed_from_any_other_branch(self, head, head_repo):
         gh = FakeGitHub(issues={12: issue("approved")})
         _, found = cli.problems(
@@ -194,6 +206,7 @@ class DescribeTheClaimBranchRule:
         assert "closes #12 from branch" in found[0]
         assert "issues.py claim N" in found[0]
 
+    @pytest.mark.spec("linked-others-claim")
     def it_fails_a_second_issue_claimed_by_someone_else(self):
         gh = FakeGitHub(
             issues={12: issue("approved"), 13: issue("approved")}, branches={"issue/13"}
@@ -201,12 +214,14 @@ class DescribeTheClaimBranchRule:
         _, found = cli.problems(event(body="Closes #12, closes #13"), REPO, "tok", gh)
         assert found == ["#13 is claimed on its own branch, issue/13"]
 
+    @pytest.mark.spec("linked-others-claim")
     def it_passes_a_second_unclaimed_issue(self):
         gh = FakeGitHub(
             issues={12: issue("approved"), 13: issue("approved")}, branches={"issue/12"}
         )
         assert cli.problems(event(body="Closes #12, closes #13"), REPO, "tok", gh)[1] == []
 
+    @pytest.mark.spec("linked-none-passes")
     def it_needs_no_claim_branch_when_nothing_is_closed(self):
         gh = FakeGitHub()
         assert cli.problems(event(body="Just a change.", head="feat/thing"), REPO, "tok", gh) == (
@@ -214,6 +229,7 @@ class DescribeTheClaimBranchRule:
             [],
         )
 
+    @pytest.mark.spec("linked-none-passes")
     def it_passes_a_pull_request_with_no_link(self):
         gh = FakeGitHub()
         assert cli.problems(event(body="Just a change."), REPO, "tok", gh) == ([], [])
@@ -227,16 +243,19 @@ class DescribeALookupThatFailed:
     message go unseen.
     """
 
+    @pytest.mark.spec("linked-lookup-fails-closed")
     def it_stops_when_it_cannot_read_the_commits(self):
         gh = FakeGitHub(issues={12: issue()}, missing={"commits"})
         with pytest.raises(cli.Fatal, match="commit messages"):
             cli.problems(event(), REPO, "tok", gh)
 
+    @pytest.mark.spec("linked-lookup-fails-closed")
     def it_stops_when_it_cannot_read_the_claim_branches(self):
         gh = FakeGitHub(issues={12: issue("approved"), 13: issue("approved")}, missing={"branches"})
         with pytest.raises(cli.Fatal, match="claim branches"):
             cli.problems(event(body="Closes #12, closes #13"), REPO, "tok", gh)
 
+    @pytest.mark.spec("linked-needs-approved")
     def it_ends_the_commits_at_a_page_that_comes_back_empty(self):
         """A page of exactly PER_PAGE asks for another, which is empty. That is
         an ordinary end, not a failed lookup.
@@ -245,6 +264,7 @@ class DescribeALookupThatFailed:
         assert cli.problems(event(head="feat/thing"), REPO, "tok", gh) == ([], [])
         assert sum("/pulls/" in u for u in gh.urls) == 2
 
+    @pytest.mark.spec("linked-others-claim")
     def it_counts_only_an_exactly_named_branch_as_a_claim(self):
         gh = FakeGitHub(
             issues={12: issue("approved"), 13: issue("approved")},
@@ -268,12 +288,14 @@ def run(tmp_path, capsys, payload, fetch, environ=None):
 
 
 class DescribeMain:
+    @pytest.mark.spec("linked-none-passes")
     def it_exits_ok_with_no_links(self, tmp_path, capsys):
         code, out = run(tmp_path, capsys, event(), FakeGitHub())
         assert code == cli.OK
         assert out.out == "No linked issues.\n"
         assert out.err == ""
 
+    @pytest.mark.spec("linked-needs-approved", "plain-output-streams")
     def it_exits_problems_with_the_reason_on_stderr(self, tmp_path, capsys):
         code, out = run(
             tmp_path, capsys, event(body="Closes #12"), FakeGitHub(issues={12: issue()})
@@ -282,17 +304,20 @@ class DescribeMain:
         assert "#12 linked" in out.out
         assert "not labeled approved" in out.err
 
+    @pytest.mark.spec("linked-lookup-fails-closed")
     def it_says_nothing_about_links_when_it_could_not_read_them(self, tmp_path, capsys):
         code, out = run(tmp_path, capsys, event(), FakeGitHub(missing={"commits"}))
         assert code == cli.CANNOT_RUN
         assert out.out == ""
         assert "commit messages" in out.err
 
+    @pytest.mark.spec("cannot-run-exits-2")
     def it_cannot_run_without_its_environment(self, tmp_path, capsys):
         code, out = run(tmp_path, capsys, event(), FakeGitHub(), {"GITHUB_TOKEN": ""})
         assert code == cli.CANNOT_RUN
         assert out.err.startswith("check-linked-issues.py: needs")
 
+    @pytest.mark.spec("cannot-run-exits-2")
     def it_cannot_run_on_a_non_pull_request_event(self, tmp_path, capsys):
         code, out = run(tmp_path, capsys, {"push": {}}, FakeGitHub())
         assert code == cli.CANNOT_RUN

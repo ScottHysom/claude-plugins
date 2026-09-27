@@ -81,6 +81,7 @@ MOVED = {
 
 
 class DescribePlacement:
+    @pytest.mark.spec("stray-names-destination")
     def it_names_the_destination_for_a_suite_left_under_plugins(self, make_repo, run):
         root = make_repo(SHIPPED)
         code, _, err = run("placement", "-C", str(root))
@@ -88,11 +89,13 @@ class DescribePlacement:
         assert "plugins/foo/scripts/tests/test_foo.py" in err
         assert "tests/foo/test_foo.py" in err
 
+    @pytest.mark.spec("stray-names-destination")
     def it_says_a_shipped_test_reaches_every_user(self, make_repo, run):
         root = make_repo(SHIPPED)
         _, _, err = run("placement", "-C", str(root))
         assert "copied into every install" in err
 
+    @pytest.mark.spec("stray-names-destination")
     def it_rejects_a_support_module_that_is_not_a_test_file(self, make_repo, run):
         files = dict(SHIPPED)
         files["plugins/foo/scripts/tests/foo_samples.py"] = "SAMPLE = 'x'\n"
@@ -100,6 +103,7 @@ class DescribePlacement:
         _, _, err = run("placement", "-C", str(root))
         assert "plugins/foo/scripts/tests/foo_samples.py" in err
 
+    @pytest.mark.spec("stray-names-destination")
     def it_rejects_a_plugin_script_that_imports_a_contributor_dependency(self, make_repo, run):
         files = dict(MOVED)
         files["plugins/foo/scripts/helper.py"] = "import pytest\n"
@@ -108,6 +112,7 @@ class DescribePlacement:
         assert code == ct.PROBLEMS
         assert "plugins/foo/scripts/helper.py" in err
 
+    @pytest.mark.spec("placement-reads-git")
     def it_sees_a_stray_that_is_not_yet_tracked(self, make_repo, run):
         root = make_repo(MOVED)
         (root / "plugins/foo/scripts/tests").mkdir(parents=True)
@@ -116,6 +121,7 @@ class DescribePlacement:
         assert code == ct.PROBLEMS
         assert "test_stray.py" in err
 
+    @pytest.mark.spec("placement-reads-git")
     def it_ignores_what_git_ignores(self, make_repo, run):
         files = dict(MOVED)
         files[".gitignore"] = "__pycache__/\n"
@@ -125,6 +131,7 @@ class DescribePlacement:
         code, _, _ = run("placement", "-C", str(root))
         assert code == ct.OK
 
+    @pytest.mark.spec("test-outside-roots")
     def it_rejects_a_test_file_no_root_collects(self, make_repo, run):
         files = dict(MOVED)
         files["scripts/test_loose.py"] = A_TEST
@@ -134,6 +141,7 @@ class DescribePlacement:
         assert "scripts/test_loose.py" in err
         assert "nothing runs it" in err
 
+    @pytest.mark.spec("stray-names-destination")
     def it_accepts_a_tree_whose_tests_sit_outside_plugins(self, make_repo, run):
         root = make_repo(MOVED)
         code, out, _ = run("placement", "-C", str(root))
@@ -150,6 +158,7 @@ class DescribePlacement:
 
 
 class DescribeNaming:
+    @pytest.mark.spec("old-test-names")
     def it_names_the_file_and_line_of_an_old_style_test(self, make_repo, run):
         files = dict(MOVED)
         files["tests/foo/test_foo.py"] = OLD_TEST
@@ -158,6 +167,7 @@ class DescribeNaming:
         assert code == ct.PROBLEMS
         assert "tests/foo/test_foo.py:1" in err
 
+    @pytest.mark.spec("old-test-names")
     def it_finds_an_indented_method(self, make_repo, run):
         files = dict(MOVED)
         files["tests/foo/test_foo.py"] = (
@@ -168,18 +178,21 @@ class DescribeNaming:
         assert code == ct.PROBLEMS
         assert "tests/foo/test_foo.py:2" in err
 
+    @pytest.mark.spec("old-test-names")
     def it_accepts_names_pytest_collects(self, make_repo, run):
         root = make_repo(MOVED)
         code, out, _ = run("naming", "-C", str(root))
         assert code == ct.OK
         assert "on the names pytest collects" in out
 
+    @pytest.mark.spec("naming-scans-something")
     def it_fails_when_no_test_file_matches_at_all(self, make_repo, run):
         root = make_repo({"pytest.ini": PYTEST_INI, "README.md": "nothing here\n"})
         code, _, err = run("naming", "-C", str(root))
         assert code == ct.PROBLEMS
         assert "scanning nothing" in err
 
+    @pytest.mark.spec("naming-scans-something")
     def it_fails_when_a_configured_root_contributes_nothing(self, make_repo, run):
         files = dict(MOVED)
         files[".github/scripts/tests/.keep"] = ""
@@ -188,11 +201,13 @@ class DescribeNaming:
         assert code == ct.PROBLEMS
         assert "gone blind there" in err
 
+    @pytest.mark.spec("naming-scans-something")
     def it_ignores_a_root_that_does_not_exist(self, make_repo, run):
         root = make_repo(MOVED)
         code, _, _ = run("naming", "-C", str(root))
         assert code == ct.OK
 
+    @pytest.mark.spec("old-test-names")
     def it_accepts_the_repo_as_it_stands(self, run):
         code, _, _ = run("naming", "-C", str(REPO_ROOT))
         assert code == ct.OK
@@ -200,6 +215,7 @@ class DescribeNaming:
 
 class DescribeMain:
     @pytest.mark.parametrize("command", ["placement", "naming"])
+    @pytest.mark.spec("json-envelope")
     def it_prints_the_same_envelope_for_every_command(self, make_repo, run, command):
         root = make_repo(MOVED)
         code, out, _ = run(command, "-C", str(root), "--json")
@@ -209,6 +225,7 @@ class DescribeMain:
         assert body["command"] == command
         assert body["ok"] is True
 
+    @pytest.mark.spec("json-envelope")
     def it_reports_problems_in_the_envelope_rather_than_on_stderr(self, make_repo, run):
         root = make_repo(SHIPPED)
         code, out, err = run("placement", "-C", str(root), "--json")
@@ -218,23 +235,27 @@ class DescribeMain:
         assert body["errors"]
         assert err == ""
 
+    @pytest.mark.spec("cannot-run-exits-2")
     def it_cannot_run_outside_a_clone(self, tmp_path, run):
         code, _, err = run("placement", "-C", str(tmp_path))
         assert code == ct.CANNOT_RUN
         assert err.startswith(ct.PROG + ":")
 
+    @pytest.mark.spec("cannot-run-exits-2")
     def it_cannot_run_without_a_pytest_ini(self, make_repo, run):
         root = make_repo({"README.md": "no config\n"})
         code, _, err = run("naming", "-C", str(root))
         assert code == ct.CANNOT_RUN
         assert ct.PYTEST_INI in err
 
+    @pytest.mark.spec("cannot-run-exits-2")
     def it_cannot_run_when_pytest_ini_names_no_roots(self, make_repo, run):
         root = make_repo({"pytest.ini": "[pytest]\naddopts = -ra\n"})
         code, _, err = run("placement", "-C", str(root))
         assert code == ct.CANNOT_RUN
         assert ct.TESTPATHS in err
 
+    @pytest.mark.spec("cannot-run-exits-2")
     def it_rejects_an_unknown_command(self, run):
         with pytest.raises(SystemExit) as exc:
             run("nonsense")

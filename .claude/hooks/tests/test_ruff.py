@@ -57,25 +57,30 @@ def ruff_on_path(monkeypatch):
 
 
 class DescribeFindRuff:
+    @pytest.mark.spec("hook-main-venv")
     def it_uses_the_main_checkouts_venv_from_a_worktree(self, repo):
         main, worktree = repo
         expected = install_ruff(main)
         assert os.path.realpath(ruff_hook.find_ruff(str(worktree))) == os.path.realpath(expected)
 
+    @pytest.mark.spec("hook-own-venv-first")
     def it_prefers_the_worktrees_own_venv(self, repo):
         main, worktree = repo
         install_ruff(main)
         expected = install_ruff(worktree)
         assert ruff_hook.find_ruff(str(worktree)) == expected
 
+    @pytest.mark.spec("hook-main-venv")
     def it_uses_the_venv_in_the_main_checkout_itself(self, repo):
         main, _ = repo
         expected = install_ruff(main)
         assert ruff_hook.find_ruff(str(main)) == expected
 
+    @pytest.mark.spec("hook-path-fallback")
     def it_falls_back_to_ruff_on_path_when_no_venv_exists(self, repo):
         _, worktree = repo
         assert ruff_hook.find_ruff(str(worktree)) == ON_PATH
 
+    @pytest.mark.spec("hook-path-fallback")
     def it_falls_back_to_ruff_on_path_outside_a_git_repo(self, tmp_path):
         assert ruff_hook.find_ruff(str(tmp_path)) == ON_PATH

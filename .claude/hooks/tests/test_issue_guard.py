@@ -67,10 +67,12 @@ ALLOWED = [
 
 class DescribeCheck:
     @pytest.mark.parametrize("command", BLOCKED)
+    @pytest.mark.spec("guard-blocks-approve")
     def it_blocks_a_command_adding_the_label(self, command):
         assert issue_guard.check(command), command
 
     @pytest.mark.parametrize("command", ALLOWED)
+    @pytest.mark.spec("guard-passes-text")
     def it_allows_a_command_that_does_not_add_the_label(self, command):
         assert issue_guard.check(command) is None, command
 
@@ -85,17 +87,20 @@ def event(command):
 
 
 class DescribeMain:
+    @pytest.mark.spec("guard-blocks-approve")
     def it_blocks_with_exit_2_and_the_reason_on_stderr(self, capsys):
         code, out = run_main(event("gh issue edit 1 --add-label bug,approved"), capsys)
         assert code == issue_guard.BLOCK == 2
         assert "adds the approved label" in out.err
         assert out.out == ""
 
+    @pytest.mark.spec("guard-passes-text")
     def it_allows_with_exit_0_and_says_nothing(self, capsys):
         code, out = run_main(event("gh issue edit 1 --add-label bug"), capsys)
         assert code == issue_guard.ALLOW == 0
         assert out.out == out.err == ""
 
+    @pytest.mark.spec("guard-unparsed")
     def it_matches_unreadable_input_as_text(self, capsys):
         code, _ = run_main("not json: gh issue edit 1 --add-label approved", capsys)
         assert code == issue_guard.BLOCK
@@ -104,6 +109,7 @@ class DescribeMain:
 
 
 class DescribeSimpleCommands:
+    @pytest.mark.spec("guard-passes-text")
     def it_drops_heredoc_bodies_and_keeps_the_commands_around_them(self):
         words = ["cat", "<<", "EOF", "\n", "gh", "x", "\n", "EOF", "\n", "ls"]
         assert issue_guard.simple_commands(words) == [["cat", "<<", "EOF"], ["ls"]]
