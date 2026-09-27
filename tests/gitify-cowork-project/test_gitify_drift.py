@@ -30,31 +30,38 @@ class DescribeDrift:
 
     def it_reports_a_changed_rule_with_a_diff(self, runner, make_answers, skill_rel):
         skill = rendered_skill(runner, make_answers, skill_rel)
-        skill.write_text(skill.read_text().replace("Never `08/20/26`.", "Any format."))
+        skill.write_text(
+            skill.read_text().replace(
+                "A project that wants them adds them separately.", "Any rules."
+            )
+        )
         code, env = runner.run("drift", "--skill", str(skill))
         assert code == gitify.PROBLEMS
         changed = [s for s in env["data"]["sections"] if s["status"] == "changed"]
-        assert [s["heading"] for s in changed] == ["Dates"]
-        assert "-Never `08/20/26`." in changed[0]["diff"]
+        assert [s["heading"] for s in changed] == ["Scope"]
+        assert (
+            "-read are not part of it. A project that wants them adds them separately."
+            in changed[0]["diff"]
+        )
 
     def it_reports_a_removed_section_as_missing(self, runner, make_answers, skill_rel):
         skill = rendered_skill(runner, make_answers, skill_rel)
         text = skill.read_text()
-        start, end = text.index("## Dates"), text.index("## Skill provenance")
+        start, end = text.index("## Scope"), text.index("## Improving these rules")
         skill.write_text(text[:start] + text[end:])
         code, env = runner.run("drift", "--skill", str(skill))
         assert code == gitify.PROBLEMS
-        assert "Dates: section missing from the project's skill" in env["errors"]
+        assert "Scope: section missing from the project's skill" in env["errors"]
 
     def it_does_not_take_a_longer_heading_for_the_template_one(
         self, runner, make_answers, skill_rel
     ):
         skill = rendered_skill(runner, make_answers, skill_rel)
-        skill.write_text(skill.read_text().replace("## Dates", "## Dates we ignore"))
+        skill.write_text(skill.read_text().replace("## Scope", "## Scope we ignore"))
         code, env = runner.run("drift", "--skill", str(skill))
         assert code == gitify.PROBLEMS
-        assert {"heading": "Dates", "status": "missing"} in env["data"]["sections"]
-        assert {"heading": "Dates we ignore", "status": "project-only"} in env["data"]["sections"]
+        assert {"heading": "Scope", "status": "missing"} in env["data"]["sections"]
+        assert {"heading": "Scope we ignore", "status": "project-only"} in env["data"]["sections"]
 
     def it_reports_a_project_only_section_without_calling_it_drift(
         self, runner, make_answers, skill_rel
@@ -73,11 +80,15 @@ class DescribeDrift:
         self, runner, make_answers, skill_rel
     ):
         skill = rendered_skill(runner, make_answers, skill_rel)
-        skill.write_text(skill.read_text().replace("Never `08/20/26`.", "Any format."))
+        skill.write_text(
+            skill.read_text().replace(
+                "A project that wants them adds them separately.", "Any rules."
+            )
+        )
         code, _ = runner.run("drift", "--skill", str(skill), json_output=False)
         assert code == gitify.PROBLEMS
         assert "changed" in runner.out
-        assert "Dates: differs from the template" in runner.err
+        assert "Scope: differs from the template" in runner.err
 
     def it_cannot_run_on_an_unreadable_skill(self, runner):
         code, env = runner.run("drift", "--skill", str(runner.tmp / "nope.md"))

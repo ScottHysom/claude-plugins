@@ -61,7 +61,7 @@ if [ -s .commit-msg ]; then
     git commit --quiet -F .commit-msg
     : > .commit-msg
 else
-    git commit --quiet -m "chore: adopt existing folder into git with gitify-cowork-project"
+    git commit --quiet -m "Adopt existing folder into git with gitify-cowork-project"
 fi
 
 echo "Done. From now on, use ./commit.sh"
