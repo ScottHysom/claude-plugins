@@ -292,6 +292,7 @@ class DescribeMain:
     @pytest.mark.spec("closed-pipe-exits-0")
     def it_exits_ok_when_its_reader_closes_the_pipe(self, make_repo, capsys, closed_pipe):
         root = make_repo(MOVED)
+        closed_pipe()
         assert ct.main(["placement", "-C", str(root)]) == ct.OK
         assert capsys.readouterr().err == ""
 

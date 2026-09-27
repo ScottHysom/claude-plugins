@@ -17,5 +17,9 @@ class ClosedPipe:
 
 @pytest.fixture
 def closed_pipe(monkeypatch):
-    """Close stdout's reader for the rest of the test."""
-    monkeypatch.setattr(sys, "stdout", ClosedPipe())
+    """A call that closes stdout's reader for the rest of the test.
+
+    A test makes the call itself, just before main(): pytest puts its own
+    capture back on sys.stdout after the fixtures are set up.
+    """
+    return lambda: monkeypatch.setattr(sys, "stdout", ClosedPipe())

@@ -352,17 +352,6 @@ class DescribeRelease:
         github(make_issue(12, "approved"))
         assert run_json(capsys, a, "next")[1]["data"]["issue"]["number"] == 12
 
-
-def claim_comment(when):
-    return {"body": "%s `issue/12`." % cli.CLAIM_MARK, "createdAt": when}
-
-
-def claimed(capsys, clone, github):
-    a = clone("a")
-    github(make_issue(12, "approved"))
-    run(capsys, a, "claim", "12")
-    return a
-
     @pytest.mark.spec("release-keeps-work")
     def it_keeps_a_branch_pushed_to_while_releasing(
         self, capsys, remote, clone, github, monkeypatch
@@ -393,6 +382,17 @@ def claimed(capsys, clone, github):
         assert code == cli.OK
         assert ("issue", "edit", "12", "--remove-label", cli.IN_PROGRESS) in gh.calls
         assert ("issue", "comment", "12", "--body", "Released issue/12.") in gh.calls
+
+
+def claim_comment(when):
+    return {"body": "%s `issue/12`." % cli.CLAIM_MARK, "createdAt": when}
+
+
+def claimed(capsys, clone, github):
+    a = clone("a")
+    github(make_issue(12, "approved"))
+    run(capsys, a, "claim", "12")
+    return a
 
 
 class DescribeStale:
@@ -476,5 +476,6 @@ class DescribeMain:
     @pytest.mark.spec("closed-pipe-exits-0")
     def it_exits_ok_when_its_reader_closes_the_pipe(self, capsys, clone, github, closed_pipe):
         github(make_issue(13, "approved"))
+        closed_pipe()
         assert cli.main(["next", "-C", str(clone("a"))]) == cli.OK
         assert capsys.readouterr().err == ""

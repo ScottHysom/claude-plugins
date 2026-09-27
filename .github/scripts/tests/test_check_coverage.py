@@ -279,7 +279,7 @@ class DescribeMain:
         code, out, err = run("pragmas", "-C", str(tmp_path))
         assert code == cc.CANNOT_RUN
         assert out == ""
-        assert err.startswith(cc.PROG + ":")
+        assert err.startswith("%s: `git rev-parse --show-toplevel` failed" % cc.PROG)
 
     @pytest.mark.spec("cannot-run-exits-2")
     def it_cannot_run_on_a_directory_that_does_not_exist(self, tmp_path, run):
@@ -290,5 +290,6 @@ class DescribeMain:
 
     @pytest.mark.spec("closed-pipe-exits-0")
     def it_exits_ok_when_its_reader_closes_the_pipe(self, repo, capsys, closed_pipe):
+        closed_pipe()
         assert cc.main(["floors", "-C", str(repo)]) == cc.OK
         assert capsys.readouterr().err == ""
