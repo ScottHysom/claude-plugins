@@ -169,6 +169,33 @@ class DescribeRuleShape:
         assert "1 warning(s)" in captured.out
 
 
+class DescribeRuleMetadata:
+    """Nothing writes source= any more, and a file an older version wrote
+    has to keep linting.
+    """
+
+    @pytest.mark.spec("old-metadata-accepted")
+    @pytest.mark.parametrize("value", ["shipped", "adopted", "anything"])
+    def it_accepts_a_source_key_from_an_older_file(self, config_from, value):
+        cfg = config_from(
+            "---\nname: T\n---\n\n## Sentences\n\n"
+            "### sentences-own-subject: Carries its own subject\n"
+            "<!-- prose-rule: source=%s origin=repo -->\n\n"
+            "Body.\n\n> **Before.** a\n> **After.** b\n" % value
+        )
+        assert (cfg.errors, cfg.rules[0].meta["source"]) == ([], value)
+
+    @pytest.mark.spec("metadata-keys-checked")
+    def it_refuses_a_key_it_does_not_know(self, config_from):
+        cfg = config_from(
+            "---\nname: T\n---\n\n## Sentences\n\n"
+            "### sentences-own-subject: Carries its own subject\n"
+            "<!-- prose-rule: author=me -->\n\n"
+            "Body.\n\n> **Before.** a\n> **After.** b\n"
+        )
+        assert [e for e in cfg.errors if ":7 " in e and "unknown metadata key 'author'" in e]
+
+
 class DescribeConfigList:
     @pytest.mark.spec("rules-listed")
     def it_gives_every_rule_with_its_id_title_and_example(self, prose_repo):
@@ -470,14 +497,14 @@ class DescribeConfigAdopt:
         text = tgt.read_text()
         assert (
             "### sentences-own-subject: Carries its own subject\n"
-            "<!-- prose-rule: source=adopted origin=repo -->\n\n"
+            "<!-- prose-rule: origin=repo -->\n\n"
         ) in text
-        assert "source=inferred" not in text
+        assert "source=" not in text
 
     def it_takes_the_origin_it_is_given(self, prose_repo):
         src, tgt = self.files(prose_repo, "## Sentences\n\n" + self.OWN_SUBJECT, "")
         self.adopt(prose_repo, src, tgt, "--rule", "sentences-own-subject", "--origin", "game")
-        assert "source=adopted origin=game -->" in tgt.read_text()
+        assert "<!-- prose-rule: origin=game -->" in tgt.read_text()
 
     def it_refuses_an_origin_with_a_space(self, prose_repo):
         src, tgt = self.files(prose_repo, "## Sentences\n\n" + self.OWN_SUBJECT, "")

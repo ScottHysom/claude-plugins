@@ -525,13 +525,11 @@ FM_KEY = re.compile(r"^([a-z][a-z0-9_-]*)\s*:\s*(.*?)\s*$")
 FM_SUBKEY = re.compile(r"^ {2}(include|exclude)\s*:\s*$")
 FM_ITEM = re.compile(r"^ {4}-\s+(.+?)\s*$")
 
+# origin is the project an adopted rule came from. Nothing writes source any
+# more, but older files carry it, so lint accepts it with any value.
 META_KEYS = {"source", "origin"}
-# source is the route a rule took into the file, and origin the project an
-# adopted rule came from. reference/prose-style-format.md says what each means.
-META_SOURCE_ADOPTED = "adopted"
-META_SOURCES = {"shipped", "inferred", "interview", META_SOURCE_ADOPTED}
 # The line config adopt writes under an adopted rule's heading.
-ADOPTED_COMMENT = "<!-- prose-rule: source=%s origin=%s -->\n"
+ADOPTED_COMMENT = "<!-- prose-rule: origin=%s -->\n"
 # An origin is one metadata value, and metadata pairs split on whitespace.
 ORIGIN = re.compile(r"^[^\s=]+$")
 
@@ -887,16 +885,11 @@ class Config:
                     "rule name %s opens with its own "
                     "section; the id already says %s" % (rule.name, rule.section),
                 )
-            for k, v in rule.meta.items():
+            for k in rule.meta:
                 if k not in META_KEYS:
                     self._err(
                         rule.line,
                         "unknown metadata key %r; allowed: %s" % (k, ", ".join(sorted(META_KEYS))),
-                    )
-                elif k == "source" and v not in META_SOURCES:
-                    self._err(
-                        rule.line,
-                        "source=%s is not one of %s" % (v, ", ".join(sorted(META_SOURCES))),
                     )
             self._check_patterns(rule)
             if not rule.body_text():
@@ -3122,7 +3115,7 @@ def adopted_block(lines, rule, origin):
         body.pop()
     block = [lines[start], *body]
     block = [ln if ln.endswith("\n") else ln + "\n" for ln in block]
-    block.insert(1, ADOPTED_COMMENT % (META_SOURCE_ADOPTED, origin))
+    block.insert(1, ADOPTED_COMMENT % origin)
     return block
 
 
@@ -3416,7 +3409,7 @@ def cmd_config(args):
         w = max([len(r.id) for r in rules] + [16])
         for r in rules:
             mark = " " if (r.before or r.after) else "!"
-            print("%s %-*s %-10s %s" % (mark, w, r.id, r.meta.get("source", "-"), r.title))
+            print("%s %-*s %s" % (mark, w, r.id, r.title))
         print(
             "\n%d rule(s)%s"
             % (

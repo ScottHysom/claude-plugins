@@ -22,6 +22,10 @@ Source: README.md, under "When to use it" and "What it adds to your project".
 
 - `rules-load-everywhere` (test): When the front matter of `prose-style.md`
   carries a `paths:` key, `config lint` refuses it.
+- `old-metadata-accepted` (test): When a rule's `prose-rule` comment carries
+  `source=` with any value, `config lint` accepts it.
+- `metadata-keys-checked` (test): When a rule's `prose-rule` comment carries a
+  key other than `origin` or `source`, `config lint` names it and exits 1.
 
 ## need learn-from-edits: Teach the style by editing
 

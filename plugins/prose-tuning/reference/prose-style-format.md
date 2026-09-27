@@ -49,7 +49,6 @@ the whole repo-relative path, so `CLAUDE.md` matches only at the root and
 
 ```markdown
 ### sentences-own-subject: Every sentence carries its own subject
-<!-- prose-rule: source=shipped -->
 
 A sentence that borrows its subject from the heading above it, from the
 sentence before it, or from the reader's inference is incomplete.
@@ -83,16 +82,11 @@ Nothing enforces the naming discipline. `config lint` checks the grammar and the
 word count and stops there, the same way it cannot tell that two rules
 contradict each other. Both are left to judgment.
 
-**The metadata comment carries at most two keys.** `source` names the route a
-rule took into the file, and `config lint` accepts only these:
-
-- `shipped`: `config init` copied it from the rules prose-tuning ships.
-- `inferred`: `update-prose-config` drew it from the author's edits.
-- `interview`: `update-prose-config` wrote it from the author's answer to a question.
-- `adopted`: `adopt-prose` copied it from another project's `prose-style.md`.
-
-`origin=<project>` names that other project, and appears only beside
-`source=adopted`.
+**A rule adopted from another project carries a metadata comment** under its
+heading, `<!-- prose-rule: origin=<project> -->`. `adopt-prose` writes it, and
+`origin` names the project the rule came from. `config lint` also accepts a
+`source=` key with any value, because files written by earlier versions of
+prose-tuning carry one.
 
 **The example is a two-line blockquote** with fixed lead words, `> **Before.**`
 and `> **After.**`. They come as a pair; half an example is an error. A rule
@@ -109,7 +103,6 @@ line, and `prose.py patterns` runs it:
 
 ```markdown
 ### standing-no-em-dash: Prefer a period over the em-dash
-<!-- prose-rule: source=shipped -->
 
 Ranges keep their en-dash.
 
