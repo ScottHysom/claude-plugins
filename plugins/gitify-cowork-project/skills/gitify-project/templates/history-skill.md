@@ -33,10 +33,9 @@ before using a path. The commands below assume `$HOME/mnt/{{PROJECT_MOUNT}}`.
 2. Draft the commit message into `.commit-msg` in the repo root:
    ```sh
    cat > "$HOME/mnt/{{PROJECT_MOUNT}}/.commit-msg" <<'MSG'
-   docs: <subject under ~70 chars, imperative, lowercase>
+   <one-line summary of the change>
 
-   <body: what changed and why. For corrections, state what was wrong,
-   what it is now, and the source.>
+   <what changed and why>
    MSG
    ```
 3. Tell the user to run `./commit.sh` from their own terminal. Do not attempt
@@ -48,7 +47,6 @@ Read-only git works fine from the bridge and should be used freely:
 cd "$HOME/mnt/{{PROJECT_MOUNT}}"
 git log --oneline
 git log --stat -- <file>
-git log --grep="^fix" --format="%h %s%n%b"   # every correction ever recorded
 git diff HEAD~1 -- <file>
 git blame -L 100,120 <file>
 git show <hash>                              # a whole change with its reasoning
@@ -60,35 +58,6 @@ branches, stashes, rebases, deletions and remotes.
 If a read-only command fails with a stale lock, ask the user to run
 `./commit.sh`, which clears locks first. `find .git -name '*.lock' -delete`
 also works.
-
-## Commit types
-
-[Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/).
-The subject is under ~70 chars, imperative, and lowercase after the colon.
-
-| Type | Use for |
-|---|---|
-| `docs:` | new sections, rewrites, expansions. Most commits |
-| `fix:` | a claim was wrong and is now right. Always explain in the body |
-| `refactor:` | reorganization with no change of meaning, such as splitting files |
-| `chore:` | repo plumbing, gitignore, tooling |
-| `feat:` | a genuinely new artifact, such as a new document |
-
-**The body is where the value is.** It is the record of why. For anything
-factual, name what was wrong, what it is now, and the source:
-
-```
-fix: correct three claims in the <section> section
-
-- <claim> is <right value>, not <wrong value>. Source: <link>
-- <claim> is not stated in <source>; it was a passing reference, not a
-  sourced figure
-```
-
-## Dates
-
-Write every date in ISO 8601 (`2026-08-20`), commit messages included.
-Never `08/20/26`.
 
 ## Skill provenance
 

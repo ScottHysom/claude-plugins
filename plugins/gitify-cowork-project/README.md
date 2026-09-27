@@ -48,10 +48,6 @@ account. Claude uses it whenever you ask about committing or about what changed.
 It covers history only:
 
 - how a commit is made from Cowork
-- commit messages in the Conventional Commits format, which opens each message
-  with the kind of change, such as `docs:` or `fix:`, and puts the reasons in
-  the body
-- ISO dates, such as `2026-08-20`
 - keeping the saved skill and the copy in the folder the same
 
 ## Setting it up
@@ -90,7 +86,7 @@ Ask Claude to commit what changed. Claude writes the commit message into
 own terminal, which makes the commit with that message. Claude cannot make a
 commit itself from Cowork.
 
-`./commit.sh "docs: add the March figures"` commits with a message of your own
+`./commit.sh "Add the March figures"` commits with a message of your own
 instead.
 
 ### Looking back
