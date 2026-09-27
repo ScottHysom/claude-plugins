@@ -4,8 +4,8 @@ body:
   - type: markdown
     attributes:
       value: >-
-        Name the problem in the title, not the fix. Scott reads new issues and
-        labels the ones that will be worked on `approved`.
+        Name the problem in the title, not the fix. The owner reads new issues
+        and labels the ones that will be worked on `approved`.
   - type: dropdown
     id: area
     attributes:

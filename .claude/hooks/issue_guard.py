@@ -1,16 +1,17 @@
 """Stop Claude Code from adding the `approved` label to an issue or pull request.
 
 Runs as a PreToolUse hook on Bash, configured in .claude/settings.json. The
-`approved` label is how Scott says an issue may be worked on; README.md, under
-"Issues", describes the process. Agents post as Scott, so GitHub cannot tell
-an agent adding the label from Scott adding it. This hook is what can.
+`approved` label is how the owner says an issue may be worked on; README.md,
+under "Issues", describes the process. Agents post as the owner, so GitHub
+cannot tell an agent adding the label from the owner adding it. This hook is
+what can.
 
 It catches a mistake, or an agent talked into approving its own work, not a
 determined attempt: it sees only the command text, so `curl` with a token,
 `gh api graphql` with a label id, or a script file that runs `gh` all get past
-it. Cowork does not run project hooks at all. Scott adds the label in the
-browser, or with `! gh issue edit N --add-label approved`, which runs in Scott's
-own shell where no hook fires.
+it. Cowork does not run project hooks at all. The owner adds the label in the
+browser, or with `! gh issue edit N --add-label approved`, which runs in the
+owner's own shell where no hook fires.
 
 Blocked, where the label value names `approved`, alone or in a comma list:
     gh issue|pr create|edit  --label/-l/--add-label
@@ -174,8 +175,8 @@ def main(stdin=None):
     if reason is None:
         return ALLOW
     sys.stderr.write(
-        "Blocked: %s. Only Scott adds `%s`; README.md, under Issues, says why. "
-        "Ask Scott to add it.\n" % (reason, LABEL)
+        "Blocked: %s. Only the owner adds `%s`; README.md, under Issues, says why. "
+        "Ask the owner to add it.\n" % (reason, LABEL)
     )
     return BLOCK
 

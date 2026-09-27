@@ -44,7 +44,7 @@ Things that look like bugs and are not:
 
 This script writes to git (a push, a branch switch), so it is not for Cowork's
 device bridge, where a git write strands `.git/*.lock` files. A Cowork session
-asks Scott to claim for it.
+asks the owner to claim for it.
 """
 
 import argparse
@@ -230,7 +230,7 @@ def cmd_claim(args, repo):
             "claim",
             data,
             [
-                "#%d is not labeled %s. Scott approves an issue before it is worked on"
+                "#%d is not labeled %s. The owner approves an issue before it is worked on"
                 % (n, APPROVED)
             ],
         )
@@ -300,7 +300,7 @@ def created(porcelain, target):
 
 
 def held_message(n):
-    return "#%d is held: branch %s already exists on %s. Ask Scott before working on it" % (
+    return "#%d is held: branch %s already exists on %s. Ask the owner before working on it" % (
         n,
         branch(n),
         REMOTE,

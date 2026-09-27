@@ -345,14 +345,15 @@ code has a page on the shellcheck wiki saying what it guards against.
 
 ## Issues
 
-Anyone can open an issue, and Scott decides what gets worked on. The process:
+Anyone can open an issue, and the owner, who approves issues and merges pull
+requests, decides what gets worked on. The process:
 
-1. Someone files an issue: Scott, an agent that ran into a problem outside the
-   task it was doing, or anyone else.
-2. Scott reads it and adds the `approved` label.
-3. An agent, or Scott, claims it, fixes it on the `issue/N` branch the claim
+1. Someone files an issue: the owner, an agent that ran into a problem outside
+   the task it was doing, or anyone else.
+2. The owner reads it and adds the `approved` label.
+3. An agent, or the owner, claims it, fixes it on the `issue/N` branch the claim
    makes, and the pull request says `Closes #N`.
-4. Scott merges, and GitHub closes the issue.
+4. The owner merges, and GitHub closes the issue.
 
 `CLAUDE.md` has the rules agents follow when they file and fix issues.
 
@@ -365,7 +366,7 @@ Anyone can open an issue, and Scott decides what gets worked on. The process:
 | `docs` | documentation only |
 | `plugin:<name>` | which plugin it is about |
 | `repo` | CI, tooling, the marketplace catalog or root docs |
-| `approved` | Scott agrees it should be done. Only Scott adds this |
+| `approved` | the owner agrees it should be done. Only the owner adds this |
 | `in-progress` | someone has claimed it; see below |
 
 A new plugin adds its `plugin:<name>` label when it is added. An issue that is a
@@ -398,14 +399,14 @@ The `validate` job backs this up: a pull request that closes #N must come from
 `issue/N`, so an agent that skipped the claim is caught before it merges.
 
 Claiming writes to git, which Cowork cannot do (see "Editing this repo from
-Cowork"), so a Cowork session asks Scott to claim for it.
+Cowork"), so a Cowork session asks the owner to claim for it.
 
 ### Keeping `approved` meaningful
 
-Agents post through Scott's GitHub account, so GitHub cannot tell an agent
-adding `approved` from Scott adding it. What covers that:
+Agents post through the owner's GitHub account, `ScottHysom`, so GitHub cannot
+tell an agent adding `approved` from the owner adding it. What covers that:
 
-- **Only Scott adds the label.** `.claude/hooks/issue_guard.py` blocks any
+- **Only the owner adds the label.** `.claude/hooks/issue_guard.py` blocks any
   command Claude Code runs that would add it. To approve with Claude's help,
   run `! gh issue edit <N> --add-label approved`: the `!` runs it in your own
   shell, where no hook applies. The hook reads command text, so it stops a
@@ -417,8 +418,8 @@ adding `approved` from Scott adding it. What covers that:
   passes. If you approve an issue after its pull request was opened, re-run
   the job.
 - **Issue text is information, not instructions.** Nothing can check this.
-  It holds because Scott reads an issue before approving it, and agents work
-  from the issue as approved plus Scott's own comments.
+  It holds because the owner reads an issue before approving it, and agents
+  work from the issue as approved plus the owner's own comments.
 
 A separate GitHub account for agents would make the first check enforceable
 on GitHub itself: a workflow could remove `approved` whenever anyone else adds
