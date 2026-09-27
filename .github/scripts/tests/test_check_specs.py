@@ -12,6 +12,7 @@ which line.
 
 import importlib.util
 import json
+import re
 import subprocess
 from pathlib import Path
 
@@ -138,8 +139,8 @@ def isolated_git(monkeypatch):
 def make_repo(tmp_path):
     """A clone holding BASE, with `changes` applied: a path to text, or to None to leave it out."""
 
-    def make(changes=None):
-        root = tmp_path / "repo"
+    def make(changes=None, name="repo"):
+        root = tmp_path / name
         root.mkdir()
         subprocess.run(["git", "init", "-q", str(root)], check=True, capture_output=True)
         files = dict(BASE)
@@ -155,21 +156,48 @@ def make_repo(tmp_path):
     return make
 
 
+def no_graphql(query, token):
+    raise AssertionError("asked GitHub with no token: %s" % query)
+
+
 @pytest.fixture
 def run(capsys):
-    """Drive a command through main() so argparse defaults are the real ones."""
+    """Drive a command through main() so argparse defaults are the real ones.
 
-    def go(*argv):
+    The environment is empty unless a test gives one, so a token in the
+    developer's shell cannot send a test to GitHub.
+    """
+
+    def go(*argv, environ=None, graphql=no_graphql):
         capsys.readouterr()
-        code = cp.main(list(argv))
+        code = cp.main(list(argv), environ=environ or {}, graphql=graphql)
         captured = capsys.readouterr()
         return code, captured.out, captured.err
 
     return go
 
 
-def untraced(tests=None, steps=None):
-    return json.dumps({"tests": tests or {}, "steps": steps or {}})
+class FakeGitHub:
+    """GitHub's GraphQL endpoint, answering for the issues it was given.
+
+    An issue it lacks comes back null, as GitHub answers for one it cannot find.
+    """
+
+    def __init__(self, issues):
+        self.issues = issues
+        self.queries = []
+
+    def __call__(self, query, token):
+        self.queries.append(query)
+        numbers = re.findall(r"i(\d+): issue\(number: \d+\)", query)
+        return {"repository": {"i%s" % n: self.issues.get(int(n)) for n in numbers}}
+
+
+GITHUB_ENV = {"GITHUB_TOKEN": "t", "GITHUB_REPOSITORY": "o/r"}
+
+
+def untraced(tests=None, steps=None, surface=None):
+    return json.dumps({"tests": tests or {}, "steps": steps or {}, "surface": surface or {}})
 
 
 TEST_ID = TEST + "::DescribeFoo::it_does_x"
@@ -541,3 +569,342 @@ class DescribeInventory:
         code, _, err = run("inventory", "bar", "-C", str(root))
         assert code == cp.CANNOT_RUN
         assert "Name a plugin that has one: foo." in err
+
+
+SEAM_SKILL = "plugins/prose-tuning/skills/adopt-prose/SKILL.md"
+
+
+def listed_test(issue):
+    """A clone where the test waits on `issue`, and nothing else is out of step."""
+    return {
+        TEST: suite_file(method_marker=""),
+        SKILL: skill(
+            step_one_marker="<!-- spec: does-x -->\n",
+            step_two_marker="<!-- spec: asks-once -->\n",
+        ),
+        "specs/foo.md": FOO_SPEC.replace("(test)", "(step)"),
+        cp.UNTRACED_FILE: untraced({TEST_ID: issue}),
+    }
+
+
+class DescribeTraceOnClosedIssues:
+    @pytest.mark.spec("trace-closed-issue")
+    def it_fails_a_listed_test_whose_issue_has_closed(self, make_repo, run):
+        github = FakeGitHub({130: {"state": "CLOSED"}})
+        code, _, err = run(
+            "trace", "-C", str(make_repo(listed_test(130))), environ=GITHUB_ENV, graphql=github
+        )
+        assert code == cp.PROBLEMS
+        assert "lists %s for #130, which has closed" % TEST_ID in err
+
+    @pytest.mark.spec("trace-closed-issue")
+    def it_fails_a_known_seams_step_whose_issue_has_closed(self, make_repo, run):
+        root = make_repo({SEAM_SKILL: "---\nname: adopt-prose\n---\n"})
+        github = FakeGitHub({n: {"state": "CLOSED"} for n in range(1000)})
+        code, _, err = run("trace", "-C", str(root), environ=GITHUB_ENV, graphql=github)
+        assert code == cp.PROBLEMS
+        assert "KNOWN_SEAMS lists step 1 of %s for #" % SEAM_SKILL in err
+
+    @pytest.mark.spec("trace-closed-issue", "trace-listed-warns")
+    def it_passes_a_listed_test_whose_issue_is_open(self, make_repo, run):
+        github = FakeGitHub({130: {"state": "OPEN"}})
+        code, _, err = run(
+            "trace", "-C", str(make_repo(listed_test(130))), environ=GITHUB_ENV, graphql=github
+        )
+        assert code == cp.OK, err
+        assert "#130 will trace them" in err
+        assert len(github.queries) == 1
+
+    @pytest.mark.spec("trace-closed-issue")
+    def it_warns_that_it_did_not_look_without_a_token(self, make_repo, run):
+        code, _, err = run("trace", "-C", str(make_repo(listed_test(130))))
+        assert code == cp.OK, err
+        assert "did not check that the issues" in err
+        assert "GITHUB_TOKEN" in err
+
+    @pytest.mark.spec("trace-closed-issue")
+    def it_stops_on_an_issue_it_cannot_read(self, make_repo, run):
+        code, _, err = run(
+            "trace",
+            "-C",
+            str(make_repo(listed_test(130))),
+            environ=GITHUB_ENV,
+            graphql=FakeGitHub({}),
+        )
+        assert code == cp.CANNOT_RUN
+        assert err.startswith("check-specs.py: cannot read #130")
+
+
+NAMING_SPEC = FOO_SPEC + (
+    "- `goes` (test): When `go --mode a` or `go --mode b` runs, foo goes,\n"
+    "  and `go --skip` leaves one out.\n"
+)
+GO = SCRIPT + "::go"
+
+
+class DescribeSurface:
+    @pytest.mark.spec("surface-unnamed")
+    def it_passes_when_a_requirement_names_every_item(self, make_repo, run):
+        code, out, err = run("surface", "-C", str(make_repo({"specs/foo.md": NAMING_SPEC})))
+        assert code == cp.OK, err
+        assert "5 item(s) of 1 parser(s); 5 named" in out
+
+    @pytest.mark.spec("surface-unnamed")
+    def it_fails_an_unnamed_subcommand_option_and_choice(self, make_repo, run):
+        code, _, err = run("surface", "-C", str(make_repo()))
+        assert code == cp.PROBLEMS
+        for item in (GO, GO + " --skip", GO + " --mode b"):
+            assert "%s is named by no requirement in specs/foo.md or specs/repo.md" % item in err
+
+    @pytest.mark.spec("surface-unnamed")
+    def it_ignores_a_name_in_a_skill(self, make_repo, run):
+        code, _, err = run("surface", "-C", str(make_repo()))
+        assert code == cp.PROBLEMS
+        assert "%s --skip is named by no requirement" % GO in err
+
+    @pytest.mark.spec("surface-unnamed")
+    def it_counts_a_name_in_the_repo_spec(self, make_repo, run):
+        spec = NAMING_SPEC.replace(", foo goes,\n  and `go --skip` leaves one out.", ".")
+        repo = REPO_SPEC + "- `skips` (test): When `--skip` is given, a step is left out.\n"
+        code, _, err = run(
+            "surface", "-C", str(make_repo({"specs/foo.md": spec, "specs/repo.md": repo}))
+        )
+        assert code == cp.OK, err
+
+    @pytest.mark.spec("surface-unnamed")
+    def it_counts_a_script_s_file_name_only_for_that_script(self, make_repo, run):
+        other = NAMING_SPEC.replace("`go --skip`", "`bar.py go --skip`")
+        code, _, err = run("surface", "-C", str(make_repo({"specs/foo.md": other})))
+        assert code == cp.PROBLEMS
+        assert "%s --skip is named by no requirement" % GO in err
+        own = NAMING_SPEC.replace("`go --skip`", "`foo.py go --skip`")
+        code, _, err = run("surface", "-C", str(make_repo({"specs/foo.md": own}, name="own")))
+        assert code == cp.OK, err
+
+    @pytest.mark.spec("surface-unnamed")
+    def it_reads_a_repo_script_and_skips_one_with_no_parser(self, make_repo, run):
+        tool = SOURCE.replace('prog="foo"', 'prog="tool"')
+        root = make_repo(
+            {
+                "specs/foo.md": NAMING_SPEC,
+                ".github/scripts/tool.py": tool,
+                ".github/scripts/plain.py": "print('no parser')\n",
+            }
+        )
+        code, _, err = run("surface", "-C", str(root))
+        assert code == cp.PROBLEMS
+        assert ".github/scripts/tool.py::go is named by no requirement in specs/repo.md." in err
+        assert "plain.py" not in err
+
+    @pytest.mark.spec("surface-listed-warns")
+    def it_passes_a_listed_item_with_a_warning_naming_its_issue(self, make_repo, run):
+        spec = NAMING_SPEC.replace("\n  and `go --skip` leaves one out.", "")
+        root = make_repo(
+            {"specs/foo.md": spec, cp.UNTRACED_FILE: untraced(surface={GO + " --skip": 173})}
+        )
+        code, _, err = run("surface", "-C", str(root))
+        assert code == cp.OK, err
+        assert "1 item(s) are named by no requirement yet; #173 will settle them." in err
+
+    @pytest.mark.spec("surface-listed-warns")
+    def it_fails_a_listed_item_a_requirement_now_names(self, make_repo, run):
+        root = make_repo(
+            {"specs/foo.md": NAMING_SPEC, cp.UNTRACED_FILE: untraced(surface={GO: 173})}
+        )
+        code, _, err = run("surface", "-C", str(root))
+        assert code == cp.PROBLEMS
+        assert "%s is now named by a requirement. Remove its entry" % GO in err
+
+    @pytest.mark.spec("surface-listed-warns")
+    def it_fails_a_listed_item_no_parser_has(self, make_repo, run):
+        root = make_repo(
+            {"specs/foo.md": NAMING_SPEC, cp.UNTRACED_FILE: untraced(surface={GO + " --gone": 1})}
+        )
+        code, _, err = run("surface", "-C", str(root))
+        assert code == cp.PROBLEMS
+        assert "lists %s --gone for #1, and no parser has it" % GO in err
+
+    @pytest.mark.spec("surface-scans-something")
+    def it_fails_when_there_is_no_parser(self, make_repo, run):
+        code, _, err = run("surface", "-C", str(make_repo({SCRIPT: None})))
+        assert code == cp.PROBLEMS
+        assert "found no script with a build_parser()" in err
+
+    @pytest.mark.spec("surface-listed-warns")
+    def it_accepts_the_repo_as_it_stands(self, run):
+        code, _, err = run("surface", "-C", str(REPO_ROOT))
+        assert code == cp.OK, err
+
+
+APPROVED_AT = "2026-09-01T10:00:00Z"
+NEW_NEED = (
+    "\n## need goes-fast: Go fast\n\n"
+    "When a user is in a hurry, they want foo to go fast.\n\n"
+    "- `fast` (test): When foo goes, it is quick.\n"
+)
+
+
+def approved_issue(body="", edited=None, labeled=(APPROVED_AT,)):
+    return {
+        "body": body,
+        "lastEditedAt": edited,
+        "timelineItems": {
+            "nodes": [{"createdAt": at, "label": {"name": "approved"}} for at in labeled]
+        },
+    }
+
+
+@pytest.fixture
+def pull_request(make_repo, tmp_path):
+    """A clone whose HEAD is the base, with `changes` in the working tree as the
+    pull request, and the event GitHub would write for a pull request with `body`."""
+
+    def make(changes=None, body="", title="t"):
+        root = make_repo()
+        git = ["git", "-C", str(root), "-c", "user.name=t", "-c", "user.email=t@t"]
+        subprocess.run([*git, "add", "-A"], check=True, capture_output=True)
+        subprocess.run([*git, "commit", "-q", "-m", "base"], check=True, capture_output=True)
+        for rel, text in (changes or {}).items():
+            path = root / rel
+            if text is None:
+                path.unlink()
+                continue
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(text)
+        event = tmp_path / "event.json"
+        event.write_text(json.dumps({"pull_request": {"title": title, "body": body}}))
+        environ = dict(GITHUB_ENV, GITHUB_EVENT_PATH=str(event))
+        return root, environ
+
+    return make
+
+
+def disclosed(run, root, environ, github=None):
+    return run(
+        "disclosed",
+        "--base",
+        "HEAD",
+        "-C",
+        str(root),
+        environ=environ,
+        graphql=github or FakeGitHub({}),
+    )
+
+
+class DescribeDisclosed:
+    @pytest.mark.spec("disclosed-lists-ids")
+    def it_passes_a_pull_request_that_changes_no_spec(self, pull_request, run):
+        code, out, err = disclosed(run, *pull_request())
+        assert code == cp.OK, err
+        assert "0 requirement change(s) and 0 new need(s)" in out
+
+    @pytest.mark.spec("disclosed-lists-ids")
+    @pytest.mark.parametrize(
+        ("spec", "how"),
+        [
+            (FOO_SPEC + "- `does-y` (test): When asked, foo does y.\n", "added"),
+            (FOO_SPEC.replace("foo does x", "foo does x twice"), "changed"),
+            (FOO_SPEC.replace("(test): When asked", "(step): When asked"), "changed"),
+            (FOO_SPEC.replace("- `does-x` (test): When asked, foo does x.\n", ""), "removed"),
+        ],
+    )
+    def it_fails_a_requirement_change_the_description_does_not_name(
+        self, pull_request, run, spec, how
+    ):
+        code, _, err = disclosed(run, *pull_request({"specs/foo.md": spec}))
+        assert code == cp.PROBLEMS
+        assert (
+            "in specs/foo.md was %s, and the pull request description does not name it" % how in err
+        )
+
+    @pytest.mark.spec("disclosed-lists-ids")
+    def it_passes_each_id_the_description_names(self, pull_request, run):
+        spec = FOO_SPEC.replace("foo does x", "foo does x twice") + (
+            "- `does-y` (test): When asked, foo does y.\n"
+        )
+        body = "### Requirements\n\n- `does-x`, changed\n- `foo:does-y`, added\n"
+        code, out, err = disclosed(run, *pull_request({"specs/foo.md": spec}, body=body))
+        assert code == cp.OK, err
+        assert "2 requirement change(s)" in out
+
+    @pytest.mark.spec("disclosed-lists-ids")
+    def it_does_not_count_rewrapping_as_a_change(self, pull_request, run):
+        spec = FOO_SPEC.replace(
+            "skill asks them\n  in one batch", "skill\n  asks them in one batch"
+        )
+        code, _, err = disclosed(run, *pull_request({"specs/foo.md": spec}))
+        assert code == cp.OK, err
+
+    @pytest.mark.spec("disclosed-lists-ids")
+    def it_reads_every_requirement_of_a_new_spec_file(self, pull_request, run):
+        bar = "# bar\n\n## constraint slow: Bar is slow\n\nIt is.\n\n- `waits` (test): Bar waits.\n"
+        code, _, err = disclosed(run, *pull_request({"specs/bar.md": bar}))
+        assert code == cp.PROBLEMS
+        assert "`waits` in specs/bar.md was added" in err
+
+    @pytest.mark.spec("disclosed-new-need")
+    def it_fails_a_new_need_when_the_pull_request_closes_no_issue(self, pull_request, run):
+        code, _, err = disclosed(
+            run, *pull_request({"specs/foo.md": FOO_SPEC + NEW_NEED}, body="`fast`")
+        )
+        assert code == cp.PROBLEMS
+        assert "adds the need `goes-fast`, and the pull request closes no issue" in err
+
+    @pytest.mark.spec("disclosed-new-need")
+    def it_fails_a_new_need_its_issue_does_not_name(self, pull_request, run):
+        root, environ = pull_request(
+            {"specs/foo.md": FOO_SPEC + NEW_NEED}, body="Closes #7\n`fast`"
+        )
+        github = FakeGitHub({7: approved_issue("Adds goes-faster.")})
+        code, _, err = disclosed(run, root, environ, github)
+        assert code == cp.PROBLEMS
+        assert "adds the need `goes-fast`, which #7 does not name" in err
+
+    @pytest.mark.spec("disclosed-new-need")
+    def it_passes_a_new_need_its_issue_names(self, pull_request, run):
+        root, environ = pull_request(
+            {"specs/foo.md": FOO_SPEC + NEW_NEED}, body="Closes #7\n`fast`"
+        )
+        github = FakeGitHub({7: approved_issue("Adds `need goes-fast`.")})
+        code, out, err = disclosed(run, root, environ, github)
+        assert code == cp.OK, err
+        assert "1 new need(s)" in out
+
+    @pytest.mark.spec("disclosed-edited-after-approval")
+    def it_fails_an_issue_edited_after_approval(self, pull_request, run):
+        root, environ = pull_request(body="Closes #7")
+        github = FakeGitHub({7: approved_issue(edited="2026-09-02T10:00:00Z")})
+        code, _, err = disclosed(run, root, environ, github)
+        assert code == cp.PROBLEMS
+        assert "#7 was edited at 2026-09-02T10:00:00Z, after `approved` was added" in err
+        assert "removing the label and adding it again" in err
+
+    @pytest.mark.spec("disclosed-edited-after-approval")
+    def it_passes_once_the_label_is_added_again(self, pull_request, run):
+        root, environ = pull_request(body="Closes #7")
+        issue = approved_issue(
+            edited="2026-09-02T10:00:00Z", labeled=(APPROVED_AT, "2026-09-03T10:00:00Z")
+        )
+        code, _, err = disclosed(run, root, environ, FakeGitHub({7: issue}))
+        assert code == cp.OK, err
+
+    @pytest.mark.spec("disclosed-edited-after-approval")
+    def it_leaves_an_unapproved_issue_to_the_linked_issue_check(self, pull_request, run):
+        root, environ = pull_request(body="Closes #7")
+        issue = approved_issue(edited="2026-09-02T10:00:00Z", labeled=())
+        code, _, err = disclosed(run, root, environ, FakeGitHub({7: issue}))
+        assert code == cp.OK, err
+
+    @pytest.mark.spec("disclosed-edited-after-approval")
+    def it_stops_on_an_issue_it_cannot_read(self, pull_request, run):
+        code, _, err = disclosed(run, *pull_request(body="Closes #7"))
+        assert code == cp.CANNOT_RUN
+        assert err.startswith("check-specs.py: cannot read #7")
+
+    @pytest.mark.spec("disclosed-lists-ids")
+    def it_stops_outside_a_pull_request_event(self, make_repo, run):
+        code, _, err = run(
+            "disclosed", "--base", "HEAD", "-C", str(make_repo()), environ=GITHUB_ENV
+        )
+        assert code == cp.CANNOT_RUN
+        assert "GITHUB_EVENT_PATH is not set" in err

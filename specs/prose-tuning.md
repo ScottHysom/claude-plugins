@@ -131,12 +131,12 @@ for a style pass". The owner confirmed the need in the ruling on #132.
 - `evidence-token` (test): When `evidence` finds no fault in the markup, it
   prints a token, as `data.token` and as its last line, and otherwise prints
   none.
-- `insert-needs-token` (test): When the token passed to `tags insert` is not
-  the one `evidence` would print for the tree as it is now, the command
+- `insert-needs-token` (test): When the token passed to `tags insert
+  --token` is not the one `evidence` would print for the tree as it is now, the command
   refuses the batch and writes nothing.
 - `tags-one-batch` (step): When update-prose-config inserts markup, it passes
-  every tag of the run to one `tags insert` call, with the token `evidence`
-  printed.
+  every tag of the run to one `tags insert --batch` call, with the token
+  `evidence` printed.
 
 ## need abandon-a-run: Give up a run and get the documents back
 
@@ -174,8 +174,8 @@ update-prose-config description.
   a name of one to four lower-case words, none starting with a digit,
   `config lint` names it once and exits 1. A name that repeats its section is
   a warning.
-- `new-id-checked` (test): When `config check-id` is given a section and a
-  name, it prints the id when it is well formed and free, and otherwise names
+- `new-id-checked` (test): When `config check-id` is given `--section` and
+  `--name`, it prints the id when it is well formed and free, and otherwise names
   the fault and exits 1.
 
 ## need approve-before-rewrite: Approve each rewrite before it is made
@@ -203,8 +203,8 @@ description.
   marks, with `(cut)` for an empty rewrite, and it writes no file.
 - `approval-token` (test): When `report` exits 0, it prints a token as its
   last line, and otherwise prints none.
-- `apply-needs-token` (test): When the token passed to `apply` is not the one
-  `report` would print for the findings, the documents they name and
+- `apply-needs-token` (test): When the token passed to `apply --token` is not
+  the one `report` would print for the findings, the documents they name and
   `prose-style.md` as they are now, `apply` refuses the batch and writes
   nothing.
 - `apply-writes-approved` (test): When `apply` runs with a current token, it
@@ -221,8 +221,8 @@ description.
 - `edits-one-snapshot` (test): When `apply` writes several findings to one
   file, it plans them against one snapshot of it, so the result does not
   depend on the order they came in.
-- `unreadable-findings-stop` (test): When the findings file cannot be read,
-  or is not JSON, `report` and `apply` name the fault and exit 2.
+- `unreadable-findings-stop` (test): When the file given to `--findings`
+  cannot be read, or is not JSON, `report` and `apply` name the fault and exit 2.
 - `findings-help` (test): When `apply --help` runs, it describes every field
   of a finding, and where a rewrite may hold a newline.
 - `pattern-lines-read` (test): When a rule carries `**Pattern.**` lines,

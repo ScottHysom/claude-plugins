@@ -33,8 +33,8 @@ gitify-project description.
   each unknown placeholder and each stray brace, and exits 1.
 - `render-no-leftovers` (test): When a placeholder or brace would survive
   into a rendered file, `render` names it and writes nothing.
-- `render-stages-files` (test): When the answers pass every check, `render`
-  stages each file the plugin writes and prints the `files` list
+- `render-stages-files` (test): When the answers `render --answers` reads
+  pass every check, it stages each file the plugin writes and prints the `files` list
   `device_commit_files` takes.
 - `ignore-chat-outputs` (test): When `render` writes `.gitignore`, it leaves
   out `Claude outputs/`, where Cowork puts the files Claude hands over in the
@@ -68,7 +68,8 @@ history.
 Source: README.md, under "Setting it up". The 10 MB threshold for a large
 file is the owner's, in the ruling on #130.
 
-- `probe-lists-folder` (test): When `probe`'s command runs on the device, it
+- `probe-lists-folder` (test): When the command `probe --connected-folder`
+  prints runs on the device, it
   prints the number of files, a line for each top-level entry, hidden ones
   included, and a line for each file over 10 MB.
 - `ask-about-unwanted` (step): When the listing shows large media, exports,

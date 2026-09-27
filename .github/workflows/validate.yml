@@ -244,8 +244,29 @@ jobs:
       # requirement can lose its last test, and every check above still
       # passes. This fails a test or skill step that cites no requirement, a
       # citation of an id its spec lacks, and a requirement nothing verifies
-      # the way its kind says. The tests and steps from before the check wait
-      # in .github/untraced.json, each warning with its backfill issue.
+      # the way its kind says. The tests and steps still waiting wait in
+      # .github/untraced.json, each warning with its open issue. The token lets
+      # it fail an entry whose issue has closed.
       # spec: trace-in-ci
       - name: Check tests and skill steps cite a requirement
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: python3 .github/scripts/check-specs.py trace
+
+      # A subcommand, option or choices value no requirement names is a
+      # behavior no need asked for, and nothing above sees it arrive.
+      # spec: surface-in-ci
+      - name: Check every parser option is named by a requirement
+        run: python3 .github/scripts/check-specs.py surface
+
+      # Agents post under the owner's account, so a spec line that changes
+      # unannounced, or an issue edited after approval, looks approved. This
+      # fails a pull request whose description does not name each requirement
+      # it changes, or that adds a need its issue does not name.
+      # spec: disclosed-in-ci
+      - name: Check the pull request discloses its spec changes
+        if: github.event_name == 'pull_request'
+        env:
+          BASE: ${{ github.base_ref }}
+          GITHUB_TOKEN: ${{ github.token }}
+        run: python3 .github/scripts/check-specs.py disclosed --base "origin/$BASE"
