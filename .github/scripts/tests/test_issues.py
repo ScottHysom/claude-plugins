@@ -246,6 +246,16 @@ class DescribeClaim:
         assert out.err.startswith("issues.py: could not push issue/12")
         assert gh.writes() == []
 
+    @pytest.mark.spec("claim-switches", "plain-output-streams")
+    def it_warns_when_it_cannot_switch_to_the_branch(self, capsys, remote, clone, github):
+        a = clone("a")
+        git(a, "branch", "issue/12")
+        github(make_issue(12, "approved"))
+        code, out = run(capsys, a, "claim", "12")
+        assert code == cli.OK
+        assert "warning: claimed, but could not switch to issue/12" in out.err
+        assert "issue/12" in remote_branches(remote)
+
 
 class DescribeNext:
     @pytest.mark.spec("next-offers-free")
@@ -275,6 +285,13 @@ class DescribeNext:
         code, out = run(capsys, clone("a"), "next")
         assert code == cli.OK
         assert out.out == "No approved issue is free.\n"
+
+    @pytest.mark.spec("next-offers-free", "plain-output-streams")
+    def it_names_the_free_issue_on_stdout(self, capsys, clone, github):
+        github(make_issue(13, "approved"))
+        code, out = run(capsys, clone("a"), "next")
+        assert code == cli.OK
+        assert (out.out, out.err) == ("#13 issue 13\n", "")
 
 
 class DescribeRelease:
@@ -345,6 +362,37 @@ def claimed(capsys, clone, github):
     github(make_issue(12, "approved"))
     run(capsys, a, "claim", "12")
     return a
+
+    @pytest.mark.spec("release-keeps-work")
+    def it_keeps_a_branch_pushed_to_while_releasing(
+        self, capsys, remote, clone, github, monkeypatch
+    ):
+        a = clone("a")
+        github(make_issue(12, "approved"))
+        run(capsys, a, "claim", "12")
+        gh = github(make_issue(12, "approved", "in-progress"))
+        real = cli.git
+
+        def pushed_meanwhile(repo, *args, **kwargs):
+            if "push" in args and any(w.startswith("--force-with-lease") for w in args):
+                git(a, "commit", "--quiet", "--allow-empty", "-m", "work")
+                git(a, "push", "--quiet")
+            return real(repo, *args, **kwargs)
+
+        monkeypatch.setattr(cli, "git", pushed_meanwhile)
+        code, out = run(capsys, clone("b"), "release", "12")
+        assert code == cli.PROBLEMS
+        assert "issue/12 changed while releasing" in out.err
+        assert "issue/12" in remote_branches(remote)
+        assert gh.writes() == []
+
+    @pytest.mark.spec("release-frees")
+    def it_frees_an_issue_whose_label_outlived_its_branch(self, capsys, remote, clone, github):
+        gh = github(make_issue(12, "approved", "in-progress"))
+        code, out = run(capsys, clone("a"), "release", "12")
+        assert code == cli.OK
+        assert ("issue", "edit", "12", "--remove-label", cli.IN_PROGRESS) in gh.calls
+        assert ("issue", "comment", "12", "--body", "Released issue/12.") in gh.calls
 
 
 class DescribeStale:
@@ -424,3 +472,9 @@ class DescribeMain:
         code, out = run(capsys, tmp_path, "next")
         assert code == cli.CANNOT_RUN
         assert out.err.startswith("issues.py: ")
+
+    @pytest.mark.spec("closed-pipe-exits-0")
+    def it_exits_ok_when_its_reader_closes_the_pipe(self, capsys, clone, github, closed_pipe):
+        github(make_issue(13, "approved"))
+        assert cli.main(["next", "-C", str(clone("a"))]) == cli.OK
+        assert capsys.readouterr().err == ""

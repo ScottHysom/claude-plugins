@@ -355,6 +355,13 @@ class DescribeDescriptions:
         assert json.loads(out)["data"]["checked"] == [SKILL]
 
     @pytest.mark.spec("description-only")
+    def it_stops_reading_the_description_at_the_next_key(self, make_repo, run):
+        text = "---\nname: foo\ndescription: Does foo.\nmetadata:\n  note: <ins>\n---\n"
+        root = make_repo({SKILL: text})
+        code, _, err = run("descriptions", "-C", str(root))
+        assert code == cs.OK, err
+
+    @pytest.mark.spec("description-only")
     def it_ignores_markdown_outside_plugins(self, make_repo, run):
         root = make_repo({SKILL: described("Does foo."), "docs/SKILL.md": described("<ins>")})
         code, _, err = run("descriptions", "-C", str(root))
@@ -606,6 +613,13 @@ class DescribeCommands:
         code, _, err = run("commands", "-C", str(root))
         assert code == cs.PROBLEMS
         assert "has no build_parser()" in err
+
+    @pytest.mark.spec("commands-resolve-script")
+    def it_fails_a_script_that_will_not_import(self, make_repo, run):
+        root = make_repo(uses(sh('python3 "$FOO" lint'), script="raise ImportError('broken')\n"))
+        code, _, err = run("commands", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "fails to import" in err
 
     @pytest.mark.spec("commands-scans-something")
     def it_fails_when_it_finds_no_invocation(self, make_repo, run):
@@ -928,6 +942,41 @@ class DescribeFences:
         assert code == cs.OK, err
 
     @pytest.mark.spec("fences-allow-setup")
+    def it_allows_linking_the_plugin_before_the_first_command(self, make_repo, run):
+        link = (
+            'mkdir -p /tmp/foo && ln -sfn "${CLAUDE_PLUGIN_ROOT:-${CLAUDE_SKILL_DIR}/../..}" '
+            '/tmp/foo/plugin && FOO=/tmp/foo/plugin/scripts/foo.py && python3 "$FOO" lint'
+        )
+        root = make_repo(uses(sh(link)))
+        code, _, err = run("fences", "-C", str(root))
+        assert code == cs.OK, err
+
+    @pytest.mark.parametrize(
+        ("line", "word"),
+        [
+            ('python3 "$FOO" lint && mkdir -p /tmp/foo', "mkdir"),
+            (
+                'python3 "$FOO" lint && ln -sfn "${CLAUDE_PLUGIN_ROOT:-${CLAUDE_SKILL_DIR}/../..}" '
+                "/tmp/foo/plugin",
+                "ln",
+            ),
+        ],
+        ids=["mkdir", "ln"],
+    )
+    @pytest.mark.spec("fences-allow-setup")
+    def it_rejects_linking_the_plugin_after_a_command(self, make_repo, run, line, word):
+        root = make_repo(uses(sh(line)))
+        code, _, err = run("fences", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "`%s`" % word in err
+
+    @pytest.mark.spec("fences-allow-setup")
+    def it_allows_a_script_path_on_a_line_of_its_own(self, make_repo, run):
+        root = make_repo(uses(sh("FOO=.foo/foo.py", 'python3 "$FOO" lint')))
+        code, _, err = run("fences", "-C", str(root))
+        assert code == cs.OK, err
+
+    @pytest.mark.spec("fences-allow-setup")
     def it_rejects_cd_anywhere_but_the_start(self, make_repo, run):
         root = make_repo(uses(sh('python3 "$FOO" lint && cd ..')))
         code, _, err = run("fences", "-C", str(root))
@@ -1016,3 +1065,16 @@ class DescribeMain:
         with pytest.raises(SystemExit) as exc:
             run("nonsense")
         assert exc.value.code == cs.CANNOT_RUN
+
+    @pytest.mark.spec("cannot-run-exits-2")
+    def it_cannot_run_on_a_directory_that_does_not_exist(self, tmp_path, run):
+        code, out, err = run("repeats", "-C", str(tmp_path / "nope"))
+        assert code == cs.CANNOT_RUN
+        assert out == ""
+        assert err.startswith(cs.PROG + ":")
+
+    @pytest.mark.spec("closed-pipe-exits-0")
+    def it_exits_ok_when_its_reader_closes_the_pipe(self, make_repo, capsys, closed_pipe):
+        root = make_repo({SKILL: described("Does foo.")})
+        assert cs.main(["descriptions", "-C", str(root)]) == cs.OK
+        assert capsys.readouterr().err == ""

@@ -243,6 +243,19 @@ class DescribeMain:
         assert err.startswith("%s: cannot read .claude-plugin/marketplace.json" % cm.PROG)
 
     @pytest.mark.spec("cannot-run-exits-2")
+    def it_cannot_run_outside_a_clone(self, tmp_path, run):
+        code, out, err = run("check", "-C", str(tmp_path))
+        assert code == cm.CANNOT_RUN
+        assert out == ""
+        assert err.startswith(cm.PROG + ":")
+
+    @pytest.mark.spec("closed-pipe-exits-0")
+    def it_exits_ok_when_its_reader_closes_the_pipe(self, make_repo, capsys, closed_pipe):
+        root = make_repo([entry()], {"foo": plugin()})
+        assert cm.main(["check", "-C", str(root)]) == cm.OK
+        assert capsys.readouterr().err == ""
+
+    @pytest.mark.spec("cannot-run-exits-2")
     def it_requires_a_subcommand(self, run):
         with pytest.raises(SystemExit) as exc:
             run()

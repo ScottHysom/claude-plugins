@@ -107,9 +107,30 @@ class DescribeMain:
         code, _ = run_main("not json at all", capsys)
         assert code == issue_guard.ALLOW
 
+    @pytest.mark.spec("guard-unparsed")
+    def it_allows_a_command_it_cannot_split_that_names_no_label(self, capsys):
+        code, out = run_main(event("echo 'unclosed"), capsys)
+        assert code == issue_guard.ALLOW
+        assert out.out == out.err == ""
+
 
 class DescribeSimpleCommands:
     @pytest.mark.spec("guard-passes-text")
     def it_drops_heredoc_bodies_and_keeps_the_commands_around_them(self):
         words = ["cat", "<<", "EOF", "\n", "gh", "x", "\n", "EOF", "\n", "ls"]
         assert issue_guard.simple_commands(words) == [["cat", "<<", "EOF"], ["ls"]]
+
+
+class DescribeRegistration:
+    @pytest.mark.spec("guard-registered")
+    def it_runs_before_every_bash_command(self):
+        settings = json.loads((_PATH.parent.parent / "settings.json").read_text())
+        hooks = [
+            hook
+            for entry in settings["hooks"]["PreToolUse"]
+            if entry["matcher"] == "Bash"
+            for hook in entry["hooks"]
+        ]
+        hook = next(h for h in hooks if "hooks/issue_guard.py" in h["command"])
+        assert "$CLAUDE_PROJECT_DIR/.claude/hooks/issue_guard.py" in hook["command"]
+        assert hook["timeout"] == 10

@@ -112,6 +112,26 @@ class DescribePlacement:
         assert code == ct.PROBLEMS
         assert "plugins/foo/scripts/helper.py" in err
 
+    @pytest.mark.spec("stray-names-destination")
+    def it_rejects_a_conftest_left_under_plugins(self, make_repo, run):
+        files = dict(MOVED)
+        files["plugins/foo/conftest.py"] = ""
+        root = make_repo(files)
+        code, _, err = run("placement", "-C", str(root))
+        assert code == ct.PROBLEMS
+        assert "plugins/foo/conftest.py" in err
+        assert "tests/foo/conftest.py" in err
+
+    @pytest.mark.spec("stray-names-destination")
+    def it_passes_the_files_a_plugin_ships(self, make_repo, run):
+        files = dict(MOVED)
+        files["plugins/foo/skills/foo/SKILL.md"] = "---\nname: foo\n---\n"
+        files["plugins/foo/.claude-plugin/plugin.json"] = "{}\n"
+        root = make_repo(files)
+        code, _, err = run("placement", "-C", str(root))
+        assert code == ct.OK
+        assert err == ""
+
     @pytest.mark.spec("placement-reads-git")
     def it_sees_a_stray_that_is_not_yet_tracked(self, make_repo, run):
         root = make_repo(MOVED)
@@ -254,6 +274,26 @@ class DescribeMain:
         code, _, err = run("placement", "-C", str(root))
         assert code == ct.CANNOT_RUN
         assert ct.TESTPATHS in err
+
+    @pytest.mark.spec("cannot-run-exits-2")
+    def it_cannot_run_when_testpaths_is_empty(self, make_repo, run):
+        root = make_repo({"pytest.ini": "[pytest]\ntestpaths =\n"})
+        code, _, err = run("placement", "-C", str(root))
+        assert code == ct.CANNOT_RUN
+        assert "sets %s to nothing" % ct.TESTPATHS in err
+
+    @pytest.mark.spec("cannot-run-exits-2")
+    def it_cannot_run_on_a_directory_that_does_not_exist(self, tmp_path, run):
+        code, out, err = run("placement", "-C", str(tmp_path / "nope"))
+        assert code == ct.CANNOT_RUN
+        assert out == ""
+        assert err.startswith(ct.PROG + ":")
+
+    @pytest.mark.spec("closed-pipe-exits-0")
+    def it_exits_ok_when_its_reader_closes_the_pipe(self, make_repo, capsys, closed_pipe):
+        root = make_repo(MOVED)
+        assert ct.main(["placement", "-C", str(root)]) == ct.OK
+        assert capsys.readouterr().err == ""
 
     @pytest.mark.spec("cannot-run-exits-2")
     def it_rejects_an_unknown_command(self, run):
