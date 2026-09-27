@@ -360,7 +360,10 @@ whatever the agent cannot place. Take one component at a time:
 2. **Inventory.** Run `inventory` on the component, and post its output on the
    component's ticket. Coverage measures the component's scripts, and not
    the files it copies into a project, such as shell scripts it renders from
-   templates. Read those by hand for behavior no test runs.
+   templates. Read those by hand for behavior no test runs. Where `inventory`
+   does not reach a component, build the same sections from its parser and a
+   coverage run measured per test, and post the commands with the output.
+   claude-plugins' own tooling was listed that way (#135, #253).
 3. **Needs.** Draft the needs and constraints from sources outside the code:
    the README, the descriptions of the model's instructions, design notes,
    platform notes, tickets and commit messages. Cite the source of each. The
@@ -432,6 +435,13 @@ These rules hold throughout:
   a match instead. A recommendation with a condition, such as "keep if a
   folder can hold several projects", can be settled either way by the owner's
   answer. The ticket that follows says how it read the answer.
+- An approval that leaves a condition open does not settle it. When the owner
+  approves "keep if X, and remove otherwise" without saying whether X holds,
+  ask which, before filing its ticket. An approved "keep, if you state the
+  need" is a keep. The spec pull request words that need from the reason on
+  the ruling list, and lists the wording for the owner to correct.
+- Record on the ticket how the ruling was read, one line per item that was
+  not a plain yes, before filing the tickets that follow from it.
 
 ### Order of work
 

@@ -22,6 +22,7 @@ jobs:
     if: contains(github.event.issue.labels.*.name, 'in-progress')
     runs-on: ubuntu-latest
     steps:
+      # spec: closed-clears-label
       - name: Remove the in-progress label
         env:
           GH_TOKEN: ${{ github.token }}

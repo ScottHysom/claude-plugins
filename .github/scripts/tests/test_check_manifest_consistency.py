@@ -79,6 +79,7 @@ def run(capsys):
 
 
 class DescribeImport:
+    @pytest.mark.spec("import-runs-nothing")
     def it_does_no_work_when_imported(self, capsys):
         spec = importlib.util.spec_from_file_location("again", _PATH)
         mod = importlib.util.module_from_spec(spec)
@@ -91,6 +92,7 @@ class DescribeImport:
 
 
 class DescribeCheck:
+    @pytest.mark.spec("plain-output-streams")
     def it_passes_a_repo_whose_manifests_agree(self, make_repo, run):
         root = make_repo([entry()], {"foo": plugin()})
         code, out, err = run("check", "-C", str(root))
@@ -99,6 +101,7 @@ class DescribeCheck:
         assert "All 1 plugin(s) consistent." in out
         assert err == ""
 
+    @pytest.mark.spec("manifest-version-drift")
     def it_reports_version_drift_between_the_manifests(self, make_repo, run):
         root = make_repo([entry(version="0.1.0")], {"foo": plugin(version="0.2.0")})
         code, out, err = run("check", "-C", str(root))
@@ -122,30 +125,35 @@ class DescribeCheck:
         assert code == cm.PROBLEMS
         assert "foo: source `./plugins/missing` is not a directory" in err
 
+    @pytest.mark.spec("manifest-name-drift")
     def it_rejects_a_directory_named_differently_from_its_entry(self, make_repo, run):
         root = make_repo([entry(source="./plugins/bar")], {"bar": plugin("foo")})
         code, _, err = run("check", "-C", str(root))
         assert code == cm.PROBLEMS
         assert "foo: source directory is `bar`" in err
 
+    @pytest.mark.spec("manifest-entry-resolves")
     def it_reports_a_plugin_directory_with_no_plugin_json(self, make_repo, run):
         root = make_repo([entry()], {"foo": None})
         code, _, err = run("check", "-C", str(root))
         assert code == cm.PROBLEMS
         assert "foo: no plugin.json at plugins/foo/.claude-plugin/plugin.json" in err
 
+    @pytest.mark.spec("manifest-uncataloged")
     def it_reports_a_plugin_directory_with_no_catalog_entry(self, make_repo, run):
         root = make_repo([entry()], {"foo": plugin(), "stray": plugin("stray")})
         code, _, err = run("check", "-C", str(root))
         assert code == cm.PROBLEMS
         assert "stray: has a plugin.json but no marketplace.json entry" in err
 
+    @pytest.mark.spec("manifest-uncataloged")
     def it_ignores_a_plugin_directory_that_has_no_plugin_json_yet(self, make_repo, run):
         root = make_repo([entry()], {"foo": plugin(), "draft": None})
         code, _, _ = run("check", "-C", str(root))
         assert code == cm.OK
 
     @pytest.mark.parametrize("field", cm.REQUIRED_FIELDS)
+    @pytest.mark.spec("manifest-entry-complete")
     def it_reports_an_entry_missing_a_required_field(self, make_repo, run, field):
         e = entry()
         del e[field]
@@ -162,24 +170,28 @@ class DescribeCheck:
         assert code == cm.PROBLEMS
         assert "a marketplace entry has no name" in err
 
+    @pytest.mark.spec("manifest-name-drift")
     def it_reports_a_plugin_json_whose_name_differs_from_its_entry(self, make_repo, run):
         root = make_repo([entry()], {"foo": plugin("other")})
         code, _, err = run("check", "-C", str(root))
         assert code == cm.PROBLEMS
         assert "foo: plugin.json name is `other`" in err
 
+    @pytest.mark.spec("manifest-catalog-present")
     def it_reports_a_catalog_that_lists_no_plugins(self, make_repo, run):
         root = make_repo([])
         code, _, err = run("check", "-C", str(root))
         assert code == cm.PROBLEMS
         assert "marketplace.json lists no plugins" in err
 
+    @pytest.mark.spec("manifest-catalog-present")
     def it_reports_a_missing_catalog(self, make_repo, run):
         root = make_repo(None)
         code, _, err = run("check", "-C", str(root))
         assert code == cm.PROBLEMS
         assert "missing .claude-plugin/marketplace.json" in err
 
+    @pytest.mark.spec("import-runs-nothing")
     def it_does_not_carry_errors_from_one_run_into_the_next(self, make_repo, run):
         root = make_repo([entry(version="0.1.0")], {"foo": plugin(version="0.2.0")})
         first = json.loads(run("check", "--json", "-C", str(root))[1])
@@ -189,6 +201,7 @@ class DescribeCheck:
 
 
 class DescribeJson:
+    @pytest.mark.spec("json-envelope", "manifest-version-drift")
     def it_prints_one_envelope_and_nothing_on_stderr(self, make_repo, run):
         root = make_repo([entry()], {"foo": plugin(version="0.2.0")})
         code, out, err = run("check", "--json", "-C", str(root))
@@ -212,12 +225,14 @@ class DescribeJson:
 
 
 class DescribeMain:
+    @pytest.mark.spec("cannot-run-exits-2")
     def it_exits_cannot_run_for_a_directory_that_does_not_exist(self, tmp_path, run):
         code, out, err = run("check", "-C", str(tmp_path / "nope"))
         assert code == cm.CANNOT_RUN
         assert out == ""
         assert err.startswith("%s: no such directory" % cm.PROG)
 
+    @pytest.mark.spec("cannot-run-exits-2")
     def it_exits_cannot_run_for_a_catalog_that_is_not_json(self, make_repo, run):
         root = make_repo(None)
         (root / ".claude-plugin").mkdir()
@@ -227,6 +242,21 @@ class DescribeMain:
         assert out == ""
         assert err.startswith("%s: cannot read .claude-plugin/marketplace.json" % cm.PROG)
 
+    @pytest.mark.spec("cannot-run-exits-2")
+    def it_cannot_run_outside_a_clone(self, tmp_path, run):
+        code, out, err = run("check", "-C", str(tmp_path))
+        assert code == cm.CANNOT_RUN
+        assert out == ""
+        assert err.startswith(cm.PROG + ":")
+
+    @pytest.mark.spec("closed-pipe-exits-0")
+    def it_exits_ok_when_its_reader_closes_the_pipe(self, make_repo, capsys, closed_pipe):
+        root = make_repo([entry()], {"foo": plugin()})
+        closed_pipe()
+        assert cm.main(["check", "-C", str(root)]) == cm.OK
+        assert capsys.readouterr().err == ""
+
+    @pytest.mark.spec("cannot-run-exits-2")
     def it_requires_a_subcommand(self, run):
         with pytest.raises(SystemExit) as exc:
             run()
