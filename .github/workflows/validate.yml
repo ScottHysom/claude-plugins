@@ -83,11 +83,11 @@ jobs:
       - name: Check skill descriptions pass Cowork's upload
         run: python3 .github/scripts/check-skills.py descriptions
 
-      # A pull request may close only issues Scott has labeled approved, and
-      # only from the issue/N branch that claiming the issue makes. Agents post
-      # as Scott, so GitHub cannot tell their work apart; this job is required,
-      # so the rules hold whichever surface an agent ran on. README.md, under
-      # "Issues", describes the process.
+      # A pull request may close only issues the owner has labeled approved,
+      # and only from the issue/N branch that claiming the issue makes. Agents
+      # post as the owner, so GitHub cannot tell their work apart; this job is
+      # required, so the rules hold whichever surface an agent ran on.
+      # README.md, under "Issues", describes the process.
       # spec: linked-in-ci
       - name: Check linked issues are approved and claimed
         if: github.event_name == 'pull_request'

@@ -1,6 +1,7 @@
-"""The hook is the only thing between an agent posting as Scott and the label
-that says Scott approved the work. Each case below is a way an agent would
-plausibly phrase the command, so a pattern that stops matching one fails here.
+"""The hook is the only thing between an agent posting as the owner and the
+label that says the owner approved the work. Each case below is a way an agent
+would plausibly phrase the command, so a pattern that stops matching one fails
+here.
 """
 
 import importlib.util
