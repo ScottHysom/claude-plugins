@@ -1071,7 +1071,7 @@ class DescribeMain:
         code, out, err = run("repeats", "-C", str(tmp_path / "nope"))
         assert code == cs.CANNOT_RUN
         assert out == ""
-        assert err.startswith(cs.PROG + ":")
+        assert err.startswith("%s: no such directory" % cs.PROG)
 
     @pytest.mark.spec("closed-pipe-exits-0")
     def it_exits_ok_when_its_reader_closes_the_pipe(self, make_repo, capsys, closed_pipe):
