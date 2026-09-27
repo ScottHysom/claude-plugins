@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Tie each test and skill step to a requirement in specs/, and list what needs tying.
+"""Tie each test, skill step and parser option to a requirement in specs/.
 
 specs/ records what each plugin, and the repo as a whole, is for.
 SPEC-METHODOLOGY.md has the grammar of a spec file and the chain this checks:
@@ -22,15 +22,35 @@ A plugin's test, under tests/<plugin>/, and a plugin's skill step cite that
 plugin's specs/<plugin>.md. Every other test, and every workflow step, cites
 specs/repo.md. Any of them can name a repo requirement as `repo:<id>`.
 
-The tests and steps that were there before the check are listed in
-.github/untraced.json, each keyed to the backfill issue that will trace it:
+The items still waiting on a ruling are listed in .github/untraced.json, each
+keyed to the open issue that will settle it:
 
     {"tests": {"<file>::<class>::<test>": <issue>},
-     "steps": {"<SKILL.md path>::<step number>": <issue>}}
+     "steps": {"<SKILL.md path>::<step number>": <issue>},
+     "surface": {"<script>::<command> [option] [value]": <issue>}}
 
-A listed item that cites nothing passes with a warning naming its issue. The
-list only shrinks: an entry whose item now cites a requirement, or is gone,
-fails until it is removed.
+A listed item passes with a warning naming its issue. The list only shrinks:
+an entry whose item now cites a requirement, or is named by one, or is gone,
+fails until it is removed. `trace` also fails an entry whose issue has closed,
+here and in check-skills.py's KNOWN_SEAMS, so closing the issue takes its
+items off the list. It asks GitHub for the issues' states through
+$GITHUB_TOKEN and $GITHUB_REPOSITORY, which CI sets. Without them, as on a
+contributor's machine, it warns that it did not look.
+
+`surface` fails a subcommand, option or `choices` value of a plugin script or
+a .github/scripts/ script that no requirement names. A requirement names one
+when a backticked span in it, continuation lines included, holds the words
+`inventory` would count as naming it. The requirements read are the script's
+component spec and specs/repo.md, which holds the flags every script shares.
+
+`disclosed` fails a pull request whose description does not name, in
+backticks, each requirement id its diff adds, changes or removes, as `<id>`
+or `<component>:<id>`. It also fails one that adds a need no issue it closes
+names, and one that closes an issue whose body was edited after `approved`
+was last added to it. Agents post under the owner's account, so an edit to an
+approved issue looks like the owner's own; removing the label and adding it
+again is how the owner re-approves. It reads the pull request from
+$GITHUB_EVENT_PATH, so it runs in CI on a pull_request event.
 
 `inventory` lists what needs tracing in one plugin, as the input to its
 backfill: every subcommand, option and `choices` value its script's
@@ -47,6 +67,8 @@ Run from anywhere in the clone:
 
     python3 .github/scripts/check-specs.py trace
     python3 .github/scripts/check-specs.py inventory prose-tuning
+    python3 .github/scripts/check-specs.py surface
+    python3 .github/scripts/check-specs.py disclosed --base origin/main
 
 Commands:
 
@@ -54,6 +76,10 @@ Commands:
              is listed in .github/untraced.json; every requirement is verified
              the way its kind says
   inventory  what needs tracing in one plugin
+  surface    every subcommand, option and choices value is named by a
+             requirement, or is listed in .github/untraced.json
+  disclosed  a pull request names each requirement it changes, and each need
+             it adds is named by an issue it closes
 
 Every command takes --json and -C/--repo.
 
@@ -87,12 +113,24 @@ Things that look like bugs and are not:
 - Steps and script invocations are read by check-skills.py, loaded by path
   from beside this script, so a step here is the step `check-skills.py steps`
   checks.
-- It fails when it has scanned nothing: no spec, no test or no step. A check
-  whose file pattern has gone blind passes every pull request.
-- It only reads. `trace` reads through git and nothing else. `inventory` also
-  imports the plugin's script, from the working tree, to call its
-  build_parser(); the script runs main() only under `if __name__ ==
-  "__main__":`, so importing it runs no command.
+- It fails when it has scanned nothing: no spec, no test or no step, or no
+  parser for `surface`. A check whose file pattern has gone blind passes every
+  pull request.
+- `surface` counts nothing a skill says. A skill naming an option shows that
+  a step uses it, not which need it serves. A span that opens with a script's
+  file name, as `issues.py claim` does, counts only for that script.
+- `surface` reads a script only if it defines build_parser(). One without,
+  such as check-linked-issues.py, takes no arguments.
+- A requirement that is only rewrapped has not changed, for `disclosed`: its
+  lines are joined with single spaces before they are compared.
+- An issue that was never approved is left to check-linked-issues.py, which
+  fails it. `disclosed` only compares an edit with an approval.
+- GitHub is asked once per run, one GraphQL query naming every issue. An issue
+  it does not return stops the run with exit 2, since a lookup that failed is
+  not an answer.
+- It only reads. `inventory` and `surface` import each script, from the
+  working tree, to call its build_parser(); the script runs main() only under
+  `if __name__ == "__main__":`, so importing it runs no command.
 """
 
 import argparse
@@ -106,6 +144,8 @@ import re
 import shlex
 import subprocess
 import sys
+import urllib.error
+import urllib.request
 
 ENVELOPE_VERSION = 1
 
@@ -123,8 +163,24 @@ WORKFLOWS = ".github/workflows/"
 WORKFLOW_SUFFIXES = (".yml", ".yaml")
 PYTEST_INI = "pytest.ini"
 DEFAULT_REPORT = "coverage.json"
+HERE = os.path.dirname(os.path.abspath(__file__))
 # check-skills.py, beside this script, reads the steps and the invocations.
-CHECK_SKILLS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "check-skills.py")
+CHECK_SKILLS = os.path.join(HERE, "check-skills.py")
+# check-linked-issues.py, beside it too, reads the issues a pull request closes.
+CHECK_LINKED = os.path.join(HERE, "check-linked-issues.py")
+REPO_SCRIPTS = ".github/scripts/"
+SPEC_SCRIPT_SUFFIX = ".py"
+# The untraced list's sections, each {item: issue}.
+LIST_TESTS, LIST_STEPS, LIST_SURFACE = "tests", "steps", "surface"
+LIST_SECTIONS = (LIST_TESTS, LIST_STEPS, LIST_SURFACE)
+
+# GitHub, for the issues the lists wait on and the pull request `disclosed` reads.
+GRAPHQL_URL = "https://api.github.com/graphql"
+TOKEN_ENV = "GITHUB_TOKEN"
+REPOSITORY_ENV = "GITHUB_REPOSITORY"
+EVENT_ENV = "GITHUB_EVENT_PATH"
+APPROVED = "approved"
+CLOSED = "CLOSED"
 
 # pytest's default test file names; pytest.ini does not change them.
 TEST_FILES = ("test_*.py", "*_test.py")
@@ -141,6 +197,8 @@ BULLET_RE = re.compile(r"^[-*+][ \t]")
 # A bullet that means to be a requirement: an id in backticks, then a kind.
 REQUIREMENT_START_RE = re.compile(r"^- `[^`]*` \(")
 REQUIREMENT_RE = re.compile(r"^- `([^`]+)` \(([^)]*)\): \S")
+# A line that continues the bullet above it.
+CONTINUATION_RE = re.compile(r"^[ \t]+\S")
 ID_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+){0,3}$")
 TEST, STEP, CHECK, EVAL = "test", "step", "check", "eval"
 KINDS = (TEST, STEP, CHECK)
@@ -253,6 +311,65 @@ def load_check_skills():
     return module
 
 
+def load_check_linked():
+    """check-linked-issues.py as a module, for the issues a pull request closes."""
+    spec = importlib.util.spec_from_file_location("check_specs_check_linked", CHECK_LINKED)
+    module = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(module)
+    except (OSError, SyntaxError) as exc:
+        raise Fatal("cannot load %s: %s" % (CHECK_LINKED, exc)) from exc
+    return module
+
+
+# --------------------------------------------------------------------------
+# GitHub
+# --------------------------------------------------------------------------
+
+
+def graphql(query, token):
+    """GitHub's GraphQL answer to one query, or Fatal. A partial answer is a failure."""
+    req = urllib.request.Request(
+        GRAPHQL_URL,
+        data=json.dumps({"query": query}).encode("utf-8"),
+        headers={"Authorization": "Bearer %s" % token, "Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(req) as resp:
+            answer = json.load(resp)
+    except (urllib.error.URLError, ValueError) as exc:
+        raise Fatal("the GitHub GraphQL query failed: %s" % exc) from exc
+    if answer.get("errors"):
+        raise Fatal(
+            "the GitHub GraphQL query failed: %s"
+            % "; ".join(e.get("message", "?") for e in answer["errors"])
+        )
+    return answer.get("data") or {}
+
+
+def issue_fields(args, repository, token, numbers, fields):
+    """{number: {field: value}} for these issues, in one query. An issue GitHub
+    does not return stops the run, since a lookup that failed is not an answer."""
+    owner, _, name = repository.partition("/")
+    aliases = " ".join("i%d: issue(number: %d) { %s }" % (n, n, fields) for n in numbers)
+    query = "query { repository(owner: %s, name: %s) { %s } }" % (
+        json.dumps(owner),
+        json.dumps(name),
+        aliases,
+    )
+    repo = (args.graphql(query, token) or {}).get("repository") or {}
+    out = {}
+    for n in numbers:
+        issue = repo.get("i%d" % n)
+        if not issue:
+            raise Fatal(
+                "cannot read #%d in %s. Check that the issue exists and that %s may read "
+                "issues." % (n, repository, TOKEN_ENV)
+            )
+        out[n] = issue
+    return out
+
+
 def ranges(numbers):
     """[1, 2, 3, 5] as ["1-3", "5"]."""
     out = []
@@ -274,11 +391,19 @@ def spec_path(component):
 
 
 def parse_spec(path, text, errors):
-    """The requirements of one spec file, as {id: {"kind", "line", "under"}}."""
+    """The requirements of one spec file, as {id: {"kind", "line", "under", "text"}}.
+
+    A requirement's text is its bullet and the indented lines that continue it.
+    """
     requirements = {}
     under = None
+    current = None
     for number, line in enumerate(text.splitlines(), 1):
         where = "%s:%d" % (path, number)
+        if current is not None and CONTINUATION_RE.match(line):
+            current["text"] += " " + line.strip()
+            continue
+        current = None
         if SECTION_RE.match(line):
             heading = HEADING_RE.match(line)
             under = heading.group(2) if heading else None
@@ -322,7 +447,8 @@ def parse_spec(path, text, errors):
                 "%s: `%s` names the kind `%s`. A requirement is verified by %s."
                 % (where, rid, kind, ", ".join(KINDS))
             )
-        requirements[rid] = {"kind": kind, "line": number, "under": under}
+        requirements[rid] = {"kind": kind, "line": number, "under": under, "text": line}
+        current = requirements[rid]
     return requirements
 
 
@@ -554,16 +680,19 @@ def find_checks(root, files, errors):
 
 
 def load_untraced(root):
-    """{"tests": {id: issue}, "steps": {id: issue}}. No file is an empty list."""
+    """{"tests": {id: issue}, "steps": {id: issue}, "surface": {item: issue}}.
+
+    No file is an empty list.
+    """
     path = os.path.join(root, UNTRACED_FILE)
     if not os.path.isfile(path):
-        return {"tests": {}, "steps": {}}
+        return dict((section, {}) for section in LIST_SECTIONS)
     try:
         with open(path, encoding="utf-8") as fh:
             data = json.load(fh)
     except (OSError, ValueError) as exc:
         raise Fatal("cannot read %s: %s" % (UNTRACED_FILE, exc)) from exc
-    shape_ok = isinstance(data, dict) and set(data) <= {"tests", "steps"}
+    shape_ok = isinstance(data, dict) and set(data) <= set(LIST_SECTIONS)
     if shape_ok:
         for entries in data.values():
             if not isinstance(entries, dict) or not all(
@@ -572,10 +701,53 @@ def load_untraced(root):
                 shape_ok = False
     if not shape_ok:
         raise Fatal(
-            '%s must be {"tests": {id: issue}, "steps": {id: issue}}, each issue a number.'
-            % UNTRACED_FILE
+            '%s must be {"tests": {id: issue}, "steps": {id: issue}, "surface": {item: '
+            "issue}}, each issue a number." % UNTRACED_FILE
         )
-    return {"tests": data.get("tests", {}), "steps": data.get("steps", {})}
+    return dict((section, data.get(section, {})) for section in LIST_SECTIONS)
+
+
+def waiting_on(untraced, cs, files):
+    """{issue: [what waits on it]}, from the untraced list and KNOWN_SEAMS.
+
+    A KNOWN_SEAMS entry for a file the clone lacks is left to `check-skills.py
+    steps`, which fails it.
+    """
+    out = {}
+    for section in LIST_SECTIONS:
+        for item, issue in untraced[section].items():
+            out.setdefault(issue, []).append("%s lists %s" % (UNTRACED_FILE, item))
+    present = set(files)
+    for (path, number), issue in cs.KNOWN_SEAMS.items():
+        if path not in present:
+            continue
+        out.setdefault(issue, []).append(
+            "check-skills.py's KNOWN_SEAMS lists step %d of %s" % (number, path)
+        )
+    return out
+
+
+def closed_waits(args, untraced, cs, files, errors, warnings):
+    """Fail each list entry whose issue has closed. An entry waits on an open issue."""
+    waits = waiting_on(untraced, cs, files)
+    if not waits:
+        return
+    token, repository = args.environ.get(TOKEN_ENV), args.environ.get(REPOSITORY_ENV)
+    if not token or not repository:
+        warnings.append(
+            "did not check that the issues %s and KNOWN_SEAMS wait on are open: %s and %s "
+            "are not set. CI sets both." % (UNTRACED_FILE, TOKEN_ENV, REPOSITORY_ENV)
+        )
+        return
+    issues = issue_fields(args, repository, token, sorted(waits), "state")
+    for number in sorted(waits):
+        if issues[number]["state"] != CLOSED:
+            continue
+        for what in waits[number]:
+            errors.append(
+                "%s for #%d, which has closed. Trace the item, or key the entry to the open "
+                "issue that will." % (what, number)
+            )
 
 
 # --------------------------------------------------------------------------
@@ -676,6 +848,8 @@ def cmd_trace(args, root):
                     "%s:%d: `%s` (%s) is verified by nothing of its kind. %s"
                     % (spec_path(component), req["line"], rid, kind, how[kind] % rid)
                 )
+
+    closed_waits(args, untraced, cs, files, errors, warnings)
 
     for issue in sorted(waiting):
         counts = waiting[issue]
@@ -1006,6 +1180,298 @@ def cmd_inventory(args, root):
 
 
 # --------------------------------------------------------------------------
+# surface
+# --------------------------------------------------------------------------
+
+
+def surface_label(item):
+    """`<command> [option] [value]`, as the untraced list keys it after `<script>::`."""
+    words = [item["command"]] if item["command"] else []
+    if item["kind"] != "command":
+        words.append(item["option"])
+    if item["kind"] == "choice":
+        words.append(item["value"])
+    return " ".join(words)
+
+
+def parser_scripts(root, files):
+    """[(script, component)] for each plugin script and repo script that defines
+    build_parser(). A script without one takes no arguments, and has no surface."""
+    out = []
+    for path in files:
+        parts = path.split("/")
+        if not path.endswith(SPEC_SCRIPT_SUFFIX):
+            continue
+        if len(parts) == 4 and parts[0] == PLUGINS and parts[2] == SCRIPTS:
+            component = parts[1]
+        elif path.startswith(REPO_SCRIPTS) and path.count("/") == REPO_SCRIPTS.count("/"):
+            component = REPO
+        else:
+            continue
+        try:
+            tree = ast.parse(read(root, path), filename=path)
+        except SyntaxError as exc:
+            raise Fatal("cannot parse %s: %s" % (path, exc)) from exc
+        defined = set(n.name for n in tree.body if isinstance(n, ast.FunctionDef))
+        if "build_parser" in defined:
+            out.append((path, component))
+    return out
+
+
+def requirement_spans(script, texts):
+    """The word lists of the backticked spans in these requirements that may name
+    this script's surface. A span that opens with a script's file name counts
+    only for that script, with the name taken off."""
+    name = script.rsplit("/", 1)[-1]
+    out = []
+    for text in texts:
+        for span in CODE_SPAN_RE.findall(text):
+            words = span_words(span)
+            if words and words[0].endswith(SPEC_SCRIPT_SUFFIX):
+                if words[0].rsplit("/", 1)[-1] != name:
+                    continue
+                words = words[1:]
+            if words:
+                out.append(words)
+    return out
+
+
+def cmd_surface(args, root):
+    files = repo_files(root)
+    cs = load_check_skills()
+    errors, warnings = [], []
+    specs = load_specs(root, files, [])
+    listed = load_untraced(root)[LIST_SURFACE]
+    scripts = parser_scripts(root, files)
+    if not scripts:
+        errors.append(
+            "found no script with a build_parser() under %s/*/%s/ or %s; a check that "
+            "scanned nothing has not passed" % (PLUGINS, SCRIPTS, REPO_SCRIPTS)
+        )
+
+    items, present, waiting = [], set(), {}
+    cache = {}
+    for script, component in scripts:
+        build = cs.load_parser(root, script, cache)
+        if isinstance(build, str):
+            raise Fatal(build)
+        texts = [r["text"] for r in specs.get(component, {}).values()]
+        if component != REPO:
+            texts += [r["text"] for r in specs.get(REPO, {}).values()]
+        spans = requirement_spans(script, texts)
+        for item in parser_surface(build):
+            key = "%s%s%s" % (script, NODE_SEPARATOR, surface_label(item))
+            present.add(key)
+            named = any(names(item, words) for words in spans)
+            issue = listed.get(key)
+            items.append({"item": key, "named": named, "listed": issue})
+            if named and issue is not None:
+                errors.append(
+                    "%s is now named by a requirement. Remove its entry from %s, which "
+                    "waited on #%d." % (key, UNTRACED_FILE, issue)
+                )
+            elif not named and issue is not None:
+                waiting.setdefault(issue, []).append(key)
+            elif not named:
+                errors.append(
+                    "%s is named by no requirement in %s%s. Name it in backticks in the "
+                    "requirement it serves, or remove it from the parser."
+                    % (
+                        key,
+                        spec_path(component),
+                        "" if component == REPO else " or %s" % spec_path(REPO),
+                    )
+                )
+
+    for key, issue in sorted(listed.items()):
+        if key not in present:
+            errors.append(
+                "%s lists %s for #%d, and no parser has it. Remove its entry."
+                % (UNTRACED_FILE, key, issue)
+            )
+    for issue in sorted(waiting):
+        warnings.append(
+            "%d item(s) are named by no requirement yet; #%d will settle them."
+            % (len(waiting[issue]), issue)
+        )
+
+    def human():
+        if not errors:
+            print(
+                "%d item(s) of %d parser(s); %d named by a requirement."
+                % (len(items), len(scripts), sum(1 for i in items if i["named"]))
+            )
+
+    return emit(args, "surface", {"items": items}, errors, warnings, human)
+
+
+# --------------------------------------------------------------------------
+# disclosed
+# --------------------------------------------------------------------------
+
+
+def spec_needs(text):
+    """The ids of a spec file's needs."""
+    out = set()
+    for line in text.splitlines():
+        m = HEADING_RE.match(line)
+        if m and m.group(1) == "need":
+            out.add(m.group(2))
+    return out
+
+
+def spec_component(path):
+    """The component a specs/<component>.md holds, or None for any other path."""
+    parts = path.split("/")
+    if len(parts) == 2 and parts[0] == SPECS and parts[1].endswith(MARKDOWN):
+        return parts[1][: -len(MARKDOWN)]
+    return None
+
+
+def spec_texts_at(root, ref):
+    """{component: text} of each spec file at a commit."""
+    out = {}
+    listing = git(root, "ls-tree", "-r", "--name-only", ref, "--", SPECS + "/").stdout
+    for path in listing.splitlines():
+        component = spec_component(path)
+        if component:
+            out[component] = git(root, "show", "%s:%s" % (ref, path)).stdout
+    return out
+
+
+def requirement_changes(before, after):
+    """[(component, id, how)] for each requirement added, removed or changed.
+
+    parse_spec joins a requirement's lines with single spaces, so rewrapping
+    one is not a change.
+    """
+    out = []
+    for component in sorted(set(before) | set(after)):
+        old = parse_spec(spec_path(component), before.get(component, ""), [])
+        new = parse_spec(spec_path(component), after.get(component, ""), [])
+        for rid in sorted(set(old) | set(new)):
+            if rid not in old:
+                out.append((component, rid, "added"))
+            elif rid not in new:
+                out.append((component, rid, "removed"))
+            elif any(old[rid][k] != new[rid][k] for k in ("kind", "under", "text")):
+                out.append((component, rid, "changed"))
+    return out
+
+
+def load_event(environ):
+    path = environ.get(EVENT_ENV)
+    if not path:
+        raise Fatal(
+            "%s is not set. `disclosed` reads the pull request from the event GitHub "
+            "Actions writes, so it runs in CI on a pull_request event." % EVENT_ENV
+        )
+    try:
+        with open(path, encoding="utf-8") as fh:
+            event = json.load(fh)
+    except (OSError, ValueError) as exc:
+        raise Fatal("cannot read the event at %s: %s" % (path, exc)) from exc
+    pr = event.get("pull_request")
+    if not isinstance(pr, dict):
+        raise Fatal("the event at %s is not a pull request's." % path)
+    return pr
+
+
+def cmd_disclosed(args, root):
+    errors = []
+    pr = load_event(args.environ)
+    token, repository = args.environ.get(TOKEN_ENV), args.environ.get(REPOSITORY_ENV)
+    if not token or not repository:
+        raise Fatal(
+            "%s and %s must be set to read the issues this pull request closes."
+            % (TOKEN_ENV, REPOSITORY_ENV)
+        )
+    body = pr.get("body") or ""
+    title = pr.get("title") or ""
+
+    files = repo_files(root)
+    after = dict((spec_component(p), read(root, p)) for p in files if spec_component(p) is not None)
+    if not after:
+        errors.append(
+            "found no spec file under %s/; a check that scanned nothing has not passed" % SPECS
+        )
+    before = spec_texts_at(root, args.base)
+
+    listed = set(span.strip() for span in CODE_SPAN_RE.findall(body))
+    changes = requirement_changes(before, after)
+    for component, rid, how in changes:
+        if rid not in listed and "%s:%s" % (component, rid) not in listed:
+            errors.append(
+                "`%s` in %s was %s, and the pull request description does not name it. "
+                "List it in backticks, so the owner reviews the requirement."
+                % (rid, spec_path(component), how)
+            )
+
+    ours, _ = load_check_linked().linked_issues(title + "\n" + body, repository)
+    issues = {}
+    if ours:
+        issues = issue_fields(
+            args,
+            repository,
+            token,
+            ours,
+            "body lastEditedAt timelineItems(itemTypes: LABELED_EVENT, last: 100) "
+            "{ nodes { ... on LabeledEvent { createdAt label { name } } } }",
+        )
+
+    added = []
+    for component in sorted(after):
+        for need in sorted(spec_needs(after[component]) - spec_needs(before.get(component, ""))):
+            added.append((component, need))
+            named = [
+                n
+                for n in ours
+                if re.search(r"(?<![\w-])%s(?![\w-])" % re.escape(need), issues[n]["body"] or "")
+            ]
+            if not ours:
+                errors.append(
+                    "%s adds the need `%s`, and the pull request closes no issue. A new need "
+                    "enters specs/ only through an approved issue that names it."
+                    % (spec_path(component), need)
+                )
+            elif not named:
+                errors.append(
+                    "%s adds the need `%s`, which %s does not name. A new need enters specs/ "
+                    "only through an approved issue that names it."
+                    % (spec_path(component), need, ", ".join("#%d" % n for n in ours))
+                )
+
+    for n in ours:
+        issue = issues[n]
+        approvals = [
+            e["createdAt"]
+            for e in (issue.get("timelineItems") or {}).get("nodes") or []
+            if e and (e.get("label") or {}).get("name") == APPROVED
+        ]
+        edited = issue.get("lastEditedAt")
+        if approvals and edited and edited > max(approvals):
+            errors.append(
+                "#%d was edited at %s, after `%s` was added at %s. The owner reads the edit "
+                "and re-approves it by removing the label and adding it again."
+                % (n, edited, APPROVED, max(approvals))
+            )
+
+    def human():
+        if not errors:
+            print(
+                "%d requirement change(s) and %d new need(s), all disclosed."
+                % (len(changes), len(added))
+            )
+
+    data = {
+        "changes": [{"component": c, "id": r, "how": h} for c, r, h in changes],
+        "needs": [{"component": c, "id": n} for c, n in added],
+        "issues": ours,
+    }
+    return emit(args, "disclosed", data, errors, None, human)
+
+
+# --------------------------------------------------------------------------
 # entry point
 # --------------------------------------------------------------------------
 
@@ -1036,11 +1502,28 @@ def build_parser():
     )
     p.set_defaults(func=cmd_inventory)
 
+    p = sub.add_parser(
+        "surface",
+        parents=[common],
+        help="every subcommand, option and choices value is named by a requirement",
+    )
+    p.set_defaults(func=cmd_surface)
+
+    p = sub.add_parser(
+        "disclosed",
+        parents=[common],
+        help="a pull request names every requirement it changes and every need's issue",
+    )
+    p.add_argument("--base", metavar="REF", required=True, help="the commit the pull request left")
+    p.set_defaults(func=cmd_disclosed)
+
     return ap
 
 
-def main(argv=None):
+def main(argv=None, environ=None, graphql=graphql):
     args = build_parser().parse_args(argv)
+    args.environ = os.environ if environ is None else environ
+    args.graphql = graphql
     try:
         return args.func(args, toplevel(args.repo))
     except Fatal as exc:

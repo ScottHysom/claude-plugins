@@ -289,8 +289,8 @@ Notes for the agent that builds them:
   `--cov-context=test`. coverage.py's own per-test mode recognizes only test
   functions whose names start with `test`.
 - A check starts as a warning. An item it flags waits on a list keyed to the
-  ticket that will fix it, and passes with a warning until then. The list only
-  shrinks, and when it is empty the check becomes an error.
+  ticket that will fix it, and passes with a warning while that ticket is
+  open. The list only shrinks, and an entry whose ticket has closed fails.
 - `disclosed` has to allow for agents that post under the owner's account. Such
   an agent can edit a ticket after the owner approves it, so the check also
   fails when a linked ticket's text changed after its approval.
@@ -406,8 +406,10 @@ not a source.
    stay, and lists every pending ruling with its ticket. Every other ruling
    gets a ticket and a small pull request of its own, which changes the code,
    its tests, its docs and its instructions together.
-8. **Switch.** When a component's last ruling lands, its list of untraced items
-   is empty, and its checks become errors.
+8. **Switch.** When the backfill's spec pull request lands, its checks become
+   errors for everything but the items still on the list, each keyed to its
+   ruling's ticket. An entry whose ticket has closed fails, so the list
+   empties as the rulings land.
 
 These rules hold throughout:
 

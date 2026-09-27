@@ -282,9 +282,10 @@ KNOWN_GAPS = {}
 # Steps that ran more than one command with no seam marker before the rule
 # came in: {(SKILL.md path, step number): issue number}. Each passes with a
 # warning until the issue sifts it. An entry goes when its step runs one
-# command or gains a marker; `steps` fails until it does.
+# command or gains a marker; `steps` fails until it does. `check-specs.py
+# trace` fails an entry whose issue has closed.
 KNOWN_SEAMS = {
-    ("plugins/prose-tuning/skills/adopt-prose/SKILL.md", 1): 131,
+    ("plugins/prose-tuning/skills/adopt-prose/SKILL.md", 1): 167,
     ("plugins/prose-tuning/skills/update-prose-config/SKILL.md", 1): 181,
     ("plugins/prose-tuning/skills/update-prose-config/SKILL.md", 7): 183,
     ("plugins/prose-tuning/skills/update-prose-config/SKILL.md", 8): 184,

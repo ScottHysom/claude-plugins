@@ -149,6 +149,9 @@ Source: README.md, under "Issues" and "Keeping `approved` meaningful".
   links.
 - `linked-in-ci` (check): When a pull request is opened, edited or updated,
   CI runs check-linked-issues.py.
+- `disclosed-edited-after-approval` (test): When an issue a pull request
+  closes was edited after `approved` was last added to it, `disclosed` fails
+  the pull request and says to re-add the label.
 - `guard-blocks-approve` (test): When Claude Code runs a Bash command that
   would add `approved` through `gh`, issue_guard.py exits 2 with the reason on
   stderr. The command counts bare, after a variable assignment, after `env` or
@@ -479,8 +482,12 @@ Source: #114, #129, and SPEC-METHODOLOGY.md, under "The chain".
   test for `test`, a skill step for `step` and a workflow step for `check`,
   `trace` fails the requirement.
 - `trace-listed-warns` (test): When `.github/untraced.json` lists a test or a
-  step that cites nothing, `trace` passes it with a warning naming the issue
-  that will trace it.
+  step that cites nothing, and the issue it waits on is open, `trace` passes
+  it with a warning naming that issue.
+- `trace-closed-issue` (test): When an entry in `.github/untraced.json`, or a
+  step in check-skills.py's `KNOWN_SEAMS`, waits on an issue that has closed,
+  `trace` fails the entry. It stops on an issue it cannot read, and without
+  a token it warns that it did not look.
 - `trace-list-shrinks` (test): When a listed test or step cites a requirement,
   or no longer exists, `trace` fails until its entry is removed.
 - `trace-spec-grammar` (test): When a spec file has a requirement outside a
@@ -504,6 +511,25 @@ Source: #114, #129, and SPEC-METHODOLOGY.md, under "The chain".
 - `inventory-per-test-report` (test): When the coverage report does not say
   which test ran each line, `inventory` stops and names the command that
   writes one that does.
+- `surface-unnamed` (test): When a subcommand, option or `choices` value of a
+  plugin script or a repo script is named in backticks by no requirement in
+  its component's spec or in `specs/repo.md`, `check-specs.py surface` fails
+  it.
+- `surface-listed-warns` (test): When the `surface` section of
+  `.github/untraced.json` lists an item no requirement names, `surface`
+  passes it with a warning naming its issue, and fails an entry whose item is
+  named or gone.
+- `surface-scans-something` (test): When `surface` finds no script with a
+  `build_parser()`, it fails.
+- `surface-in-ci` (check): When a pull request is opened or updated, CI runs
+  `surface`.
+- `disclosed-lists-ids` (test): When a pull request adds, changes or removes a
+  requirement, and its description does not name the id in backticks,
+  `check-specs.py disclosed` fails it.
+- `disclosed-new-need` (test): When a pull request adds a need that no issue
+  it closes names, `disclosed` fails it.
+- `disclosed-in-ci` (check): When a pull request is opened, edited or
+  updated, CI runs `disclosed`.
 
 ## constraint marketplace-from-repo: The marketplace is this repository as it stands
 
