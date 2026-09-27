@@ -79,9 +79,6 @@ DEFAULT_TEMPLATES = os.path.join(
 OUTPUTS_ROOT = "/mnt/user-data/outputs"
 DEFAULT_STAGE_DIR = PLUGIN
 
-# device_commit_files takes at most this many files in one call.
-COMMIT_BATCH_LIMIT = 50
-
 # Where each connected folder appears to device_bash.
 DEVICE_MOUNT_ROOT = "$HOME/mnt"
 
@@ -578,11 +575,6 @@ def cmd_render(args):
             content = add_ignores(content, ignore)
         planned.append({"file": rel, "template": name, "content": content})
 
-    if len(planned) > COMMIT_BATCH_LIMIT:
-        errors.append(
-            "%d files is more than device_commit_files takes in one call (%d)"
-            % (len(planned), COMMIT_BATCH_LIMIT)
-        )
     if errors:
         errors.append("nothing was written")
         return emit(args, "render", None, errors=errors)
