@@ -125,8 +125,8 @@ def event(title="t", body="", head="issue/12", head_repo=REPO):
 
 class DescribeTheApprovedLabelRule:
     """The half of `problems` that asks whether each linked issue may be worked
-    on at all - it exists, it is an issue rather than a pull request, and Scott
-    has labeled it approved.
+    on at all - it exists, it is an issue rather than a pull request, and the
+    owner has labeled it approved.
     """
 
     @pytest.mark.spec("linked-needs-approved")

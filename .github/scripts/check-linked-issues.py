@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Fail a pull request that would close an issue Scott has not approved.
+"""Fail a pull request that would close an issue the owner has not approved.
 
 README.md, under "Issues", describes the process: an issue is worked on only
-once Scott has added the `approved` label. Agents post as Scott, so nothing on
-GitHub stops one from opening a pull request for an issue that was never
-approved. This check does, for every surface agents run on, because it runs in
-CI rather than in any one agent's hooks.
+once the owner has added the `approved` label. Agents post as the owner, so
+nothing on GitHub stops one from opening a pull request for an issue that was
+never approved. This check does, for every surface agents run on, because it
+runs in CI rather than in any one agent's hooks.
 
 GitHub closes an issue when a pull request that names it with a closing keyword
 merges into the default branch: "Closes #12", "fixes #12", "Resolves: #12". It
@@ -19,8 +19,8 @@ branch, `issue/<N>` in this repository, which `.github/scripts/issues.py claim`
 makes. That is what stops an agent skipping the claim and colliding with
 another. Any other issue it closes must not be claimed on a branch of its own.
 
-A pull request that names no issue passes. Work Scott asks for directly needs
-no issue.
+A pull request that names no issue passes. Work the owner asks for directly
+needs no issue.
 
 A lookup that failed is not an absence. `get` answers None for a 404, and GitHub
 answers 404 rather than 403 for a resource this token may not see - so an
@@ -40,8 +40,8 @@ Run by the validate workflow on pull_request events:
     python3 .github/scripts/check-linked-issues.py
 
 It reads the event from $GITHUB_EVENT_PATH, the repository from
-$GITHUB_REPOSITORY and a token from $GITHUB_TOKEN. When Scott approves an issue
-after the pull request was opened, re-run the job.
+$GITHUB_REPOSITORY and a token from $GITHUB_TOKEN. When the owner approves an
+issue after the pull request was opened, re-run the job.
 
 It takes no arguments, on purpose. It runs only in CI on a pull_request event,
 GitHub hands it everything it needs through the environment, and it reads
@@ -205,7 +205,7 @@ def problems(event, repo, token, fetch=get):
             out.append("#%d is a pull request, not an issue" % number)
         elif not any(lbl.get("name", "").lower() == LABEL for lbl in issue.get("labels", [])):
             out.append(
-                "#%d is not labeled %s. Scott approves an issue before it is worked on; "
+                "#%d is not labeled %s. The owner approves an issue before it is worked on; "
                 "re-run this job once the label is added" % (number, LABEL)
             )
     out.extend(claim_problems(pr, ours, repo, token, fetch))
