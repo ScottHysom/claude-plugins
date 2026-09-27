@@ -247,10 +247,26 @@ requirement as `repo:<id>`.
 
 `trace` fails a test or a step that cites nothing, a citation of an id its
 spec lacks, and a requirement that nothing of its kind cites. The tests and
-steps from before the check are listed in `.github/untraced.json`, each with
-the backfill issue that will trace it, and pass with a warning. When one gains
-a citation, its entry goes in the same pull request, and `trace` fails until
-it does.
+steps still waiting on a ruling are listed in `.github/untraced.json`, each
+with the open issue that will trace it, and pass with a warning. When one
+gains a citation, its entry goes in the same pull request, and `trace` fails
+until it does. `trace` also fails an entry, there or in check-skills.py's
+`KNOWN_SEAMS`, whose issue has closed. It reads the issues through
+`GITHUB_TOKEN` and `GITHUB_REPOSITORY`, which CI sets, and warns that it did
+not look when they are unset.
+
+`surface` fails a subcommand, option or `choices` value of a plugin script or
+a `.github/scripts/` script that no requirement names in backticks, in its
+own spec or in `specs/repo.md`. A span that starts with a script's file name,
+such as `issues.py claim`, counts only for that script. Text in a skill counts
+for nothing, since a skill naming an option does not say which need it serves.
+The items waiting on an issue are under `surface` in `.github/untraced.json`.
+
+`disclosed` runs in CI on a pull request. It fails one whose description does
+not name, in backticks, each requirement id the diff adds, changes or removes,
+and one that adds a need no issue it closes names. It also fails one that
+closes an issue edited after `approved` was last added to it. To re-approve an
+edited issue, remove the label and add it again.
 
 `inventory` lists what a plugin's backfill has to trace. It reads a coverage
 report that records which test ran each line:
@@ -259,6 +275,7 @@ report that records which test ran each line:
 pytest --cov --cov-context=test --cov-report=json:coverage.json
 python3 .github/scripts/check-specs.py inventory prose-tuning
 python3 .github/scripts/check-specs.py trace
+python3 .github/scripts/check-specs.py surface
 ```
 
 ### Properties

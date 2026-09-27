@@ -78,8 +78,14 @@ requirement is admitted.
   `<!-- spec: <id> -->` under its heading, and a workflow step that runs a
   `check` requirement carries `# spec: <id>` above its `- name:`.
   `check-specs.py trace` fails one that cites nothing, unless
-  `.github/untraced.json` lists it for a backfill issue. That list only
-  shrinks. README.md, under "Requirements", has the rest.
+  `.github/untraced.json` lists it for an open issue. That list only
+  shrinks, and `trace` fails an entry whose issue has closed. README.md,
+  under "Requirements", has the rest.
+- **Name every option in a requirement.** `check-specs.py surface` fails a
+  subcommand, option or `choices` value that no requirement names in
+  backticks, and `check-specs.py disclosed` fails a pull request whose
+  description does not name each requirement id it adds, changes or
+  removes.
 
 ## Skills and scripts
 
