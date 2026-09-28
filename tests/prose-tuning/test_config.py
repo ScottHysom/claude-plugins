@@ -488,30 +488,54 @@ class DescribeConfigAdopt:
         body = self.OWN_SUBJECT.split("\n", 2)[2]
         assert "\n" + body in tgt.read_text()
 
-    def it_writes_the_origin_comment(self, prose_repo):
+    @pytest.mark.spec("adopt-byte-for-byte")
+    def it_drops_the_metadata_comment_an_earlier_version_wrote(self, prose_repo):
         src, tgt = self.files(
             prose_repo, "## Sentences\n\n" + self.OWN_SUBJECT, "## Sentences\n\n" + self.COUNT
         )
-        code, env = self.adopt(prose_repo, src, tgt, "--rule", "sentences-own-subject")
-        assert (code, env["data"]["origin"]) == (prose.OK, "repo")
+        code, _ = self.adopt(prose_repo, src, tgt, "--rule", "sentences-own-subject")
         text = tgt.read_text()
-        assert (
-            "### sentences-own-subject: Carries its own subject\n"
-            "<!-- prose-rule: origin=repo -->\n\n"
-        ) in text
-        assert "source=" not in text
+        assert code == prose.OK
+        assert "### sentences-own-subject: Carries its own subject\n\nA sentence" in text
+        assert "prose-rule" not in text
 
-    def it_takes_the_origin_it_is_given(self, prose_repo):
-        src, tgt = self.files(prose_repo, "## Sentences\n\n" + self.OWN_SUBJECT, "")
-        self.adopt(prose_repo, src, tgt, "--rule", "sentences-own-subject", "--origin", "game")
-        assert "<!-- prose-rule: origin=game -->" in tgt.read_text()
-
-    def it_refuses_an_origin_with_a_space(self, prose_repo):
-        src, tgt = self.files(prose_repo, "## Sentences\n\n" + self.OWN_SUBJECT, "")
-        code, _ = self.adopt(
-            prose_repo, src, tgt, "--rule", "sentences-own-subject", "--origin", "two words"
+    @pytest.mark.spec("adopt-commit-note")
+    def it_names_the_source_project_and_the_ids_for_the_commit(self, prose_repo):
+        src, tgt = self.files(
+            prose_repo, "## Sentences\n\n" + self.OWN_SUBJECT + "\n" + self.COUNT, ""
         )
-        assert code == prose.CANNOT_RUN
+        code, env = self.adopt(
+            prose_repo,
+            src,
+            tgt,
+            "--rule",
+            "sentences-own-subject",
+            "--rule",
+            "sentences-count-needs-list",
+        )
+        assert (code, env["data"]["commit_note"]) == (
+            prose.OK,
+            "Adopted from repo: sentences-own-subject, sentences-count-needs-list",
+        )
+
+    @pytest.mark.spec("adopt-commit-note")
+    def it_names_the_source_path_outside_a_repository(self, prose_repo, tmp_path_factory):
+        src = tmp_path_factory.mktemp("elsewhere") / "prose-style.md"
+        src.write_text(self.HEAD + "## Sentences\n\n" + self.OWN_SUBJECT)
+        tgt = prose_repo.root / "target-style.md"
+        tgt.write_text(self.HEAD)
+        _, env = self.adopt(prose_repo, src, tgt, "--rule", "sentences-own-subject")
+        assert env["data"]["commit_note"] == "Adopted from %s: sentences-own-subject" % src
+
+    @pytest.mark.spec("adopt-commit-note", "repo:plain-output-streams")
+    def it_prints_the_commit_note_without_json(self, prose_repo, capsys):
+        src, tgt = self.files(prose_repo, "## Sentences\n\n" + self.OWN_SUBJECT, "")
+        capsys.readouterr()
+        argv = ["config", "adopt", "--file", str(src), "--to", str(tgt)]
+        code = prose.main([*argv, "--rule", "sentences-own-subject", "-C", str(prose_repo.root)])
+        out = capsys.readouterr().out
+        assert code == prose.OK
+        assert "for the commit description: Adopted from repo: sentences-own-subject" in out
 
     @pytest.mark.spec("adopt-refuses-collision")
     def it_refuses_an_id_the_target_has(self, prose_repo):

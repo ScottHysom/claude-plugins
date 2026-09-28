@@ -412,8 +412,8 @@ in the ruling on #131.
 - `adopt-passes-new` (step): When rules remain in `new`, adopt-prose passes
   each to `config adopt` as its own `--rule`.
 - `adopt-byte-for-byte` (test): When `config adopt` copies a rule, the target
-  gets the rule's lines as the source has them, with only its metadata
-  comment replaced.
+  gets the rule's lines as the source has them, less any `prose-rule`
+  comment.
 - `adopt-placement` (test): When `config adopt` copies a rule, it puts it
   after the target's last rule from the same section, or failing that under
   the target's `##` heading matching the source's, or failing that at the end
@@ -457,6 +457,12 @@ review and commit them their usual way.
 Source: README.md, under "What it adds to your project", and all three skill
 descriptions.
 
+- `adopt-commit-note` (test): When `config adopt` writes, it gives a commit
+  note naming the source's project, or its path outside a repository, and
+  each id adopted.
+- `adopt-never-commits` (step): When adopt-prose finishes, it reports what
+  changed, gives the author `config adopt`'s commit note for their commit
+  description, and commits nothing.
 - `learning-never-commits` (step): When update-prose-config finishes, it
   reports what changed and which files are dirty, and commits nothing.
 - `apply-never-commits` (step): When apply-prose finishes, it shows `apply`'s

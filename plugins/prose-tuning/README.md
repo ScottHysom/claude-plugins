@@ -138,7 +138,8 @@ sets of changes. Finish that run, or ask Claude to abandon it, first.
 ## Sharing rules between projects
 
 Ask Claude to adopt the prose rules from another project. Rules this project
-lacks are copied across, each with a note of where it came from. Claude asks
+lacks are copied across, and Claude gives you a line for your commit
+description saying which project they came from. Claude asks
 you about two cases, side by side and in one round:
 
 - The two projects have a rule with the same id but different wording.
