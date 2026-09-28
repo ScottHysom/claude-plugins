@@ -6,7 +6,7 @@
 # and makes the commit. Run it from your own terminal.
 #
 #   ./commit.sh                 use the message Claude left in .commit-msg
-#   ./commit.sh "docs: ..."     use a message given on the command line
+#   ./commit.sh "<message>"     use a message given on the command line
 #
 set -e
 cd "$(dirname "$0")"
