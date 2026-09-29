@@ -157,8 +157,8 @@ Source: README.md, under "Issues" and "Keeping `approved` meaningful".
   branches, it exits 2 and prints no links.
 - `ci-runs-checklinkedissues` (check): When a pull request is opened, edited
   or updated, CI runs check-linked-issues.py.
-- `disclosed-cmd-fails-post-approval-edits` (test): When an issue a pull
-  request closes was edited after `approved` was last added to it, `disclosed`
+- `changes-cmd-fails-post-approval-edits` (test): When an issue a pull
+  request closes was edited after `approved` was last added to it, `changes`
   fails the pull request and says to re-add the label.
 - `guard-blocks-approved-label` (test): When Claude Code runs a Bash command
   that would add `approved` through `gh`, issue_guard.py exits 2 with the
@@ -548,14 +548,14 @@ Source: #114, #129, and SPEC-METHODOLOGY.md, under "The chain".
   with a `build_parser()`, it fails.
 - `ci-runs-surface` (check): When a pull request is opened or updated, CI runs
   `surface`.
-- `disclosed-cmd-lists-ids` (test): When a pull request adds, changes or
+- `changes-cmd-lists-ids` (test): When a pull request adds, changes or
   removes a requirement, and its description does not name the id in
-  backticks, `check-specs.py disclosed` fails it.
-- `disclosed-cmd-requires-issue-for-section` (test): When a pull request
-  adds a need or a constraint that no issue it closes names, `disclosed`
+  backticks, `check-specs.py changes` fails it.
+- `changes-cmd-requires-issue-for-section` (test): When a pull request
+  adds a need or a constraint that no issue it closes names, `changes`
   fails it.
-- `ci-runs-disclosed` (check): When a pull request is opened, edited or
-  updated, CI runs `disclosed`.
+- `ci-runs-changes` (check): When a pull request is opened, edited or
+  updated, CI runs `changes`.
 
 ## constraint marketplace-serves-repo-as-is: The marketplace is this repository as it stands
 

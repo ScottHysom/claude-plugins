@@ -264,7 +264,7 @@ such as `issues.py claim`, counts only for that script. Text in a skill counts
 for nothing, since a skill naming an option does not say which need it serves.
 The items waiting on an issue are under `surface` in `.github/untraced.json`.
 
-`disclosed` runs in CI on a pull request. It fails one whose description does
+`changes` runs in CI on a pull request. It fails one whose description does
 not name, in backticks, each requirement id the diff adds, changes or removes,
 and one that adds a need or a constraint no issue it closes names. It also fails one that
 closes an issue edited after `approved` was last added to it. To re-approve an

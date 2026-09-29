@@ -83,7 +83,7 @@ requirement is admitted.
   under "Requirements", has the rest.
 - **Name every option in a requirement.** `check-specs.py surface` fails a
   subcommand, option or `choices` value that no requirement names in
-  backticks, and `check-specs.py disclosed` fails a pull request whose
+  backticks, and `check-specs.py changes` fails a pull request whose
   description does not name each requirement id it adds, changes or
   removes.
 

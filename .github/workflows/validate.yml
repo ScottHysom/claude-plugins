@@ -263,10 +263,10 @@ jobs:
       # unannounced, or an issue edited after approval, looks approved. This
       # fails a pull request whose description does not name each requirement
       # it changes, or that adds a need its issue does not name.
-      # spec: ci-runs-disclosed
-      - name: Check the pull request discloses its spec changes
+      # spec: ci-runs-changes
+      - name: Check the spec changes the pull request makes
         if: github.event_name == 'pull_request'
         env:
           BASE: ${{ github.base_ref }}
           GITHUB_TOKEN: ${{ github.token }}
-        run: python3 .github/scripts/check-specs.py disclosed --base "origin/$BASE"
+        run: python3 .github/scripts/check-specs.py changes --base "origin/$BASE"
