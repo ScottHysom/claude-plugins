@@ -128,7 +128,7 @@ cite a requirement.
 
 No script can decide whether a need is real, or whether a requirement truly
 serves the need it sits under. Those judgments stay with the owner. The chain
-turns every behavior into a short line in a spec file. `disclosed`, under
+turns every behavior into a short line in a spec file. `changes`, under
 "Admission", puts each new line in front of the owner, instead of leaving it
 in a long diff.
 
@@ -418,7 +418,7 @@ standard-library Python, JSON output on request, and exit codes of 0 for clean,
 - **`surface`** fails a command, option or allowed value that no requirement
   names. A command-line parser, a route table and a configuration schema are
   each a registry a script can list, and each can be held to this rule.
-- **`disclosed`** fails a pull request whose description does not list every
+- **`changes`** fails a pull request whose description does not list every
   requirement its diff adds, changes or removes. It also fails one that adds a
   need or a constraint its linked ticket does not name.
 - **The seam check** fails a skill step that runs more than one command
@@ -440,7 +440,7 @@ Notes for the agent that builds them:
 - A check starts as a warning. An item it flags waits on a list keyed to the
   ticket that will fix it, and passes with a warning while that ticket is
   open. The list only shrinks, and an entry whose ticket has closed fails.
-- `disclosed` has to allow for agents that post under the owner's account. Such
+- `changes` has to allow for agents that post under the owner's account. Such
   an agent can edit a ticket after the owner approves it, so the check also
   fails when a linked ticket's text changed after its approval.
 
@@ -485,7 +485,7 @@ an agent made up would let in a behavior nobody asked for.
   removes, or the id a bug breaks. Approving the ticket then approves those
   lines explicitly.
 
-`disclosed`, under "The checks", fails a pull request that leaves a new need
+`changes`, under "The checks", fails a pull request that leaves a new need
 or constraint out of its linked ticket, or a changed requirement out of its description.
 
 claude-plugins' issue #103 showed the failure this prevents. An agent wrote the
@@ -610,7 +610,7 @@ In an existing codebase, the work goes in this order:
 5. A pilot on the smallest component. What it teaches goes back into this
    method before the rest.
 6. The other components, one at a time.
-7. Every check as an error, with `surface` and `disclosed` added.
+7. Every check as an error, with `surface` and `changes` added.
 
 claude-plugins files each of these as its own issue, #126 to #136.
 

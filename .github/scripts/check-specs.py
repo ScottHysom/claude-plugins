@@ -45,7 +45,7 @@ when a backticked span in it, continuation lines included, holds the words
 `inventory` would count as naming it. The requirements read are the script's
 component spec and specs/repo.md, which holds the flags every script shares.
 
-`disclosed` fails a pull request whose description does not name, in
+`changes` fails a pull request whose description does not name, in
 backticks, each requirement id its diff adds, changes or removes, as `<id>`
 or `<component>:<id>`. It also fails one that adds a need or a constraint no
 issue it closes names, and one that closes an issue whose body was edited after `approved`
@@ -70,7 +70,7 @@ Run from anywhere in the clone:
     python3 .github/scripts/check-specs.py trace
     python3 .github/scripts/check-specs.py inventory prose-tuning
     python3 .github/scripts/check-specs.py surface
-    python3 .github/scripts/check-specs.py disclosed --base origin/main
+    python3 .github/scripts/check-specs.py changes --base origin/main
 
 Commands:
 
@@ -80,7 +80,7 @@ Commands:
   inventory  what needs tracing in one plugin
   surface    every subcommand, option and choices value is named by a
              requirement, or is listed in .github/untraced.json
-  disclosed  a pull request names each requirement it changes, and each need
+  changes    a pull request names each requirement it changes, and each need
              or constraint it adds is named by an issue it closes
 
 Every command takes --json and -C/--repo.
@@ -125,10 +125,10 @@ Things that look like bugs and are not:
   file name, as `issues.py claim` does, counts only for that script.
 - `surface` reads a script only if it defines build_parser(). One without,
   such as check-linked-issues.py, takes no arguments.
-- A requirement that is only rewrapped has not changed, for `disclosed`: its
+- A requirement that is only rewrapped has not changed, for `changes`: its
   lines are joined with single spaces before they are compared.
 - An issue that was never approved is left to check-linked-issues.py, which
-  fails it. `disclosed` only compares an edit with an approval.
+  fails it. `changes` only compares an edit with an approval.
 - GitHub is asked once per run, one GraphQL query naming every issue. An issue
   it does not return stops the run with exit 2, since a lookup that failed is
   not an answer.
@@ -178,7 +178,7 @@ SPEC_SCRIPT_SUFFIX = ".py"
 LIST_TESTS, LIST_STEPS, LIST_SURFACE = "tests", "steps", "surface"
 LIST_SECTIONS = (LIST_TESTS, LIST_STEPS, LIST_SURFACE)
 
-# GitHub, for the issues the lists wait on and the pull request `disclosed` reads.
+# GitHub, for the issues the lists wait on and the pull request `changes` reads.
 GRAPHQL_URL = "https://api.github.com/graphql"
 TOKEN_ENV = "GITHUB_TOKEN"
 REPOSITORY_ENV = "GITHUB_REPOSITORY"
@@ -1352,7 +1352,7 @@ def cmd_surface(args, root):
 
 
 # --------------------------------------------------------------------------
-# disclosed
+# changes
 # --------------------------------------------------------------------------
 
 
@@ -1446,7 +1446,7 @@ def load_event(environ):
     path = environ.get(EVENT_ENV)
     if not path:
         raise Fatal(
-            "%s is not set. `disclosed` reads the pull request from the event GitHub "
+            "%s is not set. `changes` reads the pull request from the event GitHub "
             "Actions writes, so it runs in CI on a pull_request event." % EVENT_ENV
         )
     try:
@@ -1460,7 +1460,7 @@ def load_event(environ):
     return pr
 
 
-def cmd_disclosed(args, root):
+def cmd_changes(args, root):
     errors = []
     pr = load_event(args.environ)
     token, repository = args.environ.get(TOKEN_ENV), args.environ.get(REPOSITORY_ENV)
@@ -1543,7 +1543,7 @@ def cmd_disclosed(args, root):
     def human():
         if not errors:
             print(
-                "%d requirement change(s) and %d new need(s) or constraint(s), all disclosed."
+                "%d requirement change(s) and %d new need(s) or constraint(s), all accounted for."
                 % (len(changes), len(added))
             )
 
@@ -1552,7 +1552,7 @@ def cmd_disclosed(args, root):
         "sections": [{"component": c, "kind": k, "id": i} for c, k, i in added],
         "issues": ours,
     }
-    return emit(args, "disclosed", data, errors, None, human)
+    return emit(args, "changes", data, errors, None, human)
 
 
 # --------------------------------------------------------------------------
@@ -1594,12 +1594,12 @@ def build_parser():
     p.set_defaults(func=cmd_surface)
 
     p = sub.add_parser(
-        "disclosed",
+        "changes",
         parents=[common],
         help="a pull request names every requirement it changes and every need's issue",
     )
     p.add_argument("--base", metavar="REF", required=True, help="the commit the pull request left")
-    p.set_defaults(func=cmd_disclosed)
+    p.set_defaults(func=cmd_changes)
 
     return ap
 

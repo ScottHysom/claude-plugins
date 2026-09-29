@@ -927,9 +927,9 @@ def pull_request(make_repo, tmp_path):
     return make
 
 
-def disclosed(run, root, environ, github=None):
+def check_changes(run, root, environ, github=None):
     return run(
-        "disclosed",
+        "changes",
         "--base",
         "HEAD",
         "-C",
@@ -939,14 +939,14 @@ def disclosed(run, root, environ, github=None):
     )
 
 
-class DescribeDisclosed:
-    @pytest.mark.spec("disclosed-cmd-lists-ids")
+class DescribeChanges:
+    @pytest.mark.spec("changes-cmd-lists-ids")
     def it_passes_a_pull_request_that_changes_no_spec(self, pull_request, run):
-        code, out, err = disclosed(run, *pull_request())
+        code, out, err = check_changes(run, *pull_request())
         assert code == cp.OK, err
         assert "0 requirement change(s) and 0 new need(s) or constraint(s)" in out
 
-    @pytest.mark.spec("disclosed-cmd-lists-ids")
+    @pytest.mark.spec("changes-cmd-lists-ids")
     @pytest.mark.parametrize(
         ("spec", "how"),
         [
@@ -959,129 +959,127 @@ class DescribeDisclosed:
     def it_fails_a_requirement_change_the_description_does_not_name(
         self, pull_request, run, spec, how
     ):
-        code, _, err = disclosed(run, *pull_request({"specs/foo.md": spec}))
+        code, _, err = check_changes(run, *pull_request({"specs/foo.md": spec}))
         assert code == cp.PROBLEMS
         assert (
             "in specs/foo.md was %s, and the pull request description does not name it" % how in err
         )
 
-    @pytest.mark.spec("disclosed-cmd-lists-ids")
+    @pytest.mark.spec("changes-cmd-lists-ids")
     def it_passes_each_id_the_description_names(self, pull_request, run):
         spec = FOO_SPEC.replace("foo does x", "foo does x twice") + (
             "- `foo-does-y` (test): When asked, foo does y.\n"
         )
         body = "### Requirements\n\n- `foo-does-x`, changed\n- `foo:foo-does-y`, added\n"
-        code, out, err = disclosed(run, *pull_request({"specs/foo.md": spec}, body=body))
+        code, out, err = check_changes(run, *pull_request({"specs/foo.md": spec}, body=body))
         assert code == cp.OK, err
         assert "2 requirement change(s)" in out
 
-    @pytest.mark.spec("disclosed-cmd-lists-ids")
+    @pytest.mark.spec("changes-cmd-lists-ids")
     def it_does_not_count_rewrapping_as_a_change(self, pull_request, run):
         spec = FOO_SPEC.replace(
             "skill asks them\n  in one batch", "skill\n  asks them in one batch"
         )
-        code, _, err = disclosed(run, *pull_request({"specs/foo.md": spec}))
+        code, _, err = check_changes(run, *pull_request({"specs/foo.md": spec}))
         assert code == cp.OK, err
 
-    @pytest.mark.spec("disclosed-cmd-lists-ids")
+    @pytest.mark.spec("changes-cmd-lists-ids")
     def it_reads_every_requirement_of_a_new_spec_file(self, pull_request, run):
         bar = "# bar\n\n## constraint bar-is-slow: Bar is slow\n\nIt is.\n\n- `bar-waits` (test): Bar waits.\n"
-        code, _, err = disclosed(run, *pull_request({"specs/bar.md": bar}))
+        code, _, err = check_changes(run, *pull_request({"specs/bar.md": bar}))
         assert code == cp.PROBLEMS
         assert "`bar-waits` in specs/bar.md was added" in err
 
-    @pytest.mark.spec("disclosed-cmd-requires-issue-for-section")
+    @pytest.mark.spec("changes-cmd-requires-issue-for-section")
     def it_fails_a_new_need_when_the_pull_request_closes_no_issue(self, pull_request, run):
-        code, _, err = disclosed(
+        code, _, err = check_changes(
             run, *pull_request({"specs/foo.md": FOO_SPEC + NEW_NEED}, body="`foo-goes-fast`")
         )
         assert code == cp.PROBLEMS
         assert "adds the need `user-goes-fast`, and the pull request closes no issue" in err
 
-    @pytest.mark.spec("disclosed-cmd-requires-issue-for-section")
+    @pytest.mark.spec("changes-cmd-requires-issue-for-section")
     def it_fails_a_new_need_its_issue_does_not_name(self, pull_request, run):
         root, environ = pull_request(
             {"specs/foo.md": FOO_SPEC + NEW_NEED}, body="Closes #7\n`foo-goes-fast`"
         )
         github = FakeGitHub({7: approved_issue("Adds user-goes-faster.")})
-        code, _, err = disclosed(run, root, environ, github)
+        code, _, err = check_changes(run, root, environ, github)
         assert code == cp.PROBLEMS
         assert "adds the need `user-goes-fast`, which #7 does not name" in err
 
-    @pytest.mark.spec("disclosed-cmd-requires-issue-for-section")
+    @pytest.mark.spec("changes-cmd-requires-issue-for-section")
     def it_passes_a_new_need_its_issue_names(self, pull_request, run):
         root, environ = pull_request(
             {"specs/foo.md": FOO_SPEC + NEW_NEED}, body="Closes #7\n`foo-goes-fast`"
         )
         github = FakeGitHub({7: approved_issue("Adds `need user-goes-fast`.")})
-        code, out, err = disclosed(run, root, environ, github)
+        code, out, err = check_changes(run, root, environ, github)
         assert code == cp.OK, err
         assert "1 new need(s) or constraint(s)" in out
 
-    @pytest.mark.spec("disclosed-cmd-requires-issue-for-section")
+    @pytest.mark.spec("changes-cmd-requires-issue-for-section")
     def it_fails_a_new_constraint_when_the_pull_request_closes_no_issue(self, pull_request, run):
-        code, _, err = disclosed(
+        code, _, err = check_changes(
             run,
             *pull_request({"specs/foo.md": FOO_SPEC + NEW_CONSTRAINT}, body="`foo-waits`"),
         )
         assert code == cp.PROBLEMS
         assert "adds the constraint `api-allows-few-calls`, and the pull request closes no" in err
 
-    @pytest.mark.spec("disclosed-cmd-requires-issue-for-section")
+    @pytest.mark.spec("changes-cmd-requires-issue-for-section")
     def it_fails_a_new_constraint_its_issue_does_not_name(self, pull_request, run):
         root, environ = pull_request(
             {"specs/foo.md": FOO_SPEC + NEW_CONSTRAINT}, body="Closes #7\n`foo-waits`"
         )
         github = FakeGitHub({7: approved_issue("Adds api-allows-few-calls-more.")})
-        code, _, err = disclosed(run, root, environ, github)
+        code, _, err = check_changes(run, root, environ, github)
         assert code == cp.PROBLEMS
         assert "adds the constraint `api-allows-few-calls`, which #7 does not name" in err
 
-    @pytest.mark.spec("disclosed-cmd-requires-issue-for-section")
+    @pytest.mark.spec("changes-cmd-requires-issue-for-section")
     def it_passes_a_new_constraint_its_issue_names(self, pull_request, run):
         root, environ = pull_request(
             {"specs/foo.md": FOO_SPEC + NEW_CONSTRAINT}, body="Closes #7\n`foo-waits`"
         )
         github = FakeGitHub({7: approved_issue("Adds `constraint api-allows-few-calls`.")})
-        code, out, err = disclosed(run, root, environ, github)
+        code, out, err = check_changes(run, root, environ, github)
         assert code == cp.OK, err
         assert "1 new need(s) or constraint(s)" in out
 
-    @pytest.mark.spec("disclosed-cmd-fails-post-approval-edits")
+    @pytest.mark.spec("changes-cmd-fails-post-approval-edits")
     def it_fails_an_issue_edited_after_approval(self, pull_request, run):
         root, environ = pull_request(body="Closes #7")
         github = FakeGitHub({7: approved_issue(edited="2026-09-02T10:00:00Z")})
-        code, _, err = disclosed(run, root, environ, github)
+        code, _, err = check_changes(run, root, environ, github)
         assert code == cp.PROBLEMS
         assert "#7 was edited at 2026-09-02T10:00:00Z, after `approved` was added" in err
         assert "removing the label and adding it again" in err
 
-    @pytest.mark.spec("disclosed-cmd-fails-post-approval-edits")
+    @pytest.mark.spec("changes-cmd-fails-post-approval-edits")
     def it_passes_once_the_label_is_added_again(self, pull_request, run):
         root, environ = pull_request(body="Closes #7")
         issue = approved_issue(
             edited="2026-09-02T10:00:00Z", labeled=(APPROVED_AT, "2026-09-03T10:00:00Z")
         )
-        code, _, err = disclosed(run, root, environ, FakeGitHub({7: issue}))
+        code, _, err = check_changes(run, root, environ, FakeGitHub({7: issue}))
         assert code == cp.OK, err
 
-    @pytest.mark.spec("disclosed-cmd-fails-post-approval-edits")
+    @pytest.mark.spec("changes-cmd-fails-post-approval-edits")
     def it_leaves_an_unapproved_issue_to_the_linked_issue_check(self, pull_request, run):
         root, environ = pull_request(body="Closes #7")
         issue = approved_issue(edited="2026-09-02T10:00:00Z", labeled=())
-        code, _, err = disclosed(run, root, environ, FakeGitHub({7: issue}))
+        code, _, err = check_changes(run, root, environ, FakeGitHub({7: issue}))
         assert code == cp.OK, err
 
-    @pytest.mark.spec("disclosed-cmd-fails-post-approval-edits")
+    @pytest.mark.spec("changes-cmd-fails-post-approval-edits")
     def it_stops_on_an_issue_it_cannot_read(self, pull_request, run):
-        code, _, err = disclosed(run, *pull_request(body="Closes #7"))
+        code, _, err = check_changes(run, *pull_request(body="Closes #7"))
         assert code == cp.CANNOT_RUN
         assert err.startswith("check-specs.py: cannot read #7")
 
-    @pytest.mark.spec("disclosed-cmd-lists-ids")
+    @pytest.mark.spec("changes-cmd-lists-ids")
     def it_stops_outside_a_pull_request_event(self, make_repo, run):
-        code, _, err = run(
-            "disclosed", "--base", "HEAD", "-C", str(make_repo()), environ=GITHUB_ENV
-        )
+        code, _, err = run("changes", "--base", "HEAD", "-C", str(make_repo()), environ=GITHUB_ENV)
         assert code == cp.CANNOT_RUN
         assert "GITHUB_EVENT_PATH is not set" in err
