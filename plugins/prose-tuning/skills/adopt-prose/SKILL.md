@@ -1,6 +1,6 @@
 ---
 name: adopt-prose
-description: Copy prose rules from one project's prose-style.md into another, or into the rules prose-tuning ships so every new prose-style.md starts with them. Rules the target lacks are added as-is with their origin recorded; rules that collide on the same id, and rules that state the same thing under two different ids, are shown side by side in one batch for the author to resolve. Use when asked to adopt another project's prose rules, to promote a rule into the shipped rules, to share a style rule between two projects, or to merge two prose-style.md files. Never commits.
+description: Copy prose rules from one project's prose-style.md into another, or into the rules prose-tuning ships so every new prose-style.md starts with them. Rules the target lacks are added as-is, with a note naming where they came from for the commit description; rules that collide on the same id, and rules that state the same thing under two different ids, are shown side by side in one batch for the author to resolve. Use when asked to adopt another project's prose rules, to promote a rule into the shipped rules, to share a style rule between two projects, or to merge two prose-style.md files. Never commits.
 ---
 
 # Move prose rules between projects
@@ -85,16 +85,9 @@ python3 "$PROSE" config adopt --file <source> --to <target> --rule <id> --rule <
 ```
 
 Pass every rule still in the new bucket after step 2, each as its own
-`--rule`. Do not edit the copied rules or their `prose-rule` comment by hand.
-The command copies each one as the source has it, puts it under its section,
-and writes `source=adopted origin=<project>` beneath its heading. `source`
-names the route the rule took into the file, and `origin` names the project,
-so never put a project name in `source`: `config lint` rejects it.
-
-`origin` defaults to the folder name of the source's repository. Pass
-`--origin <project>` when the command says it cannot tell, or when that folder
-name is not what the project is called. A year from now `origin` is the only
-thing that will explain why the project has a rule nobody in it wrote.
+`--rule`. Do not edit the copied rules by hand. The command copies each one
+as the source has it and puts it under its section. Keep `data.commit_note`
+for the hand-off.
 
 The command exits 1 and writes nothing while any id is refused. An id refused
 because the target already has it is a colliding rule: take it to step 4 and
@@ -149,6 +142,12 @@ python3 .github/scripts/check-manifest-consistency.py check
   replaced by a `FILL` telling the next project what to supply, or every project
   inherits a worked example about something it has never heard of.
 
-## Never commit
+## Step 7: hand off
+<!-- spec: adopt-never-commits -->
 
-Leave the working tree dirty and report what changed.
+<!-- no-command: hand-off to the author. Step 3's output holds the commit note. -->
+
+Report what changed, and give the author step 3's `data.commit_note` as the
+line for their commit description. Nothing in `prose-style.md` records where
+a rule came from, so the commit is where that note lives. Leave the working
+tree dirty. **Never commit.**

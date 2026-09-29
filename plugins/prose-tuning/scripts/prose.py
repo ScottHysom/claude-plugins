@@ -525,15 +525,12 @@ FM_KEY = re.compile(r"^([a-z][a-z0-9_-]*)\s*:\s*(.*?)\s*$")
 FM_SUBKEY = re.compile(r"^ {2}(include|exclude)\s*:\s*$")
 FM_ITEM = re.compile(r"^ {4}-\s+(.+?)\s*$")
 
+# Nothing writes a prose-rule comment any more: where a rule came from goes in
+# the commit that brings it in. Files written by earlier versions carry these
+# keys, so lint accepts them with any value.
 META_KEYS = {"source", "origin"}
-# source is the route a rule took into the file, and origin the project an
-# adopted rule came from. reference/prose-style-format.md says what each means.
-META_SOURCE_ADOPTED = "adopted"
-META_SOURCES = {"shipped", "inferred", "interview", META_SOURCE_ADOPTED}
-# The line config adopt writes under an adopted rule's heading.
-ADOPTED_COMMENT = "<!-- prose-rule: source=%s origin=%s -->\n"
-# An origin is one metadata value, and metadata pairs split on whitespace.
-ORIGIN = re.compile(r"^[^\s=]+$")
+# The line config adopt gives the author for the commit description.
+ADOPTED_NOTE = "Adopted from %s: %s"
 
 
 def validate_rule_name(name):
@@ -887,16 +884,11 @@ class Config:
                     "rule name %s opens with its own "
                     "section; the id already says %s" % (rule.name, rule.section),
                 )
-            for k, v in rule.meta.items():
+            for k in rule.meta:
                 if k not in META_KEYS:
                     self._err(
                         rule.line,
                         "unknown metadata key %r; allowed: %s" % (k, ", ".join(sorted(META_KEYS))),
-                    )
-                elif k == "source" and v not in META_SOURCES:
-                    self._err(
-                        rule.line,
-                        "source=%s is not one of %s" % (v, ", ".join(sorted(META_SOURCES))),
                     )
             self._check_patterns(rule)
             if not rule.body_text():
@@ -3103,13 +3095,13 @@ def heading_end(lines, start):
     return end
 
 
-def adopted_block(lines, rule, origin):
-    """A rule's lines as the source has them, with its metadata replaced.
+def adopted_block(lines, rule):
+    """A rule's lines as the source has them, without a metadata comment.
 
     The block is sliced from the file rather than rendered from Rule, so that
     wrapping, the worked example and anything the parser does not model come
-    across byte for byte. Only the prose-rule comment changes: whatever the
-    source said about the rule's origin, it came to the target from origin.
+    across byte for byte. Only a prose-rule comment an earlier version wrote
+    is dropped, since the target's commit records where the rule came from.
     Trailing blank lines go, since the target decides its own spacing.
     """
     start = rule.line - 1
@@ -3121,27 +3113,20 @@ def adopted_block(lines, rule, origin):
     while body and not body[-1].strip():
         body.pop()
     block = [lines[start], *body]
-    block = [ln if ln.endswith("\n") else ln + "\n" for ln in block]
-    block.insert(1, ADOPTED_COMMENT % (META_SOURCE_ADOPTED, origin))
-    return block
+    return [ln if ln.endswith("\n") else ln + "\n" for ln in block]
 
 
-def adopt_origin(args, config):
-    """The project an adopted rule came from: --origin, else the folder name
-    of the repository holding the source file.
+def adopted_from(config):
+    """What the commit note calls the source: the folder name of the
+    repository holding it, else its path.
     """
-    origin = args.origin
-    if origin is None:
-        try:
-            origin = Repo(os.path.dirname(config.path)).project_name()
-        except Fatal as exc:
-            raise Fatal("%s is not inside a git repository; pass --origin" % config.path) from exc
-    if not ORIGIN.match(origin):
-        raise Fatal("origin %r must be one word with no spaces or '='; pass --origin" % origin)
-    return origin
+    try:
+        return Repo(os.path.dirname(config.path)).project_name()
+    except Fatal:
+        return config.path
 
 
-def plan_adoption(config, source_lines, target, target_lines, ids, origin):
+def plan_adoption(config, source_lines, target, target_lines, ids):
     """(the target's new lines, the ids adopted, the ids refused with why).
 
     Every insertion point is found on the target as read, then applied from the
@@ -3187,7 +3172,7 @@ def plan_adoption(config, source_lines, target, target_lines, ids, origin):
             key = (heading_end(target_lines, h2s[rule.group]), None)
         else:
             key = (len(target_lines), rule.group or None)
-        spots.setdefault(key, []).append(adopted_block(source_lines, rule, origin))
+        spots.setdefault(key, []).append(adopted_block(source_lines, rule))
 
     by_pos = {}
     for (pos, heading), blocks in spots.items():
@@ -3212,7 +3197,7 @@ def plan_adoption(config, source_lines, target, target_lines, ids, origin):
 
 
 def config_adopt(args, repo, config):
-    """Copy named rules from this file into --to, each marked as adopted.
+    """Copy named rules from this file into --to, and say where they came from.
 
     adopt-prose's step 3. Refuses an id the target already has, because a
     shared id is step 4's question, and writes nothing while any id is refused
@@ -3226,12 +3211,9 @@ def config_adopt(args, repo, config):
             raise Fatal(
                 "%s does not lint clean; run: prose.py config lint --file %s" % (cfg.path, cfg.path)
             )
-    origin = adopt_origin(args, config)
     source_lines = Text.read(config.path).lines
     target_lines = Text.read(target.path).lines
-    out, adopted, refused = plan_adoption(
-        config, source_lines, target, target_lines, args.rule, origin
-    )
+    out, adopted, refused = plan_adoption(config, source_lines, target, target_lines, args.rule)
     errors = [r["reason"] for r in refused]
     write = adopted and not (refused and not args.partial)
     if refused and not args.partial:
@@ -3248,7 +3230,9 @@ def config_adopt(args, repo, config):
     data = {
         "source": config.path,
         "target": target.path,
-        "origin": origin,
+        "commit_note": (
+            ADOPTED_NOTE % (adopted_from(config), ", ".join(adopted)) if adopted else None
+        ),
         "dry_run": args.dry_run,
         "adopted": [{"id": rid, "line": lines[rid]} for rid in adopted],
         "refused": refused,
@@ -3260,6 +3244,8 @@ def config_adopt(args, repo, config):
             print("%s  %s  at line %d" % (verb, a["id"], a["line"]))
         for r in refused:
             print("refused  %s" % r["id"])
+        if data["commit_note"]:
+            print("\nfor the commit description: %s" % data["commit_note"])
 
     return emit(args, "config adopt", repo.root, data, errors=errors, human=human)
 
@@ -3416,7 +3402,7 @@ def cmd_config(args):
         w = max([len(r.id) for r in rules] + [16])
         for r in rules:
             mark = " " if (r.before or r.after) else "!"
-            print("%s %-*s %-10s %s" % (mark, w, r.id, r.meta.get("source", "-"), r.title))
+            print("%s %-*s %s" % (mark, w, r.id, r.title))
         print(
             "\n%d rule(s)%s"
             % (
@@ -4554,11 +4540,6 @@ def build_parser():
             )
             c.add_argument(
                 "--rule", required=True, action="append", metavar="ID", help="repeatable"
-            )
-            c.add_argument(
-                "--origin",
-                metavar="NAME",
-                help="the project the rules came from (default: the source's repository folder)",
             )
             c.add_argument("--dry-run", action="store_true", help="say what would be copied")
             c.add_argument(
