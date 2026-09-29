@@ -435,6 +435,53 @@ class DescribeTrace:
         assert "`%s` is not an id" % rid in err
 
     @pytest.mark.spec("trace-command-checks-spec-grammar")
+    @pytest.mark.parametrize(
+        ("path", "spec", "where"),
+        [
+            (
+                "specs/foo.md",
+                FOO_SPEC.replace("need user-gets-things-done:", "need user-gets-X_y:"),
+                "specs/foo.md:7",
+            ),
+            (
+                "specs/bar.md",
+                "# bar\n\n## constraint bar-runs-X_y: Bar\n\nIt is.\n",
+                "specs/bar.md:3",
+            ),
+        ],
+        ids=["need", "constraint"],
+    )
+    def it_fails_a_heading_id_that_breaks_the_grammar(self, make_repo, run, path, spec, where):
+        code, _, err = run("trace", "-C", str(make_repo({path: spec})))
+        assert code == cp.PROBLEMS
+        assert "%s: `" % where in err
+        assert "_y` is not an id" in err
+        assert "is not in the form" not in err
+
+    @pytest.mark.spec("trace-command-checks-spec-grammar")
+    def it_fails_a_need_that_repeats_a_requirement(self, make_repo, run):
+        spec = FOO_SPEC + (
+            "- `user-sees-y` (test): When asked, the user sees y.\n\n"
+            "## need user-sees-y: See y\n\n"
+            "When a user wants y, they see it.\n"
+        )
+        code, _, err = run("trace", "-C", str(make_repo({"specs/foo.md": spec})))
+        assert code == cp.PROBLEMS
+        assert (
+            "specs/foo.md:16: `user-sees-y` is already the id of the requirement at line 14" in err
+        )
+
+    @pytest.mark.spec("trace-command-checks-spec-grammar")
+    def it_fails_a_constraint_that_repeats_a_need(self, make_repo, run):
+        spec = FOO_SPEC + "\n## constraint user-gets-things-done: Things\n\nThey get done.\n"
+        code, _, err = run("trace", "-C", str(make_repo({"specs/foo.md": spec})))
+        assert code == cp.PROBLEMS
+        assert (
+            "specs/foo.md:15: `user-gets-things-done` is already the id of the need at line 7"
+            in err
+        )
+
+    @pytest.mark.spec("trace-command-checks-spec-grammar")
     def it_traces_an_id_of_six_words(self, make_repo, run):
         rid = "steps-command-does-x-when-asked"
         root = make_repo(
