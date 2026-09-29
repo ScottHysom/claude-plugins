@@ -42,12 +42,7 @@ settings.load_profile("ci" if os.environ.get("CI") else "dev")
 
 CONNECTED = "/Users/owner/Documents/Projects"
 PROJECT = CONNECTED + "/Foo Research"
-VALUES = {
-    "PROJECT_NAME": "Foo Research",
-    "SKILL_NAME": "foo-research-history",
-    "DESCRIPTION": "Git history for Foo Research. Use when committing its files.",
-}
-SKILL_REL = "skills/foo-research-history/SKILL.md"
+VALUES = {"PROJECT_NAME": "Foo Research"}
 
 
 def answers(**overrides):
@@ -149,11 +144,6 @@ def device(tmp_path):
 @pytest.fixture
 def make_answers():
     return answers
-
-
-@pytest.fixture
-def skill_rel():
-    return SKILL_REL
 
 
 @pytest.fixture

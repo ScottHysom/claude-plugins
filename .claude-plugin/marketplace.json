@@ -10,8 +10,8 @@
       "name": "gitify-cowork-project",
       "source": "./plugins/gitify-cowork-project",
       "displayName": "Gitify Cowork Project",
-      "description": "Cowork only. Puts an existing Cowork Project folder under git without touching its documents: commit helpers, a CLAUDE.md holding the Project Instructions, and a per-project history skill.",
-      "version": "0.2.7",
+      "description": "Cowork only. Puts an existing Cowork Project folder under git without touching its documents: commit helpers, and a CLAUDE.md holding the Project Instructions and how Claude commits and reads the history.",
+      "version": "0.3.0",
       "category": "productivity",
       "tags": [
         "cowork",

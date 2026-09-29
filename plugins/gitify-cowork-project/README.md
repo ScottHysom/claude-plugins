@@ -37,18 +37,18 @@ finds one.
   commit.sh                    makes each commit after the first
   setup.sh                     one time: creates the repository and the first commit
   CLAUDE.md                    the Project Instructions, now under version control
-  skills/
-    <project>-history/
-      SKILL.md                 how Claude handles this project's history
 ```
 
-A skill is a set of instructions Claude follows for one kind of task. The
-`<project>-history` skill is written for this project and saved to your
-account. Claude uses it whenever you ask about committing or about what changed.
-It covers history only:
+`CLAUDE.md` is the file of standing instructions Claude reads at the start of
+every conversation in the project. Besides the Project Instructions, it holds a
+short section on the history, which tells Claude:
 
+- to leave dated sections and "updated on" notes out of the documents, since
+  git keeps that record
 - how a commit is made from Cowork
-- keeping the saved skill and the copy in the folder the same
+- how to read the history to answer your questions
+- to move anything that turns up in the Project Instructions field into
+  `CLAUDE.md`
 
 ## Setting it up
 
@@ -70,10 +70,7 @@ Claude then writes the files and leaves you the steps it cannot take:
    Add a pattern to `.gitignore` for anything that should stay out, and run
    `sh setup.sh` again to see the new list. When the list is right, run
    `sh setup.sh commit`.
-2. **Save the proposed skill from the review card.** The review card is the
-   card Cowork shows in the conversation when Claude proposes a skill for your
-   account.
-3. **Replace the Project Instructions field with the one line Claude gives
+2. **Replace the Project Instructions field with the one line Claude gives
    you.** Claude cannot write the field itself. Whatever the field held is now
    in `CLAUDE.md`, copied exactly, and the line tells Claude to read it.
 
@@ -99,8 +96,7 @@ questions such as:
 - What corrections have been made to this file?
 - Show me the whole of the last change.
 
-The answer to "why" is only as good as the commit message, which is why the
-history skill has Claude put the reasons in the body.
+The answer to "why" is only as good as the commit message.
 
 ### Changing the standing instructions
 
@@ -108,20 +104,6 @@ history skill has Claude put the reasons in the body.
 to, and commit it like any other file. The Project Instructions field keeps
 only its one line. If anything else turns up there, Claude copies it into
 `CLAUDE.md` and asks you to put the field back.
-
-### Changing the history skill
-
-The copy of the skill in the project folder is the original, and the copy
-saved to your account is the one that runs. Edit the file in the folder, commit
-it, then upload it again under **Customize → Skills**. An edit made directly in
-Customize → Skills has no history and no way back.
-
-### Catching up with the plugin
-
-Each project's history skill is its own copy, so updating the plugin does not
-change it. Ask Claude to check the project's history skill against the plugin.
-Claude shows you the sections that differ, and carries across only the ones you
-agree with.
 
 ## Technical design
 

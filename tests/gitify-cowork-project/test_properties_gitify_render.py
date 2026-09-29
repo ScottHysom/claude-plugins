@@ -4,8 +4,7 @@ only the few test_gitify_render.py spells out.
 The instructions are the user's own words, moved out of a field they are about
 to clear. So render must put them in CLAUDE.md byte for byte, whatever they
 contain - braces, HTML comments, carriage returns, headings - and must
-not let them leak into any other file. drift must still see the generated
-skill as the template it came from.
+not let them leak into any other file.
 """
 
 import contextlib
@@ -28,11 +27,7 @@ PATTERN = st.text(
     st.characters(blacklist_categories=("Cs",), blacklist_characters="\n\r"), min_size=1
 ).filter(lambda s: s.strip())
 
-VALUES = {
-    "PROJECT_NAME": "Foo Research",
-    "SKILL_NAME": "foo-research-history",
-    "DESCRIPTION": "Git history for Foo Research.",
-}
+VALUES = {"PROJECT_NAME": "Foo Research"}
 
 
 def run(argv):
@@ -90,7 +85,3 @@ class DescribeRender:
             for f in env["data"]["files"]:
                 if f["file"] not in ("CLAUDE.md", ".gitignore"):
                     assert read(f["staged_path"]) == read(os.path.join(bare, *f["file"].split("/")))
-
-            skill = os.path.join(stage, "skills", VALUES["SKILL_NAME"], "SKILL.md")
-            code, env = run(["drift", "--skill", skill, "--json"])
-            assert code == gitify.OK, env["errors"]

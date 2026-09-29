@@ -424,7 +424,6 @@ class DescribeDescriptions:
         assert code == cs.OK, err
         checked = json.loads(out)["data"]["checked"]
         assert any(p.endswith("/SKILL.md") for p in checked)
-        assert any("/templates/" in p for p in checked)
 
 
 FOO_SCRIPT = "plugins/foo/scripts/foo.py"
