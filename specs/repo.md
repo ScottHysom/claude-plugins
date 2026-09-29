@@ -252,6 +252,10 @@ Source: #289, and README.md, under "Claiming an issue".
   `issue/N` does not exist, or it holds a commit no merged pull request from
   it has and a change `origin/main` lacks, `issues.py clear` exits 1, says
   what to do next and deletes nothing.
+- `clear-cmd-keeps-uncommitted-changes` (test): When a worktree that has
+  `issue/N` checked out has uncommitted changes, `issues.py clear N` exits 1,
+  names the worktree and says to commit or discard the changes, and moves no
+  worktree and deletes nothing, with or without `--dry-run`.
 
 ## need contributor-catches-stale-commands: Catch a skill that names a missing command
 

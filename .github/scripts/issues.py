@@ -52,6 +52,9 @@ Things that look like bugs and are not:
   issue/N had the local tip in its head. Failing that, it asks whether merging
   issue/N into main would change main. That second test alone would refuse a
   branch merged long ago whose lines main has edited since.
+- `clear` refuses when a worktree on issue/N has uncommitted changes, even ones
+  the switch to origin/main would carry along. Changes nobody committed are
+  for a person to keep or discard, not to move silently.
 - `clear` deletes only the local branch and removes no worktree. GitHub
   deletes the remote branch when the pull request merges, and the desktop app
   manages worktrees.
@@ -411,6 +414,18 @@ def cmd_clear(args, repo):
             ],
         )
     data["worktrees"] = checked_out(repo, ref(n))
+    dirty = [p for p in data["worktrees"] if git(p, "status", "--porcelain").stdout.strip()]
+    if dirty:
+        return emit(
+            args,
+            "clear",
+            data,
+            [
+                "the worktree at %s has %s checked out and uncommitted changes. Commit or "
+                "discard them there, then run clear %d again" % (path, branch(n), n)
+                for path in dirty
+            ],
+        )
 
     def human():
         verb = "Would clear" if args.dry_run else "Cleared"
