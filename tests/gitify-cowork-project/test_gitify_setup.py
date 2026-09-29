@@ -61,7 +61,7 @@ def committed(folder):
 
 
 class DescribeSetup:
-    @pytest.mark.spec("setup-command-stages-first-commit")
+    @pytest.mark.spec("setup-cmd-stages-first-commit")
     def it_stages_everything_and_commits_nothing_on_the_first_run(self, folder):
         result = sh(folder, "setup.sh")
         assert result.returncode == 0, result.stderr
@@ -71,7 +71,7 @@ class DescribeSetup:
             assert rel in result.stdout
         assert "sh setup.sh commit" in result.stdout
 
-    @pytest.mark.spec("setup-command-honors-late-ignores")
+    @pytest.mark.spec("setup-cmd-honors-late-ignores")
     def it_leaves_out_a_file_ignored_after_it_was_staged(self, folder):
         sh(folder, "setup.sh")
         with open(folder / ".gitignore", "a") as fh:
@@ -84,7 +84,7 @@ class DescribeSetup:
         assert "film.mov" not in files
         assert {"notes.md", "drafts/plan.md", "CLAUDE.md", ".gitignore"} <= files
 
-    @pytest.mark.spec("render-command-excludes-system-files")
+    @pytest.mark.spec("render-cmd-excludes-system-files")
     def it_keeps_shared_editor_settings_in_history(self, folder):
         (folder / ".vscode").mkdir()
         (folder / ".vscode" / "settings.json").write_text("{}\n")
@@ -92,7 +92,7 @@ class DescribeSetup:
         files = committed(folder)
         assert ".vscode/settings.json" in files
 
-    @pytest.mark.spec("render-command-excludes-system-files", "render-command-ignores-chat-outputs")
+    @pytest.mark.spec("render-cmd-excludes-system-files", "render-cmd-ignores-chat-outputs")
     def it_leaves_system_editor_and_chat_files_out_of_history(self, folder):
         kept_out = [
             ".DS_Store",
@@ -118,7 +118,7 @@ class DescribeSetup:
         assert "gitify-cowork-project" in subject
         assert "existing folder" in subject
 
-    @pytest.mark.spec("setup-command-sets-exec-bits")
+    @pytest.mark.spec("setup-cmd-sets-exec-bits")
     def it_makes_both_scripts_executable(self, folder):
         sh(folder, "setup.sh")
         assert os.access(folder / "setup.sh", os.X_OK)
@@ -149,7 +149,7 @@ class DescribeCommit:
         assert "sh setup.sh" in result.stderr
         assert not has_commits(folder)
 
-    @pytest.mark.spec("commit-command-records-every-change")
+    @pytest.mark.spec("commit-cmd-records-every-change")
     def it_commits_after_the_first_one(self, folder):
         sh(folder, "setup.sh", "commit")
         (folder / "notes.md").write_text("more notes\n")

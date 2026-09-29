@@ -187,7 +187,7 @@ jobs:
       # and nothing in the manifest can hold a file back - so a test file left
       # beside a script ships to every user, and no diff says so. This is what
       # keeps the next suite from landing there.
-      # spec: placement-command-fails-plugin-tests, ci-runs-placement-and-naming
+      # spec: placement-cmd-fails-plugin-tests, ci-runs-placement-and-naming
       - name: Check tests stay out of plugins/
         run: python3 .github/scripts/check-tests.py placement
 

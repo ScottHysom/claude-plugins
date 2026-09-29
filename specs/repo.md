@@ -24,13 +24,13 @@ Source: #126, and CLAUDE.md, under "Skills and scripts".
 - `script-checks-every-answer` (test): When a script takes the model's answers
   as data, it checks every one, names each that fails, and writes nothing if
   any does.
-- `steps-command-requires-seam-marker` (test): When a skill step runs more
+- `steps-cmd-requires-seam-marker` (test): When a skill step runs more
   than one command, `check-skills.py steps` fails it unless a marker on its
   own line under the heading names a judgment or a platform seam and gives a
   reason.
-- `steps-command-fails-stale-seam-marker` (test): When a step with a seam
+- `steps-cmd-fails-stale-seam-marker` (test): When a step with a seam
   marker runs one command or none, `steps` fails the marker.
-- `steps-command-warns-on-known-seams` (test): When a step listed in
+- `steps-cmd-warns-on-known-seams` (test): When a step listed in
   `KNOWN_SEAMS` runs more than one command with no marker, `steps` passes it
   with a warning naming its issue, and fails the entry once the step runs one
   command, gains a marker or is gone.
@@ -96,7 +96,7 @@ Source: README.md, under "Adding this marketplace".
 - `ci-prints-cli-version` (check): When CI validates the manifests, it prints
   the version of the Claude Code CLI it installed, so a failure that a new
   release brings can be traced to that release.
-- `check-command-fails-uncataloged-plugin` (test): When a directory under
+- `check-cmd-fails-uncataloged-plugin` (test): When a directory under
   `plugins/` holds a plugin.json and no catalog entry names it,
   `check-manifest-consistency.py check` fails it.
 
@@ -108,13 +108,13 @@ spec, ships to every user.
 
 Source: the owner's review of #139, and CLAUDE.md, under "Tests".
 
-- `placement-command-fails-plugin-tests` (check): When a pull request adds a
+- `placement-cmd-fails-plugin-tests` (check): When a pull request adds a
   test file under `plugins/`, `check-tests.py placement` fails it.
-- `placement-command-names-test-destination` (test): When a test file, a
+- `placement-cmd-names-test-destination` (test): When a test file, a
   `conftest.py`, a file in a `tests/` directory, or a script importing pytest
   or hypothesis sits under `plugins/`, `placement` fails it, says it ships to
   every user, and names where it goes.
-- `placement-command-reads-git` (test): When `placement` lists files, it reads
+- `placement-cmd-reads-git` (test): When `placement` lists files, it reads
   every file git carries, tracked or not yet added, and skips what git
   ignores.
 
@@ -133,31 +133,31 @@ so an agent posting under the owner's account cannot approve its own work.
 
 Source: README.md, under "Issues" and "Keeping `approved` meaningful".
 
-- `claim-command-refuses-unapproved-issues` (test): When `issues.py claim N`
+- `claim-cmd-refuses-unapproved-issues` (test): When `issues.py claim N`
   is given an issue that lacks `approved`, or is closed and so finished, it
   exits 1 and writes nothing.
-- `checklinkedissues-command-requires-approved-issues` (test): When a pull
+- `checklinkedissues-cmd-requires-approved-issues` (test): When a pull
   request's title, body or a commit message closes an issue in this repository
   that lacks `approved`, check-linked-issues.py fails and says to re-run the
   job once it is labeled.
-- `checklinkedissues-command-reads-closing-keywords` (test): When text names
+- `checklinkedissues-cmd-reads-closing-keywords` (test): When text names
   an issue with a closing keyword outside a code span, a fence or an HTML
   comment, check-linked-issues.py counts it as a link, and counts nothing
   else.
-- `checklinkedissues-command-fails-non-issue-numbers` (test): When a closing
+- `checklinkedissues-cmd-fails-non-issue-numbers` (test): When a closing
   keyword names a number that does not exist or is a pull request,
   check-linked-issues.py fails it.
-- `checklinkedissues-command-fails-other-repo-issues` (test): When a closing
+- `checklinkedissues-cmd-fails-other-repo-issues` (test): When a closing
   keyword names another repository's issue, check-linked-issues.py fails it
   without looking it up.
-- `checklinkedissues-command-passes-unlinked-requests` (test): When a pull
+- `checklinkedissues-cmd-passes-unlinked-requests` (test): When a pull
   request closes no issue, check-linked-issues.py passes it from any branch.
-- `checklinkedissues-command-stops-on-failed-lookup` (test): When
+- `checklinkedissues-cmd-stops-on-failed-lookup` (test): When
   check-linked-issues.py cannot read a pull request's commits or the claim
   branches, it exits 2 and prints no links.
 - `ci-runs-checklinkedissues` (check): When a pull request is opened, edited
   or updated, CI runs check-linked-issues.py.
-- `disclosed-command-fails-post-approval-edits` (test): When an issue a pull
+- `disclosed-cmd-fails-post-approval-edits` (test): When an issue a pull
   request closes was edited after `approved` was last added to it, `disclosed`
   fails the pull request and says to re-add the label.
 - `guard-blocks-approved-label` (test): When Claude Code runs a Bash command
@@ -182,21 +182,21 @@ wants each to get a different one, so no two agents do the same work.
 
 Source: README.md, under "Claiming an issue".
 
-- `next-command-offers-free-issue` (test): When `issues.py next` runs, it
+- `next-cmd-offers-free-issue` (test): When `issues.py next` runs, it
   names the lowest-numbered open issue labeled `approved` that no `issue/N`
   branch holds, and exits 0 when none is free.
-- `claim-command-picks-one-winner` (test): When two agents claim the same
+- `claim-cmd-picks-one-winner` (test): When two agents claim the same
   issue at once, `issues.py claim` lets exactly one create `issue/N`, and the
   other exits 1, names the holder and writes nothing.
-- `claim-command-switches-to-issue-branch` (test): When `issues.py claim N`
+- `claim-cmd-switches-to-issue-branch` (test): When `issues.py claim N`
   wins, it switches the clone to `issue/N`, and warns when the switch fails.
-- `claim-command-stops-on-refused-push` (test): When the push fails and
+- `claim-cmd-stops-on-refused-push` (test): When the push fails and
   `issue/N` does not exist, `issues.py claim` exits 2 and writes nothing to
   the issue.
-- `checklinkedissues-command-requires-claim-branch` (test): When a pull
+- `checklinkedissues-cmd-requires-claim-branch` (test): When a pull
   request closes #N and does not come from `issue/N` in this repository,
   check-linked-issues.py fails it.
-- `checklinkedissues-command-fails-foreign-claims` (test): When a pull request
+- `checklinkedissues-cmd-fails-foreign-claims` (test): When a pull request
   also closes an issue that another `issue/M` branch holds,
   check-linked-issues.py fails it.
 
@@ -208,12 +208,12 @@ so nobody reads a stale label as a claim.
 
 Source: README.md, under "Claiming an issue", and #33.
 
-- `claim-command-adds-in-progress-label` (test): When `issues.py claim` wins,
+- `claim-cmd-adds-in-progress-label` (test): When `issues.py claim` wins,
   it adds `in-progress` and a claim comment, and if either fails, it warns and
   still exits 0.
 - `issueclosed-clears-label` (check): When an issue carrying `in-progress`
   closes, issue-closed.yml removes the label.
-- `stale-command-reports-label-mismatch` (test): When a label has no branch, a
+- `stale-cmd-reports-label-mismatch` (test): When a label has no branch, a
   closed issue keeps its label, or a closed issue keeps its branch, `issues.py
   stale` fails and names the remedy.
 
@@ -225,13 +225,13 @@ on the claim branch lost in the freeing.
 
 Source: README.md, under "Claiming an issue", and CLAUDE.md, under "Issues".
 
-- `release-command-frees-unused-claim` (test): When `issues.py release N`
+- `release-cmd-frees-unused-claim` (test): When `issues.py release N`
   finds `issue/N` with no commits off main, or only the `in-progress` label,
   it deletes the branch, removes the label and comments.
-- `release-command-keeps-work` (test): When `issue/N` has commits off main, or
+- `release-cmd-keeps-work` (test): When `issue/N` has commits off main, or
   changed after `release` checked it, `issues.py release` exits 1 and deletes
   nothing.
-- `release-command-requires-held-claim` (test): When `issues.py release N`
+- `release-cmd-requires-held-claim` (test): When `issues.py release N`
   finds neither `issue/N` nor the `in-progress` label, it exits 1 and comments
   nothing, so no issue reads as released that was never held.
 
@@ -243,19 +243,19 @@ request rather than part way through a user's run.
 
 Source: README.md, under "Adding a plugin", step 4.
 
-- `commands-command-parses-invocations` (test): When a shell fence runs a
+- `commands-cmd-parses-invocations` (test): When a shell fence runs a
   plugin script, `check-skills.py commands` passes its arguments through that
   script's `build_parser()`, and fails what the parser rejects, naming the
   file and line.
-- `commands-command-finds-named-script` (test): When an invocation names its
+- `commands-cmd-finds-named-script` (test): When an invocation names its
   script through a variable or a path, `commands` finds the script, and fails
   an unassigned variable, a variable naming two scripts, and a script that is
   missing, will not import or has no parser.
-- `commands-command-handles-fence-syntax` (test): When a fence writes a
+- `commands-cmd-handles-fence-syntax` (test): When a fence writes a
   command with a placeholder, an optional part, a continuation, a comment, a
   heredoc or a list indent, `commands` checks it as the model would run it,
   and reads only shell fences.
-- `commands-command-scans-something` (test): When no shell fence runs a script,
+- `commands-cmd-scans-something` (test): When no shell fence runs a script,
   `commands` fails.
 - `ci-runs-commands` (check): When a pull request is opened or updated, CI runs
   `commands`.
@@ -268,13 +268,13 @@ model without saying so.
 
 Source: CLAUDE.md, under "Skills and scripts", and #98.
 
-- `steps-command-counts-step-commands` (test): When a `## Step` section runs
+- `steps-cmd-counts-step-commands` (test): When a `## Step` section runs
   an invocation `commands` accepts, `check-skills.py steps` counts it for that
   step, and otherwise fails the step unless it carries a no-command marker.
-- `steps-command-checks-no-command-markers` (test): When a no-command marker
+- `steps-cmd-checks-no-command-markers` (test): When a no-command marker
   has no reason, shares its line with other text, sits outside a step, or sits
   on a step that runs a command, `steps` fails it.
-- `steps-command-scans-something` (test): When no SKILL.md has a step, `steps`
+- `steps-cmd-scans-something` (test): When no SKILL.md has a step, `steps`
   fails.
 - `ci-runs-steps` (check): When a pull request is opened or updated, CI runs
   `steps`.
@@ -287,16 +287,16 @@ should give the same answer on every run is done by the script.
 
 Source: CLAUDE.md, under "Skills and scripts", and #97.
 
-- `fences-command-rejects-other-commands` (test): When a shell fence in a
+- `fences-cmd-rejects-other-commands` (test): When a shell fence in a
   skill runs anything but a script invocation, such as `python3 -c` or a stage
   of a pipeline, `check-skills.py fences` fails it and names the file, line
   and command.
-- `fences-command-requires-info-strings` (test): When a fence has no info
+- `fences-cmd-requires-info-strings` (test): When a fence has no info
   string, `fences` fails it.
-- `fences-command-allows-setup-commands` (test): When a shell fence runs an
+- `fences-cmd-allows-setup-commands` (test): When a shell fence runs an
   allowed setup command where it may stand, `fences` passes it, and fails the
   same command anywhere else.
-- `fences-command-scans-something` (test): When no shell fence exists, `fences`
+- `fences-cmd-scans-something` (test): When no shell fence exists, `fences`
   fails.
 - `ci-runs-fences` (check): When a pull request is opened or updated, CI runs
   `fences`.
@@ -310,19 +310,19 @@ copies cannot drift apart.
 Source: CLAUDE.md, under "Skills in a plugin share instructions through one
 file", README.md, under "Adding a plugin", step 2, and #54.
 
-- `repeats-command-fails-copied-blocks` (test): When two SKILL.md files of one
+- `repeats-cmd-fails-copied-blocks` (test): When two SKILL.md files of one
   plugin share a paragraph, a table, a fenced block or a list item, whitespace
   aside, `check-skills.py repeats` fails and names each file and the line each
   copy starts on.
-- `repeats-command-passes-exempt-blocks` (test): When the shared block is the
+- `repeats-cmd-passes-exempt-blocks` (test): When the shared block is the
   section that locates the script, a heading or front matter, `repeats` passes
   it, and it checks a section under any other heading.
-- `repeats-command-only-compares-sibling-skills` (test): When a block repeats
+- `repeats-cmd-only-compares-sibling-skills` (test): When a block repeats
   across two plugins, or twice within one skill, `repeats` passes it.
-- `repeats-command-skips-markers` (test): When two of a plugin's skills carry
+- `repeats-cmd-skips-markers` (test): When two of a plugin's skills carry
   the same comment line, such as one spec marker, `repeats` does not report it
   as a copied block.
-- `repeats-command-scans-something` (test): When no SKILL.md exists, or none
+- `repeats-cmd-scans-something` (test): When no SKILL.md exists, or none
   yields a block, `repeats` fails.
 - `ci-runs-repeats` (check): When a pull request is opened or updated, CI runs
   `repeats`.
@@ -335,18 +335,18 @@ Cowork even though a marketplace install and `--strict` accept it.
 
 Source: README.md, under "Adding a plugin", step 4.
 
-- `descriptions-command-fails-named-tags` (test): When a description holds `<`
+- `descriptions-cmd-fails-named-tags` (test): When a description holds `<`
   or `</` followed by a name, on its first line or a continuation,
   `check-skills.py descriptions` fails and names the file, line and tag.
-- `descriptions-command-passes-lone-less-than` (test): When a description
+- `descriptions-cmd-passes-lone-less-than` (test): When a description
   holds a `<` that no name follows, `descriptions` passes it.
-- `descriptions-command-reads-templates` (test): When a markdown file under
+- `descriptions-cmd-reads-templates` (test): When a markdown file under
   `plugins/` other than SKILL.md has a description, such as a generated-skill
   template, `descriptions` checks it.
-- `descriptions-command-only-checks-descriptions` (test): When a tag sits
+- `descriptions-cmd-only-checks-descriptions` (test): When a tag sits
   outside the description, in the body, in another front matter key or in
   markdown outside `plugins/`, `descriptions` passes it.
-- `descriptions-command-scans-something` (test): When no file under `plugins/`
+- `descriptions-cmd-scans-something` (test): When no file under `plugins/`
   has a description, `descriptions` fails.
 - `ci-runs-descriptions` (check): When a pull request is opened or updated, CI
   runs `descriptions`.
@@ -358,7 +358,7 @@ committing it, so the checks read files git does not track yet.
 
 Source: README.md, under "Adding a plugin", step 4: "Validate, then push".
 
-- `checkskills-command-reads-worktree-files` (test): When a skill file is
+- `checkskills-cmd-reads-worktree-files` (test): When a skill file is
   committed, or new and not yet added, each check-skills.py command reads it,
   and skips a file git ignores.
 
@@ -370,17 +370,17 @@ two files that each validate cannot drift apart.
 
 Source: README.md, under "Adding a plugin", step 4.
 
-- `check-command-fails-version-drift` (test): When a catalog entry's `version`
+- `check-cmd-fails-version-drift` (test): When a catalog entry's `version`
   differs from its plugin.json's, `check-manifest-consistency.py check` fails
   and names both.
-- `check-command-fails-name-drift` (test): When plugin.json's `name`, or the
+- `check-cmd-fails-name-drift` (test): When plugin.json's `name`, or the
   source directory's name, differs from the entry's `name`, `check` fails it.
-- `check-command-requires-source-manifest` (test): When a catalog entry's
+- `check-cmd-requires-source-manifest` (test): When a catalog entry's
   source directory holds no plugin.json, `check` fails it.
-- `check-command-requires-entry-fields` (test): When a catalog entry lacks
+- `check-cmd-requires-entry-fields` (test): When a catalog entry lacks
   `name`, `source`, `description` or `version`, `check` names the field and
   fails.
-- `check-command-requires-catalog` (test): When the catalog is missing or
+- `check-cmd-requires-catalog` (test): When the catalog is missing or
   lists no plugins, `check` fails.
 - `ci-runs-manifest-check` (check): When a pull request is opened or updated,
   CI runs `check`.
@@ -394,32 +394,32 @@ line no test runs cannot also escape the trace.
 Source: #128, README.md, under "Coverage", and SPEC-METHODOLOGY.md, under
 "The chain".
 
-- `floors-command-fails-below-floor` (test): When a plugin script's branch
+- `floors-cmd-fails-below-floor` (test): When a plugin script's branch
   coverage is below its floor in `.github/coverage-floors.json`,
   `check-coverage.py floors` fails and names the script, its figure and its
   floor.
-- `floors-command-warns-to-raise-floor` (test): When a script's figure passes
+- `floors-cmd-warns-to-raise-floor` (test): When a script's figure passes
   its floor, `floors` warns with the figure, to two decimals, to raise the
   floor to.
-- `floors-command-fails-lowered-floor` (test): When a floor is lower than at
+- `floors-cmd-fails-lowered-floor` (test): When a floor is lower than at
   `--base`, `floors` fails it.
-- `floors-command-requires-new-script-floor` (test): When a plugin script has
+- `floors-cmd-requires-new-script-floor` (test): When a plugin script has
   no floor, `floors` fails it and prints the figure to use.
-- `floors-command-fails-stray-floor` (test): When the floors file holds a
+- `floors-cmd-fails-stray-floor` (test): When the floors file holds a
   floor for a path that is not a plugin script, `floors` fails it, so the file
   lists exactly the plugin scripts.
-- `floors-command-fails-unmeasured-script` (test): When the report leaves out
+- `floors-cmd-fails-unmeasured-script` (test): When the report leaves out
   a plugin script, `floors` fails the script and `diff` fails its added lines.
-- `checkcoverage-command-requires-branch-report` (test): When the report was
+- `checkcoverage-cmd-requires-branch-report` (test): When the report was
   measured without branch coverage, check-coverage.py exits 2.
-- `diff-command-fails-unrun-added-line` (test): When a pull request adds a
+- `diff-cmd-fails-unrun-added-line` (test): When a pull request adds a
   plugin line that no test runs, `check-coverage.py diff` names it and fails,
   counting from the merge base, and every line of a new script counts as
   added.
-- `pragmas-command-requires-reasons` (test): When a coverage exclusion, in any
+- `pragmas-cmd-requires-reasons` (test): When a coverage exclusion, in any
   spelling coverage.py accepts, gives no reason on its line,
   `check-coverage.py pragmas` fails it.
-- `checkcoverage-command-scans-something` (test): When the clone holds no
+- `checkcoverage-cmd-scans-something` (test): When the clone holds no
   plugin script, each check-coverage.py command exits 2.
 - `ci-runs-floors` (check): When a pull request is opened or updated, or main
   is pushed, CI runs `floors`, with `--base` set to a pull request's base.
@@ -440,13 +440,13 @@ not collect, by where it sits or by its name, so no test silently never runs.
 Source: README.md, under "Running the tests", CLAUDE.md, under "Tests", and
 #22 and #26.
 
-- `placement-command-fails-tests-outside-roots` (test): When a test file sits
+- `placement-cmd-fails-tests-outside-roots` (test): When a test file sits
   outside every `testpaths` root in pytest.ini, `check-tests.py placement`
   fails it.
-- `naming-command-fails-old-test-names` (test): When a test file holds `def
+- `naming-cmd-fails-old-test-names` (test): When a test file holds `def
   test_` or `class Test` at any indent, `check-tests.py naming` fails and
   names the file and line.
-- `naming-command-scans-something` (test): When `naming` finds no test file,
+- `naming-cmd-scans-something` (test): When `naming` finds no test file,
   or a `testpaths` root that exists holds none, it fails.
 - `ci-runs-placement-and-naming` (check): When a pull request is opened or
   updated, CI runs `placement` and `naming`.
@@ -492,66 +492,66 @@ asked for, and no requirement loses the last thing that verifies it.
 
 Source: #114, #129, and SPEC-METHODOLOGY.md, under "The chain".
 
-- `trace-command-fails-uncited-verifiers` (test): When a test or a skill step
+- `trace-cmd-fails-uncited-verifiers` (test): When a test or a skill step
   cites no requirement, and `.github/untraced.json` does not list it,
   `check-specs.py trace` fails it.
-- `trace-command-fails-unknown-ids` (test): When a test, a skill step or a
+- `trace-cmd-fails-unknown-ids` (test): When a test, a skill step or a
   workflow step cites an id its component's spec does not hold, `trace` fails
   the citation.
-- `trace-command-fails-unverified-requirements` (test): When nothing of a
+- `trace-cmd-fails-unverified-requirements` (test): When nothing of a
   requirement's kind cites it, a test for `test`, a skill step for `step` and
   a workflow step for `check`, `trace` fails the requirement.
-- `trace-command-warns-on-listed-items` (test): When `.github/untraced.json`
+- `trace-cmd-warns-on-listed-items` (test): When `.github/untraced.json`
   lists a test or a step that cites nothing, and the issue it waits on is
   open, `trace` passes it with a warning naming that issue.
-- `trace-command-fails-closed-issue-entries` (test): When an entry in
+- `trace-cmd-fails-closed-issue-entries` (test): When an entry in
   `.github/untraced.json`, or a step in check-skills.py's `KNOWN_SEAMS`, waits
   on an issue that has closed, `trace` fails the entry. It stops on an issue
   it cannot read, and without a token it warns that it did not look.
-- `trace-command-fails-stale-list-entries` (test): When a listed test or step
+- `trace-cmd-fails-stale-list-entries` (test): When a listed test or step
   cites a requirement, or no longer exists, `trace` fails until its entry is
   removed.
-- `trace-command-checks-spec-grammar` (test): When a spec file has a
+- `trace-cmd-checks-spec-grammar` (test): When a spec file has a
   requirement outside a need or a constraint, a malformed requirement, a need,
   constraint or requirement id not in the form SPEC-METHODOLOGY.md gives under
   "Ids", a duplicate id or a kind nothing in the repo verifies, `trace` fails
   it.
-- `trace-command-scans-something` (test): When `trace` finds no spec, no test
+- `trace-cmd-scans-something` (test): When `trace` finds no spec, no test
   or no skill step, it fails.
 - `ci-runs-trace` (check): When a pull request is opened or updated, CI runs
   `trace`.
-- `inventory-command-lists-parser-surface` (test): When `check-specs.py
+- `inventory-cmd-lists-parser-surface` (test): When `check-specs.py
   inventory` lists a plugin, it gives every subcommand, option and `choices`
   value its script's `build_parser()` accepts, each with the skill text that
   names it.
-- `inventory-command-lists-string-collections` (test): When `inventory` lists
+- `inventory-cmd-lists-string-collections` (test): When `inventory` lists
   a plugin, it gives every module-level set, tuple or list of strings in its
   script.
-- `inventory-command-lists-tests` (test): When `inventory` lists a plugin, it
+- `inventory-cmd-lists-tests` (test): When `inventory` lists a plugin, it
   gives every test in `tests/<plugin>/`, with the script lines each one runs.
-- `inventory-command-lists-skill-steps` (test): When `inventory` lists a
+- `inventory-cmd-lists-skill-steps` (test): When `inventory` lists a
   plugin, it gives every step of its skills, with the commands each one runs.
-- `inventory-command-lists-unrun-lines` (test): When `inventory` lists a
+- `inventory-cmd-lists-unrun-lines` (test): When `inventory` lists a
   plugin, it gives every line of its script that no test runs.
-- `inventory-command-requires-per-test-report` (test): When the coverage
+- `inventory-cmd-requires-per-test-report` (test): When the coverage
   report does not say which test ran each line, `inventory` stops and names
   the command that writes one that does.
-- `surface-command-fails-unnamed-options` (test): When a subcommand, option or
+- `surface-cmd-fails-unnamed-options` (test): When a subcommand, option or
   `choices` value of a plugin script or a repo script is named in backticks by
   no requirement in its component's spec or in `specs/repo.md`,
   `check-specs.py surface` fails it.
-- `surface-command-warns-on-listed-items` (test): When the `surface` section of
+- `surface-cmd-warns-on-listed-items` (test): When the `surface` section of
   `.github/untraced.json` lists an item no requirement names, `surface`
   passes it with a warning naming its issue, and fails an entry whose item is
   named or gone.
-- `surface-command-scans-something` (test): When `surface` finds no script
+- `surface-cmd-scans-something` (test): When `surface` finds no script
   with a `build_parser()`, it fails.
 - `ci-runs-surface` (check): When a pull request is opened or updated, CI runs
   `surface`.
-- `disclosed-command-lists-ids` (test): When a pull request adds, changes or
+- `disclosed-cmd-lists-ids` (test): When a pull request adds, changes or
   removes a requirement, and its description does not name the id in
   backticks, `check-specs.py disclosed` fails it.
-- `disclosed-command-requires-issue-for-need` (test): When a pull request adds
+- `disclosed-cmd-requires-issue-for-need` (test): When a pull request adds
   a need that no issue it closes names, `disclosed` fails it.
 - `ci-runs-disclosed` (check): When a pull request is opened, edited or
   updated, CI runs `disclosed`.

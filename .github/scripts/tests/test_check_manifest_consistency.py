@@ -101,7 +101,7 @@ class DescribeCheck:
         assert "All 1 plugin(s) consistent." in out
         assert err == ""
 
-    @pytest.mark.spec("check-command-fails-version-drift")
+    @pytest.mark.spec("check-cmd-fails-version-drift")
     def it_reports_version_drift_between_the_manifests(self, make_repo, run):
         root = make_repo([entry(version="0.1.0")], {"foo": plugin(version="0.2.0")})
         code, out, err = run("check", "-C", str(root))
@@ -125,35 +125,35 @@ class DescribeCheck:
         assert code == cm.PROBLEMS
         assert "foo: source `./plugins/missing` is not a directory" in err
 
-    @pytest.mark.spec("check-command-fails-name-drift")
+    @pytest.mark.spec("check-cmd-fails-name-drift")
     def it_rejects_a_directory_named_differently_from_its_entry(self, make_repo, run):
         root = make_repo([entry(source="./plugins/bar")], {"bar": plugin("foo")})
         code, _, err = run("check", "-C", str(root))
         assert code == cm.PROBLEMS
         assert "foo: source directory is `bar`" in err
 
-    @pytest.mark.spec("check-command-requires-source-manifest")
+    @pytest.mark.spec("check-cmd-requires-source-manifest")
     def it_reports_a_plugin_directory_with_no_plugin_json(self, make_repo, run):
         root = make_repo([entry()], {"foo": None})
         code, _, err = run("check", "-C", str(root))
         assert code == cm.PROBLEMS
         assert "foo: no plugin.json at plugins/foo/.claude-plugin/plugin.json" in err
 
-    @pytest.mark.spec("check-command-fails-uncataloged-plugin")
+    @pytest.mark.spec("check-cmd-fails-uncataloged-plugin")
     def it_reports_a_plugin_directory_with_no_catalog_entry(self, make_repo, run):
         root = make_repo([entry()], {"foo": plugin(), "stray": plugin("stray")})
         code, _, err = run("check", "-C", str(root))
         assert code == cm.PROBLEMS
         assert "stray: has a plugin.json but no marketplace.json entry" in err
 
-    @pytest.mark.spec("check-command-fails-uncataloged-plugin")
+    @pytest.mark.spec("check-cmd-fails-uncataloged-plugin")
     def it_ignores_a_plugin_directory_that_has_no_plugin_json_yet(self, make_repo, run):
         root = make_repo([entry()], {"foo": plugin(), "draft": None})
         code, _, _ = run("check", "-C", str(root))
         assert code == cm.OK
 
     @pytest.mark.parametrize("field", cm.REQUIRED_FIELDS)
-    @pytest.mark.spec("check-command-requires-entry-fields")
+    @pytest.mark.spec("check-cmd-requires-entry-fields")
     def it_reports_an_entry_missing_a_required_field(self, make_repo, run, field):
         e = entry()
         del e[field]
@@ -170,21 +170,21 @@ class DescribeCheck:
         assert code == cm.PROBLEMS
         assert "a marketplace entry has no name" in err
 
-    @pytest.mark.spec("check-command-fails-name-drift")
+    @pytest.mark.spec("check-cmd-fails-name-drift")
     def it_reports_a_plugin_json_whose_name_differs_from_its_entry(self, make_repo, run):
         root = make_repo([entry()], {"foo": plugin("other")})
         code, _, err = run("check", "-C", str(root))
         assert code == cm.PROBLEMS
         assert "foo: plugin.json name is `other`" in err
 
-    @pytest.mark.spec("check-command-requires-catalog")
+    @pytest.mark.spec("check-cmd-requires-catalog")
     def it_reports_a_catalog_that_lists_no_plugins(self, make_repo, run):
         root = make_repo([])
         code, _, err = run("check", "-C", str(root))
         assert code == cm.PROBLEMS
         assert "marketplace.json lists no plugins" in err
 
-    @pytest.mark.spec("check-command-requires-catalog")
+    @pytest.mark.spec("check-cmd-requires-catalog")
     def it_reports_a_missing_catalog(self, make_repo, run):
         root = make_repo(None)
         code, _, err = run("check", "-C", str(root))
@@ -201,7 +201,7 @@ class DescribeCheck:
 
 
 class DescribeJson:
-    @pytest.mark.spec("command-prints-json-envelope", "check-command-fails-version-drift")
+    @pytest.mark.spec("command-prints-json-envelope", "check-cmd-fails-version-drift")
     def it_prints_one_envelope_and_nothing_on_stderr(self, make_repo, run):
         root = make_repo([entry()], {"foo": plugin(version="0.2.0")})
         code, out, err = run("check", "--json", "-C", str(root))

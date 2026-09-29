@@ -29,7 +29,7 @@ def entry(env, rel):
 
 
 class DescribeStage:
-    @pytest.mark.spec("stage-command-copies-for-device")
+    @pytest.mark.spec("stage-cmd-copies-for-device")
     def it_stages_a_byte_identical_copy_of_the_running_script(self, tmp_path, capsys):
         code, env, _ = stage(capsys, "--folder", FOLDER, "--stage", str(tmp_path))
         assert code == prose.OK
@@ -40,7 +40,7 @@ class DescribeStage:
             assert fh.read() == original
         assert staged["sha256"] == hashlib.sha256(original).hexdigest()
 
-    @pytest.mark.spec("stage-command-copies-for-device")
+    @pytest.mark.spec("stage-cmd-copies-for-device")
     def it_addresses_the_copy_to_the_project_folder_on_the_device(self, tmp_path, capsys):
         _, env, _ = stage(capsys, "--folder", FOLDER + "/", "--stage", str(tmp_path))
         assert [c["devicePath"] for c in env["data"]["commit_files"]] == [
@@ -52,7 +52,7 @@ class DescribeStage:
             f["staged_path"] for f in env["data"]["files"]
         ]
 
-    @pytest.mark.spec("setup-command-ignores-its-copy")
+    @pytest.mark.spec("setup-cmd-ignores-its-copy")
     def it_keeps_the_copied_folder_out_of_the_projects_commits(self, tmp_path, capsys):
         project = tmp_path / "project"
         subprocess.run(["git", "init", "-q", str(project)], check=True, capture_output=True)
@@ -66,14 +66,14 @@ class DescribeStage:
         )
         assert status.stdout == ""
 
-    @pytest.mark.spec("stage-command-gives-checksum-command")
+    @pytest.mark.spec("stage-cmd-gives-checksum-command")
     def it_starts_device_commands_in_the_mounted_project(self, tmp_path, capsys):
         _, env, _ = stage(capsys, "--folder", FOLDER, "--stage", str(tmp_path))
         assert env["data"]["device_setup"] == (
             'cd "$HOME/mnt"/Notes && PROSE=.prose-tuning/prose.py'
         )
 
-    @pytest.mark.spec("stage-command-gives-checksum-command")
+    @pytest.mark.spec("stage-cmd-gives-checksum-command")
     def it_mounts_a_project_below_the_connected_folder_under_its_path(self, tmp_path, capsys):
         _, env, _ = stage(
             capsys,
@@ -86,7 +86,7 @@ class DescribeStage:
         )
         assert env["data"]["device_setup"].startswith("cd \"$HOME/mnt\"/'Claude Projects/Notes' ")
 
-    @pytest.mark.spec("stage-command-copies-for-device")
+    @pytest.mark.spec("stage-cmd-copies-for-device")
     def it_stages_the_shipped_rules_beside_the_script(self, tmp_path, capsys):
         _, env, _ = stage(capsys, "--folder", FOLDER, "--stage", str(tmp_path))
         with open(prose.shipped_template(), "rb") as fh:
@@ -94,7 +94,7 @@ class DescribeStage:
         with open(entry(env, prose.COPY_TEMPLATE)["staged_path"], "rb") as fh:
             assert fh.read() == shipped
 
-    @pytest.mark.spec("stage-command-gives-checksum-command")
+    @pytest.mark.spec("stage-cmd-gives-checksum-command")
     def it_checks_every_staged_file_by_checksum_on_the_device(self, tmp_path, capsys):
         _, env, _ = stage(capsys, "--folder", FOLDER, "--stage", str(tmp_path / "s"))
         lines = env["data"]["check_command"].split("\n")
@@ -115,7 +115,7 @@ class DescribeStage:
         _, env, _ = stage(capsys, "--folder", FOLDER, "--stage", str(tmp_path))
         assert any(prose.OUTPUTS_ROOT in w for w in env["warnings"])
 
-    @pytest.mark.spec("stage-command-checks-folder-paths")
+    @pytest.mark.spec("stage-cmd-checks-folder-paths")
     def it_refuses_a_project_outside_the_connected_folder(self, tmp_path, capsys):
         code, env, err = stage(
             capsys,
@@ -130,13 +130,13 @@ class DescribeStage:
         assert env is None
         assert "is not inside" in err
 
-    @pytest.mark.spec("stage-command-checks-folder-paths")
+    @pytest.mark.spec("stage-cmd-checks-folder-paths")
     def it_refuses_a_relative_folder(self, tmp_path, capsys):
         code, _, err = stage(capsys, "--folder", "Notes", "--stage", str(tmp_path))
         assert code == prose.CANNOT_RUN
         assert "absolute path" in err
 
-    @pytest.mark.spec("stage-command-checks-folder-paths")
+    @pytest.mark.spec("stage-cmd-checks-folder-paths")
     def it_refuses_a_relative_connected_folder(self, tmp_path, capsys):
         code, _, err = stage(
             capsys, "--connected", "Claude Projects", "--folder", FOLDER, "--stage", str(tmp_path)
@@ -144,7 +144,7 @@ class DescribeStage:
         assert code == prose.CANNOT_RUN
         assert "--connected must be an absolute path" in err
 
-    @pytest.mark.spec("stage-command-gives-checksum-command", "repo:command-splits-output-streams")
+    @pytest.mark.spec("stage-cmd-gives-checksum-command", "repo:command-splits-output-streams")
     def it_prints_the_check_and_the_prefix_without_json(self, tmp_path, capsys):
         capsys.readouterr()
         code = prose.main(["stage", "--folder", FOLDER, "--stage", str(tmp_path)])
@@ -162,21 +162,21 @@ class DescribePreflightOnTheDevice:
         shutil.copyfile(prose.SCRIPT_PATH, str(copy))
         monkeypatch.setattr(prose, "SCRIPT_PATH", str(copy))
 
-    @pytest.mark.spec("setup-command-ignores-its-copy")
+    @pytest.mark.spec("setup-cmd-ignores-its-copy")
     def it_blocks_a_copy_in_the_project_that_git_would_commit(self, prose_repo, monkeypatch):
         self.install_copy(prose_repo, monkeypatch)
         code, env = prose_repo.run("preflight", "--for", "config")
         assert code == prose.PROBLEMS
         assert any(e.startswith(".prose-tuning/prose.py  not ignored") for e in env["errors"])
 
-    @pytest.mark.spec("setup-command-ignores-its-copy")
+    @pytest.mark.spec("setup-cmd-ignores-its-copy")
     def it_accepts_a_copy_its_own_folder_ignores(self, prose_repo, monkeypatch):
         self.install_copy(prose_repo, monkeypatch)
         (prose_repo.root / prose.COPY_IGNORE).write_bytes(prose.COPY_IGNORE_TEXT)
         code, env = prose_repo.run("preflight", "--for", "config")
         assert code == prose.OK, env["errors"]
 
-    @pytest.mark.spec("setup-command-ignores-its-copy")
+    @pytest.mark.spec("setup-cmd-ignores-its-copy")
     def it_ignores_the_check_for_a_script_outside_the_project(self, prose_repo):
         code, env = prose_repo.run("preflight", "--for", "config")
         assert code == prose.OK, env["errors"]
@@ -190,12 +190,12 @@ class DescribeSetup:
     def local(self, prose_repo, monkeypatch, *argv):
         return self.setup(prose_repo, monkeypatch, prose_repo.root.parent / "absent", *argv)
 
-    @pytest.mark.spec("setup-command-names-its-surface")
+    @pytest.mark.spec("setup-cmd-names-its-surface")
     def it_reports_cowork_inside_coworks_container(self, prose_repo, monkeypatch, tmp_path):
         code, env = self.setup(prose_repo, monkeypatch, tmp_path)
         assert (code, env["data"]["surface"]) == (prose.OK, "cowork")
 
-    @pytest.mark.spec("setup-command-names-its-surface")
+    @pytest.mark.spec("setup-cmd-names-its-surface")
     def it_leaves_the_copying_to_stage_inside_coworks_container(
         self, prose_repo, monkeypatch, tmp_path
     ):
@@ -203,26 +203,26 @@ class DescribeSetup:
         assert env["data"]["files"] == []
         assert not (prose_repo.root / prose.COPY_DIR).exists()
 
-    @pytest.mark.spec("setup-command-names-its-surface")
+    @pytest.mark.spec("setup-cmd-names-its-surface")
     def it_reports_local_anywhere_else(self, prose_repo, monkeypatch):
         code, env = self.local(prose_repo, monkeypatch)
         assert (code, env["data"]["surface"]) == (prose.OK, "local")
 
-    @pytest.mark.spec("setup-command-copies-locally")
+    @pytest.mark.spec("setup-cmd-copies-locally")
     def it_copies_a_byte_identical_script_into_the_project_locally(self, prose_repo, monkeypatch):
         self.local(prose_repo, monkeypatch)
         with open(prose.SCRIPT_PATH, "rb") as fh:
             original = fh.read()
         assert (prose_repo.root / prose.COPY_SCRIPT).read_bytes() == original
 
-    @pytest.mark.spec("setup-command-copies-locally")
+    @pytest.mark.spec("setup-cmd-copies-locally")
     def it_copies_the_shipped_rules_beside_the_local_copy(self, prose_repo, monkeypatch):
         self.local(prose_repo, monkeypatch)
         with open(prose.shipped_template(), "rb") as fh:
             shipped = fh.read()
         assert (prose_repo.root / prose.COPY_TEMPLATE).read_bytes() == shipped
 
-    @pytest.mark.spec("setup-command-copies-locally")
+    @pytest.mark.spec("setup-cmd-copies-locally")
     def it_names_a_prefix_that_reaches_the_copy_from_the_project_root(
         self, prose_repo, monkeypatch
     ):
@@ -232,7 +232,7 @@ class DescribeSetup:
         assert (prose_repo.root / prefix[len("PROSE=") :]).is_file()
         assert env["repo"] == str(prose_repo.root)
 
-    @pytest.mark.spec("setup-command-ignores-its-copy")
+    @pytest.mark.spec("setup-cmd-ignores-its-copy")
     def it_keeps_the_local_copy_out_of_the_projects_commits(self, prose_repo, monkeypatch):
         self.local(prose_repo, monkeypatch)
         status = subprocess.run(
@@ -243,14 +243,14 @@ class DescribeSetup:
         )
         assert prose.COPY_DIR not in status.stdout
 
-    @pytest.mark.spec("setup-command-ignores-its-copy")
+    @pytest.mark.spec("setup-cmd-ignores-its-copy")
     def it_leaves_a_copy_that_preflight_accepts(self, prose_repo, monkeypatch):
         self.local(prose_repo, monkeypatch)
         monkeypatch.setattr(prose, "SCRIPT_PATH", str(prose_repo.root / prose.COPY_SCRIPT))
         code, env = prose_repo.run("preflight", "--for", "config")
         assert code == prose.OK, env["errors"]
 
-    @pytest.mark.spec("setup-command-copies-locally", "repo:command-splits-output-streams")
+    @pytest.mark.spec("setup-cmd-copies-locally", "repo:command-splits-output-streams")
     def it_prints_the_prefix_without_json(self, prose_repo, monkeypatch, capsys):
         monkeypatch.setattr(prose, "OUTPUTS_ROOT", str(prose_repo.root.parent / "absent"))
         capsys.readouterr()

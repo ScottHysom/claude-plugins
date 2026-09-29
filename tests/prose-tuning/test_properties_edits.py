@@ -72,14 +72,14 @@ def engine_with(source, edits, labeled=False):
 
 
 class DescribeEditEngine:
-    @pytest.mark.spec("report-command-names-overlaps")
+    @pytest.mark.spec("report-cmd-names-overlaps")
     @given(source=TEXT, data=st.data())
     def it_finds_every_overlap_with_an_adjacent_pair_scan(self, source, data):
         """conflicts() checks neighbors; the definition is pairwise."""
         edits = data.draw(spans(source))
         assert bool(engine_with(source, edits).conflicts()) is conflicting(edits)
 
-    @pytest.mark.spec("report-command-names-overlaps")
+    @pytest.mark.spec("report-cmd-names-overlaps")
     @given(source=TEXT, data=st.data())
     def it_reports_every_conflicting_pair_and_no_other(self, source, data):
         """A report names each finding in a conflict, so finding that some pair
@@ -90,7 +90,7 @@ class DescribeEditEngine:
         assert len(found) == len(set(found))
         assert set(found) == conflicting_pairs(edits)
 
-    @pytest.mark.spec("report-command-names-overlaps")
+    @pytest.mark.spec("report-cmd-names-overlaps")
     @given(source=TEXT, data=st.data())
     def it_refuses_exactly_the_batches_it_reports_as_conflicting(self, source, data):
         """A reported conflict is exactly the case result() refuses to apply."""
@@ -104,7 +104,7 @@ class DescribeEditEngine:
             raise AssertionError("result() applied a conflicting batch")
         engine.result()
 
-    @pytest.mark.spec("apply-command-plans-one-snapshot")
+    @pytest.mark.spec("apply-cmd-plans-one-snapshot")
     @given(source=TEXT, data=st.data())
     def it_grows_the_result_by_exactly_what_was_spliced(self, source, data):
         edits = data.draw(spans(source))
@@ -112,7 +112,7 @@ class DescribeEditEngine:
         grown = sum(len(r) - (end - start) for start, end, r in edits)
         assert len(engine_with(source, edits).result()) == len(source) + grown
 
-    @pytest.mark.spec("apply-command-plans-one-snapshot")
+    @pytest.mark.spec("apply-cmd-plans-one-snapshot")
     @given(source=TEXT, data=st.data())
     def it_returns_the_source_with_each_span_replaced(self, source, data):
         """A full specification, not a sampled fact: build the expected string the
@@ -132,7 +132,7 @@ class DescribeEditEngine:
             cursor = end
         assert engine_with(source, edits).result() == expected + source[cursor:]
 
-    @pytest.mark.spec("apply-command-plans-one-snapshot")
+    @pytest.mark.spec("apply-cmd-plans-one-snapshot")
     @given(source=TEXT, data=st.data())
     def it_returns_the_same_result_whatever_order_the_edits_arrived_in(self, source, data):
         """A batch is a set, not a sequence. The caller collects records in
@@ -147,7 +147,7 @@ class DescribeEditEngine:
             == engine_with(source, list(reversed(edits))).result()
         )
 
-    @pytest.mark.spec("report-command-names-overlaps")
+    @pytest.mark.spec("report-cmd-names-overlaps")
     def it_calls_two_inserts_at_one_point_a_conflict(self):
         """Two edits at one offset have no right answer, so there is no answer.
 
@@ -162,7 +162,7 @@ class DescribeEditEngine:
         with pytest.raises(prose.Fatal):
             engine.result()
 
-    @pytest.mark.spec("apply-command-plans-one-snapshot")
+    @pytest.mark.spec("apply-cmd-plans-one-snapshot")
     def it_composes_edits_that_merely_touch(self):
         """The boundary the clause above must not swallow: one span ending exactly
         where the next begins is two disjoint edits, and they compose.

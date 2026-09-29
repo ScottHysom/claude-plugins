@@ -9,7 +9,7 @@ import prose
 
 
 class DescribeClassifySignal:
-    @pytest.mark.spec("evidence-command-marks-hunk-signals")
+    @pytest.mark.spec("evidence-cmd-marks-hunk-signals")
     @pytest.mark.parametrize(
         ("before", "after", "signal"),
         [
@@ -44,7 +44,7 @@ class DescribeInferredEdits:
         assert code == prose.OK, envelope["errors"]
         return envelope["data"]["inferred"]
 
-    @pytest.mark.spec("evidence-command-reports-inferred-hunks")
+    @pytest.mark.spec("evidence-cmd-reports-inferred-hunks")
     def it_reports_a_replacement_and_an_insertion_since_the_last_commit(self, prose_repo, target):
         prose_repo.commit()
         self.edit(
@@ -84,7 +84,7 @@ class DescribeInferredEdits:
             },
         ]
 
-    @pytest.mark.spec("evidence-command-diffs-without-markup")
+    @pytest.mark.spec("evidence-cmd-diffs-without-markup")
     def it_numbers_lines_as_the_author_sees_the_file(self, prose_repo, target):
         """Markup is taken out before the diff, so a question the author has
         not answered is not reported as an edit. The line numbers still have
@@ -114,7 +114,7 @@ class DescribeInferredEdits:
         assert [h["start"] for h in self.inferred(prose_repo)] == [8, 20]
         assert [h["start"] for h in self.inferred(prose_repo, "--ignore", "target.md:8")] == [20]
 
-    @pytest.mark.spec("evidence-command-diffs-without-markup")
+    @pytest.mark.spec("evidence-cmd-diffs-without-markup")
     def it_places_a_hunk_on_a_line_that_also_holds_markup(self, prose_repo, target):
         """With the markup taken out, the edited line no longer matches its
         working-file line, so the hunk is placed from the nearest line that
@@ -152,7 +152,7 @@ class DescribeExplicitRecords:
     author gave that never reaches the rule.
     """
 
-    @pytest.mark.spec("evidence-command-reports-explicit-records", "scanner-pairs-del-and-ins")
+    @pytest.mark.spec("evidence-cmd-reports-explicit-records", "scanner-pairs-del-and-ins")
     def it_reports_a_bare_pair_as_one_replacement(self, prose_repo):
         data = evidence(
             prose_repo, "Intro.\n\n<del>Curated, not collected.</del><ins>Curated.</ins>\n"
@@ -169,7 +169,7 @@ class DescribeExplicitRecords:
             }
         ]
 
-    @pytest.mark.spec("evidence-command-reports-explicit-records")
+    @pytest.mark.spec("evidence-cmd-reports-explicit-records")
     def it_reports_a_replacement_with_its_reason_and_proposals(self, prose_repo):
         body = (
             "Intro.\n\n"
@@ -193,7 +193,7 @@ class DescribeExplicitRecords:
             }
         ]
 
-    @pytest.mark.spec("evidence-command-reports-explicit-records")
+    @pytest.mark.spec("evidence-cmd-reports-explicit-records")
     def it_reports_a_lone_deletion_and_a_lone_insertion(self, prose_repo):
         body = 'Intro <del why="restates">again</del>.\n\nEnd<ins> here</ins>.\n'
         assert [shape(r) for r in evidence(prose_repo, body)["explicit"]] == [
@@ -221,7 +221,7 @@ class DescribeExplicitRecords:
 class DescribeAnswers:
     """An `<a>` the author writes in the document answers the `<q>` above it."""
 
-    @pytest.mark.spec("evidence-command-reads-answers")
+    @pytest.mark.spec("evidence-cmd-reads-answers")
     def it_pairs_each_answer_with_the_question_above_it(self, prose_repo):
         body = (
             "One.\n\n"

@@ -28,17 +28,17 @@ from an edit that went wrong.
 Source: README.md, the opening section and "When to use it", and the
 gitify-project description.
 
-- `preflight-command-names-template-problems` (test): When `gitify.py
+- `preflight-cmd-names-template-problems` (test): When `gitify.py
   preflight` checks the shipped templates, it names each template missing from
   disk or from `MANIFEST`, each unknown placeholder and each stray brace, and
   exits 1.
-- `render-command-refuses-leftover-placeholders` (test): When a placeholder or
+- `render-cmd-refuses-leftover-placeholders` (test): When a placeholder or
   brace would survive into a rendered file, `render` names it and writes
   nothing.
-- `render-command-stages-files` (test): When the answers `render --answers`
+- `render-cmd-stages-files` (test): When the answers `render --answers`
   reads pass every check, it stages each file the plugin writes and prints the
   `files` list `device_commit_files` takes.
-- `render-command-ignores-chat-outputs` (test): When `render` writes
+- `render-cmd-ignores-chat-outputs` (test): When `render` writes
   `.gitignore`, it leaves out `Claude outputs/`, where Cowork puts the files
   Claude hands over in the chat.
 
@@ -79,20 +79,20 @@ history.
 Source: README.md, under "Setting it up". The 10 MB threshold for a large
 file is the owner's, in the ruling on #130.
 
-- `probe-command-lists-folder` (test): When the command `probe
+- `probe-cmd-lists-folder` (test): When the command `probe
   --connected-folder` prints runs on the device, it prints the number of
   files, a line for each top-level entry, hidden ones included, and a line for
   each file over 10 MB.
 - `gitifyproject-asks-about-unwanted-files` (step): When the listing shows
   large media, exports, archives, caches or anything that looks private,
   gitify-project asks the user about each before rendering.
-- `render-command-appends-ignore-patterns` (test): When the answers give
+- `render-cmd-appends-ignore-patterns` (test): When the answers give
   `ignore` patterns, `render` appends them to `.gitignore` under a heading of
   their own, and rejects a blank, multi-line or repeated pattern.
-- `setup-command-stages-first-commit` (test): When the user runs `sh
+- `setup-cmd-stages-first-commit` (test): When the user runs `sh
   setup.sh`, it stages every file and commits nothing, and lists what the
   first commit would take.
-- `setup-command-honors-late-ignores` (test): When a pattern is added to
+- `setup-cmd-honors-late-ignores` (test): When a pattern is added to
   `.gitignore` after the first run, the next run and `sh setup.sh commit`
   leave its files out.
 - `setupsh-rejects-unknown-arguments` (test): When `setup.sh` is given an
@@ -110,13 +110,13 @@ overwritten.
 
 Source: README.md, under "Setting it up".
 
-- `probe-command-stops-on-missing-folder` (test): When the project folder is
+- `probe-cmd-stops-on-missing-folder` (test): When the project folder is
   not on the device, `probe`'s command and the precheck print `missing:` and
   exit 2.
-- `probe-command-stops-on-existing-repo` (test): When the project folder is
+- `probe-cmd-stops-on-existing-repo` (test): When the project folder is
   already a git repo, `probe`'s command and the precheck print `repo:` and
   exit 1.
-- `precheck-command-names-overwrites` (test): When the folder holds a file
+- `precheck-cmd-names-overwrites` (test): When the folder holds a file
   with the name of one `render` would write, the precheck prints `exists:` for
   each and exits 1, and otherwise prints `clear`.
 - `gitifyproject-stops-on-precheck` (step): When the precheck prints anything
@@ -137,16 +137,16 @@ instructions", and the gitify-project description.
 - `gitifyproject-copies-field-exactly` (step): When the Project Instructions
   field has content, gitify-project passes it to `render` character for
   character, and passes `null` when it is empty.
-- `render-command-copies-instructions-verbatim` (test): When the answers carry
+- `render-cmd-copies-instructions-verbatim` (test): When the answers carry
   the field's text, `render` puts it in `CLAUDE.md` byte for byte after the
   template's header, ends it with a newline, and puts it in no other file.
-- `render-command-accepts-null-instructions` (test): When `instructions` is
+- `render-cmd-accepts-null-instructions` (test): When `instructions` is
   `null`, `CLAUDE.md` holds only the header, and a blank or non-text value is
   rejected.
 - `claudemd-hides-people-note` (test): When Claude loads the rendered
   `CLAUDE.md`, the note for people at its top is an HTML comment and costs no
   context.
-- `render-command-prints-field-pointer` (test): When `render` stages the
+- `render-cmd-prints-field-pointer` (test): When `render` stages the
   files, it prints the one line for the Project Instructions field, naming
   `CLAUDE.md` at the project's path.
 - `gitifyproject-hands-off-field-line` (step): When the files are on the
@@ -164,7 +164,7 @@ Claude cannot make it from Cowork.
 
 Source: README.md, under "Committing a change".
 
-- `commit-command-records-every-change` (test): When the user runs
+- `commit-cmd-records-every-change` (test): When the user runs
   `./commit.sh` with a message after the first commit, it stages every change
   and commits with that message.
 - `commitsh-refuses-before-setup` (test): When the folder has no commit yet,
@@ -191,7 +191,7 @@ usually versioned.
 Source: the owner's ruling on #130, item 11, and the owner's answer on #162
 for temporary files.
 
-- `render-command-excludes-system-files` (test): When `render` writes
+- `render-cmd-excludes-system-files` (test): When `render` writes
   `.gitignore`, it leaves out macOS's `.DS_Store`, `.AppleDouble`,
   `.LSOverride` and `._*` files, editor swap and backup files, and `*.tmp`
   files, and keeps shared editor settings such as `.vscode/settings.json`.
@@ -203,7 +203,7 @@ for temporary files.
 
 Source: COWORK.md, under "Moving files: `device_commit_files`".
 
-- `setup-command-sets-exec-bits` (test): When the user runs `sh setup.sh`, it
+- `setup-cmd-sets-exec-bits` (test): When the user runs `sh setup.sh`, it
   makes `setup.sh` and `commit.sh` executable before git records them.
 
 ## constraint bridge-only-copies-from-outputs: The bridge copies files from the outputs folder only
@@ -214,7 +214,7 @@ Source: COWORK.md, under "Moving files: `device_commit_files`".
 Source: COWORK.md, under "Moving files: `device_commit_files`" and "What the
 design follows from this".
 
-- `check-command-names-damaged-copies` (test): When the files are on the
+- `check-cmd-names-damaged-copies` (test): When the files are on the
   device, the check `render` printed passes when every file arrived intact,
   and names each file that did not.
 - `gitifyproject-recopies-failed-files` (step): When the check names a file,
