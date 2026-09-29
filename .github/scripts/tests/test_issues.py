@@ -83,9 +83,13 @@ class FakeGitHub:
             raise cli.Fatal("gh %s failed" % args[1])
         kind, verb = args[0], args[1]
         if kind == "pr" and "merged" in args:
-            head = args[args.index("--head") + 1]
+            head = args[args.index("--head") + 1] if "--head" in args else None
             return json.dumps(
-                [{"number": n, "headRefOid": sha} for n, b, sha in self.merged if b == head]
+                [
+                    {"number": n, "headRefName": b, "headRefOid": sha}
+                    for n, b, sha in self.merged
+                    if head in (None, b)
+                ]
             )
         if kind == "pr":
             return json.dumps([{"headRefName": b} for b in self.pulls])
@@ -626,10 +630,85 @@ class DescribeClear:
         assert git(a, "branch", "--show-current") == "issue/12"
 
 
+def gone_from_origin(remote, name):
+    """GitHub deletes a pull request's branch when it merges."""
+    git(remote, "branch", "-D", name)
+
+
+class DescribeSweep:
+    @pytest.mark.spec("sweep-cmd-deletes-merged-branches")
+    def it_deletes_every_branch_whose_work_is_on_main(self, capsys, remote, clone, github):
+        a = merged_then_edited(capsys, clone, github, remote)
+        tip = git(a, "rev-parse", "issue/12")
+        gone_from_origin(remote, "issue/12")
+        git(a, "branch", "claude/fresh-session", "origin/main")
+        git(a, "switch", "--quiet", "-c", "claude/squashed", "origin/main")
+        commit_file(a, "squash-me", "squash-me\n")
+        seed = remote.parent / "seed"
+        git(seed, "pull", "--quiet", cli.REMOTE, cli.BASE)
+        commit_file(seed, "squash-me", "squash-me\n", "squashed as a new commit")
+        git(seed, "push", "--quiet", cli.REMOTE, "HEAD:" + cli.BASE)
+        git(a, "switch", "--quiet", "--detach")
+        github(merged=[(7, "issue/12", tip)])
+        code, data = run_json(capsys, a, "sweep")
+        assert code == cli.OK
+        assert sorted(data["data"]["deleted"]) == [
+            "claude/fresh-session",
+            "claude/squashed",
+            "issue/12",
+        ]
+        assert data["data"]["kept"] == []
+        assert local_branches(a) == {cli.BASE}
+
+    @pytest.mark.spec("sweep-cmd-keeps-live-branches")
+    def it_keeps_each_branch_that_may_still_be_in_use_and_says_why(
+        self, capsys, remote, clone, github
+    ):
+        a = claimed(capsys, clone, github)
+        git(a, "switch", "--quiet", "-c", "claude/unmerged")
+        commit_file(a, "unmerged", "unmerged\n")
+        git(a, "switch", "--quiet", "--detach")
+        git(a, "branch", "claude/in-a-worktree", cli.BASE)
+        tree = a.parent / "tree"
+        git(a, "worktree", "add", "--quiet", str(tree), "claude/in-a-worktree")
+        github()
+        code, out = run(capsys, a, "sweep")
+        assert code == cli.OK
+        assert out.out.splitlines() == [
+            "Kept claude/in-a-worktree: checked out in %s"
+            % git(tree, "rev-parse", "--show-toplevel"),
+            "Kept claude/unmerged: holds work origin/main lacks",
+            "Kept issue/12: still on origin, where someone may be working on it",
+        ]
+        assert local_branches(a) == {
+            cli.BASE,
+            "claude/in-a-worktree",
+            "claude/unmerged",
+            "issue/12",
+        }
+
+    @pytest.mark.spec("command-never-writes-in-preview")
+    def it_changes_nothing_on_a_dry_run(self, capsys, clone, github):
+        a = clone("a")
+        git(a, "branch", "claude/fresh-session")
+        github()
+        code, out = run(capsys, a, "sweep", "--dry-run")
+        assert code == cli.OK
+        assert out.out == "Would delete claude/fresh-session\n"
+        assert "claude/fresh-session" in local_branches(a)
+
+
 class DescribeMain:
     @pytest.mark.parametrize(
         "argv",
-        [["next"], ["claim", "12", "--dry-run"], ["release", "12"], ["stale"], ["clear", "12"]],
+        [
+            ["next"],
+            ["claim", "12", "--dry-run"],
+            ["release", "12"],
+            ["stale"],
+            ["clear", "12"],
+            ["sweep", "--dry-run"],
+        ],
     )
     @pytest.mark.spec("command-prints-json-envelope")
     def it_prints_the_same_envelope_for_every_command(self, capsys, clone, github, argv):

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Choose, claim, release and clear issues, so two agents never work on the same one.
 
+It also sweeps away the local branches that finished work leaves behind.
+
 README.md, under "Issues", describes the process; this is the part of it that
 keeps two agents off the same approved issue. The lock is a branch named
 `issue/<N>` on origin. `claim` creates it with a push that the server refuses
@@ -10,7 +12,9 @@ branch is the lock and the label is the signal: when they disagree the branch is
 right, and `stale` reports the disagreement. `release` takes the label off a
 claim given up; `.github/workflows/issue-closed.yml` takes it off an issue that
 closes, which is how most claims end. `clear` then deletes the local claim
-branch that the merge left behind.
+branch that the merge left behind. `sweep` deletes every local branch whose
+work is on main, whatever its name, and `.claude/hooks/branch_sweep.py` runs it
+when a Claude Code session starts.
 
 Run from anywhere in a clone, with git and an authenticated gh on PATH:
 
@@ -19,6 +23,7 @@ Run from anywhere in a clone, with git and an authenticated gh on PATH:
     python3 .github/scripts/issues.py release 12 --reason "blocked on #9"
     python3 .github/scripts/issues.py stale
     python3 .github/scripts/issues.py clear 12
+    python3 .github/scripts/issues.py sweep --dry-run
 
 Commands:
     next        the oldest open approved issue nobody holds. Changes nothing.
@@ -31,8 +36,10 @@ Commands:
     clear N     once issue N is closed, delete the local issue/N if a merged
                 pull request or main has everything on it, first moving any
                 worktree on it to a detached origin/main.
+    sweep       delete every local branch but main whose work is on main,
+                and name each branch kept with the reason.
 
-Every command takes --json and -C/--repo; claim, release and clear take
+Every command takes --json and -C/--repo; claim, release, clear and sweep take
 --dry-run.
 
 Exit codes: 0 clean, 1 ran and found problems (the issue is held or not
@@ -55,6 +62,16 @@ Things that look like bugs and are not:
 - `clear` refuses when a worktree on issue/N has uncommitted changes, even ones
   the switch to origin/main would carry along. Changes nobody committed are
   for a person to keep or discard, not to move silently.
+- `sweep` counts a branch as merged by the same tests as `clear`. A branch the
+  desktop app made for a session and never committed to passes the second,
+  since its tip is already on main. It exits 0 when it keeps branches:
+  unmerged work on a branch is normal.
+- `sweep` keeps a branch any worktree has checked out, even a clean one whose
+  work has merged. It cannot tell a finished session's worktree from a live
+  one, and moving a live session off its branch would strand its next commit.
+  The branch goes in a later sweep, once the desktop app removes the worktree.
+- `sweep` keeps a branch that still exists on origin. A claim just made has no
+  commits of its own, so it looks merged, and someone may be working on it.
 - `clear` deletes only the local branch and removes no worktree. GitHub
   deletes the remote branch when the pull request merges, and the desktop app
   manages worktrees.
@@ -62,9 +79,9 @@ Things that look like bugs and are not:
   `stale` counts idle time from the later of the tip's commit date and the most
   recent claim comment.
 
-This script writes to git (a push, a branch switch, a branch deletion), so it is not for Cowork's
-device bridge, where a git write strands `.git/*.lock` files. A Cowork session
-asks the owner to claim for it.
+This script writes to git (a push, a branch switch, a branch deletion), so it
+is not for Cowork's device bridge, where a git write strands `.git/*.lock`
+files. A Cowork session asks the owner to claim for it.
 """
 
 import argparse
@@ -88,6 +105,7 @@ BRANCH_REF_RE = re.compile(r"^refs/heads/%s(\d+)$" % re.escape(BRANCH_PREFIX))
 STALE_DAYS = 7
 LIST_LIMIT = 1000
 CLAIM_MARK = "Claimed on branch"
+MERGED_FIELDS = "number,headRefName,headRefOid"
 
 
 class Fatal(Exception):
@@ -401,7 +419,7 @@ def cmd_clear(args, repo):
     sha = local.stdout.strip()
     base = "%s/%s" % (REMOTE, BASE)
     git(repo, "fetch", "--quiet", REMOTE, BASE)
-    data["pull_request"] = merged_pull(repo, n, sha)
+    data["pull_request"] = pull_holding(repo, merged_pulls(repo, branch(n)), sha)
     if data["pull_request"] is None and not in_base(repo, base, sha):
         return emit(
             args,
@@ -443,25 +461,20 @@ def cmd_clear(args, repo):
     return emit(args, "clear", data, human=human)
 
 
-def merged_pull(repo, n, sha):
-    """The number of a merged pull request from issue/N whose head holds `sha`, or None.
+def merged_pulls(repo, *head):
+    """Merged pull requests, as {number, headRefName, headRefOid}, from branch `head` if given."""
+    args = ["pr", "list", "--state", "merged"]
+    if head:
+        args += ["--head", head[0]]
+    return gh_json(repo, *args, "--limit", str(LIST_LIMIT), "--json", MERGED_FIELDS)
+
+
+def pull_holding(repo, pulls, sha):
+    """The number of the first of `pulls` whose head holds `sha`, or None.
 
     The head is the branch as it merged, so this holds however far main has
     moved since. A head this clone lacks is fetched from the pull request's ref.
     """
-    pulls = gh_json(
-        repo,
-        "pr",
-        "list",
-        "--state",
-        "merged",
-        "--head",
-        branch(n),
-        "--limit",
-        str(LIST_LIMIT),
-        "--json",
-        "number,headRefOid",
-    )
     for pull in pulls:
         head = pull["headRefOid"]
         if git(repo, "cat-file", "-e", head + "^{commit}", check=False).returncode != 0:
@@ -492,6 +505,57 @@ def checked_out(repo, target):
         elif line == "branch " + target:
             paths.append(path)
     return paths
+
+
+def cmd_sweep(args, repo):
+    base = "%s/%s" % (REMOTE, BASE)
+    git(repo, "fetch", "--quiet", REMOTE, BASE)
+    out = git(repo, "for-each-ref", "--format=%(refname:short) %(objectname)", "refs/heads/")
+    local = [line.split(" ", 1) for line in out.stdout.splitlines() if line]
+    on_origin = remote_branches(repo)
+    worktrees = {}
+    for line in git(repo, "worktree", "list", "--porcelain").stdout.splitlines():
+        if line.startswith("worktree "):
+            path = line[len("worktree ") :]
+        elif line.startswith("branch refs/heads/"):
+            worktrees[line[len("branch refs/heads/") :]] = path
+    pulls = {}
+    for pull in merged_pulls(repo):
+        pulls.setdefault(pull["headRefName"], []).append(pull)
+
+    deleted, kept = [], []
+    for name, sha in local:
+        if name == BASE:
+            continue
+        if name in worktrees:
+            reason = "checked out in %s" % worktrees[name]
+        elif name in on_origin:
+            reason = "still on %s, where someone may be working on it" % REMOTE
+        elif pull_holding(repo, pulls.get(name, []), sha) is not None or in_base(repo, base, sha):
+            deleted.append(name)
+            continue
+        else:
+            reason = "holds work %s lacks" % base
+        kept.append({"branch": name, "reason": reason})
+
+    if not args.dry_run:
+        for name in deleted:
+            git(repo, "branch", "--quiet", "-D", name)
+
+    def human():
+        verb = "Would delete" if args.dry_run else "Deleted"
+        for name in deleted:
+            print("%s %s" % (verb, name))
+        for k in kept:
+            print("Kept %s: %s" % (k["branch"], k["reason"]))
+
+    return emit(args, "sweep", {"deleted": deleted, "kept": kept}, human=human)
+
+
+def remote_branches(repo):
+    """The names of every branch on origin."""
+    out = git(repo, "ls-remote", "--heads", REMOTE).stdout
+    return {line.partition("\trefs/heads/")[2] for line in out.splitlines()}
 
 
 def cmd_stale(args, repo):
@@ -587,6 +651,12 @@ def build_parser():
     p.add_argument("number", type=int)
     p.add_argument("--dry-run", action="store_true")
     p.set_defaults(func=cmd_clear)
+
+    p = sub.add_parser(
+        "sweep", parents=[common], help="delete local branches whose work is on main"
+    )
+    p.add_argument("--dry-run", action="store_true")
+    p.set_defaults(func=cmd_sweep)
 
     return ap
 
