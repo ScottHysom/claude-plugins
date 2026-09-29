@@ -257,6 +257,31 @@ Source: #289, and README.md, under "Claiming an issue".
   names the worktree and says to commit or discard the changes, and moves no
   worktree and deletes nothing, with or without `--dry-run`.
 
+## need owner-prevents-stale-branches: Keep finished branches from piling up
+
+When a session's work has merged or was never started, the owner wants every
+local branch it left removed without typing git commands, so stale branches do
+not accumulate in the clone.
+
+Source: #294, and README.md, under "Claiming an issue".
+
+- `sweep-cmd-deletes-merged-branches` (test): When `issues.py sweep` runs, it
+  deletes every local branch but `main` whose tip is inside the head of a
+  merged pull request from that branch, or which holds no change `origin/main`
+  lacks, as a branch with no commits of its own does.
+- `sweep-cmd-keeps-live-branches` (test): When a local branch holds a change
+  `origin/main` lacks, is checked out in any worktree, or still exists on
+  `origin`, `issues.py sweep` keeps it and prints it with the reason.
+- `branchsweep-reports-deleted-branches` (test): When branch_sweep.py's sweep
+  deletes branches, the hook names them on stdout in one line, and prints
+  nothing when it deletes none.
+- `branchsweep-never-blocks` (test): When `issues.py sweep` fails, prints no
+  result or runs past the hook's own time limit, branch_sweep.py exits 0 and
+  prints one line saying why and naming the command to run by hand.
+- `settingsjson-registers-branch-sweep` (test): When a Claude Code session
+  starts in this repo, `.claude/settings.json` runs branch_sweep.py, with 30
+  seconds to answer.
+
 ## need contributor-catches-stale-commands: Catch a skill that names a missing command
 
 When a contributor renames a script's subcommand or flag, they want CI to fail

@@ -403,6 +403,7 @@ python3 .github/scripts/issues.py claim 12     # take it, and switch to branch i
 python3 .github/scripts/issues.py release 12   # give it up without a pull request
 python3 .github/scripts/issues.py stale        # claims nobody seems to be working on
 python3 .github/scripts/issues.py clear 12     # delete the local issue/12 once its pull request merges
+python3 .github/scripts/issues.py sweep        # delete every local branch whose work is on main
 ```
 
 The claim is the branch `issue/N` on GitHub. `claim` pushes it in a way only one
@@ -419,8 +420,18 @@ A merge leaves the local `issue/N` behind, and `git branch -d` refuses it,
 because a squash or rebase merge puts the work on `main` under new hashes.
 `clear` deletes it once the issue is closed and the work is on `main`: either
 a merged pull request from `issue/N` had the local tip in its head, or `main`
-has every change the branch holds. A worktree that has the branch checked out is first moved to a
-detached `origin/main`, and is otherwise left alone.
+has every change the branch holds. A worktree that has the branch checked out
+is first moved to a detached `origin/main`, and is otherwise left alone.
+
+Branches pile up in other ways too. The Claude desktop app makes a branch for
+every session it opens in a worktree, named after the worktree folder, such as
+`claude/issue-79-f14fcf`, and never deletes it. So
+`.claude/hooks/branch_sweep.py` runs `sweep` whenever a Claude Code session
+starts. `sweep` deletes every local
+branch but `main` whose work is on `main`, by the same tests as `clear`, and
+lists each branch it keeps with the reason. It keeps a branch checked out in
+any worktree, since it cannot tell a live session from a finished one, and a
+branch still on GitHub, since someone may be working on it.
 
 The `validate` job backs this up: a pull request that closes #N must come from
 `issue/N`, so an agent that skipped the claim is caught before it merges.
