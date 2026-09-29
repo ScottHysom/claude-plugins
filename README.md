@@ -266,7 +266,10 @@ The items waiting on an issue are under `surface` in `.github/untraced.json`.
 not name, in backticks, each requirement id the diff adds, changes or removes,
 and one that adds a need no issue it closes names. It also fails one that
 closes an issue edited after `approved` was last added to it. To re-approve an
-edited issue, remove the label and add it again.
+edited issue, remove the label and add it again. It also fails a need,
+constraint or requirement id the diff adds that does not read as its subject
+and then a verb, the form SPEC-METHODOLOGY.md gives under "Ids". A renamed id
+counts as added.
 
 `inventory` lists what a plugin's backfill has to trace. It reads a coverage
 report that records which test ran each line:

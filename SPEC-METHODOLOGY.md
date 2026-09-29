@@ -210,37 +210,37 @@ This file records what the rentals service is for.
 - Selling cars. The service only rents them.
 - Setting prices, which the pricing service owns.
 
-## need itemized-receipt: Check each charge on a returned car
+## need user-checks-each-charge: Check each charge on a returned car
 
 When a renter returns a car, they want every charge listed on the receipt, so
 they can check each one against the agreement they signed.
 
 Source: the product brief, under "Receipts".
 
-- `receipt-lists-charges` (test): When `rentals close` ends a rental, it prints
-  one line per charge, with its amount and its reason.
-- `receipt-late-fee` (test): When the car comes back after the agreed time,
-  the receipt shows the late fee on a line of its own.
+- `close-lists-each-charge` (test): When `rentals close` ends a rental, it
+  prints one line per charge, with its amount and its reason.
+- `close-shows-late-fee` (test): When the car comes back after the agreed
+  time, the receipt shows the late fee on a line of its own.
 
-## need one-question-round: Book a car in one sitting
+## need user-books-in-one-sitting: Book a car in one sitting
 
 When a renter books through the booking skill, they want every open question
 asked at once, so the booking takes a single exchange.
 
 Source: ticket #12.
 
-- `booking-one-batch` (step): When a booking has open questions, the booking
-  skill puts all of them to the renter in one batch.
+- `booking-asks-in-one-batch` (step): When a booking has open questions, the
+  booking skill puts all of them to the renter in one batch.
 
-## constraint fleet-rate-limit: The fleet API allows 60 calls a minute
+## constraint fleet-allows-60-calls: The fleet API allows 60 calls a minute
 
 The fleet vendor's API refuses any call over that limit, so a sync that sends
 more loses updates.
 
 Source: the fleet vendor's API reference, under "Rate limits".
 
-- `sync-under-limit` (test): When `rentals sync` updates the fleet, it sends
-  at most 60 requests in any one minute.
+- `sync-stays-under-limit` (test): When `rentals sync` updates the fleet, it
+  sends at most 60 requests in any one minute.
 ```
 
 ### Grammar
@@ -260,7 +260,7 @@ source       ::= "Source: " text
 requirement  ::= "- `" id "` (" kind "): " text continuation*
 continuation ::= indent text
 kind         ::= "test" | "step" | "check" | "eval"
-id           ::= word ( "-" word )? ( "-" word )? ( "-" word )?
+id           ::= word "-" word ( "-" word )? ( "-" word )? ( "-" word )?
 word         ::= [a-z0-9]+
 ```
 
@@ -286,7 +286,9 @@ and `id` parts, and fails a spec file that breaks them. How it reads them:
 - A continuation line is indented, and follows its requirement with no blank
   line between.
 - It reads the id in a need or a constraint heading without checking its
-  form.
+  form. In a requirement it checks only that the id is one to five words, so
+  an id older than the form under "Ids", below, still passes. `disclosed`
+  checks the form of every id a pull request adds.
 - In claude-plugins it refuses `eval`, since nothing there runs an eval yet.
 
 The rest is convention, which the owner reviews:
@@ -309,12 +311,37 @@ The rules the grammar cannot show:
 - A need's paragraph says who wants what and why. A constraint's paragraph
   states the fact and what it forces. The `Source:` line under either says
   where it is recorded.
-- An id says what it means. A report can then name `receipt-late-fee` and be
-  checked without opening the file. An id keeps its name when its sentence is
-  reworded.
+- An id says what it means. A report can then name `close-shows-late-fee`
+  and be checked without opening the file. An id keeps its name when its
+  sentence is reworded.
 - Ids are unique within a file. A requirement in `specs/repo.md` is named from
   another file as `repo:<id>`.
 - A requirement that goes is deleted. Version control keeps what it said.
+
+### Ids
+
+An id reads as a short sentence whose subject comes first, so a reader can
+tell which word is the verb. `claim-shows` reads as "the claim shows" or as
+"claim the shows". `close-shows-late-fee` has one reading.
+
+Word 1 is the subject, in one word:
+
+- A need's id opens with the role that wants the outcome, one of those under
+  "Roles": `user-checks-each-charge`. A need whose story names two roles
+  picks one. The id uses the role even when the story calls the person
+  something else: a renter and an author both appear as `user`.
+- A constraint's id opens with the platform thing the fact is about:
+  `fleet-allows-60-calls`.
+- A requirement's id opens with its actor, which is a command, a file, a
+  workflow or a skill: `sync-stays-under-limit`. A command of two words gives
+  its last word, so `rentals close` gives `close`.
+
+Word 2 is the subject's verb, in the present tense and ending in `s`. It can
+instead be `can`, `cannot`, `may` or `must`, followed by the verb, as in
+`sync-cannot-exceed-limit`. It can also be `never` or `only`, followed by a
+verb ending in `s`, as in `close-never-drops-charges`.
+
+An id has two to five words.
 
 ## Citing requirements
 
@@ -322,7 +349,7 @@ A test cites the requirements it verifies with a tag its runner can read. In
 pytest, that is a marker:
 
 ```python
-@pytest.mark.spec("receipt-late-fee")
+@pytest.mark.spec("close-shows-late-fee")
 def test_late_return_adds_a_late_fee_line(rental): ...
 ```
 
@@ -336,7 +363,7 @@ kind of seam sits between them:
 
 ```markdown
 ## Step 2: ask the open questions
-<!-- spec: booking-one-batch -->
+<!-- spec: booking-asks-in-one-batch -->
 <!-- seam: platform: the renter answers through the question tool -->
 ```
 
@@ -349,7 +376,7 @@ A CI workflow step cites its requirements in a comment above the step's
 `- name:` line, with only comment lines between:
 
 ```yaml
-# spec: lint-in-ci
+# spec: ci-runs-lint
 - name: Lint
   run: ruff check .
 ```
@@ -383,7 +410,8 @@ standard-library Python, JSON output on request, and exit codes of 0 for clean,
   each a registry a script can list, and each can be held to this rule.
 - **`disclosed`** fails a pull request whose description does not list every
   requirement its diff adds, changes or removes. It also fails one that adds a
-  need its linked ticket does not name.
+  need its linked ticket does not name, and one that adds an id not in the
+  form "Ids" gives.
 - **The seam check** fails a skill step that runs more than one command
   without a `<!-- seam: <kind>: <reason> -->` marker.
 - **The coverage check** fails when a component's branch coverage, which counts

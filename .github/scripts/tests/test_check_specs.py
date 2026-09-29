@@ -412,11 +412,24 @@ class DescribeTrace:
         assert "already the id of the requirement at line 11" in err
 
     @pytest.mark.spec("trace-spec-grammar")
-    def it_fails_an_id_that_breaks_the_grammar(self, make_repo, run):
-        spec = FOO_SPEC + "- `Does_Y` (test): When asked, foo does y.\n"
+    @pytest.mark.parametrize("rid", ["Does_Y", "foo-can-do-y-and-z"])
+    def it_fails_an_id_that_breaks_the_grammar(self, make_repo, run, rid):
+        spec = FOO_SPEC + "- `%s` (test): When asked, foo does y.\n" % rid
         code, _, err = run("trace", "-C", str(make_repo({"specs/foo.md": spec})))
         assert code == cp.PROBLEMS
-        assert "`Does_Y` is not an id" in err
+        assert "`%s` is not an id" % rid in err
+
+    @pytest.mark.spec("trace-spec-grammar")
+    def it_traces_an_id_of_five_words(self, make_repo, run):
+        rid = "foo-does-x-when-asked"
+        root = make_repo(
+            {
+                "specs/foo.md": FOO_SPEC + "- `%s` (test): When asked, foo does x.\n" % rid,
+                TEST: suite_file(class_marker='@pytest.mark.spec("%s")\n' % rid),
+            }
+        )
+        code, _, err = run("trace", "-C", str(root))
+        assert code == cp.OK, err
 
     @pytest.mark.spec("trace-spec-grammar")
     @pytest.mark.parametrize(
@@ -738,9 +751,9 @@ class DescribeSurface:
 
 APPROVED_AT = "2026-09-01T10:00:00Z"
 NEW_NEED = (
-    "\n## need goes-fast: Go fast\n\n"
+    "\n## need user-goes-fast: Go fast\n\n"
     "When a user is in a hurry, they want foo to go fast.\n\n"
-    "- `fast` (test): When foo goes, it is quick.\n"
+    "- `foo-goes-fast` (test): When foo goes, it is quick.\n"
 )
 
 
@@ -802,7 +815,7 @@ class DescribeDisclosed:
     @pytest.mark.parametrize(
         ("spec", "how"),
         [
-            (FOO_SPEC + "- `does-y` (test): When asked, foo does y.\n", "added"),
+            (FOO_SPEC + "- `foo-does-y` (test): When asked, foo does y.\n", "added"),
             (FOO_SPEC.replace("foo does x", "foo does x twice"), "changed"),
             (FOO_SPEC.replace("(test): When asked", "(step): When asked"), "changed"),
             (FOO_SPEC.replace("- `does-x` (test): When asked, foo does x.\n", ""), "removed"),
@@ -820,9 +833,9 @@ class DescribeDisclosed:
     @pytest.mark.spec("disclosed-lists-ids")
     def it_passes_each_id_the_description_names(self, pull_request, run):
         spec = FOO_SPEC.replace("foo does x", "foo does x twice") + (
-            "- `does-y` (test): When asked, foo does y.\n"
+            "- `foo-does-y` (test): When asked, foo does y.\n"
         )
-        body = "### Requirements\n\n- `does-x`, changed\n- `foo:does-y`, added\n"
+        body = "### Requirements\n\n- `does-x`, changed\n- `foo:foo-does-y`, added\n"
         code, out, err = disclosed(run, *pull_request({"specs/foo.md": spec}, body=body))
         assert code == cp.OK, err
         assert "2 requirement change(s)" in out
@@ -837,35 +850,35 @@ class DescribeDisclosed:
 
     @pytest.mark.spec("disclosed-lists-ids")
     def it_reads_every_requirement_of_a_new_spec_file(self, pull_request, run):
-        bar = "# bar\n\n## constraint slow: Bar is slow\n\nIt is.\n\n- `waits` (test): Bar waits.\n"
+        bar = "# bar\n\n## constraint bar-is-slow: Bar is slow\n\nIt is.\n\n- `bar-waits` (test): Bar waits.\n"
         code, _, err = disclosed(run, *pull_request({"specs/bar.md": bar}))
         assert code == cp.PROBLEMS
-        assert "`waits` in specs/bar.md was added" in err
+        assert "`bar-waits` in specs/bar.md was added" in err
 
     @pytest.mark.spec("disclosed-new-need")
     def it_fails_a_new_need_when_the_pull_request_closes_no_issue(self, pull_request, run):
         code, _, err = disclosed(
-            run, *pull_request({"specs/foo.md": FOO_SPEC + NEW_NEED}, body="`fast`")
+            run, *pull_request({"specs/foo.md": FOO_SPEC + NEW_NEED}, body="`foo-goes-fast`")
         )
         assert code == cp.PROBLEMS
-        assert "adds the need `goes-fast`, and the pull request closes no issue" in err
+        assert "adds the need `user-goes-fast`, and the pull request closes no issue" in err
 
     @pytest.mark.spec("disclosed-new-need")
     def it_fails_a_new_need_its_issue_does_not_name(self, pull_request, run):
         root, environ = pull_request(
-            {"specs/foo.md": FOO_SPEC + NEW_NEED}, body="Closes #7\n`fast`"
+            {"specs/foo.md": FOO_SPEC + NEW_NEED}, body="Closes #7\n`foo-goes-fast`"
         )
-        github = FakeGitHub({7: approved_issue("Adds goes-faster.")})
+        github = FakeGitHub({7: approved_issue("Adds user-goes-faster.")})
         code, _, err = disclosed(run, root, environ, github)
         assert code == cp.PROBLEMS
-        assert "adds the need `goes-fast`, which #7 does not name" in err
+        assert "adds the need `user-goes-fast`, which #7 does not name" in err
 
     @pytest.mark.spec("disclosed-new-need")
     def it_passes_a_new_need_its_issue_names(self, pull_request, run):
         root, environ = pull_request(
-            {"specs/foo.md": FOO_SPEC + NEW_NEED}, body="Closes #7\n`fast`"
+            {"specs/foo.md": FOO_SPEC + NEW_NEED}, body="Closes #7\n`foo-goes-fast`"
         )
-        github = FakeGitHub({7: approved_issue("Adds `need goes-fast`.")})
+        github = FakeGitHub({7: approved_issue("Adds `need user-goes-fast`.")})
         code, out, err = disclosed(run, root, environ, github)
         assert code == cp.OK, err
         assert "1 new need(s)" in out
@@ -908,3 +921,60 @@ class DescribeDisclosed:
         )
         assert code == cp.CANNOT_RUN
         assert "GITHUB_EVENT_PATH is not set" in err
+
+    @pytest.mark.spec("disclosed-checks-new-ids")
+    @pytest.mark.parametrize(
+        ("rid", "says"),
+        [
+            ("foo", "it has 1 word(s), and an id has 2 to 5"),
+            ("receipt-late-fee", "word 2, `late`, is not a verb ending in `s`"),
+            ("foo-cannot", "`cannot` is followed by no verb"),
+            ("foo-never-drop-x", "`never` is followed by `drop`"),
+        ],
+    )
+    def it_fails_a_new_requirement_id_not_in_the_form(self, pull_request, run, rid, says):
+        spec = FOO_SPEC + "- `%s` (test): When asked, foo does y.\n" % rid
+        code, _, err = disclosed(run, *pull_request({"specs/foo.md": spec}, body="`%s`" % rid))
+        assert code == cp.PROBLEMS
+        assert "specs/foo.md adds the requirement `%s`, and %s" % (rid, says) in err
+        assert 'SPEC-METHODOLOGY.md, under "Ids", has the form' in err
+
+    @pytest.mark.spec("disclosed-checks-new-ids")
+    def it_fails_a_new_need_id_that_opens_with_no_role(self, pull_request, run):
+        spec = FOO_SPEC + NEW_NEED.replace("user-goes-fast", "foo-goes-fast-need")
+        root, environ = pull_request({"specs/foo.md": spec}, body="Closes #7\n`foo-goes-fast`")
+        github = FakeGitHub({7: approved_issue("Adds `need foo-goes-fast-need`.")})
+        code, _, err = disclosed(run, root, environ, github)
+        assert code == cp.PROBLEMS
+        assert "adds the need `foo-goes-fast-need`, and a need's id opens with the role" in err
+
+    @pytest.mark.spec("disclosed-checks-new-ids")
+    def it_fails_a_new_constraint_id_not_in_the_form(self, pull_request, run):
+        bar = "# bar\n\n## constraint slow-bar: Bar is slow\n\nIt is.\n\n- `bar-waits` (test): Bar waits.\n"
+        code, _, err = disclosed(run, *pull_request({"specs/bar.md": bar}, body="`bar-waits`"))
+        assert code == cp.PROBLEMS
+        assert "specs/bar.md adds the constraint `slow-bar`, and word 2, `bar`" in err
+
+    @pytest.mark.spec("disclosed-checks-new-ids")
+    @pytest.mark.parametrize(
+        "rid", ["foo-does-y", "foo-cannot-drop-y", "foo-only-reads-y", "foo-does-y-when-asked"]
+    )
+    def it_passes_a_new_id_in_the_form(self, pull_request, run, rid):
+        spec = FOO_SPEC + "- `%s` (test): When asked, foo does y.\n" % rid
+        code, _, err = disclosed(run, *pull_request({"specs/foo.md": spec}, body="`%s`" % rid))
+        assert code == cp.OK, err
+
+    @pytest.mark.spec("disclosed-checks-new-ids")
+    def it_leaves_an_id_already_on_the_base_alone(self, pull_request, run):
+        spec = FOO_SPEC.replace("## need does-things: Do things", "## need does-things: Do all")
+        spec = spec.replace("foo does x", "foo does x twice")
+        code, _, err = disclosed(run, *pull_request({"specs/foo.md": spec}, body="`does-x`"))
+        assert code == cp.OK, err
+
+    @pytest.mark.spec("disclosed-checks-new-ids")
+    def it_checks_a_renamed_id(self, pull_request, run):
+        spec = FOO_SPEC.replace("`does-x`", "`foo-x`")
+        body = "`does-x` `foo-x`"
+        code, _, err = disclosed(run, *pull_request({"specs/foo.md": spec}, body=body))
+        assert code == cp.PROBLEMS
+        assert "adds the requirement `foo-x`" in err
