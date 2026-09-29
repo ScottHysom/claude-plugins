@@ -928,7 +928,6 @@ class DescribeDisclosed:
         [
             ("foo", "it has 1 word(s), and an id has 2 to 5"),
             ("receipt-late-fee", "`late` is not a verb ending in `s`"),
-            ("claim-command-adds-x", "`command` follows only a command whose name ends in `s`"),
             ("steps-command", "it has 1 word(s)"),
             ("steps-command-late-x", "`late` is not a verb ending in `s`"),
             ("foo-does-x-and-y-too", "it has 6 word(s)"),
@@ -970,6 +969,7 @@ class DescribeDisclosed:
             "steps-command-counts-step-commands",
             "steps-command-does-y-when-asked",
             "steps-command-never-drops-y",
+            "claim-command-adds-y",
         ],
     )
     def it_passes_a_new_id_in_the_form(self, pull_request, run, rid):

@@ -1343,16 +1343,15 @@ def spec_needs(text):
 def id_form(kind, rid):
     """Why an id of this kind breaks the form SPEC-METHODOLOGY.md states, or None.
 
-    Word 1 is the subject, and a need's is a role. A subject whose name ends in
-    `s` may take `command` after it, which the word count leaves out. Then
-    comes its verb ending in `s`, or a modal and then the verb, or an adverb and
-    then a verb ending in `s`.
+    Word 1 is the subject, and a need's is a role. A command's name takes
+    `command` after it, which the word count leaves out. Then comes its verb
+    ending in `s`, or a modal and then the verb, or an adverb and then a verb
+    ending in `s`. Whether word 1 names a command is the writer's to say, so a
+    command without `command` passes.
     """
     words = rid.split("-")
     rest = words[1:]
     if rest and rest[0] == COMMAND:
-        if not words[0].endswith("s"):
-            return "`%s` follows only a command whose name ends in `s`" % COMMAND
         rest = rest[1:]
     low, high = ID_WORDS
     counted = 1 + len(rest)
