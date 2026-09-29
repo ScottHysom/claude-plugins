@@ -246,7 +246,9 @@ own tests and the workflows cite ids in `specs/repo.md`. Either can name a repo
 requirement as `repo:<id>`.
 
 `trace` fails a test or a step that cites nothing, a citation of an id its
-spec lacks, and a requirement that nothing of its kind cites. The tests and
+spec lacks, and a requirement that nothing of its kind cites. It also fails a
+need, constraint or requirement id that does not read as its subject and then
+a verb, the form SPEC-METHODOLOGY.md gives under "Ids". The tests and
 steps still waiting on a ruling are listed in `.github/untraced.json`, each
 with the open issue that will trace it, and pass with a warning. When one
 gains a citation, its entry goes in the same pull request, and `trace` fails
@@ -266,10 +268,7 @@ The items waiting on an issue are under `surface` in `.github/untraced.json`.
 not name, in backticks, each requirement id the diff adds, changes or removes,
 and one that adds a need no issue it closes names. It also fails one that
 closes an issue edited after `approved` was last added to it. To re-approve an
-edited issue, remove the label and add it again. It also fails a need,
-constraint or requirement id the diff adds that does not read as its subject
-and then a verb, the form SPEC-METHODOLOGY.md gives under "Ids". A renamed id
-counts as added.
+edited issue, remove the label and add it again.
 
 `inventory` lists what a plugin's backfill has to trace. It reads a coverage
 report that records which test ran each line:

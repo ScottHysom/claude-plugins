@@ -37,17 +37,17 @@ FOO_SPEC = (
     "# foo\n\n"
     "## Out of scope\n\n"
     "- Anything else.\n\n"
-    "## need does-things: Do things\n\n"
+    "## need user-gets-things-done: Do things\n\n"
     "When a user wants things, they want them done.\n\n"
-    "- `does-x` (test): When asked, foo does x.\n"
-    "- `asks-once` (step): When foo has questions, the skill asks them\n"
+    "- `foo-does-x` (test): When asked, foo does x.\n"
+    "- `skill-asks-once` (step): When foo has questions, the skill asks them\n"
     "  in one batch.\n"
 )
 REPO_SPEC = (
     "# repo\n\n"
-    "## need checked: Keep it checked\n\n"
+    "## need owner-keeps-it-checked: Keep it checked\n\n"
     "When a contributor pushes, the owner wants it checked.\n\n"
-    "- `runs-in-ci` (check): When a pull request opens, CI runs the check.\n"
+    "- `ci-runs-check` (check): When a pull request opens, CI runs the check.\n"
     "- `tool-works` (test): When the tool runs, it works.\n"
 )
 
@@ -81,7 +81,10 @@ LOCATE = (
 )
 
 
-def skill(step_one_marker="<!-- spec: asks-once -->\n", step_two_marker="<!-- spec: does-x -->\n"):
+def skill(
+    step_one_marker="<!-- spec: skill-asks-once -->\n",
+    step_two_marker="<!-- spec: foo-does-x -->\n",
+):
     return (
         "---\nname: a\ndescription: the a skill\n---\n\n# a\n\n"
         + LOCATE
@@ -95,7 +98,7 @@ def skill(step_one_marker="<!-- spec: asks-once -->\n", step_two_marker="<!-- sp
     )
 
 
-def suite_file(class_marker="", method_marker='    @pytest.mark.spec("does-x")\n'):
+def suite_file(class_marker="", method_marker='    @pytest.mark.spec("foo-does-x")\n'):
     return (
         "import pytest\n\n\n"
         + class_marker
@@ -111,7 +114,7 @@ REPO_TEST_TEXT = 'import pytest\n\n\n@pytest.mark.spec("tool-works")\ndef it_wor
 WORKFLOW_TEXT = (
     "jobs:\n  check:\n    steps:\n"
     "      # Runs the check.\n"
-    "      # spec: runs-in-ci\n"
+    "      # spec: ci-runs-check\n"
     "      - name: Run the check\n"
     "        run: true\n"
 )
@@ -204,6 +207,14 @@ TEST_ID = TEST + "::DescribeFoo::it_does_x"
 STEP_ID = SKILL + "::1"
 
 
+def cited_as(rid):
+    """BASE, with a requirement `rid` at specs/foo.md:14 and a test that cites it."""
+    return {
+        "specs/foo.md": FOO_SPEC + "- `%s` (test): When asked, foo does y.\n" % rid,
+        TEST: suite_file(class_marker='@pytest.mark.spec("%s")\n' % rid),
+    }
+
+
 class DescribeTrace:
     @pytest.mark.spec("trace-command-fails-uncited-verifiers")
     def it_passes_a_clone_where_every_link_holds(self, make_repo, run):
@@ -229,7 +240,7 @@ class DescribeTrace:
     @pytest.mark.spec("trace-command-fails-uncited-verifiers")
     def it_reads_a_marker_on_the_class_for_each_test_in_it(self, make_repo, run):
         root = make_repo(
-            {TEST: suite_file(class_marker='@pytest.mark.spec("does-x")\n', method_marker="")}
+            {TEST: suite_file(class_marker='@pytest.mark.spec("foo-does-x")\n', method_marker="")}
         )
         code, _, err = run("trace", "-C", str(root))
         assert code == cp.OK, err
@@ -242,7 +253,7 @@ class DescribeTrace:
 
     @pytest.mark.spec("trace-command-fails-uncited-verifiers")
     def it_fails_a_step_marker_that_shares_its_line(self, make_repo, run):
-        root = make_repo({SKILL: skill(step_two_marker="Ask. <!-- spec: does-x -->\n")})
+        root = make_repo({SKILL: skill(step_two_marker="Ask. <!-- spec: foo-does-x -->\n")})
         code, _, err = run("trace", "-C", str(root))
         assert code == cp.PROBLEMS
         assert "must be a line of its own" in err
@@ -250,7 +261,7 @@ class DescribeTrace:
     @pytest.mark.spec("trace-command-fails-unknown-ids")
     def it_fails_a_test_citing_an_id_its_spec_lacks(self, make_repo, run):
         root = make_repo(
-            {TEST: suite_file(method_marker='    @pytest.mark.spec("does-x", "does-y")\n')}
+            {TEST: suite_file(method_marker='    @pytest.mark.spec("foo-does-x", "does-y")\n')}
         )
         code, _, err = run("trace", "-C", str(root))
         assert code == cp.PROBLEMS
@@ -258,7 +269,7 @@ class DescribeTrace:
 
     @pytest.mark.spec("trace-command-fails-unknown-ids")
     def it_fails_a_step_citing_an_id_its_spec_lacks(self, make_repo, run):
-        root = make_repo({SKILL: skill(step_two_marker="<!-- spec: does-x, nope -->\n")})
+        root = make_repo({SKILL: skill(step_two_marker="<!-- spec: foo-does-x, nope -->\n")})
         code, _, err = run("trace", "-C", str(root))
         assert code == cp.PROBLEMS
         assert "%s:" % SKILL in err
@@ -266,7 +277,7 @@ class DescribeTrace:
 
     @pytest.mark.spec("trace-command-fails-unknown-ids")
     def it_fails_a_workflow_step_citing_an_id_the_repo_spec_lacks(self, make_repo, run):
-        root = make_repo({WORKFLOW: WORKFLOW_TEXT.replace("runs-in-ci", "runs-in-ci, gone")})
+        root = make_repo({WORKFLOW: WORKFLOW_TEXT.replace("ci-runs-check", "ci-runs-check, gone")})
         code, _, err = run("trace", "-C", str(root))
         assert code == cp.PROBLEMS
         assert "%s:5: cites `gone`, which specs/repo.md does not hold" % WORKFLOW in err
@@ -276,9 +287,9 @@ class DescribeTrace:
         root = make_repo(
             {
                 TEST: suite_file(
-                    method_marker='    @pytest.mark.spec("does-x", "repo:tool-works")\n'
+                    method_marker='    @pytest.mark.spec("foo-does-x", "repo:tool-works")\n'
                 ),
-                REPO_TEST: REPO_TEST_TEXT.replace('"tool-works"', '"repo:runs-in-ci"'),
+                REPO_TEST: REPO_TEST_TEXT.replace('"tool-works"', '"repo:ci-runs-check"'),
             }
         )
         code, _, err = run("trace", "-C", str(root))
@@ -297,43 +308,45 @@ class DescribeTrace:
     def it_fails_a_test_requirement_no_test_cites(self, make_repo, run):
         root = make_repo(
             {
-                TEST: suite_file(method_marker='    @pytest.mark.spec("asks-once")\n'),
-                SKILL: skill(step_two_marker="<!-- spec: asks-once -->\n"),
+                TEST: suite_file(method_marker='    @pytest.mark.spec("skill-asks-once")\n'),
+                SKILL: skill(step_two_marker="<!-- spec: skill-asks-once -->\n"),
             }
         )
         code, _, err = run("trace", "-C", str(root))
         assert code == cp.PROBLEMS
-        assert "specs/foo.md:11: `does-x` (test) is verified by nothing of its kind" in err
+        assert "specs/foo.md:11: `foo-does-x` (test) is verified by nothing of its kind" in err
 
     @pytest.mark.spec("trace-command-fails-unverified-requirements")
     def it_fails_a_step_requirement_only_a_test_cites(self, make_repo, run):
         root = make_repo(
             {
-                TEST: suite_file(method_marker='    @pytest.mark.spec("does-x", "asks-once")\n'),
-                SKILL: skill(step_one_marker="", step_two_marker="<!-- spec: does-x -->\n"),
+                TEST: suite_file(
+                    method_marker='    @pytest.mark.spec("foo-does-x", "skill-asks-once")\n'
+                ),
+                SKILL: skill(step_one_marker="", step_two_marker="<!-- spec: foo-does-x -->\n"),
             }
         )
         root_skill = root / SKILL
         root_skill.write_text(
             root_skill.read_text().replace(
-                "## Step 1: go\n", "## Step 1: go\n<!-- spec: does-x -->\n"
+                "## Step 1: go\n", "## Step 1: go\n<!-- spec: foo-does-x -->\n"
             )
         )
         code, _, err = run("trace", "-C", str(root))
         assert code == cp.PROBLEMS
-        assert "`asks-once` (step) is verified by nothing of its kind" in err
+        assert "`skill-asks-once` (step) is verified by nothing of its kind" in err
 
     @pytest.mark.spec("trace-command-fails-unverified-requirements")
     def it_fails_a_check_requirement_no_workflow_step_cites(self, make_repo, run):
-        root = make_repo({WORKFLOW: WORKFLOW_TEXT.replace("      # spec: runs-in-ci\n", "")})
+        root = make_repo({WORKFLOW: WORKFLOW_TEXT.replace("      # spec: ci-runs-check\n", "")})
         code, _, err = run("trace", "-C", str(root))
         assert code == cp.PROBLEMS
-        assert "`runs-in-ci` (check) is verified by nothing of its kind" in err
+        assert "`ci-runs-check` (check) is verified by nothing of its kind" in err
 
     @pytest.mark.spec("trace-command-fails-unverified-requirements")
     def it_fails_a_workflow_comment_that_is_not_above_a_step(self, make_repo, run):
         text = WORKFLOW_TEXT.replace("      # Runs the check.\n", "").replace(
-            "      # spec: runs-in-ci\n", "      # spec: runs-in-ci\n\n"
+            "      # spec: ci-runs-check\n", "      # spec: ci-runs-check\n\n"
         )
         code, _, err = run("trace", "-C", str(make_repo({WORKFLOW: text})))
         assert code == cp.PROBLEMS
@@ -345,8 +358,8 @@ class DescribeTrace:
             {
                 TEST: suite_file(method_marker=""),
                 SKILL: skill(
-                    step_one_marker="<!-- spec: does-x -->\n",
-                    step_two_marker="<!-- spec: asks-once -->\n",
+                    step_one_marker="<!-- spec: foo-does-x -->\n",
+                    step_two_marker="<!-- spec: skill-asks-once -->\n",
                 ),
                 "specs/foo.md": FOO_SPEC.replace("(test)", "(step)"),
                 cp.UNTRACED_FILE: untraced({TEST_ID: 130}),
@@ -360,7 +373,9 @@ class DescribeTrace:
     def it_passes_a_listed_step_with_a_warning_naming_its_issue(self, make_repo, run):
         root = make_repo(
             {
-                SKILL: skill(step_one_marker="", step_two_marker="<!-- spec: asks-once -->\n"),
+                SKILL: skill(
+                    step_one_marker="", step_two_marker="<!-- spec: skill-asks-once -->\n"
+                ),
                 cp.UNTRACED_FILE: untraced(steps={STEP_ID: 131}),
             }
         )
@@ -406,7 +421,7 @@ class DescribeTrace:
 
     @pytest.mark.spec("trace-command-checks-spec-grammar")
     def it_fails_a_duplicate_id(self, make_repo, run):
-        spec = FOO_SPEC + "- `does-x` (test): When asked again, foo does x.\n"
+        spec = FOO_SPEC + "- `foo-does-x` (test): When asked again, foo does x.\n"
         code, _, err = run("trace", "-C", str(make_repo({"specs/foo.md": spec})))
         assert code == cp.PROBLEMS
         assert "already the id of the requirement at line 11" in err
@@ -430,6 +445,67 @@ class DescribeTrace:
         )
         code, _, err = run("trace", "-C", str(root))
         assert code == cp.OK, err
+
+    @pytest.mark.spec("trace-command-checks-spec-grammar")
+    @pytest.mark.parametrize(
+        ("rid", "says"),
+        [
+            ("foo", "it has 1 word(s), and an id has 2 to 5"),
+            ("receipt-late-fee", "`late` is not a verb ending in `s`"),
+            ("steps-command", "it has 1 word(s)"),
+            ("steps-command-late-x", "`late` is not a verb ending in `s`"),
+            ("foo-does-x-and-y-too", "it has 6 word(s)"),
+            ("foo-cannot", "`cannot` is followed by no verb"),
+            ("foo-never-drop-x", "`never` is followed by `drop`"),
+        ],
+    )
+    def it_fails_a_requirement_id_not_in_the_form(self, make_repo, run, rid, says):
+        code, _, err = run("trace", "-C", str(make_repo(cited_as(rid))))
+        assert code == cp.PROBLEMS
+        assert (
+            "specs/foo.md:14: the requirement id `%s` is not in the form, since %s"
+            % (
+                rid,
+                says,
+            )
+            in err
+        )
+        assert 'SPEC-METHODOLOGY.md, under "Ids", has the form' in err
+
+    @pytest.mark.spec("trace-command-checks-spec-grammar")
+    @pytest.mark.parametrize(
+        "rid",
+        [
+            "foo-does-y",
+            "foo-cannot-drop-y",
+            "foo-only-reads-y",
+            "foo-does-y-when-asked",
+            "steps-command-counts-step-commands",
+            "steps-command-does-y-when-asked",
+            "steps-command-never-drops-y",
+            "claim-command-adds-y",
+        ],
+    )
+    def it_passes_a_requirement_id_in_the_form(self, make_repo, run, rid):
+        code, _, err = run("trace", "-C", str(make_repo(cited_as(rid))))
+        assert code == cp.OK, err
+
+    @pytest.mark.spec("trace-command-checks-spec-grammar")
+    def it_fails_a_need_id_that_opens_with_no_role(self, make_repo, run):
+        spec = FOO_SPEC.replace("need user-gets-things-done:", "need foo-gets-things-done:")
+        code, _, err = run("trace", "-C", str(make_repo({"specs/foo.md": spec})))
+        assert code == cp.PROBLEMS
+        assert (
+            "specs/foo.md:7: the need id `foo-gets-things-done` is not in the form, since a need's"
+            in err
+        )
+
+    @pytest.mark.spec("trace-command-checks-spec-grammar")
+    def it_fails_a_constraint_id_not_in_the_form(self, make_repo, run):
+        bar = "# bar\n\n## constraint slow-bar: Bar is slow\n\nIt is.\n"
+        code, _, err = run("trace", "-C", str(make_repo({"specs/bar.md": bar})))
+        assert code == cp.PROBLEMS
+        assert "specs/bar.md:3: the constraint id `slow-bar` is not in the form, since `bar`" in err
 
     @pytest.mark.spec("trace-command-checks-spec-grammar")
     @pytest.mark.parametrize(
@@ -472,7 +548,7 @@ class DescribeTrace:
         assert set(result) == {"version", "command", "ok", "errors", "warnings", "data"}
         assert result["command"] == "trace"
         tests = {t["id"]: t["cites"] for t in result["data"]["tests"]}
-        assert tests[TEST_ID] == ["does-x"]
+        assert tests[TEST_ID] == ["foo-does-x"]
 
     @pytest.mark.spec("trace-command-warns-on-listed-items")
     def it_accepts_the_repo_as_it_stands(self, run):
@@ -540,7 +616,7 @@ class DescribeInventory:
     @pytest.mark.spec("inventory-command-lists-tests")
     def it_lists_each_test_with_the_lines_it_runs(self, listed):
         assert listed["tests"] == [
-            {"id": TEST_ID, "line": 6, "cites": ["does-x"], "runs": {SCRIPT: ["10-12"]}}
+            {"id": TEST_ID, "line": 6, "cites": ["foo-does-x"], "runs": {SCRIPT: ["10-12"]}}
         ]
 
     @pytest.mark.spec("inventory-command-lists-skill-steps")
@@ -592,8 +668,8 @@ def listed_test(issue):
     return {
         TEST: suite_file(method_marker=""),
         SKILL: skill(
-            step_one_marker="<!-- spec: does-x -->\n",
-            step_two_marker="<!-- spec: asks-once -->\n",
+            step_one_marker="<!-- spec: foo-does-x -->\n",
+            step_two_marker="<!-- spec: skill-asks-once -->\n",
         ),
         "specs/foo.md": FOO_SPEC.replace("(test)", "(step)"),
         cp.UNTRACED_FILE: untraced({TEST_ID: issue}),
@@ -820,7 +896,7 @@ class DescribeDisclosed:
             (FOO_SPEC + "- `foo-does-y` (test): When asked, foo does y.\n", "added"),
             (FOO_SPEC.replace("foo does x", "foo does x twice"), "changed"),
             (FOO_SPEC.replace("(test): When asked", "(step): When asked"), "changed"),
-            (FOO_SPEC.replace("- `does-x` (test): When asked, foo does x.\n", ""), "removed"),
+            (FOO_SPEC.replace("- `foo-does-x` (test): When asked, foo does x.\n", ""), "removed"),
         ],
     )
     def it_fails_a_requirement_change_the_description_does_not_name(
@@ -837,7 +913,7 @@ class DescribeDisclosed:
         spec = FOO_SPEC.replace("foo does x", "foo does x twice") + (
             "- `foo-does-y` (test): When asked, foo does y.\n"
         )
-        body = "### Requirements\n\n- `does-x`, changed\n- `foo:foo-does-y`, added\n"
+        body = "### Requirements\n\n- `foo-does-x`, changed\n- `foo:foo-does-y`, added\n"
         code, out, err = disclosed(run, *pull_request({"specs/foo.md": spec}, body=body))
         assert code == cp.OK, err
         assert "2 requirement change(s)" in out
@@ -923,73 +999,3 @@ class DescribeDisclosed:
         )
         assert code == cp.CANNOT_RUN
         assert "GITHUB_EVENT_PATH is not set" in err
-
-    @pytest.mark.spec("disclosed-command-checks-new-ids")
-    @pytest.mark.parametrize(
-        ("rid", "says"),
-        [
-            ("foo", "it has 1 word(s), and an id has 2 to 5"),
-            ("receipt-late-fee", "`late` is not a verb ending in `s`"),
-            ("steps-command", "it has 1 word(s)"),
-            ("steps-command-late-x", "`late` is not a verb ending in `s`"),
-            ("foo-does-x-and-y-too", "it has 6 word(s)"),
-            ("foo-cannot", "`cannot` is followed by no verb"),
-            ("foo-never-drop-x", "`never` is followed by `drop`"),
-        ],
-    )
-    def it_fails_a_new_requirement_id_not_in_the_form(self, pull_request, run, rid, says):
-        spec = FOO_SPEC + "- `%s` (test): When asked, foo does y.\n" % rid
-        code, _, err = disclosed(run, *pull_request({"specs/foo.md": spec}, body="`%s`" % rid))
-        assert code == cp.PROBLEMS
-        assert "specs/foo.md adds the requirement `%s`, and %s" % (rid, says) in err
-        assert 'SPEC-METHODOLOGY.md, under "Ids", has the form' in err
-
-    @pytest.mark.spec("disclosed-command-checks-new-ids")
-    def it_fails_a_new_need_id_that_opens_with_no_role(self, pull_request, run):
-        spec = FOO_SPEC + NEW_NEED.replace("user-goes-fast", "foo-goes-fast-need")
-        root, environ = pull_request({"specs/foo.md": spec}, body="Closes #7\n`foo-goes-fast`")
-        github = FakeGitHub({7: approved_issue("Adds `need foo-goes-fast-need`.")})
-        code, _, err = disclosed(run, root, environ, github)
-        assert code == cp.PROBLEMS
-        assert "adds the need `foo-goes-fast-need`, and a need's id opens with the role" in err
-
-    @pytest.mark.spec("disclosed-command-checks-new-ids")
-    def it_fails_a_new_constraint_id_not_in_the_form(self, pull_request, run):
-        bar = "# bar\n\n## constraint slow-bar: Bar is slow\n\nIt is.\n\n- `bar-waits` (test): Bar waits.\n"
-        code, _, err = disclosed(run, *pull_request({"specs/bar.md": bar}, body="`bar-waits`"))
-        assert code == cp.PROBLEMS
-        assert "specs/bar.md adds the constraint `slow-bar`, and `bar` is not a verb" in err
-
-    @pytest.mark.spec("disclosed-command-checks-new-ids")
-    @pytest.mark.parametrize(
-        "rid",
-        [
-            "foo-does-y",
-            "foo-cannot-drop-y",
-            "foo-only-reads-y",
-            "foo-does-y-when-asked",
-            "steps-command-counts-step-commands",
-            "steps-command-does-y-when-asked",
-            "steps-command-never-drops-y",
-            "claim-command-adds-y",
-        ],
-    )
-    def it_passes_a_new_id_in_the_form(self, pull_request, run, rid):
-        spec = FOO_SPEC + "- `%s` (test): When asked, foo does y.\n" % rid
-        code, _, err = disclosed(run, *pull_request({"specs/foo.md": spec}, body="`%s`" % rid))
-        assert code == cp.OK, err
-
-    @pytest.mark.spec("disclosed-command-checks-new-ids")
-    def it_leaves_an_id_already_on_the_base_alone(self, pull_request, run):
-        spec = FOO_SPEC.replace("## need does-things: Do things", "## need does-things: Do all")
-        spec = spec.replace("foo does x", "foo does x twice")
-        code, _, err = disclosed(run, *pull_request({"specs/foo.md": spec}, body="`does-x`"))
-        assert code == cp.OK, err
-
-    @pytest.mark.spec("disclosed-command-checks-new-ids")
-    def it_checks_a_renamed_id(self, pull_request, run):
-        spec = FOO_SPEC.replace("`does-x`", "`foo-x`")
-        body = "`does-x` `foo-x`"
-        code, _, err = disclosed(run, *pull_request({"specs/foo.md": spec}, body=body))
-        assert code == cp.PROBLEMS
-        assert "adds the requirement `foo-x`" in err
