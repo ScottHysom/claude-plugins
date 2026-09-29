@@ -551,8 +551,9 @@ Source: #114, #129, and SPEC-METHODOLOGY.md, under "The chain".
 - `disclosed-cmd-lists-ids` (test): When a pull request adds, changes or
   removes a requirement, and its description does not name the id in
   backticks, `check-specs.py disclosed` fails it.
-- `disclosed-cmd-requires-issue-for-need` (test): When a pull request adds
-  a need that no issue it closes names, `disclosed` fails it.
+- `disclosed-cmd-requires-issue-for-section` (test): When a pull request
+  adds a need or a constraint that no issue it closes names, `disclosed`
+  fails it.
 - `ci-runs-disclosed` (check): When a pull request is opened, edited or
   updated, CI runs `disclosed`.
 

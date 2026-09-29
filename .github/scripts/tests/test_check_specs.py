@@ -884,6 +884,13 @@ NEW_NEED = (
     "- `foo-goes-fast` (test): When foo goes, it is quick.\n"
 )
 
+NEW_CONSTRAINT = (
+    "\n## constraint api-allows-few-calls: The API allows few calls\n\n"
+    "The API allows ten calls a minute, so foo spaces its calls.\n\n"
+    "Source: the API's documentation.\n\n"
+    "- `foo-waits` (test): When foo has called ten times, it waits.\n"
+)
+
 
 def approved_issue(body="", edited=None, labeled=(APPROVED_AT,)):
     return {
@@ -937,7 +944,7 @@ class DescribeDisclosed:
     def it_passes_a_pull_request_that_changes_no_spec(self, pull_request, run):
         code, out, err = disclosed(run, *pull_request())
         assert code == cp.OK, err
-        assert "0 requirement change(s) and 0 new need(s)" in out
+        assert "0 requirement change(s) and 0 new need(s) or constraint(s)" in out
 
     @pytest.mark.spec("disclosed-cmd-lists-ids")
     @pytest.mark.parametrize(
@@ -983,7 +990,7 @@ class DescribeDisclosed:
         assert code == cp.PROBLEMS
         assert "`bar-waits` in specs/bar.md was added" in err
 
-    @pytest.mark.spec("disclosed-cmd-requires-issue-for-need")
+    @pytest.mark.spec("disclosed-cmd-requires-issue-for-section")
     def it_fails_a_new_need_when_the_pull_request_closes_no_issue(self, pull_request, run):
         code, _, err = disclosed(
             run, *pull_request({"specs/foo.md": FOO_SPEC + NEW_NEED}, body="`foo-goes-fast`")
@@ -991,7 +998,7 @@ class DescribeDisclosed:
         assert code == cp.PROBLEMS
         assert "adds the need `user-goes-fast`, and the pull request closes no issue" in err
 
-    @pytest.mark.spec("disclosed-cmd-requires-issue-for-need")
+    @pytest.mark.spec("disclosed-cmd-requires-issue-for-section")
     def it_fails_a_new_need_its_issue_does_not_name(self, pull_request, run):
         root, environ = pull_request(
             {"specs/foo.md": FOO_SPEC + NEW_NEED}, body="Closes #7\n`foo-goes-fast`"
@@ -1001,7 +1008,7 @@ class DescribeDisclosed:
         assert code == cp.PROBLEMS
         assert "adds the need `user-goes-fast`, which #7 does not name" in err
 
-    @pytest.mark.spec("disclosed-cmd-requires-issue-for-need")
+    @pytest.mark.spec("disclosed-cmd-requires-issue-for-section")
     def it_passes_a_new_need_its_issue_names(self, pull_request, run):
         root, environ = pull_request(
             {"specs/foo.md": FOO_SPEC + NEW_NEED}, body="Closes #7\n`foo-goes-fast`"
@@ -1009,7 +1016,36 @@ class DescribeDisclosed:
         github = FakeGitHub({7: approved_issue("Adds `need user-goes-fast`.")})
         code, out, err = disclosed(run, root, environ, github)
         assert code == cp.OK, err
-        assert "1 new need(s)" in out
+        assert "1 new need(s) or constraint(s)" in out
+
+    @pytest.mark.spec("disclosed-cmd-requires-issue-for-section")
+    def it_fails_a_new_constraint_when_the_pull_request_closes_no_issue(self, pull_request, run):
+        code, _, err = disclosed(
+            run,
+            *pull_request({"specs/foo.md": FOO_SPEC + NEW_CONSTRAINT}, body="`foo-waits`"),
+        )
+        assert code == cp.PROBLEMS
+        assert "adds the constraint `api-allows-few-calls`, and the pull request closes no" in err
+
+    @pytest.mark.spec("disclosed-cmd-requires-issue-for-section")
+    def it_fails_a_new_constraint_its_issue_does_not_name(self, pull_request, run):
+        root, environ = pull_request(
+            {"specs/foo.md": FOO_SPEC + NEW_CONSTRAINT}, body="Closes #7\n`foo-waits`"
+        )
+        github = FakeGitHub({7: approved_issue("Adds api-allows-few-calls-more.")})
+        code, _, err = disclosed(run, root, environ, github)
+        assert code == cp.PROBLEMS
+        assert "adds the constraint `api-allows-few-calls`, which #7 does not name" in err
+
+    @pytest.mark.spec("disclosed-cmd-requires-issue-for-section")
+    def it_passes_a_new_constraint_its_issue_names(self, pull_request, run):
+        root, environ = pull_request(
+            {"specs/foo.md": FOO_SPEC + NEW_CONSTRAINT}, body="Closes #7\n`foo-waits`"
+        )
+        github = FakeGitHub({7: approved_issue("Adds `constraint api-allows-few-calls`.")})
+        code, out, err = disclosed(run, root, environ, github)
+        assert code == cp.OK, err
+        assert "1 new need(s) or constraint(s)" in out
 
     @pytest.mark.spec("disclosed-cmd-fails-post-approval-edits")
     def it_fails_an_issue_edited_after_approval(self, pull_request, run):

@@ -47,8 +47,8 @@ component spec and specs/repo.md, which holds the flags every script shares.
 
 `disclosed` fails a pull request whose description does not name, in
 backticks, each requirement id its diff adds, changes or removes, as `<id>`
-or `<component>:<id>`. It also fails one that adds a need no issue it closes
-names, and one that closes an issue whose body was edited after `approved`
+or `<component>:<id>`. It also fails one that adds a need or a constraint no
+issue it closes names, and one that closes an issue whose body was edited after `approved`
 was last added to it. Agents post under the owner's account, so an edit to an
 approved issue looks like the owner's own; removing the label and adding it
 again is how the owner re-approves. It reads the pull request from
@@ -81,7 +81,7 @@ Commands:
   surface    every subcommand, option and choices value is named by a
              requirement, or is listed in .github/untraced.json
   disclosed  a pull request names each requirement it changes, and each need
-             it adds is named by an issue it closes
+             or constraint it adds is named by an issue it closes
 
 Every command takes --json and -C/--repo.
 
@@ -1356,13 +1356,13 @@ def cmd_surface(args, root):
 # --------------------------------------------------------------------------
 
 
-def spec_needs(text):
-    """The ids of a spec file's needs."""
+def spec_sections(text):
+    """The (kind, id) of each need and constraint in a spec file."""
     out = set()
     for line in text.splitlines():
         m = HEADING_RE.match(line)
-        if m and m.group(1) == "need":
-            out.add(m.group(2))
+        if m:
+            out.add((m.group(1), m.group(2)))
     return out
 
 
@@ -1504,24 +1504,25 @@ def cmd_disclosed(args, root):
 
     added = []
     for component in sorted(after):
-        for need in sorted(spec_needs(after[component]) - spec_needs(before.get(component, ""))):
-            added.append((component, need))
+        new = spec_sections(after[component]) - spec_sections(before.get(component, ""))
+        for kind, sid in sorted(new):
+            added.append((component, kind, sid))
             named = [
                 n
                 for n in ours
-                if re.search(r"(?<![\w-])%s(?![\w-])" % re.escape(need), issues[n]["body"] or "")
+                if re.search(r"(?<![\w-])%s(?![\w-])" % re.escape(sid), issues[n]["body"] or "")
             ]
             if not ours:
                 errors.append(
-                    "%s adds the need `%s`, and the pull request closes no issue. A new need "
-                    "enters specs/ only through an approved issue that names it."
-                    % (spec_path(component), need)
+                    "%s adds the %s `%s`, and the pull request closes no issue. A new need or "
+                    "constraint enters specs/ only through an approved issue that names it."
+                    % (spec_path(component), kind, sid)
                 )
             elif not named:
                 errors.append(
-                    "%s adds the need `%s`, which %s does not name. A new need enters specs/ "
-                    "only through an approved issue that names it."
-                    % (spec_path(component), need, ", ".join("#%d" % n for n in ours))
+                    "%s adds the %s `%s`, which %s does not name. A new need or constraint "
+                    "enters specs/ only through an approved issue that names it."
+                    % (spec_path(component), kind, sid, ", ".join("#%d" % n for n in ours))
                 )
 
     for n in ours:
@@ -1542,13 +1543,13 @@ def cmd_disclosed(args, root):
     def human():
         if not errors:
             print(
-                "%d requirement change(s) and %d new need(s), all disclosed."
+                "%d requirement change(s) and %d new need(s) or constraint(s), all disclosed."
                 % (len(changes), len(added))
             )
 
     data = {
         "changes": [{"component": c, "id": r, "how": h} for c, r, h in changes],
-        "needs": [{"component": c, "id": n} for c, n in added],
+        "sections": [{"component": c, "kind": k, "id": i} for c, k, i in added],
         "issues": ours,
     }
     return emit(args, "disclosed", data, errors, None, human)
