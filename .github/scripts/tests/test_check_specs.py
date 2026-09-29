@@ -412,7 +412,7 @@ class DescribeTrace:
         assert "already the id of the requirement at line 11" in err
 
     @pytest.mark.spec("trace-spec-grammar")
-    @pytest.mark.parametrize("rid", ["Does_Y", "foo-can-do-y-and-z"])
+    @pytest.mark.parametrize("rid", ["Does_Y", "foo-command-can-do-y-and-z"])
     def it_fails_an_id_that_breaks_the_grammar(self, make_repo, run, rid):
         spec = FOO_SPEC + "- `%s` (test): When asked, foo does y.\n" % rid
         code, _, err = run("trace", "-C", str(make_repo({"specs/foo.md": spec})))
@@ -420,8 +420,8 @@ class DescribeTrace:
         assert "`%s` is not an id" % rid in err
 
     @pytest.mark.spec("trace-spec-grammar")
-    def it_traces_an_id_of_five_words(self, make_repo, run):
-        rid = "foo-does-x-when-asked"
+    def it_traces_an_id_of_six_words(self, make_repo, run):
+        rid = "steps-command-does-x-when-asked"
         root = make_repo(
             {
                 "specs/foo.md": FOO_SPEC + "- `%s` (test): When asked, foo does x.\n" % rid,
@@ -927,7 +927,10 @@ class DescribeDisclosed:
         ("rid", "says"),
         [
             ("foo", "it has 1 word(s), and an id has 2 to 5"),
-            ("receipt-late-fee", "word 2, `late`, is not a verb ending in `s`"),
+            ("receipt-late-fee", "`late` is not a verb ending in `s`"),
+            ("steps-command", "it has 1 word(s)"),
+            ("steps-command-late-x", "`late` is not a verb ending in `s`"),
+            ("foo-does-x-and-y-too", "it has 6 word(s)"),
             ("foo-cannot", "`cannot` is followed by no verb"),
             ("foo-never-drop-x", "`never` is followed by `drop`"),
         ],
@@ -953,11 +956,21 @@ class DescribeDisclosed:
         bar = "# bar\n\n## constraint slow-bar: Bar is slow\n\nIt is.\n\n- `bar-waits` (test): Bar waits.\n"
         code, _, err = disclosed(run, *pull_request({"specs/bar.md": bar}, body="`bar-waits`"))
         assert code == cp.PROBLEMS
-        assert "specs/bar.md adds the constraint `slow-bar`, and word 2, `bar`" in err
+        assert "specs/bar.md adds the constraint `slow-bar`, and `bar` is not a verb" in err
 
     @pytest.mark.spec("disclosed-checks-new-ids")
     @pytest.mark.parametrize(
-        "rid", ["foo-does-y", "foo-cannot-drop-y", "foo-only-reads-y", "foo-does-y-when-asked"]
+        "rid",
+        [
+            "foo-does-y",
+            "foo-cannot-drop-y",
+            "foo-only-reads-y",
+            "foo-does-y-when-asked",
+            "steps-command-counts-step-commands",
+            "steps-command-does-y-when-asked",
+            "steps-command-never-drops-y",
+            "claim-command-adds-y",
+        ],
     )
     def it_passes_a_new_id_in_the_form(self, pull_request, run, rid):
         spec = FOO_SPEC + "- `%s` (test): When asked, foo does y.\n" % rid
