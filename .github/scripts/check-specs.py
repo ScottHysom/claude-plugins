@@ -90,7 +90,7 @@ Exit codes: 0 clean, 1 ran and found problems, 2 could not run.
 
 Things that look like bugs and are not:
 
-- `trace` accepts an id of one to five words and checks nothing else of its
+- `trace` accepts an id of one to six words and checks nothing else of its
   form, while `disclosed` checks the form of each id a pull request adds. The
   ids written before the form was set pass until #267 renames them.
 
@@ -206,13 +206,14 @@ REQUIREMENT_START_RE = re.compile(r"^- `[^`]*` \(")
 REQUIREMENT_RE = re.compile(r"^- `([^`]+)` \(([^)]*)\): \S")
 # A line that continues the bullet above it.
 CONTINUATION_RE = re.compile(r"^[ \t]+\S")
-ID_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+){0,4}$")
+ID_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+){0,5}$")
 # The form of an id a pull request adds, from SPEC-METHODOLOGY.md, under "Ids".
 # A need's id opens with one of the roles it defines under "Roles".
 ROLES = ("owner", "agent", "contributor", "model", "user")
 MODALS = ("can", "cannot", "may", "must")
 ADVERBS = ("never", "only")
 ID_WORDS = (2, 5)
+COMMAND = "command"
 ID_FORM = 'SPEC-METHODOLOGY.md, under "Ids", has the form.'
 TEST, STEP, CHECK, EVAL = "test", "step", "check", "eval"
 KINDS = (TEST, STEP, CHECK)
@@ -441,7 +442,7 @@ def parse_spec(path, text, errors):
         rid, kind = m.group(1), m.group(2)
         if not ID_RE.match(rid):
             errors.append(
-                "%s: `%s` is not an id. An id is one to five lower-case words joined by "
+                "%s: `%s` is not an id. An id is one to six lower-case words joined by "
                 "hyphens." % (where, rid)
             )
             continue
@@ -1342,24 +1343,32 @@ def spec_needs(text):
 def id_form(kind, rid):
     """Why an id of this kind breaks the form SPEC-METHODOLOGY.md states, or None.
 
-    Word 1 is the subject, and a need's is a role. Word 2 is its verb ending in
-    `s`, or a modal and then the verb, or an adverb and then a verb ending in `s`.
+    Word 1 is the subject, and a need's is a role. A subject whose name ends in
+    `s` may take `command` after it, which the word count leaves out. Then
+    comes its verb ending in `s`, or a modal and then the verb, or an adverb and
+    then a verb ending in `s`.
     """
     words = rid.split("-")
+    rest = words[1:]
+    if rest and rest[0] == COMMAND:
+        if not words[0].endswith("s"):
+            return "`%s` follows only a command whose name ends in `s`" % COMMAND
+        rest = rest[1:]
     low, high = ID_WORDS
-    if not low <= len(words) <= high:
-        return "it has %d word(s), and an id has %d to %d" % (len(words), low, high)
+    counted = 1 + len(rest)
+    if not low <= counted <= high:
+        return "it has %d word(s), and an id has %d to %d" % (counted, low, high)
     if kind == "need" and words[0] not in ROLES:
         return "a need's id opens with the role that wants it, one of %s" % ", ".join(ROLES)
-    verb = words[1]
+    verb = rest[0]
     if verb in MODALS or verb in ADVERBS:
-        if len(words) < 3:
+        if len(rest) < 2:
             return "`%s` is followed by no verb" % verb
-        if verb in ADVERBS and not words[2].endswith("s"):
-            return "`%s` is followed by `%s`, and the verb after it ends in `s`" % (verb, words[2])
+        if verb in ADVERBS and not rest[1].endswith("s"):
+            return "`%s` is followed by `%s`, and the verb after it ends in `s`" % (verb, rest[1])
         return None
     if not verb.endswith("s"):
-        return "word 2, `%s`, is not a verb ending in `s`, or one of %s followed by a verb" % (
+        return "`%s` is not a verb ending in `s`, or one of %s followed by a verb" % (
             verb,
             ", ".join(MODALS + ADVERBS),
         )

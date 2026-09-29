@@ -286,7 +286,7 @@ and `id` parts, and fails a spec file that breaks them. How it reads them:
 - A continuation line is indented, and follows its requirement with no blank
   line between.
 - It reads the id in a need or a constraint heading without checking its
-  form. In a requirement it checks only that the id is one to five words, so
+  form. In a requirement it checks only that the id is one to six words, so
   an id older than the form under "Ids", below, still passes. `disclosed`
   checks the form of every id a pull request adds.
 - In claude-plugins it refuses `eval`, since nothing there runs an eval yet.
@@ -335,13 +335,21 @@ Word 1 is the subject, in one word:
 - A requirement's id opens with its actor, which is a command, a file, a
   workflow or a skill: `sync-stays-under-limit`. A command of two words gives
   its last word, so `rentals close` gives `close`.
+- A name of several words is joined into one, so a `booking-assistant` skill
+  gives `bookingassistant` and `CLAUDE.md` gives `claudemd`.
+- A command whose name ends in `s`, such as `rentals reports`, takes the word
+  `command` after it, so its verb does not read as agreeing with a plural:
+  `reports-command-lists-open-rentals`.
 
-Word 2 is the subject's verb, in the present tense and ending in `s`. It can
-instead be `can`, `cannot`, `may` or `must`, followed by the verb, as in
-`sync-cannot-exceed-limit`. It can also be `never` or `only`, followed by a
-verb ending in `s`, as in `close-never-drops-charges`.
+The verb comes next, as word 2, or as word 3 after `command`. It is in the
+present tense and ends in `s`. It can instead be `can`, `cannot`, `may` or
+`must`, followed by the verb, as in `sync-cannot-exceed-limit`. It can also be
+`never` or `only`, followed by a verb ending in `s`, as in
+`close-never-drops-charges`. Choose a verb that cannot also be read as a
+noun: `claim-labels` reads as "the claim's labels" as easily as "claim adds a
+label", so `claim-adds-label` is clearer.
 
-An id has two to five words.
+An id has two to five words, not counting `command`.
 
 ## Citing requirements
 

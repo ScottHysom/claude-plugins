@@ -491,7 +491,7 @@ Source: #114, #129, and SPEC-METHODOLOGY.md, under "The chain".
 - `trace-list-shrinks` (test): When a listed test or step cites a requirement,
   or no longer exists, `trace` fails until its entry is removed.
 - `trace-spec-grammar` (test): When a spec file has a requirement outside a
-  need or a constraint, a malformed requirement, an id of more than five
+  need or a constraint, a malformed requirement, an id of more than six
   words, a duplicate id or a kind nothing in the repo verifies, `trace` fails
   it.
 - `trace-scans-something` (test): When `trace` finds no spec, no test or no
