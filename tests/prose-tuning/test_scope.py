@@ -9,7 +9,7 @@ import prose
 
 
 class DescribeGlobToRegex:
-    @pytest.mark.spec("globs-match-whole-path")
+    @pytest.mark.spec("glob-matches-whole-path")
     @pytest.mark.parametrize(
         ("pattern", "path", "matches"),
         [
@@ -40,21 +40,21 @@ class DescribeScopeCommand:
         lines = [line.split(None, 2) for line in capsys.readouterr().out.splitlines()]
         return {parts[1]: (parts[0], parts[2]) for parts in lines if parts[:1] in (["+"], ["-"])}
 
-    @pytest.mark.spec("scope-explains")
+    @pytest.mark.spec("scope-command-explains-each-file")
     def it_lists_every_markdown_file_with_the_pattern_behind_its_verdict(self, prose_repo, capsys):
         verdicts = self.scope(prose_repo, capsys)
         assert verdicts["target.md"] == ("+", "included by **/*.md")
         assert verdicts["docs/guide.md"] == ("+", "included by **/*.md")
         assert prose.CONFIG_PATH in verdicts
 
-    @pytest.mark.spec("scope-block-read")
+    @pytest.mark.spec("scope-command-honors-include-and-exclude")
     def it_leaves_out_a_file_no_include_pattern_matches(self, prose_repo, capsys):
         rules = '---\nname: T\nscope:\n  include:\n    - "docs/**"\n---\n'
         verdicts = self.scope(prose_repo, capsys, rules)
         assert verdicts["docs/guide.md"] == ("+", "included by docs/**")
         assert verdicts["target.md"] == ("-", "no include pattern matched")
 
-    @pytest.mark.spec("rules-file-never-scoped")
+    @pytest.mark.spec("scope-command-never-lists-rules-file")
     def it_leaves_out_the_rules_file_whatever_the_scope_says(self, prose_repo, capsys):
         rules = '---\nname: T\nscope:\n  include:\n    - "**"\n---\n'
         verdicts = self.scope(prose_repo, capsys, rules)

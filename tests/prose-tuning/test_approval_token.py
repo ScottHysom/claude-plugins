@@ -41,7 +41,7 @@ def assert_refused(prose_repo, code, envelope, before):
 
 
 class DescribeApprovalToken:
-    @pytest.mark.spec("apply-needs-token")
+    @pytest.mark.spec("apply-command-requires-token")
     def it_applies_with_the_token_report_printed(self, prose_repo, target_lines):
         token = reported_token(prose_repo, [closing(prose_repo, target_lines)])
         code, envelope = apply_with(prose_repo, token)
@@ -49,7 +49,7 @@ class DescribeApprovalToken:
         assert envelope["errors"] == []
         assert "The closing paragraph." in prose_repo.read()
 
-    @pytest.mark.spec("apply-needs-token")
+    @pytest.mark.spec("apply-command-requires-token")
     def it_refuses_apply_without_a_token(self, prose_repo, target_lines, capsys):
         path = prose_repo.findings_file([closing(prose_repo, target_lines)])
         before = prose_repo.read()
@@ -59,7 +59,7 @@ class DescribeApprovalToken:
         assert "--token" in capsys.readouterr().err
         assert prose_repo.read() == before
 
-    @pytest.mark.spec("apply-needs-token")
+    @pytest.mark.spec("apply-command-requires-token")
     def it_refuses_after_the_findings_file_changes(self, prose_repo, target_lines):
         first = closing(prose_repo, target_lines)
         second = prose_repo.finding(target_lines["paragraph"])
@@ -70,7 +70,7 @@ class DescribeApprovalToken:
         code, envelope = apply_with(prose_repo, token)
         assert_refused(prose_repo, code, envelope, before)
 
-    @pytest.mark.spec("apply-needs-token")
+    @pytest.mark.spec("apply-command-requires-token")
     def it_refuses_after_a_document_changes(self, prose_repo, target_lines):
         (prose_repo.root / "other.md").write_text("Other text.\n")
         findings = [
@@ -84,7 +84,7 @@ class DescribeApprovalToken:
         code, envelope = apply_with(prose_repo, token, "--file", "target.md")
         assert_refused(prose_repo, code, envelope, before)
 
-    @pytest.mark.spec("apply-needs-token")
+    @pytest.mark.spec("apply-command-requires-token")
     def it_refuses_after_prose_style_changes(self, prose_repo, target_lines):
         token = reported_token(prose_repo, [closing(prose_repo, target_lines)])
         config = prose_repo.root / prose.CONFIG_PATH
@@ -93,7 +93,7 @@ class DescribeApprovalToken:
         code, envelope = apply_with(prose_repo, token)
         assert_refused(prose_repo, code, envelope, before)
 
-    @pytest.mark.spec("approval-token")
+    @pytest.mark.spec("report-command-prints-approval-token")
     def it_prints_no_token_when_report_fails(self, prose_repo, target_lines, capsys):
         refused = closing(prose_repo, target_lines, text="Not on this line.")
         code, envelope = prose_repo.report([refused])
@@ -105,7 +105,7 @@ class DescribeApprovalToken:
         prose.main(["report", "--findings", path, "-C", str(prose_repo.root)])
         assert prose.TOKEN_LABEL not in capsys.readouterr().out
 
-    @pytest.mark.spec("approval-token")
+    @pytest.mark.spec("report-command-prints-approval-token")
     def it_prints_the_token_as_the_last_line(self, prose_repo, target_lines, capsys):
         path = prose_repo.findings_file([closing(prose_repo, target_lines)])
         capsys.readouterr()

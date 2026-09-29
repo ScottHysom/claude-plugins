@@ -15,13 +15,13 @@ MARKED = (
 
 
 class DescribeResolveText:
-    @pytest.mark.spec("resolve-accepts-edits")
+    @pytest.mark.spec("resolve-command-accepts-edits")
     def it_keeps_the_insertion_on_accept(self):
         got, scanner = prose.resolve_text(prose.Text(MARKED), prose.ACCEPT, None, "t.md")
         assert scanner.errors == []
         assert got == "Keep keep this here.\nnew\n"
 
-    @pytest.mark.spec("strip-reverts")
+    @pytest.mark.spec("strip-command-reverts-tagged-edits")
     def it_restores_the_original_on_reject(self):
         got, scanner = prose.resolve_text(prose.Text(MARKED), prose.REJECT, None, "t.md")
         assert scanner.errors == []
@@ -44,51 +44,51 @@ def reject(source):
 
 
 class DescribeResolvingAWholeBlockCut:
-    @pytest.mark.spec("resolve-tidies-cuts")
+    @pytest.mark.spec("resolve-command-tidies-cuts")
     def it_leaves_one_blank_line_where_a_paragraph_was_cut(self):
         assert accept(CUT_MIDDLE) == "One.\n\nThree.\n"
 
-    @pytest.mark.spec("resolve-tidies-cuts")
+    @pytest.mark.spec("resolve-command-tidies-cuts")
     def it_treats_a_repl_with_an_empty_insertion_as_a_cut(self):
         source = "One.\n\n<repl>\n<del>\nTwo\n</del>\n<ins>\n</ins>\n</repl>\n\nThree.\n"
         assert accept(source) == "One.\n\nThree.\n"
 
-    @pytest.mark.spec("resolve-tidies-cuts")
+    @pytest.mark.spec("resolve-command-tidies-cuts")
     def it_leaves_no_blank_line_at_the_start_when_the_first_block_is_cut(self):
         assert accept("<del>\nTwo\n</del>\n\nThree.\n") == "Three.\n"
 
-    @pytest.mark.spec("resolve-tidies-cuts")
+    @pytest.mark.spec("resolve-command-tidies-cuts")
     def it_leaves_no_blank_line_at_the_end_when_the_last_block_is_cut(self):
         assert accept("One.\n\n<del>\nTwo\n</del>\n") == "One.\n"
 
-    @pytest.mark.spec("resolve-tidies-cuts")
+    @pytest.mark.spec("resolve-command-tidies-cuts")
     def it_adds_no_newline_to_a_file_that_ended_without_one(self):
         assert accept("One.\n\n<del>\nTwo\n</del>") == "One."
 
-    @pytest.mark.spec("resolve-tidies-cuts")
+    @pytest.mark.spec("resolve-command-tidies-cuts")
     def it_leaves_one_blank_line_where_adjacent_paragraphs_were_cut(self):
         source = "One.\n\n<del>\nTwo\n</del>\n\n<del>\nThree\n</del>\n\nFour.\n"
         assert accept(source) == "One.\n\nFour.\n"
 
-    @pytest.mark.spec("resolve-tidies-cuts")
+    @pytest.mark.spec("resolve-command-tidies-cuts")
     def it_keeps_the_blank_lines_around_an_inline_cut(self):
         assert accept("One <del>two</del>.\n\n\nThree.\n") == "One .\n\n\nThree.\n"
 
-    @pytest.mark.spec("strip-reverts")
+    @pytest.mark.spec("strip-command-reverts-tagged-edits")
     def it_keeps_every_blank_line_on_strip(self):
         source = "One.\n\n<ins>\nTwo\n</ins>\n\nThree.\n"
         assert reject(source) == "One.\n\n\nThree.\n"
 
 
 class DescribeTagsResolve:
-    @pytest.mark.spec("resolve-tidies-cuts")
+    @pytest.mark.spec("resolve-command-tidies-cuts")
     def it_leaves_one_blank_line_where_a_paragraph_was_cut(self, prose_repo):
         (prose_repo.root / "target.md").write_text(CUT_MIDDLE)
         code, envelope = prose_repo.run("tags", "resolve", "target.md")
         assert code == prose.OK, envelope
         assert prose_repo.read() == "One.\n\nThree.\n"
 
-    @pytest.mark.spec("resolve-list-warning")
+    @pytest.mark.spec("resolve-command-warns-in-lists")
     def it_warns_when_it_resolves_a_block_tag_inside_a_list(self, prose_repo):
         """A tag between two list items can end the list, which the author
         has to look at, so the warning names the line.
@@ -99,7 +99,7 @@ class DescribeTagsResolve:
         assert [w.split("  ")[0] for w in envelope["warnings"]] == ["target.md:2"]
         assert prose_repo.read() == "- one\n- two\n"
 
-    @pytest.mark.spec("resolve-refuses-bad-markup")
+    @pytest.mark.spec("resolve-command-refuses-bad-markup")
     @pytest.mark.parametrize("which", ["resolve", "strip"])
     def it_writes_no_file_when_any_files_markup_does_not_parse(self, prose_repo, which):
         (prose_repo.root / "good.md").write_text("Keep <del>this</del>.\n")

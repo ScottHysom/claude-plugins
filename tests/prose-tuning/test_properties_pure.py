@@ -32,7 +32,7 @@ class DescribeValidateRuleName:
     fails here whichever branch it is.
     """
 
-    @pytest.mark.spec("id-grammar")
+    @pytest.mark.spec("lint-command-checks-id-grammar")
     @given(st.text(alphabet=NAME_CHARS, max_size=12))
     @example("own-subject")
     @example("sentences-01")
@@ -43,7 +43,7 @@ class DescribeValidateRuleName:
         ok = bool(prose.RULE_NAME.match(name)) and len(name.split("-")) <= prose.MAX_NAME_WORDS
         assert (prose.validate_rule_name(name) is None) is ok
 
-    @pytest.mark.spec("id-grammar")
+    @pytest.mark.spec("lint-command-checks-id-grammar")
     @given(st.text(alphabet=NAME_CHARS, max_size=12))
     def it_quotes_the_name_it_refused(self, name):
         problem = prose.validate_rule_name(name)
@@ -54,7 +54,7 @@ class DescribeValidateRuleName:
 class DescribeGlobTranslation:
     """Scope patterns are author-written and arrive unvalidated."""
 
-    @pytest.mark.spec("globs-match-whole-path")
+    @pytest.mark.spec("glob-matches-whole-path")
     @given(st.text(alphabet="ab/*?.[]()+|^$\\", max_size=10))
     def it_compiles_any_pattern(self, pattern):
         """Everything that is not a wildcard goes through re.escape, so no
@@ -62,13 +62,13 @@ class DescribeGlobTranslation:
         """
         assert prose.glob_to_regex(pattern) is not None
 
-    @pytest.mark.spec("globs-match-whole-path")
+    @pytest.mark.spec("glob-matches-whole-path")
     @given(st.text(alphabet=PATH_CHARS, max_size=10))
     def it_matches_a_pattern_with_no_wildcard_only_against_itself(self, path):
         assume("*" not in path and "?" not in path)
         assert bool(prose.glob_to_regex(path).match(path))
 
-    @pytest.mark.spec("globs-match-whole-path")
+    @pytest.mark.spec("glob-matches-whole-path")
     @given(
         st.text(alphabet=PATH_CHARS, max_size=8),
         st.text(alphabet=PATH_CHARS, min_size=1, max_size=8),
@@ -89,17 +89,17 @@ class DescribeClassifySignal:
 
     VALUES = (None, "numeric-only", "whitespace-only", "link-only")
 
-    @pytest.mark.spec("hunk-signal")
+    @pytest.mark.spec("evidence-command-marks-hunk-signals")
     @given(st.text(max_size=20), st.text(max_size=20))
     def it_always_answers_with_one_of_four_values(self, before, after):
         assert prose.classify_signal(before, after) in self.VALUES
 
-    @pytest.mark.spec("hunk-signal")
+    @pytest.mark.spec("evidence-command-marks-hunk-signals")
     @given(st.text(max_size=20))
     def it_calls_a_line_against_itself_whitespace_only(self, line):
         assert prose.classify_signal(line, line) == "whitespace-only"
 
-    @pytest.mark.spec("hunk-signal")
+    @pytest.mark.spec("evidence-command-marks-hunk-signals")
     @given(st.text(max_size=20), st.text(max_size=20))
     def it_answers_the_same_whichever_side_is_which(self, before, after):
         """evidence computes old-to-new; a caller comparing the other way round
@@ -119,13 +119,13 @@ class DescribeRuleSimilarity:
 
     BODIES = st.lists(st.text(alphabet="abcde ", max_size=20), max_size=4)
 
-    @pytest.mark.spec("similarity-score")
+    @pytest.mark.spec("classify-command-scores-similarity")
     @given(BODIES)
     def it_scores_a_rule_identical_to_itself(self, body):
         same = prose.rule_similarity(self.rule("thing", body), self.rule("thing", body))
         assert same == (1.0, 1.0, 1.0)
 
-    @pytest.mark.spec("similarity-score")
+    @pytest.mark.spec("classify-command-scores-similarity")
     @given(BODIES, BODIES)
     def it_returns_every_score_as_a_proportion(self, one, two):
         body, name, score = prose.rule_similarity(self.rule("a", one), self.rule("b", two))
@@ -133,7 +133,7 @@ class DescribeRuleSimilarity:
         assert 0.0 <= name <= 1.0
         assert score == max(body, name)
 
-    @pytest.mark.spec("similarity-score")
+    @pytest.mark.spec("classify-command-scores-similarity")
     def it_scores_a_body_asymmetrically(self):
         """Pinned, not endorsed, and deliberately not written as @given.
 
@@ -157,7 +157,7 @@ class DescribeBodyKey:
 
     WORDS = st.lists(st.text(alphabet="abc", min_size=1, max_size=4), min_size=1, max_size=8)
 
-    @pytest.mark.spec("classify-identical")
+    @pytest.mark.spec("classify-command-finds-identical-rules")
     @given(WORDS, st.integers(1, 4))
     def it_keeps_the_key_when_a_body_is_rewrapped(self, words, width):
         flat = DescribeRuleSimilarity.rule("thing", [" ".join(words)])
@@ -166,7 +166,9 @@ class DescribeBodyKey:
         )
         assert flat.body_key() == wrapped.body_key()
 
-    @pytest.mark.spec("classify-identical", "fill-marker-ignored")
+    @pytest.mark.spec(
+        "classify-command-finds-identical-rules", "classify-command-ignores-fill-markers"
+    )
     @given(WORDS, st.text(alphabet="abc ", max_size=10))
     def it_keeps_the_key_when_a_comment_is_added(self, words, note):
         plain = DescribeRuleSimilarity.rule("thing", [" ".join(words)])
