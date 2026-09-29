@@ -64,7 +64,9 @@ def read(path):
 
 
 class DescribeRender:
-    @pytest.mark.spec("instructions-verbatim", "ignore-answer")
+    @pytest.mark.spec(
+        "render-command-copies-instructions-verbatim", "render-command-appends-ignore-patterns"
+    )
     @settings(suppress_health_check=[HealthCheck.too_slow], deadline=None)
     @given(INSTRUCTIONS, st.lists(PATTERN, unique=True, max_size=4))
     @example("{{PROJECT_NAME}}\r\n## Dates\n<!-- a note -->", ["*.mov"])
