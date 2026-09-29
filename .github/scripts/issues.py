@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Choose, claim and release issues, so two agents never work on the same one.
+"""Choose, claim, release and clear issues, so two agents never work on the same one.
 
 README.md, under "Issues", describes the process; this is the part of it that
 keeps two agents off the same approved issue. The lock is a branch named
@@ -9,7 +9,8 @@ wins. The `in-progress` label and a comment then say so where people look. The
 branch is the lock and the label is the signal: when they disagree the branch is
 right, and `stale` reports the disagreement. `release` takes the label off a
 claim given up; `.github/workflows/issue-closed.yml` takes it off an issue that
-closes, which is how most claims end.
+closes, which is how most claims end. `clear` then deletes the local claim
+branch that the merge left behind.
 
 Run from anywhere in a clone, with git and an authenticated gh on PATH:
 
@@ -17,6 +18,7 @@ Run from anywhere in a clone, with git and an authenticated gh on PATH:
     python3 .github/scripts/issues.py claim 12
     python3 .github/scripts/issues.py release 12 --reason "blocked on #9"
     python3 .github/scripts/issues.py stale
+    python3 .github/scripts/issues.py clear 12
 
 Commands:
     next        the oldest open approved issue nobody holds. Changes nothing.
@@ -26,23 +28,38 @@ Commands:
     stale       claims idle for --days with no open pull request, and labels
                 and branches that disagree, including a closed issue that
                 still has the label.
+    clear N     once issue N is closed, delete the local issue/N if a merged
+                pull request or main has everything on it, first moving any
+                worktree on it to a detached origin/main.
 
-Every command takes --json and -C/--repo; claim and release take --dry-run.
+Every command takes --json and -C/--repo; claim, release and clear take
+--dry-run.
 
 Exit codes: 0 clean, 1 ran and found problems (the issue is held or not
-approved, the branch holds work, a claim is stale), 2 could not run.
+approved, or still open, the branch holds work, a claim is stale), 2 could not
+run.
 
 Things that look like bugs and are not:
 - `next` exits 0 when nothing is free. An empty queue is not a problem.
 - `claim` exits 0 when the push succeeded but labeling or commenting failed.
   The branch is the claim; those failures are warnings to fix by hand.
-- `release` refuses to delete a branch with commits not on main, and has no
-  flag to force it. Throwing away work is for a person to decide.
+- `release` refuses to delete a branch with commits not on main, and `clear`
+  one with changes main lacks. Neither has a flag to force it. Throwing away
+  work is for a person to decide.
+- `clear` never asks whether issue/N's commits are on main. A squash or rebase
+  merge gives the work new hashes, so they never are, and `git branch -d` calls
+  such a branch unmerged. It asks instead whether a merged pull request from
+  issue/N had the local tip in its head. Failing that, it asks whether merging
+  issue/N into main would change main. That second test alone would refuse a
+  branch merged long ago whose lines main has edited since.
+- `clear` deletes only the local branch and removes no worktree. GitHub
+  deletes the remote branch when the pull request merges, and the desktop app
+  manages worktrees.
 - A new claim branch points at main's tip, which may be an old commit, so
   `stale` counts idle time from the later of the tip's commit date and the most
   recent claim comment.
 
-This script writes to git (a push, a branch switch), so it is not for Cowork's
+This script writes to git (a push, a branch switch, a branch deletion), so it is not for Cowork's
 device bridge, where a git write strands `.git/*.lock` files. A Cowork session
 asks the owner to claim for it.
 """
@@ -358,6 +375,110 @@ def cmd_release(args, repo):
     return emit(args, "release", data, human=human)
 
 
+def cmd_clear(args, repo):
+    n = args.number
+    data = {
+        "number": n,
+        "branch": branch(n),
+        "pull_request": None,
+        "worktrees": [],
+        "cleared": False,
+    }
+    item = issue(repo, n)
+    if item.get("state") == "OPEN":
+        return emit(
+            args,
+            "clear",
+            data,
+            ["#%d is still open. clear runs once its pull request has merged" % n],
+        )
+    local = git(repo, "rev-parse", "--verify", "--quiet", ref(n), check=False)
+    if local.returncode != 0:
+        return emit(args, "clear", data, ["there is no local %s to clear" % branch(n)])
+    sha = local.stdout.strip()
+    base = "%s/%s" % (REMOTE, BASE)
+    git(repo, "fetch", "--quiet", REMOTE, BASE)
+    data["pull_request"] = merged_pull(repo, n, sha)
+    if data["pull_request"] is None and not in_base(repo, base, sha):
+        return emit(
+            args,
+            "clear",
+            data,
+            [
+                "%s holds commits no merged pull request from it has, and changes %s lacks. "
+                "Merge or move them, or delete %s yourself; clear does not throw work away"
+                % (branch(n), base, branch(n))
+            ],
+        )
+    data["worktrees"] = checked_out(repo, ref(n))
+
+    def human():
+        verb = "Would clear" if args.dry_run else "Cleared"
+        print("%s %s" % (verb, branch(n)))
+        for path in data["worktrees"]:
+            print("  %s detached at %s" % (path, base))
+
+    if args.dry_run:
+        return emit(args, "clear", data, human=human)
+
+    for path in data["worktrees"]:
+        git(path, "switch", "--quiet", "--detach", base)
+    git(repo, "branch", "--quiet", "-D", branch(n))
+    data["cleared"] = True
+    return emit(args, "clear", data, human=human)
+
+
+def merged_pull(repo, n, sha):
+    """The number of a merged pull request from issue/N whose head holds `sha`, or None.
+
+    The head is the branch as it merged, so this holds however far main has
+    moved since. A head this clone lacks is fetched from the pull request's ref.
+    """
+    pulls = gh_json(
+        repo,
+        "pr",
+        "list",
+        "--state",
+        "merged",
+        "--head",
+        branch(n),
+        "--limit",
+        str(LIST_LIMIT),
+        "--json",
+        "number,headRefOid",
+    )
+    for pull in pulls:
+        head = pull["headRefOid"]
+        if git(repo, "cat-file", "-e", head + "^{commit}", check=False).returncode != 0:
+            git(repo, "fetch", "--quiet", REMOTE, "refs/pull/%d/head" % pull["number"], check=False)
+        if git(repo, "merge-base", "--is-ancestor", sha, head, check=False).returncode == 0:
+            return pull["number"]
+    return None
+
+
+def in_base(repo, base, sha):
+    """Whether merging `sha` into `base` would leave base's tree as it is."""
+    proc = git(repo, "merge-tree", "--write-tree", base, sha, check=False)
+    if proc.returncode > 1:
+        raise Fatal("`git merge-tree` failed: %s" % proc.stderr.strip())
+    if proc.returncode == 1:  # conflicts: the branch changes what base has
+        return False
+    tree = git(repo, "rev-parse", base + "^{tree}").stdout.strip()
+    return proc.stdout.split("\n", 1)[0].strip() == tree
+
+
+def checked_out(repo, target):
+    """The path of every worktree that has the branch `target` checked out."""
+    out = git(repo, "worktree", "list", "--porcelain").stdout
+    paths, path = [], None
+    for line in out.splitlines():
+        if line.startswith("worktree "):
+            path = line[len("worktree ") :]
+        elif line == "branch " + target:
+            paths.append(path)
+    return paths
+
+
 def cmd_stale(args, repo):
     held = claims(repo)
     labeled = gh_json(
@@ -446,6 +567,11 @@ def build_parser():
     p = sub.add_parser("stale", parents=[common], help="claims nobody is working on")
     p.add_argument("--days", type=int, default=STALE_DAYS, help="idle days before a claim is stale")
     p.set_defaults(func=cmd_stale)
+
+    p = sub.add_parser("clear", parents=[common], help="delete a merged claim's local branch")
+    p.add_argument("number", type=int)
+    p.add_argument("--dry-run", action="store_true")
+    p.set_defaults(func=cmd_clear)
 
     return ap
 

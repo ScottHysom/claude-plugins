@@ -402,6 +402,7 @@ python3 .github/scripts/issues.py next         # the oldest approved issue nobod
 python3 .github/scripts/issues.py claim 12     # take it, and switch to branch issue/12
 python3 .github/scripts/issues.py release 12   # give it up without a pull request
 python3 .github/scripts/issues.py stale        # claims nobody seems to be working on
+python3 .github/scripts/issues.py clear 12     # delete the local issue/12 once its pull request merges
 ```
 
 The claim is the branch `issue/N` on GitHub. `claim` pushes it in a way only one
@@ -413,6 +414,13 @@ label and the branch disagree, the branch is right, and `stale` lists the
 disagreement. That includes a closed issue that still has the label. The
 script's docstring covers the details, including why `release` will not delete
 a branch that has commits on it.
+
+A merge leaves the local `issue/N` behind, and `git branch -d` refuses it,
+because a squash or rebase merge puts the work on `main` under new hashes.
+`clear` deletes it once the issue is closed and the work is on `main`: either
+a merged pull request from `issue/N` had the local tip in its head, or `main`
+has every change the branch holds. A worktree that has the branch checked out is first moved to a
+detached `origin/main`, and is otherwise left alone.
 
 The `validate` job backs this up: a pull request that closes #N must come from
 `issue/N`, so an agent that skipped the claim is caught before it merges.

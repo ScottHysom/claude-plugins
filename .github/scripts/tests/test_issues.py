@@ -1,6 +1,6 @@
 """issues.py is what keeps two agents off the same issue. The claim has to be
-atomic - two agents claiming at once, one wins - and release must never throw
-away work. Both run against real git, with a bare repository standing in for
+atomic - two agents claiming at once, one wins - and neither release nor clear
+may throw away work. Both run against real git, with a bare repository standing in for
 GitHub's; only gh is faked.
 """
 
@@ -70,9 +70,10 @@ def remote_branches(remote):
 class FakeGitHub:
     """gh, answering from a dict of issues. Records every call."""
 
-    def __init__(self, issues=None, pulls=None, fail=()):
+    def __init__(self, issues=None, pulls=None, merged=(), fail=()):
         self.issues = issues or {}
         self.pulls = pulls or []
+        self.merged = merged
         self.fail = fail
         self.calls = []
 
@@ -81,6 +82,11 @@ class FakeGitHub:
         if any(word in args for word in self.fail):
             raise cli.Fatal("gh %s failed" % args[1])
         kind, verb = args[0], args[1]
+        if kind == "pr" and "merged" in args:
+            head = args[args.index("--head") + 1]
+            return json.dumps(
+                [{"number": n, "headRefOid": sha} for n, b, sha in self.merged if b == head]
+            )
         if kind == "pr":
             return json.dumps([{"headRefName": b} for b in self.pulls])
         if verb == "view":
@@ -446,9 +452,168 @@ class DescribeStale:
         assert "#12 is closed but still labeled in-progress; run release 12" in out.err
 
 
+def commit_file(repo, name, text, message=None):
+    (repo / name).write_text(text)
+    git(repo, "add", name)
+    git(repo, "commit", "--quiet", "-m", message or name)
+
+
+def squash_merged(capsys, clone, github, remote):
+    """A clone holding issue/12, whose work reached main as a new commit.
+
+    Main then moves on, so the branch's tree matches no commit on main.
+    """
+    a = claimed(capsys, clone, github)
+    commit_file(a, "work", "work\n")
+    commit_file(a, "more", "more\n")
+    git(a, "push", "--quiet")
+    seed = remote.parent / "seed"
+    git(seed, "pull", "--quiet", cli.REMOTE, cli.BASE)
+    (seed / "work").write_text("work\n")
+    (seed / "more").write_text("more\n")
+    git(seed, "add", "work", "more")
+    git(seed, "commit", "--quiet", "-m", "squashed")
+    commit_file(seed, "later", "later\n")
+    git(seed, "push", "--quiet", cli.REMOTE, "HEAD:" + cli.BASE)
+    github(make_issue(12, "approved", state="CLOSED"))
+    return a
+
+
+def merged_then_edited(capsys, clone, github, remote):
+    """A clone holding issue/12, squash-merged, whose line main has edited since.
+
+    Replaying the branch onto main now conflicts, though main had all of it.
+    """
+    a = claimed(capsys, clone, github)
+    commit_file(a, "README", "work\n")
+    git(a, "push", "--quiet")
+    seed = remote.parent / "seed"
+    git(seed, "pull", "--quiet", cli.REMOTE, cli.BASE)
+    # Its own message, or it would be the branch's commit byte for byte.
+    commit_file(seed, "README", "work\n", "squashed")
+    commit_file(seed, "README", "later\n")
+    git(seed, "push", "--quiet", cli.REMOTE, "HEAD:" + cli.BASE)
+    return a
+
+
+def local_branches(repo):
+    return set(git(repo, "for-each-ref", "--format=%(refname:short)", "refs/heads/").split())
+
+
+class DescribeClear:
+    @pytest.mark.spec("clear-cmd-deletes-merged-branch")
+    def it_deletes_a_branch_whose_work_main_has(self, capsys, remote, clone, github):
+        a = squash_merged(capsys, clone, github, remote)
+        code, out = run(capsys, a, "clear", "12")
+        assert code == cli.OK
+        assert out.out.startswith("Cleared issue/12\n")
+        assert "issue/12" not in local_branches(a)
+        assert git(a, "rev-parse", "HEAD") == git(remote, "rev-parse", cli.BASE)
+
+    @pytest.mark.spec("clear-cmd-deletes-merged-branch")
+    def it_deletes_a_branch_a_merged_pull_request_holds_after_main_moves_on(
+        self, capsys, remote, clone, github
+    ):
+        a = merged_then_edited(capsys, clone, github, remote)
+        tip = git(a, "rev-parse", "issue/12")
+        github(make_issue(12, "approved", state="CLOSED"), merged=[(7, "issue/12", tip)])
+        code, data = run_json(capsys, a, "clear", "12")
+        assert code == cli.OK
+        assert data["data"]["pull_request"] == 7
+        assert "issue/12" not in local_branches(a)
+
+    @pytest.mark.spec("clear-cmd-deletes-merged-branch")
+    def it_fetches_a_pull_request_head_the_clone_lacks(self, capsys, remote, clone, github):
+        """The clone's issue/12 is behind the head that merged, pushed from elsewhere."""
+        a = merged_then_edited(capsys, clone, github, remote)
+        b = clone("b")
+        git(b, "switch", "--quiet", "issue/12")
+        commit_file(b, "review", "review\n")
+        head = git(b, "rev-parse", "HEAD")
+        git(b, "push", "--quiet", cli.REMOTE, "HEAD:refs/pull/7/head")
+        assert subprocess.run(["git", "cat-file", "-e", head], cwd=a).returncode != 0
+        github(make_issue(12, "approved", state="CLOSED"), merged=[(7, "issue/12", head)])
+        code, data = run_json(capsys, a, "clear", "12")
+        assert code == cli.OK
+        assert data["data"]["pull_request"] == 7
+        assert "issue/12" not in local_branches(a)
+
+    @pytest.mark.spec("clear-cmd-deletes-merged-branch")
+    def it_moves_a_worktree_off_the_branch_and_keeps_it(self, capsys, remote, clone, github):
+        a = squash_merged(capsys, clone, github, remote)
+        git(a, "switch", "--quiet", "--detach")
+        tree = a.parent / "tree"
+        git(a, "worktree", "add", "--quiet", str(tree), "issue/12")
+        code, data = run_json(capsys, a, "clear", "12")
+        assert code == cli.OK
+        assert data["data"]["worktrees"] == [git(tree, "rev-parse", "--show-toplevel")]
+        assert tree.is_dir()
+        assert git(tree, "branch", "--show-current") == ""
+        assert git(tree, "rev-parse", "HEAD") == git(remote, "rev-parse", cli.BASE)
+        assert "issue/12" not in local_branches(a)
+
+    @pytest.mark.parametrize("change", ["new-file", "conflict"])
+    @pytest.mark.spec("clear-cmd-keeps-unmerged-work")
+    def it_keeps_a_branch_holding_work_main_lacks(self, capsys, remote, clone, github, change):
+        a = squash_merged(capsys, clone, github, remote)
+        if change == "new-file":
+            commit_file(a, "unmerged", "unmerged\n")
+        else:
+            commit_file(a, "later", "a different later\n")
+        tip = git(a, "rev-parse", "issue/12")
+        code, out = run(capsys, a, "clear", "12")
+        assert code == cli.PROBLEMS
+        assert "and changes origin/main lacks" in out.err
+        assert git(a, "rev-parse", "issue/12") == tip
+        assert git(a, "branch", "--show-current") == "issue/12"
+
+    @pytest.mark.parametrize("pull", ["no-pull", "earlier-pull"])
+    @pytest.mark.spec("clear-cmd-keeps-unmerged-work")
+    def it_keeps_a_commit_no_merged_pull_request_has_when_main_conflicts(
+        self, capsys, remote, clone, github, pull
+    ):
+        a = merged_then_edited(capsys, clone, github, remote)
+        merged = (
+            [(7, "issue/12", git(a, "rev-parse", "issue/12"))] if pull == "earlier-pull" else []
+        )
+        commit_file(a, "after", "after\n")
+        tip = git(a, "rev-parse", "issue/12")
+        github(make_issue(12, "approved", state="CLOSED"), merged=merged)
+        code, out = run(capsys, a, "clear", "12")
+        assert code == cli.PROBLEMS
+        assert "issue/12 holds commits no merged pull request from it has" in out.err
+        assert git(a, "rev-parse", "issue/12") == tip
+
+    @pytest.mark.spec("clear-cmd-keeps-unmerged-work")
+    def it_keeps_the_branch_of_an_open_issue(self, capsys, remote, clone, github):
+        a = squash_merged(capsys, clone, github, remote)
+        github(make_issue(12, "approved", "in-progress"))
+        code, out = run(capsys, a, "clear", "12")
+        assert code == cli.PROBLEMS
+        assert "#12 is still open" in out.err
+        assert "issue/12" in local_branches(a)
+
+    @pytest.mark.spec("clear-cmd-keeps-unmerged-work")
+    def it_is_a_problem_when_there_is_no_local_branch(self, capsys, clone, github):
+        github(make_issue(12, "approved", state="CLOSED"))
+        code, out = run(capsys, clone("a"), "clear", "12")
+        assert code == cli.PROBLEMS
+        assert "there is no local issue/12 to clear" in out.err
+
+    @pytest.mark.spec("command-never-writes-in-preview")
+    def it_changes_nothing_on_a_dry_run(self, capsys, remote, clone, github):
+        a = squash_merged(capsys, clone, github, remote)
+        code, out = run(capsys, a, "clear", "12", "--dry-run")
+        assert code == cli.OK
+        assert out.out.startswith("Would clear issue/12\n")
+        assert "issue/12" in local_branches(a)
+        assert git(a, "branch", "--show-current") == "issue/12"
+
+
 class DescribeMain:
     @pytest.mark.parametrize(
-        "argv", [["next"], ["claim", "12", "--dry-run"], ["release", "12"], ["stale"]]
+        "argv",
+        [["next"], ["claim", "12", "--dry-run"], ["release", "12"], ["stale"], ["clear", "12"]],
     )
     @pytest.mark.spec("command-prints-json-envelope")
     def it_prints_the_same_envelope_for_every_command(self, capsys, clone, github, argv):

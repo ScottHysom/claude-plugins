@@ -235,6 +235,24 @@ Source: README.md, under "Claiming an issue", and CLAUDE.md, under "Issues".
   finds neither `issue/N` nor the `in-progress` label, it exits 1 and comments
   nothing, so no issue reads as released that was never held.
 
+## need owner-clears-merged-claims: Clear a merged claim's local branch
+
+When a pull request from `issue/N` has merged, the owner wants the local claim
+branch removed without anyone typing git commands, so claim branches do not
+pile up.
+
+Source: #289, and README.md, under "Claiming an issue".
+
+- `clear-cmd-deletes-merged-branch` (test): When `issues.py clear N` finds #N
+  closed, and the local `issue/N` either inside the head of a merged pull
+  request from it or holding no change `origin/main` lacks, it switches any
+  worktree that has the branch checked out to a detached `origin/main`,
+  removes no worktree, and deletes the branch.
+- `clear-cmd-keeps-unmerged-work` (test): When #N is open, the local
+  `issue/N` does not exist, or it holds a commit no merged pull request from
+  it has and a change `origin/main` lacks, `issues.py clear` exits 1, says
+  what to do next and deletes nothing.
+
 ## need contributor-catches-stale-commands: Catch a skill that names a missing command
 
 When a contributor renames a script's subcommand or flag, they want CI to fail
