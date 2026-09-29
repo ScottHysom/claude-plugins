@@ -584,6 +584,22 @@ class DescribeClear:
         assert "issue/12 holds commits no merged pull request from it has" in out.err
         assert git(a, "rev-parse", "issue/12") == tip
 
+    @pytest.mark.parametrize("dry_run", [False, True], ids=["run", "dry-run"])
+    @pytest.mark.spec("clear-cmd-keeps-uncommitted-changes")
+    def it_keeps_a_worktree_with_uncommitted_changes(self, capsys, remote, clone, github, dry_run):
+        a = squash_merged(capsys, clone, github, remote)
+        git(a, "switch", "--quiet", "--detach")
+        tree = a.parent / "tree"
+        git(a, "worktree", "add", "--quiet", str(tree), "issue/12")
+        (tree / "README").write_text("unsaved\n")
+        code, out = run(capsys, a, "clear", "12", *(["--dry-run"] if dry_run else []))
+        assert code == cli.PROBLEMS
+        assert "has issue/12 checked out and uncommitted changes" in out.err
+        assert "run clear 12 again" in out.err
+        assert git(tree, "branch", "--show-current") == "issue/12"
+        assert (tree / "README").read_text() == "unsaved\n"
+        assert "issue/12" in local_branches(a)
+
     @pytest.mark.spec("clear-cmd-keeps-unmerged-work")
     def it_keeps_the_branch_of_an_open_issue(self, capsys, remote, clone, github):
         a = squash_merged(capsys, clone, github, remote)
