@@ -420,7 +420,7 @@ standard-library Python, JSON output on request, and exit codes of 0 for clean,
   each a registry a script can list, and each can be held to this rule.
 - **`disclosed`** fails a pull request whose description does not list every
   requirement its diff adds, changes or removes. It also fails one that adds a
-  need its linked ticket does not name.
+  need or a constraint its linked ticket does not name.
 - **The seam check** fails a skill step that runs more than one command
   without a `<!-- seam: <kind>: <reason> -->` marker.
 - **The coverage check** fails when a component's branch coverage, which counts
@@ -474,18 +474,19 @@ adding the approval label, and CI refuses work on a ticket that lacks it.
 
 ## Admission
 
-A new need is the decision that matters most, so it enters the spec only
-through the owner:
+A new need or constraint is the decision that matters most, so it enters the
+spec only through the owner. Either one justifies a behavior, so a constraint
+an agent made up would let in a behavior nobody asked for.
 
-- A new need is named in the approved ticket that adds it.
-- A new requirement under an existing need is listed in the pull request, where
-  the owner reviews it.
+- A new need or constraint is named in the approved ticket that adds it.
+- A new requirement under an existing need or constraint is listed in the pull
+  request, where the owner reviews it.
 - A ticket carries a "Requirements" field for the ids it adds, changes or
   removes, or the id a bug breaks. Approving the ticket then approves those
   lines explicitly.
 
 `disclosed`, under "The checks", fails a pull request that leaves a new need
-out of its linked ticket, or a changed requirement out of its description.
+or constraint out of its linked ticket, or a changed requirement out of its description.
 
 claude-plugins' issue #103 showed the failure this prevents. An agent wrote the
 issue against the code as it stood, so its "Done when" required the script to

@@ -67,9 +67,9 @@ requirement is admitted.
   someone wants. A constraint is something the platform forces. Symmetry,
   completeness and "it might be useful" are neither.
 - **When no requirement covers the work, propose one and wait for the
-  owner.** A new need goes in the issue, and enters `specs/` only once the
-  owner approves that issue. A new requirement under an existing need is listed in the pull
-  request description.
+  owner.** A new need or constraint goes in the issue, and enters `specs/`
+  only once the owner approves that issue. A new requirement under an existing
+  need or constraint is listed in the pull request description.
 - **Asked why a behavior exists, answer with its requirement and its need.**
   If it has none, say so and file an issue. Do not argue for it from the
   design's own consistency.
