@@ -25,16 +25,21 @@ def assert_nothing_staged(runner):
     assert not runner.stage.exists() or not any(runner.stage.rglob("*"))
 
 
+def loaded(text):
+    """CLAUDE.md as Claude loads it. Block-level HTML comments are stripped
+    before it is loaded, in Cowork as in Claude Code."""
+    return re.sub(r"(?ms)^<!--.*?-->[ \t]*\n", "", text)
+
+
 class DescribeACleanRender:
     @pytest.mark.spec("render-stages-files", "render-no-leftovers")
-    def it_stages_every_file_with_no_placeholder_left(self, runner, make_answers, skill_rel):
+    def it_stages_every_file_with_no_placeholder_left(self, runner, make_answers):
         code, env = runner.render(make_answers())
         assert code == gitify.OK, env["errors"]
         rels = [f["file"] for f in env["data"]["files"]]
-        assert rels == [".gitignore", "commit.sh", "setup.sh", "CLAUDE.md", skill_rel]
+        assert rels == [".gitignore", "commit.sh", "setup.sh", "CLAUDE.md"]
         for rel in rels:
             assert not gitify.LEFTOVER_RE.search(runner.staged(rel)), rel
-        assert runner.staged(skill_rel).startswith("---\nname: foo-research-history\n")
 
     def it_checksums_the_bytes_it_staged(self, runner, make_answers):
         _, env = runner.render(make_answers())
@@ -50,13 +55,6 @@ class DescribeACleanRender:
             {"stagedPath": f["staged_path"], "devicePath": project["project"] + "/" + f["file"]}
             for f in data["files"]
         ]
-
-    def it_computes_the_mount_and_path_placeholders(self, runner, make_answers, skill_rel, project):
-        _, env = runner.render(make_answers())
-        assert env["data"]["project_mount"] == "Projects/Foo Research"
-        skill = runner.staged(skill_rel)
-        assert "`%s`" % project["project"] in skill
-        assert "$HOME/mnt/Projects/Foo Research/.commit-msg" in skill
 
     @pytest.mark.spec("render-stages-files")
     def it_allows_the_project_to_be_the_connected_folder_itself(
@@ -139,12 +137,10 @@ class DescribeTheInstructions:
 
     @pytest.mark.spec("claude-md-note-hidden")
     def it_keeps_its_notes_for_people_out_of_claudes_context(self, runner, make_answers):
-        # Block-level HTML comments in CLAUDE.md are stripped before it is
-        # loaded, in Cowork as in Claude Code, so the header costs Claude one line.
         runner.render(make_answers())
-        text = runner.staged("CLAUDE.md")
-        loaded = re.sub(r"(?ms)^<!--.*?-->[ \t]*\n", "", text)
-        assert loaded.split() == ["#", "Foo", "Research"]
+        text = loaded(runner.staged("CLAUDE.md"))
+        assert re.match(r"# Foo Research\n\s*## Git history\n", text)
+        assert "This note" not in text
 
     @pytest.mark.spec("instructions-verbatim")
     def it_copies_the_field_verbatim_after_the_header(self, runner, make_answers):
@@ -175,6 +171,45 @@ class DescribeTheInstructions:
         assert code == gitify.PROBLEMS
         assert any(message in e for e in errors_of(env))
         assert_nothing_staged(runner)
+
+
+class DescribeTheHistorySection:
+    """What CLAUDE.md tells Claude about git. A rule inside an HTML comment
+    never reaches Claude, so each test reads the file as Claude loads it."""
+
+    @pytest.mark.spec("claude-md-history-section")
+    def it_keeps_change_records_out_of_the_documents(self, runner, make_answers):
+        runner.render(make_answers())
+        text = loaded(runner.staged("CLAUDE.md"))
+        assert "Keep that record out of the documents" in text
+
+    @pytest.mark.spec("claude-md-history-section")
+    def it_commits_through_a_message_file_and_the_users_terminal(self, runner, make_answers):
+        runner.render(make_answers())
+        text = loaded(runner.staged("CLAUDE.md"))
+        assert "write the message into `.commit-msg`" in text
+        assert "ask the user to run `./commit.sh`" in text
+        assert "Never run `git commit` through the bridge" in text
+
+    @pytest.mark.spec("claude-md-read-history")
+    def it_reads_the_history_at_the_projects_mount(self, runner, make_answers):
+        runner.render(make_answers())
+        text = loaded(runner.staged("CLAUDE.md"))
+        assert "Read-only git works through the bridge" in text
+        assert 'cd "$HOME/mnt/Projects/Foo Research"\ngit log' in text
+
+    @pytest.mark.spec("claude-md-read-history")
+    def it_reads_the_history_at_the_connected_folders_mount(self, runner, make_answers):
+        runner.render(make_answers(project_folder=None))
+        text = loaded(runner.staged("CLAUDE.md"))
+        assert 'cd "$HOME/mnt/Projects"\n' in text
+
+    @pytest.mark.spec("claude-md-field-rule")
+    def it_moves_anything_else_in_the_field_into_the_file(self, runner, make_answers):
+        runner.render(make_answers())
+        text = loaded(runner.staged("CLAUDE.md"))
+        assert "If\nit holds anything else, copy that into this file" in text
+        assert "put the field back to the one line" in text
 
 
 class DescribeTheIgnorePatterns:
@@ -208,20 +243,14 @@ class DescribeTheIgnorePatterns:
 
 
 VALUE_CASES = [
-    ("SKILL_NAME", "Foo_History", "lower-case words joined by -"),
-    ("SKILL_NAME", "a" * 65, "at most 64"),
+    ("PROJECT_NAME", None, "values.PROJECT_NAME is required"),
     ("PROJECT_NAME", " Foo", "one line with no surrounding space"),
     ("PROJECT_NAME", "Foo {{X}}", "cannot contain {{ or }}"),
-    ("DESCRIPTION", "Git: for Foo Research.", "would break the skill's front matter"),
-    ("DESCRIPTION", "- Foo Research history.", "would break the skill's front matter"),
-    ("DESCRIPTION", "Git history. Use when committing.", "must name the project"),
-    ("DESCRIPTION", "Foo Research " + "x" * 1024, "at most 1024"),
-    ("DESCRIPTION", "Foo Research history, <ins> and all.", "looks like an XML tag"),
-    ("DESCRIPTION", "Foo Research history</b>", "looks like an XML tag"),
 ]
 
 
 class DescribeValidatingAValue:
+    @pytest.mark.spec("repo:answers-checked")
     @pytest.mark.parametrize(("name", "value", "message"), VALUE_CASES)
     def it_rejects_a_bad_value_and_writes_nothing(self, runner, make_answers, name, value, message):
         data = make_answers()
@@ -230,22 +259,6 @@ class DescribeValidatingAValue:
         assert code == gitify.PROBLEMS
         assert any(message in e for e in errors_of(env)), env["errors"]
         assert_nothing_staged(runner)
-
-    def it_accepts_a_description_naming_the_skill_instead_of_the_project(
-        self, runner, make_answers
-    ):
-        data = make_answers()
-        data["values"]["DESCRIPTION"] = "Use foo-research-history when committing."
-        code, env = runner.render(data)
-        assert code == gitify.OK, env["errors"]
-
-    def it_accepts_a_description_with_a_less_than_sign_not_followed_by_a_name(
-        self, runner, make_answers
-    ):
-        data = make_answers()
-        data["values"]["DESCRIPTION"] = "Foo Research history, when a < b."
-        code, env = runner.render(data)
-        assert code == gitify.OK, env["errors"]
 
     @pytest.mark.spec("repo:answers-checked")
     def it_names_an_unknown_value(self, runner, make_answers):
@@ -258,10 +271,28 @@ class DescribeValidatingAValue:
     @pytest.mark.spec("repo:answers-checked")
     def it_refuses_a_computed_value(self, runner, make_answers):
         data = make_answers()
-        data["values"]["PROJECT_PATH"] = "/x"
+        data["values"]["PROJECT_MOUNT"] = "x"
         code, env = runner.render(data)
         assert code == gitify.PROBLEMS
         assert any("computed from the folders" in e for e in errors_of(env))
+
+    @pytest.mark.spec("repo:answers-checked")
+    def it_rejects_values_that_are_not_an_object(self, runner, make_answers):
+        code, env = runner.render(make_answers(values=["Foo Research"]))
+        assert code == gitify.PROBLEMS
+        assert "values must be an object" in errors_of(env)
+        assert_nothing_staged(runner)
+
+    @pytest.mark.spec("repo:plain-output-streams")
+    def it_writes_its_rejections_to_stderr_in_plain_output(self, runner, make_answers):
+        path = runner.tmp / "answers.json"
+        path.write_text(json.dumps(make_answers(values={})))
+        code, _ = runner.run(
+            "render", "--answers", str(path), "--stage", str(runner.stage), json_output=False
+        )
+        assert code == gitify.PROBLEMS
+        assert "values.PROJECT_NAME is required" in runner.err
+        assert runner.out == ""
 
     @pytest.mark.spec("repo:answers-checked")
     def it_names_an_unknown_answers_key(self, runner, make_answers):
@@ -276,6 +307,7 @@ FOLDER_CASES = [
     ({"connected_folder": "/a/../b"}, ". or .. segments"),
     ({"connected_folder": "/a\\b"}, "newline or backslash"),
     ({"connected_folder": "~", "project_folder": None}, "no folder name to mount"),
+    ({"project_folder": "Foo"}, "project_folder must be absolute"),
     ({"project_folder": "/elsewhere/Foo"}, "is not inside connected_folder"),
 ]
 
@@ -309,6 +341,12 @@ class DescribeRefusingToRun:
         code, _ = runner.render(None, raw="not json")
         assert code == gitify.CANNOT_RUN
         assert runner.err.startswith("gitify.py: cannot read answers")
+
+    @pytest.mark.spec("repo:answers-checked")
+    def it_cannot_run_on_answers_that_are_not_an_object(self, runner):
+        code, _ = runner.render(None, raw="[]")
+        assert code == gitify.CANNOT_RUN
+        assert "answers must be a JSON object" in runner.err
 
     def it_refuses_a_stage_holding_a_foreign_file(self, runner, make_answers):
         runner.stage.mkdir()

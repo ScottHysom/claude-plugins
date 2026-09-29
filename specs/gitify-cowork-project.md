@@ -50,6 +50,11 @@ history in the document instead.
 
 Source: the owner's review of #139.
 
+- `claude-md-history-section` (test): When `render` writes `CLAUDE.md`, it
+  holds a section outside any HTML comment that tells Claude to keep the record
+  of a change out of the documents, and to commit by writing `.commit-msg` and
+  asking the user to run `./commit.sh`.
+
 ## need answer-from-history: Ask Claude about the history
 
 When the user wants to know what a document said last week, or when and why a
@@ -57,6 +62,10 @@ figure changed, they want Claude to read the history and answer, with nothing
 for them to run.
 
 Source: README.md, under "Looking back".
+
+- `claude-md-read-history` (test): When `render` writes `CLAUDE.md`, its
+  history section says that read-only git works through the bridge, and gives
+  the commands at the project's mount.
 
 ## need review-first-commit: See the first commit before it is made
 
@@ -133,6 +142,9 @@ instructions", and the gitify-project description.
   path.
 - `hand-off-field` (step): When the files are on the device, gitify-project
   gives the user that line to put in place of everything in the field.
+- `claude-md-field-rule` (test): When `render` writes `CLAUDE.md`, its history
+  section tells Claude to copy anything in the field besides that line into
+  `CLAUDE.md`, and to ask the user to put the field back to the one line.
 
 ## need commit-from-cowork: Commit from a Cowork session
 

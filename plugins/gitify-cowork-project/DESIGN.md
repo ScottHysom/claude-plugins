@@ -9,28 +9,23 @@ covers using it. What Cowork allows a plugin in general is in
 
 ## Why it runs only in Cowork
 
-The plugin depends on parts of Cowork that Claude Code does not have:
-
-- **The device bridge.** Cowork runs Claude in a cloud container, which cannot
-  see the user's computer. The device bridge is the set of tools, such as
-  `device_bash` and `device_commit_files`, through which Claude reads and
-  writes the connected folder on that computer. Every file the plugin writes
-  reaches the project this way.
-- **The review card.** When a skill calls `propose_skills`, Cowork shows the
-  user a card in the conversation, and saving it registers the proposed skill
-  on the user's account. That is how the generated `<project>-history` skill
-  comes to run.
+The plugin depends on Cowork's device bridge, which Claude Code does not have.
+Cowork runs Claude in a cloud container, which cannot see the user's computer.
+The device bridge is the set of tools, such as `device_bash` and
+`device_commit_files`, through which Claude reads and writes the connected
+folder on that computer. Every file the plugin writes reaches the project this
+way.
 
 ## The bundled script
 
 A skill is a set of instructions Claude follows for one kind of task, and a
 plugin bundles skills with the scripts they call. The `gitify-project` skill
 calls `scripts/gitify.py` for everything that should come out the same on every
-run. `propose_skills` takes a single `SKILL.md` and
-no other files. A copy of `gitify-project` saved on its own through the review
-card therefore has no script to call. A plugin installed from the
-marketplace, the catalog Cowork installs plugins from, brings its skills
-together with its scripts. So the plugin needs a marketplace install, and the
+run. `propose_skills`, the tool through which Claude offers a skill for the
+user to save to their account, takes a single `SKILL.md` and no other files. A
+copy of `gitify-project` saved on its own that way therefore has no script to
+call. A plugin installed from the marketplace, the catalog Cowork installs
+plugins from, brings its skills together with its scripts. So the plugin needs a marketplace install, and the
 skill's first step says so and stops when the script is missing.
 
 ## One place for standing instructions
@@ -54,6 +49,16 @@ connected folder, whose `CLAUDE.md` Cowork also loads by itself. The field
 reaches every conversation from its start, so the line gets `CLAUDE.md` read
 wherever Cowork's own loading does not. What Cowork loads, and when, is in
 [Designing for Cowork](https://github.com/ScottHysom/claude-plugins/blob/main/COWORK.md#how-instruction-files-load).
+
+## How Claude learns the folder is under git
+
+A section of `CLAUDE.md` tells Claude that git keeps the history, so change
+records stay out of the documents. It also says how a commit is made from
+Cowork, how to read the history, and what to do when the Project Instructions
+field holds more than its one line. The field's line gets `CLAUDE.md` read in
+every conversation, so the section needs nothing registered on the account and
+has no second copy to keep in step. It sits outside the note's HTML comment,
+because Claude never sees what is inside one.
 
 ## Why `commit.sh` exists
 
@@ -86,5 +91,4 @@ it lands in the project. `python3 scripts/gitify.py preflight` checks all of
 it.
 
 Changing a template does not change projects already set up. Each project's
-skill is its own copy from then on, and `gitify.py drift` compares one against
-the template.
+`CLAUDE.md` is its own from then on.

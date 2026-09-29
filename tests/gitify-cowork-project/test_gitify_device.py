@@ -88,6 +88,14 @@ class DescribeTheProbeCommand:
         assert code == gitify.PROBLEMS
         assert any("is not inside connected_folder" in e for e in env["errors"])
 
+    @pytest.mark.spec("repo:plain-output-streams")
+    def it_prints_the_command_on_stdout_in_plain_output(self, runner):
+        code, _ = runner.run("probe", "--connected-folder", "/a/Projects", json_output=False)
+        assert code == gitify.OK
+        assert runner.out.startswith("probe, through device_bash:\n")
+        assert gitify.probe_command("Projects") in runner.out
+        assert runner.err == ""
+
 
 class DescribeThePrecheckCommand:
     @pytest.mark.spec("precheck-names-overwrites")
@@ -107,16 +115,15 @@ class DescribeThePrecheckCommand:
         assert result.stdout.startswith("repo: ")
 
     @pytest.mark.spec("precheck-names-overwrites")
-    def it_names_every_file_it_would_overwrite(self, runner, device, make_answers, skill_rel):
+    def it_names_every_file_it_would_overwrite(self, runner, device, make_answers):
         _, env = runner.render(make_answers())
         folder = device.make()
         (folder / "CLAUDE.md").write_text("the owner's own instructions")
-        (folder / skill_rel).parent.mkdir(parents=True)
-        (folder / skill_rel).write_text("theirs")
+        (folder / "commit.sh").write_text("theirs")
         result = device.sh(env["data"]["precheck_command"])
         assert result.returncode == 1
         assert "exists: CLAUDE.md" in result.stdout.splitlines()
-        assert "exists: %s" % skill_rel in result.stdout.splitlines()
+        assert "exists: commit.sh" in result.stdout.splitlines()
         assert "clear" not in result.stdout
 
     @pytest.mark.spec("probe-stops-missing")

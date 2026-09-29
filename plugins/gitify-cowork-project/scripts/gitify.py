@@ -2,11 +2,10 @@
 """Deterministic half of the gitify-project skill.
 
 The skill uses the model for what needs judgment: running the interview,
-naming the history skill and writing its description, deciding with the user
-what to keep out of git. Everything else happens here - reading the templates,
-checking the model's answers, filling in placeholders, laying the files out for
-the bridge, writing the commands that check the folder on the device, and
-comparing a project's skill with the template it came from.
+naming the project, deciding with the user what to keep out of git. Everything
+else happens here. That covers reading the templates, checking the model's
+answers, filling in placeholders, laying the files out for the bridge, and
+writing the commands that check the folder on the device.
 
 Usage:
     python3 gitify.py <command> [options]
@@ -16,7 +15,6 @@ Commands:
     preflight   check the shipped templates are complete and well formed
     probe       a device command that checks the folder and lists what is in it
     render      fill the templates from an answers file into a stage directory
-    drift       compare a project's generated skill with the current template
 
 Exit codes: 0 clean, 1 ran and found problems, 2 could not run.
 
@@ -56,7 +54,6 @@ Python 3.9 is the floor. No match statements, no X | Y unions.
 """
 
 import argparse
-import difflib
 import hashlib
 import json
 import os
@@ -91,9 +88,7 @@ MANIFEST = [
     ("commit.sh", "commit.sh"),
     ("setup.sh", "setup.sh"),
     ("CLAUDE.md", "CLAUDE.md"),
-    ("history-skill.md", "skills/{SKILL_NAME}/SKILL.md"),
 ]
-SKILL_TEMPLATE = "history-skill.md"
 GITIGNORE_TEMPLATE = "gitignore"
 INSTRUCTIONS_TEMPLATE = "CLAUDE.md"
 GITIGNORE_HEADING = "# This project"
@@ -111,26 +106,12 @@ PLACEHOLDER_RE = re.compile(r"\{\{([A-Z_]+)\}\}")
 # Anything that means a placeholder survived into the output, or was mistyped.
 LEFTOVER_RE = re.compile(r"\{\{|\}\}")
 
-SKILL_NAME_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
-SKILL_NAME_MAX = 64
-DESCRIPTION_MAX = 1024
-# The skill's front matter holds the description as a plain YAML scalar, which
-# cannot contain ": " or " #", or start with one of these.
-YAML_UNSAFE_START = "-?:,[]{}#&*!|>'\"%@`"
-YAML_UNSAFE_INNER = (": ", " #")
-# Cowork's .plugin upload rejects a skill whose description holds anything that
-# looks like an XML tag: a `<` directly followed by a name, as in <ins> or </b>.
-TAG_RE = re.compile(r"</?[A-Za-z][\w:.-]*")
-
 # Placeholders the model supplies, and the ones computed from the folders.
-SUPPLIED = ("PROJECT_NAME", "SKILL_NAME", "DESCRIPTION")
-COMPUTED = ("PROJECT_PATH", "PROJECT_MOUNT")
+SUPPLIED = ("PROJECT_NAME",)
+COMPUTED = ("PROJECT_MOUNT",)
 ANSWER_KEYS = ("connected_folder", "project_folder", "values", "instructions", "ignore")
 
 DIGEST_LEN = 12
-HEADING_RE = re.compile(r"^(#{1,6}) +(.*?)\s*$")
-FENCE_RE = re.compile(r"^\s*(```|~~~)")
-PREAMBLE = "(preamble)"
 
 
 class Fatal(Exception):
@@ -173,20 +154,6 @@ def emit(args, command, data, errors=None, warnings=None, human=None):
 # --------------------------------------------------------------------------
 # text
 # --------------------------------------------------------------------------
-
-
-def split_lines(s):
-    """Lines with their endings, cut at "\\n" only.
-
-    str.splitlines() also cuts at form feeds, U+2028 and others that no editor
-    shows as a line break, which would number lines differently from what the
-    author sees.
-    """
-    parts = s.split("\n")
-    lines = [p + "\n" for p in parts[:-1]]
-    if parts[-1]:
-        lines.append(parts[-1])
-    return lines
 
 
 def sha256(text):
@@ -354,7 +321,7 @@ def resolve_folders(connected_value, project_value):
     return Folders(connected, project, sub, mount_name), []
 
 
-def check_value(name, value, values):
+def check_value(name, value):
     """Errors for one supplied placeholder value."""
     if not isinstance(value, str) or not value.strip():
         return ["values.%s is required" % name]
@@ -363,34 +330,6 @@ def check_value(name, value, values):
         errs.append("values.%s must be one line with no surrounding space" % name)
     if "{{" in value or "}}" in value:
         errs.append("values.%s cannot contain {{ or }}" % name)
-    if name == "SKILL_NAME":
-        if not SKILL_NAME_RE.match(value) or len(value) > SKILL_NAME_MAX:
-            errs.append(
-                "values.SKILL_NAME must be lower-case words joined by -, at most %d characters: %r"
-                % (SKILL_NAME_MAX, value)
-            )
-    elif name == "DESCRIPTION":
-        if len(value) > DESCRIPTION_MAX:
-            errs.append(
-                "values.DESCRIPTION is %d characters; at most %d" % (len(value), DESCRIPTION_MAX)
-            )
-        if value[0] in YAML_UNSAFE_START or any(s in value for s in YAML_UNSAFE_INNER):
-            errs.append(
-                "values.DESCRIPTION would break the skill's front matter: it cannot start with "
-                "one of %s or contain ': ' or ' #'" % YAML_UNSAFE_START
-            )
-        tag = TAG_RE.search(value)
-        if tag:
-            errs.append(
-                "values.DESCRIPTION contains something that looks like an XML tag (%r); "
-                "Cowork's plugin upload rejects the skill" % tag.group(0)
-            )
-        names = [values.get("PROJECT_NAME"), values.get("SKILL_NAME")]
-        if not any(isinstance(n, str) and n and n.lower() in value.lower() for n in names):
-            errs.append(
-                "values.DESCRIPTION must name the project, by PROJECT_NAME or SKILL_NAME; the "
-                "description is the only thing keeping the skill out of unrelated conversations"
-            )
     return errs
 
 
@@ -548,7 +487,7 @@ def cmd_render(args):
     for name in sorted(set(values) - set(SUPPLIED) - set(COMPUTED)):
         errors.append("values.%s is not a placeholder" % name)
     for name in SUPPLIED:
-        errors.extend(check_value(name, values.get(name), values))
+        errors.extend(check_value(name, values.get(name)))
 
     instructions = answers.get("instructions")
     errors.extend(check_instructions(instructions))
@@ -560,7 +499,6 @@ def cmd_render(args):
         return emit(args, "render", None, errors=errors)
 
     full = dict((k, values[k]) for k in SUPPLIED)
-    full["PROJECT_PATH"] = folders.project
     full["PROJECT_MOUNT"] = folders.mount
 
     planned = []
@@ -579,9 +517,7 @@ def cmd_render(args):
         errors.append("nothing was written")
         return emit(args, "render", None, errors=errors)
 
-    stage = os.path.abspath(
-        args.stage or os.path.join(OUTPUTS_ROOT, DEFAULT_STAGE_DIR, values["SKILL_NAME"])
-    )
+    stage = os.path.abspath(args.stage or os.path.join(OUTPUTS_ROOT, DEFAULT_STAGE_DIR))
     if not (stage + "/").startswith(OUTPUTS_ROOT + "/"):
         warnings.append(
             "stage %s is outside %s; device_commit_files will reject it" % (stage, OUTPUTS_ROOT)
@@ -647,106 +583,6 @@ def check_stage(stage, rels):
                     "stage %s already holds %s, which this run would not write; "
                     "pass a new --stage" % (stage, rel)
                 )
-
-
-# --------------------------------------------------------------------------
-# drift
-# --------------------------------------------------------------------------
-
-
-def sections(text):
-    """(heading, body) pairs split at level-2 headings outside code fences.
-
-    The heading is the heading line's text; everything before the first one is
-    PREAMBLE.
-    """
-    out = [[PREAMBLE, []]]
-    in_fence = False
-    for ln in split_lines(text):
-        if FENCE_RE.match(ln):
-            in_fence = not in_fence
-        h = HEADING_RE.match(ln)
-        if h and not in_fence and len(h.group(1)) == 2:
-            out.append([h.group(2), [ln]])
-        else:
-            out[-1][1].append(ln)
-    return [(h, "".join(b)) for h, b in out if h != PREAMBLE or "".join(b).strip()]
-
-
-PLACEHOLDER_SENTINEL = "\x01"
-WHITESPACE_RE = re.compile(r"\s+")
-
-
-def pattern_for(template_text):
-    """A regex matching any rendering of this template text.
-
-    Whitespace is dropped from both sides before matching, so rewrapping is not
-    drift. A placeholder matches any non-empty value.
-    """
-    s = PLACEHOLDER_RE.sub(PLACEHOLDER_SENTINEL, template_text)
-    s = WHITESPACE_RE.sub("", s)
-    out = []
-    for part in s.split(PLACEHOLDER_SENTINEL):
-        out.append(re.escape(part))
-    return re.compile(".+?".join(out), re.S)
-
-
-def cmd_drift(args):
-    t = Template.load(args.templates, SKILL_TEMPLATE)
-    t.require_clean()
-    try:
-        project_text = read_text(args.skill)
-    except OSError as exc:
-        raise Fatal("cannot read %s: %s" % (args.skill, exc)) from exc
-
-    ours = sections(t.text)
-    theirs = sections(project_text)
-    heading_pattern = dict((h, pattern_for(h)) for h, _ in ours)
-
-    claimed = set()
-    report, errors = [], []
-    for heading, body in ours:
-        match = None
-        for i, (ph, _) in enumerate(theirs):
-            if i in claimed:
-                continue
-            if heading_pattern[heading].fullmatch(WHITESPACE_RE.sub("", ph)):
-                match = i
-                break
-        if match is None:
-            report.append({"heading": heading, "status": "missing"})
-            errors.append("%s: section missing from the project's skill" % heading)
-            continue
-        claimed.add(match)
-        pbody = theirs[match][1]
-        if pattern_for(body).fullmatch(WHITESPACE_RE.sub("", pbody)):
-            report.append(
-                {"heading": heading, "status": "same", "project_heading": theirs[match][0]}
-            )
-            continue
-        diff = "".join(
-            difflib.unified_diff(split_lines(body), split_lines(pbody), "template", args.skill, n=1)
-        )
-        report.append(
-            {
-                "heading": heading,
-                "status": "changed",
-                "project_heading": theirs[match][0],
-                "diff": diff,
-            }
-        )
-        errors.append("%s: differs from the template" % heading)
-    for i, (ph, _) in enumerate(theirs):
-        if i not in claimed:
-            report.append({"heading": ph, "status": "project-only"})
-
-    def human():
-        for r in report:
-            print("%-13s %s" % (r["status"], r["heading"]))
-            if r.get("diff"):
-                sys.stdout.write(r["diff"])
-
-    return emit(args, "drift", {"sections": report}, errors=errors, human=human)
 
 
 # --------------------------------------------------------------------------
@@ -819,16 +655,10 @@ def build_parser():
     p.add_argument(
         "--stage",
         metavar="DIR",
-        help="where to write (default: %s/%s/<SKILL_NAME>)" % (OUTPUTS_ROOT, DEFAULT_STAGE_DIR),
+        help="where to write (default: %s/%s)" % (OUTPUTS_ROOT, DEFAULT_STAGE_DIR),
     )
     p.add_argument("--dry-run", action="store_true")
     p.set_defaults(func=cmd_render)
-
-    p = sub.add_parser(
-        "drift", parents=[common], help="compare a project's skill with the template"
-    )
-    p.add_argument("--skill", required=True, metavar="FILE", help="the project's SKILL.md")
-    p.set_defaults(func=cmd_drift)
 
     return ap
 

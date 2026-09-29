@@ -1,15 +1,14 @@
 ---
 name: gitify-project
-description: Put an existing Cowork Project folder under git - commit.sh, setup.sh, .gitignore, a CLAUDE.md holding the Project Instructions, and a generated per-project history skill that is written into the repo and then proposed to the account. Use when a Cowork Project that already has documents needs version history, when asked to git-back, gitify or add git to a project folder, or to move the Project Instructions into a versioned file. Writes nothing about what the documents say. Also covers checking whether a project's history skill has fallen behind the template.
+description: Put an existing Cowork Project folder under git, writing commit.sh, setup.sh, .gitignore, and a CLAUDE.md holding the Project Instructions and how Claude commits and reads the history. Use when a Cowork Project that already has documents needs version history, when asked to git-back, gitify or add git to a project folder, or to move the Project Instructions into a versioned file. Writes nothing about what the documents say.
 ---
 
 # Putting an existing Cowork Project under git
 
 Requires Cowork with a connected folder. This skill writes to the user's device
-through the bridge (`device_bash`, `device_commit_files`) and registers a skill
-through `propose_skills`. Neither exists in Claude Code. If the bridge is not
-available, say so and stop rather than building the files somewhere they cannot
-reach.
+through the bridge (`device_bash`, `device_commit_files`), which Claude Code
+does not have. If the bridge is not available, say so and stop rather than
+building the files somewhere they cannot reach.
 
 The folder already holds the user's work. This skill adds git and nothing else:
 it writes no document, and no rule about what documents say or how they read.
@@ -17,15 +16,9 @@ Do not offer to add any.
 
 ## What this produces
 
-1. The files in the folder: `.gitignore`, `commit.sh`, `setup.sh`,
-   `CLAUDE.md`, and a **per-project history skill** at
-   `skills/<skill-name>/SKILL.md`. That file is the versioned original.
-2. The **same skill text registered on the account**, via `propose_skills`.
-3. A repo, once the user runs `setup.sh` from their own terminal.
-
-Writing the skill file does not install anything: the synced copy on disk is a
-read-only cache. Step 5 is what makes the skill run, and skipping it fails
-silently.
+1. The files in the folder: `.gitignore`, `commit.sh`, `setup.sh` and
+   `CLAUDE.md`.
+2. A repo, once the user runs `setup.sh` from their own terminal.
 
 ## Where things run
 
@@ -82,7 +75,7 @@ chance at `setup.sh`, which shows every file before anything is committed.
 ## Step 2: the answers
 <!-- spec: copy-field-exactly, ignore-answer -->
 
-<!-- no-command: judgment. The model writes the names, the description and the ignore list, and step 3's render checks them. -->
+<!-- no-command: judgment. The model writes the project name and the ignore list, and step 3's render checks them. -->
 
 Write `/tmp/gitify/answers.json`, in the directory the "Locate the script"
 step made:
@@ -92,9 +85,7 @@ step made:
   "connected_folder": "<as listed>",
   "project_folder": "<the project folder, or null>",
   "values": {
-    "PROJECT_NAME": "Foo Research",
-    "SKILL_NAME": "foo-research-history",
-    "DESCRIPTION": "..."
+    "PROJECT_NAME": "Foo Research"
   },
   "instructions": "<the Project Instructions field, verbatim, or null>",
   "ignore": ["exports/", "*.mov"]
@@ -102,24 +93,13 @@ step made:
 ```
 
 - `PROJECT_NAME`: the project's display name.
-- `SKILL_NAME`: **the project's name**, as `<project>-history`. A generic name
-  invites a generic description.
-- `DESCRIPTION`: the history skill's description. It is the only part of a
-  skill that costs context in every session whether or not it fires, and the
-  only thing that keeps it from firing in unrelated conversations. Name the
-  project, and what the skill covers in the words a user would use: committing,
-  commit messages, checking what changed, the skill's own drift check. No
-  generic verbs on their own; "commit changes" fires everywhere. No `<`
-  followed by a word, as in `<ins>`: Cowork's plugin upload reads it as an
-  XML tag and rejects the skill.
 - `instructions`: when this Project's instructions field has content, which
   you can see in your own context, copy it here **exactly**, character for
   character. Do not tidy, summarize or reformat it; it becomes `CLAUDE.md`.
   `null` when the field is empty.
 - `ignore`: the patterns from step 1, or `[]`.
 
-`PROJECT_PATH` and `PROJECT_MOUNT` are worked out from the folders. Do not
-pass them.
+`PROJECT_MOUNT` is worked out from the folders. Do not pass it.
 
 ## Step 3: render
 <!-- spec: render-stages-files, repo:answers-checked -->
@@ -154,21 +134,9 @@ Take each value from `render`'s `data`, as printed:
    ending `FAILED` means that file did not arrive intact: copy it again with
    `device_commit_files`, never by editing it on the device.
 
-Do not `git init`. Step 6 covers why.
+Do not `git init`. Step 5 covers why.
 
-## Step 5: register the skill
-
-<!-- no-command: hand-off to the account. propose_skills registers the staged skill. -->
-
-Read the staged skill, the entry in `files` whose `file` ends in `SKILL.md`,
-from its `staged_path`. Call `propose_skills` with exactly that text. Same
-name, same description, same body. The user saves it from the review card.
-
-The two copies have to match. If they diverge, the repo looks authoritative and
-the account copy is what actually runs. The generated skill carries its own
-drift check.
-
-## Step 6: hand off
+## Step 5: hand off
 <!-- spec: hand-off-setup, hand-off-field -->
 
 <!-- no-command: hand-off to the user. The bridge cannot commit, so the user runs setup.sh. -->
@@ -187,30 +155,11 @@ would take. They add a pattern to `.gitignore` for anything that should stay
 out, run `sh setup.sh` again to see the new list, and when it is right run
 `sh setup.sh commit`. Do not run any of it from here, and do not offer to.
 
-Then name what else only the user can do:
-
-- Save the proposed skill from the review card.
-- Change the Project Instructions field. You cannot write it. `CLAUDE.md` now
-  holds what was there, and the field keeping a copy is how the two drift
-  apart. They replace everything in the field with `data.field_pointer`,
-  exactly, even when the project is the connected folder. The field reaches
-  every conversation from its start, so this line gets `CLAUDE.md` read
-  wherever Cowork's own loading of the file does not reach. COWORK.md, in the
-  claude-plugins repo, under "How instruction files load", has what Cowork
-  loads and when.
-
-## Checking a project's skill against the template
-
-To check whether a project's history skill has fallen behind, stage it with
-`device_stage_files`, then:
-
-```sh
-GITIFY=/tmp/gitify/plugin/scripts/gitify.py && python3 "$GITIFY" drift --skill <staged SKILL.md> --json
-```
-
-- **0**: every section matches the template. Substituted names and rewrapped
-  lines do not count.
-- **1**: `data.sections` marks each `changed` section with a `diff`, and each
-  `missing` one. Show the user those, and carry across only what they agree is
-  universal. A `project-only` section is the project's own and is not a
-  problem.
+Then tell them to change the Project Instructions field, which only they can
+do. `CLAUDE.md` now holds what was there, and the field keeping a copy is how
+the two drift apart. They replace everything in the field with
+`data.field_pointer`, exactly, even when the project is the connected folder.
+The field reaches every conversation from its start, so this line gets
+`CLAUDE.md` read wherever Cowork's own loading of the file does not reach.
+COWORK.md, in the claude-plugins repo, under "How instruction files load", has
+what Cowork loads and when.
