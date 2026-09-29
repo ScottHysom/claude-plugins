@@ -217,9 +217,9 @@ they can check each one against the agreement they signed.
 
 Source: the product brief, under "Receipts".
 
-- `close-command-lists-each-charge` (test): When `rentals close` ends a
+- `close-cmd-lists-each-charge` (test): When `rentals close` ends a
   rental, it prints one line per charge, with its amount and its reason.
-- `close-command-shows-late-fee` (test): When the car comes back after the
+- `close-cmd-shows-late-fee` (test): When the car comes back after the
   agreed time, the receipt shows the late fee on a line of its own.
 
 ## need user-books-in-one-sitting: Book a car in one sitting
@@ -239,7 +239,7 @@ more loses updates.
 
 Source: the fleet vendor's API reference, under "Rate limits".
 
-- `sync-command-stays-under-limit` (test): When `rentals sync` updates the
+- `sync-cmd-stays-under-limit` (test): When `rentals sync` updates the
   fleet, it sends at most 60 requests in any one minute.
 ```
 
@@ -310,7 +310,7 @@ The rules the grammar cannot show:
   states the fact and what it forces. The `Source:` line under either says
   where it is recorded.
 - An id says what it means. A report can then name
-  `close-command-shows-late-fee` and be checked without opening the file. An
+  `close-cmd-shows-late-fee` and be checked without opening the file. An
   id keeps its name when its sentence is reworded.
 - Ids are unique within a file. A requirement in `specs/repo.md` is named from
   another file as `repo:<id>`.
@@ -320,7 +320,7 @@ The rules the grammar cannot show:
 
 An id reads as a short sentence whose subject comes first, so a reader can
 tell which word is the verb. `claim-shows` reads as "the claim shows" or as
-"claim the shows". `close-command-shows-late-fee` has one reading.
+"claim the shows". `close-cmd-shows-late-fee` has one reading.
 
 Word 1 is the subject, in one word:
 
@@ -333,22 +333,25 @@ Word 1 is the subject, in one word:
 - A requirement's id opens with its actor, which is a command, a file, a
   workflow or a skill. A command of two words gives its last word, so
   `rentals close` gives `close`.
-- A command's name, singular or plural, takes the word `command` after it,
+- A command's name, singular or plural, takes the marker `cmd` after it,
   so a reader can tell the command from a file or a skill of the same name:
-  `sync-command-stays-under-limit`, `reports-command-lists-open-rentals`.
+  `sync-cmd-stays-under-limit`, `reports-cmd-lists-open-rentals`.
   A script run as a whole is a command too.
+- `command` is an ordinary word, which the marker does not claim. It can be
+  the subject of a requirement about every command, as in
+  `command-splits-output-streams`, and it cannot stand in for `cmd`.
 - A name of several words is joined into one, so a `booking-assistant` skill
   gives `bookingassistant` and `CLAUDE.md` gives `claudemd`.
 
-The verb comes next, as word 2, or as word 3 after `command`. It is in the
+The verb comes next, as word 2, or as word 3 after `cmd`. It is in the
 present tense and ends in `s`. It can instead be `can`, `cannot`, `may` or
-`must`, followed by the verb, as in `sync-command-cannot-exceed-limit`. It
+`must`, followed by the verb, as in `sync-cmd-cannot-exceed-limit`. It
 can also be `never` or `only`, followed by a verb ending in `s`, as in
-`close-command-never-drops-charges`. Choose a verb that cannot also be read
+`close-cmd-never-drops-charges`. Choose a verb that cannot also be read
 as a noun: `claim-labels` reads as "the claim's labels" as easily as "claim adds a
-label", so `claim-command-adds-label` is clearer.
+label", so `claim-cmd-adds-label` is clearer.
 
-An id has two to five words, not counting `command`.
+An id has two to five words, not counting `cmd`.
 
 ## Citing requirements
 
@@ -356,7 +359,7 @@ A test cites the requirements it verifies with a tag its runner can read. In
 pytest, that is a marker:
 
 ```python
-@pytest.mark.spec("close-command-shows-late-fee")
+@pytest.mark.spec("close-cmd-shows-late-fee")
 def test_late_return_adds_a_late_fee_line(rental): ...
 ```
 

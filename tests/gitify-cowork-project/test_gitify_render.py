@@ -32,7 +32,7 @@ def loaded(text):
 
 
 class DescribeACleanRender:
-    @pytest.mark.spec("render-command-stages-files", "render-command-refuses-leftover-placeholders")
+    @pytest.mark.spec("render-cmd-stages-files", "render-cmd-refuses-leftover-placeholders")
     def it_stages_every_file_with_no_placeholder_left(self, runner, make_answers):
         code, env = runner.render(make_answers())
         assert code == gitify.OK, env["errors"]
@@ -47,7 +47,7 @@ class DescribeACleanRender:
             with open(f["staged_path"], "rb") as fh:
                 assert hashlib.sha256(fh.read()).hexdigest() == f["sha256"]
 
-    @pytest.mark.spec("render-command-stages-files")
+    @pytest.mark.spec("render-cmd-stages-files")
     def it_pairs_each_staged_file_with_its_device_path(self, runner, make_answers, project):
         _, env = runner.render(make_answers())
         data = env["data"]
@@ -56,7 +56,7 @@ class DescribeACleanRender:
             for f in data["files"]
         ]
 
-    @pytest.mark.spec("render-command-stages-files")
+    @pytest.mark.spec("render-cmd-stages-files")
     def it_allows_the_project_to_be_the_connected_folder_itself(
         self, runner, make_answers, project
     ):
@@ -65,7 +65,7 @@ class DescribeACleanRender:
         assert env["data"]["project_mount"] == "Projects"
         assert env["data"]["files"][0]["device_path"] == project["connected"] + "/.gitignore"
 
-    @pytest.mark.spec("render-command-prints-field-pointer")
+    @pytest.mark.spec("render-cmd-prints-field-pointer")
     def it_tells_claude_to_read_the_file_when_the_project_is_the_connected_folder(
         self, runner, make_answers, project
     ):
@@ -86,7 +86,7 @@ class DescribeACleanRender:
         assert project["project"] in pointer
         assert "\n" not in pointer
 
-    @pytest.mark.spec("render-command-prints-field-pointer", "repo:command-splits-output-streams")
+    @pytest.mark.spec("render-cmd-prints-field-pointer", "repo:command-splits-output-streams")
     def it_prints_the_pointer_in_its_plain_output(self, runner, make_answers, project):
         path = runner.tmp / "answers.json"
         path.write_text(json.dumps(make_answers(project_folder=None)))
@@ -128,7 +128,7 @@ class DescribeACleanRender:
 
 
 class DescribeTheInstructions:
-    @pytest.mark.spec("render-command-accepts-null-instructions")
+    @pytest.mark.spec("render-cmd-accepts-null-instructions")
     def it_writes_only_the_header_when_the_field_is_empty(self, runner, make_answers):
         runner.render(make_answers())
         text = runner.staged("CLAUDE.md")
@@ -142,7 +142,7 @@ class DescribeTheInstructions:
         assert re.match(r"# Foo Research\n\s*## Git history\n", text)
         assert "This note" not in text
 
-    @pytest.mark.spec("render-command-copies-instructions-verbatim")
+    @pytest.mark.spec("render-cmd-copies-instructions-verbatim")
     def it_copies_the_field_verbatim_after_the_header(self, runner, make_answers):
         field = "I am a {{PROJECT_NAME}} fan.\n\n- Budget: $500 <!-- a note -->\n"
         runner.render(make_answers())
@@ -152,7 +152,7 @@ class DescribeTheInstructions:
         assert code == gitify.OK, env["errors"]
         assert runner.staged("CLAUDE.md") == header + "\n" + field
 
-    @pytest.mark.spec("render-command-copies-instructions-verbatim")
+    @pytest.mark.spec("render-cmd-copies-instructions-verbatim")
     def it_ends_the_copied_field_with_a_newline(self, runner, make_answers):
         runner.render(make_answers(instructions="no newline at the end"))
         assert runner.staged("CLAUDE.md").endswith("\n\nno newline at the end\n")
@@ -165,7 +165,7 @@ class DescribeTheInstructions:
             (["a"], "must be the field's text"),
         ],
     )
-    @pytest.mark.spec("render-command-accepts-null-instructions")
+    @pytest.mark.spec("render-cmd-accepts-null-instructions")
     def it_rejects_instructions_that_are_not_text(self, runner, make_answers, value, message):
         code, env = runner.render(make_answers(instructions=value))
         assert code == gitify.PROBLEMS
@@ -213,13 +213,13 @@ class DescribeTheHistorySection:
 
 
 class DescribeTheIgnorePatterns:
-    @pytest.mark.spec("render-command-appends-ignore-patterns")
+    @pytest.mark.spec("render-cmd-appends-ignore-patterns")
     def it_appends_them_under_their_own_heading(self, runner, make_answers):
         runner.render(make_answers(ignore=["exports/", "*.mov"]))
         text = runner.staged(".gitignore")
         assert text.endswith("Claude outputs/\n\n# This project\nexports/\n*.mov\n")
 
-    @pytest.mark.spec("render-command-appends-ignore-patterns")
+    @pytest.mark.spec("render-cmd-appends-ignore-patterns")
     def it_leaves_the_template_as_it_is_when_there_are_none(self, runner, make_answers):
         runner.render(make_answers(ignore=[]))
         template = (runner.templates_copy() / "gitignore").read_text()
@@ -234,7 +234,7 @@ class DescribeTheIgnorePatterns:
             ("*.mov", "must be a list"),
         ],
     )
-    @pytest.mark.spec("render-command-appends-ignore-patterns")
+    @pytest.mark.spec("render-cmd-appends-ignore-patterns")
     def it_rejects_a_bad_pattern_and_writes_nothing(self, runner, make_answers, value, message):
         code, env = runner.render(make_answers(ignore=value))
         assert code == gitify.PROBLEMS
@@ -358,7 +358,7 @@ class DescribeRefusingToRun:
 
 
 class DescribeLeftovers:
-    @pytest.mark.spec("render-command-refuses-leftover-placeholders")
+    @pytest.mark.spec("render-cmd-refuses-leftover-placeholders")
     def it_stops_render_when_a_template_placeholder_has_no_value(self, runner, make_answers):
         # preflight names an unknown placeholder; this is what stops one that
         # reached render anyway from landing in a project.
@@ -380,11 +380,11 @@ class DescribeLeftovers:
         assert "CLAUDE.md: output still contains {{, }}" in env["errors"]
         assert_nothing_staged(runner)
 
-    @pytest.mark.spec("render-command-refuses-leftover-placeholders")
+    @pytest.mark.spec("render-cmd-refuses-leftover-placeholders")
     @pytest.mark.parametrize("text", ["{{PROJECT_NAME}}", "a }} b", "{{ x"])
     def it_names_a_surviving_placeholder_or_brace(self, text):
         assert gitify.leftovers(text)
 
-    @pytest.mark.spec("render-command-refuses-leftover-placeholders")
+    @pytest.mark.spec("render-cmd-refuses-leftover-placeholders")
     def it_passes_text_with_no_braces(self):
         assert gitify.leftovers("# Foo\n") == []

@@ -37,7 +37,7 @@ class DescribePlanOneInsert:
 class DescribeSegmentsFor:
     """Which spans of a document are offered up for review at all."""
 
-    @pytest.mark.spec("segments-command-gives-prose-only")
+    @pytest.mark.spec("segments-cmd-gives-prose-only")
     def it_skips_protected_regions(self, sample):
         """Front matter and code are not prose. Offering them for review invites
         a rewrite of a config key or a variable name.
@@ -48,7 +48,7 @@ class DescribeSegmentsFor:
         assert not any("x = 1" in b for b in bodies)
         assert not any("title: sample" in b for b in bodies)
 
-    @pytest.mark.spec("segments-command-gives-prose-only")
+    @pytest.mark.spec("segments-cmd-gives-prose-only")
     def it_includes_table_cells_and_headings(self, sample):
         text = prose.Text(sample)
         kinds = {s["kind"] for s in prose.segments_for(text, prose.Blocks(text))}
@@ -73,7 +73,7 @@ class DescribeRefusalsTheRoundTripPropertyFound:
             prose.plan_one_insert(text, prose.Blocks(text), record, "sample.md", 1)
         return str(caught.value)
 
-    @pytest.mark.spec("insert-command-refuses-questions-in-structure")
+    @pytest.mark.spec("insert-cmd-refuses-questions-in-structure")
     def it_refuses_a_question_inside_a_fence(self, sample):
         """A <q> goes in as a new line, so it skipped the span check that
         refuses a <del> on the same line. Inside a fence the scanner then
@@ -84,7 +84,7 @@ class DescribeRefusalsTheRoundTripPropertyFound:
             sample, {"kind": "q", "start": 19, "text": "does this belong here?"}
         )
 
-    @pytest.mark.spec("insert-command-places-questions")
+    @pytest.mark.spec("insert-cmd-places-questions")
     def it_allows_a_question_above_a_heading(self, sample):
         """The other side of that fix. A new line above a heading leaves the
         heading alone, so refusing it would be over-correction.
@@ -385,7 +385,7 @@ class DescribeInsertCommand:
         token = prose_repo.evidence_token()
         return prose_repo.run("tags", "insert", "--batch", str(batch), "--token", token, *flags)
 
-    @pytest.mark.spec("insert-command-places-questions")
+    @pytest.mark.spec("insert-cmd-places-questions")
     def it_reads_a_batch_file_and_writes_its_tags(self, prose_repo, target):
         record = {"file": "target.md", "kind": "q", "start": 8, "text": "earned?"}
         code, envelope = self.insert(prose_repo, json.dumps([record]))
@@ -491,7 +491,7 @@ class DescribeInsertCommand:
         assert code == prose.PROBLEMS
         assert envelope["errors"][0] == "gone.md  no such file"
 
-    @pytest.mark.spec("insert-command-places-questions")
+    @pytest.mark.spec("insert-cmd-places-questions")
     def it_numbers_a_question_after_the_highest_id_in_scope(self, prose_repo, target):
         """Ids are unique across the project, so the author's answer in one
         file cannot be read as the answer to a question in another.

@@ -210,6 +210,7 @@ ROLES = ("owner", "agent", "contributor", "model", "user")
 MODALS = ("can", "cannot", "may", "must")
 ADVERBS = ("never", "only")
 ID_WORDS = (2, 5)
+CMD = "cmd"
 COMMAND = "command"
 ID_FORM = 'SPEC-METHODOLOGY.md, under "Ids", has the form.'
 TEST, STEP, CHECK, EVAL = "test", "step", "check", "eval"
@@ -1369,14 +1370,17 @@ def id_form(kind, rid):
     """Why an id of this kind breaks the form SPEC-METHODOLOGY.md states, or None.
 
     Word 1 is the subject, and a need's is a role. A command's name takes
-    `command` after it, which the word count leaves out. Then comes its verb
+    `cmd` after it, which the word count leaves out. Then comes its verb
     ending in `s`, or a modal and then the verb, or an adverb and then a verb
     ending in `s`. Whether word 1 names a command is the writer's to say, so a
-    command without `command` passes.
+    command without `cmd` passes. `command` in word 2 fails, since it sits
+    where the marker goes; as word 1 it is an ordinary subject.
     """
     words = rid.split("-")
     rest = words[1:]
     if rest and rest[0] == COMMAND:
+        return "`%s` sits where a command's marker goes, and the marker is `%s`" % (COMMAND, CMD)
+    if rest and rest[0] == CMD:
         rest = rest[1:]
     low, high = ID_WORDS
     counted = 1 + len(rest)

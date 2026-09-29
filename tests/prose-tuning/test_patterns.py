@@ -58,23 +58,23 @@ def rule_with(line):
 
 
 class DescribePatternLines:
-    @pytest.mark.spec("config-command-reads-pattern-lines")
+    @pytest.mark.spec("config-cmd-reads-pattern-lines")
     def it_reads_every_pattern_a_rule_carries(self, config_from):
         config = config_from(STYLE)
         assert config.by_id()[RULE].patterns == [(16, "(?i)in order to"), (17, "—")]
         assert not config.errors
 
-    @pytest.mark.spec("config-command-reads-pattern-lines")
+    @pytest.mark.spec("config-cmd-reads-pattern-lines")
     def it_reads_a_pattern_fenced_in_two_backticks(self, config_from):
         config = config_from(rule_with("**Pattern.** `` `x` ``"))
         assert config.by_id()[RULE].patterns[0] == (16, "`x`")
 
-    @pytest.mark.spec("config-command-reads-pattern-lines")
+    @pytest.mark.spec("config-cmd-reads-pattern-lines")
     def it_lists_the_patterns_with_the_rule(self, config_from):
         rule = config_from(STYLE).by_id()[RULE].as_dict()
         assert rule["patterns"] == ["(?i)in order to", "—"]
 
-    @pytest.mark.spec("lint-command-checks-patterns")
+    @pytest.mark.spec("lint-cmd-checks-patterns")
     @pytest.mark.parametrize(
         ("line", "message"),
         [
@@ -93,7 +93,7 @@ class DescribePatternLines:
         assert ":16  " in envelope["errors"][0]
         assert message in envelope["errors"][0]
 
-    @pytest.mark.spec("lint-command-checks-patterns")
+    @pytest.mark.spec("lint-cmd-checks-patterns")
     @pytest.mark.parametrize(
         ("line", "message"),
         [
@@ -109,7 +109,7 @@ class DescribePatternLines:
         assert [e for e in envelope["errors"] if message in e] != []
         assert len(envelope["errors"]) == 1
 
-    @pytest.mark.spec("lint-command-checks-patterns")
+    @pytest.mark.spec("lint-cmd-checks-patterns")
     def it_leaves_the_patterns_of_a_rule_with_no_example_unchecked(self, config_from):
         style = rule_with("**Pattern.** `ship`").replace(
             "> **Before.** In order to run it.\n> **After.** To run it.\n", ""
@@ -120,7 +120,7 @@ class DescribePatternLines:
 
 
 class DescribePatternMatches:
-    @pytest.mark.spec("patterns-command-prints-each-match")
+    @pytest.mark.spec("patterns-cmd-prints-each-match")
     def it_finds_a_match_on_one_line(self, tmp_path):
         got = matches(tmp_path, "We did it in order to ship.\n")
         assert got == [
@@ -134,18 +134,18 @@ class DescribePatternMatches:
             }
         ]
 
-    @pytest.mark.spec("patterns-command-prints-each-match")
+    @pytest.mark.spec("patterns-cmd-prints-each-match")
     def it_finds_a_match_that_wraps_across_a_line_break(self, tmp_path):
         got = matches(tmp_path, "We did it in order\n  to ship.\n")
         assert [(m["line"], m["end_line"], m["text"]) for m in got] == [(1, 2, "in order\n  to")]
         assert (got[0]["col_start"], got[0]["col_end"]) == (10, 4)
 
-    @pytest.mark.spec("patterns-command-prints-each-match")
+    @pytest.mark.spec("patterns-cmd-prints-each-match")
     def it_finds_a_match_that_wraps_within_a_list_item(self, tmp_path):
         got = matches(tmp_path, "- We did it in order\n  to ship.\n")
         assert [m["text"] for m in got] == ["in order\n  to"]
 
-    @pytest.mark.spec("segments-command-gives-prose-only")
+    @pytest.mark.spec("segments-cmd-gives-prose-only")
     @pytest.mark.parametrize(
         "doc",
         [
@@ -161,7 +161,7 @@ class DescribePatternMatches:
     def it_never_reads_what_segments_leaves_out(self, tmp_path, doc):
         assert matches(tmp_path, doc) == []
 
-    @pytest.mark.spec("patterns-command-prints-each-match")
+    @pytest.mark.spec("patterns-cmd-prints-each-match")
     @pytest.mark.parametrize(
         "doc",
         [
@@ -175,7 +175,7 @@ class DescribePatternMatches:
     def it_does_not_read_on_past_the_end_of_a_passage(self, tmp_path, doc):
         assert matches(tmp_path, doc) == []
 
-    @pytest.mark.spec("patterns-command-prints-each-match")
+    @pytest.mark.spec("patterns-cmd-prints-each-match")
     def it_leaves_a_line_break_at_the_edge_of_a_match_out_of_its_text(self, tmp_path):
         style = rule_with(r"**Pattern.** `\sto\s`")
         got = matches(tmp_path, "We did it in order to\n  ship.\n", style)
@@ -184,12 +184,12 @@ class DescribePatternMatches:
         got = matches(tmp_path, "We did it in order\n  to ship.\n", style)
         assert [(m["line"], m["col_start"], m["text"]) for m in got] == [(2, 2, "to")]
 
-    @pytest.mark.spec("patterns-command-prints-each-match")
+    @pytest.mark.spec("patterns-cmd-prints-each-match")
     def it_reports_a_place_two_patterns_of_one_rule_share_once(self, tmp_path):
         style = rule_with("**Pattern.** `order`\n**Pattern.** `(?i)ORDER`")
         assert [m["text"] for m in matches(tmp_path, "In order.\n", style)] == ["order"]
 
-    @pytest.mark.spec("patterns-command-prints-each-match")
+    @pytest.mark.spec("patterns-cmd-prints-each-match")
     def it_reports_nothing_for_a_match_of_only_the_break_between_two_lines(self, tmp_path):
         style = rule_with("**Pattern.** `(?<=ends)\\s`").replace(
             "> **Before.** In order to run it.\n> **After.** To run it.\n", ""
@@ -198,14 +198,14 @@ class DescribePatternMatches:
         assert config.by_id()[RULE].patterns[0][1] == "(?<=ends)\\s"
         assert matches(tmp_path, "One line ends\nand the next.\n", style) == []
 
-    @pytest.mark.spec("patterns-command-prints-each-match")
+    @pytest.mark.spec("patterns-cmd-prints-each-match")
     def it_leaves_out_a_match_in_a_code_span_that_holds_a_shorter_backtick_run(self, tmp_path):
         got = matches(tmp_path, "Run ``a ` in order to`` then in order to ship.\n")
         assert [m["col_start"] for m in got] == [29]
 
 
 class DescribePatternsCommand:
-    @pytest.mark.spec("patterns-command-prints-each-match")
+    @pytest.mark.spec("patterns-cmd-prints-each-match")
     def it_prints_each_match_with_its_address_rule_and_text(self, prose_repo, capsys):
         (prose_repo.root / prose.CONFIG_PATH).write_text(STYLE)
         (prose_repo.root / "doc.md").write_text("Intro — here.\n\nIt ran in order\n  to ship.\n")
@@ -218,7 +218,7 @@ class DescribePatternsCommand:
         ]
         assert out[-1].endswith("Checked by pattern: %s" % RULE)
 
-    @pytest.mark.spec("patterns-command-prints-each-match")
+    @pytest.mark.spec("patterns-cmd-prints-each-match")
     def it_hands_out_a_text_that_apply_accepts_as_a_finding(self, prose_repo):
         (prose_repo.root / prose.CONFIG_PATH).write_text(STYLE)
         (prose_repo.root / "doc.md").write_text("It ran in order\n  to ship.\n")
@@ -232,14 +232,14 @@ class DescribePatternsCommand:
         assert code == prose.OK
         assert prose_repo.read("doc.md") == "It ran to ship.\n"
 
-    @pytest.mark.spec("patterns-command-refuses-unlinted-rules")
+    @pytest.mark.spec("patterns-cmd-refuses-unlinted-rules")
     def it_refuses_to_run_on_a_rule_file_lint_refuses(self, prose_repo):
         (prose_repo.root / prose.CONFIG_PATH).write_text(rule_with("**Pattern.** `(`"))
         code, envelope = prose_repo.run("patterns")
         assert code == prose.PROBLEMS
         assert envelope["data"] == {}
 
-    @pytest.mark.spec("segments-command-reads-scope-by-default")
+    @pytest.mark.spec("segments-cmd-reads-scope-by-default")
     def it_names_a_file_given_that_does_not_exist(self, prose_repo):
         (prose_repo.root / prose.CONFIG_PATH).write_text(STYLE)
         code, envelope = prose_repo.run("patterns", "target.md", "missing.md")
@@ -247,7 +247,7 @@ class DescribePatternsCommand:
         assert envelope["errors"] == ["missing.md  no such file"]
         assert envelope["data"]["files"] == 2
 
-    @pytest.mark.spec("patterns-command-prints-each-match")
+    @pytest.mark.spec("patterns-cmd-prints-each-match")
     def it_says_so_when_no_rule_carries_a_pattern(self, prose_repo):
         code, envelope = prose_repo.run("patterns")
         assert code == prose.OK
@@ -280,7 +280,7 @@ def dismissal(prose_repo):
 
 
 class DescribeReportOnPatterns:
-    @pytest.mark.spec("report-command-names-pattern-rules")
+    @pytest.mark.spec("report-cmd-names-pattern-rules")
     def it_names_the_rules_checked_by_pattern(self, prose_repo, capsys):
         (prose_repo.root / prose.CONFIG_PATH).write_text(STYLE)
         finding = prose_repo.finding(7, text="Curated, not collected.")
@@ -290,7 +290,7 @@ class DescribeReportOnPatterns:
         assert code == prose.OK
         assert ("checked by pattern: %s. Every other rule was checked by reading." % RULE) in out
 
-    @pytest.mark.spec("report-command-fails-uncovered-matches")
+    @pytest.mark.spec("report-cmd-fails-uncovered-matches")
     def it_names_an_uncovered_match(self, prose_repo):
         patterned_doc(prose_repo)
         code, envelope = prose_repo.report([rewrite(prose_repo)])
@@ -301,7 +301,7 @@ class DescribeReportOnPatterns:
         assert [(m["file"], m["line"]) for m in envelope["data"]["uncovered"]] == [("doc.md", 3)]
         assert envelope["data"]["token"] is None
 
-    @pytest.mark.spec("report-command-fails-uncovered-matches")
+    @pytest.mark.spec("report-cmd-fails-uncovered-matches")
     def it_counts_a_finding_that_contains_the_match_as_covering(self, prose_repo):
         patterned_doc(prose_repo)
         finding = prose_repo.finding(
@@ -311,7 +311,7 @@ class DescribeReportOnPatterns:
         assert code == prose.OK, envelope["errors"]
         assert envelope["data"]["uncovered"] == []
 
-    @pytest.mark.spec("report-command-fails-uncovered-matches")
+    @pytest.mark.spec("report-cmd-fails-uncovered-matches")
     def it_does_not_count_a_finding_of_another_rule_as_covering(self, prose_repo):
         patterned_doc(prose_repo)
         other = prose_repo.finding(3, file="doc.md", text="In order to ship", replacement="To ship")
@@ -319,7 +319,7 @@ class DescribeReportOnPatterns:
         assert code == prose.PROBLEMS
         assert [m["line"] for m in envelope["data"]["uncovered"]] == [3]
 
-    @pytest.mark.spec("report-command-fails-uncovered-matches")
+    @pytest.mark.spec("report-cmd-fails-uncovered-matches")
     def it_counts_a_finding_on_a_line_outside_the_file_as_covering_nothing(self, prose_repo):
         patterned_doc(prose_repo)
         stray = prose_repo.finding(99, file="doc.md", rule=RULE, text="In order to")
@@ -328,7 +328,7 @@ class DescribeReportOnPatterns:
         assert "doc.md:99  line is outside the file" in envelope["errors"]
         assert [m["line"] for m in envelope["data"]["uncovered"]] == [3]
 
-    @pytest.mark.spec("report-command-fails-uncovered-matches")
+    @pytest.mark.spec("report-cmd-fails-uncovered-matches")
     def it_counts_a_dismissal_as_covering(self, prose_repo):
         patterned_doc(prose_repo)
         code, envelope = prose_repo.report([rewrite(prose_repo), dismissal(prose_repo)])
@@ -345,7 +345,7 @@ class DescribeReportOnPatterns:
         ]
         assert envelope["data"]["token"]
 
-    @pytest.mark.spec("apply-command-honors-dismissals")
+    @pytest.mark.spec("apply-cmd-honors-dismissals")
     def it_prints_a_dismissal_with_its_reason(self, prose_repo, capsys):
         patterned_doc(prose_repo)
         path = prose_repo.findings_file([rewrite(prose_repo), dismissal(prose_repo)])
@@ -359,7 +359,7 @@ class DescribeReportOnPatterns:
             "  dismissed %s\n" % (RULE, REASON)
         ) in out
 
-    @pytest.mark.spec("report-command-fails-uncovered-matches")
+    @pytest.mark.spec("report-cmd-fails-uncovered-matches")
     def it_checks_a_file_with_no_finding(self, prose_repo):
         (prose_repo.root / prose.CONFIG_PATH).write_text(STYLE)
         (prose_repo.root / "other.md").write_text("In order to run it.\n")
@@ -375,7 +375,7 @@ class DescribeReportOnPatterns:
         code, envelope = prose_repo.report(findings, "--only", RULE_OWN)
         assert code == prose.OK, envelope["errors"]
 
-    @pytest.mark.spec("patterns-command-refuses-unlinted-rules")
+    @pytest.mark.spec("patterns-cmd-refuses-unlinted-rules")
     def it_refuses_to_report_on_a_rule_file_lint_refuses(self, prose_repo):
         patterned_doc(prose_repo)
         (prose_repo.root / prose.CONFIG_PATH).write_text(rule_with("**Pattern.** `(`"))
@@ -385,7 +385,7 @@ class DescribeReportOnPatterns:
 
 
 class DescribeDismissal:
-    @pytest.mark.spec("apply-command-honors-dismissals")
+    @pytest.mark.spec("apply-cmd-honors-dismissals")
     def it_rejects_dismiss_with_replacement(self, prose_repo):
         patterned_doc(prose_repo)
         both = dict(dismissal(prose_repo), replacement="To")
@@ -398,7 +398,7 @@ class DescribeDismissal:
         assert code == prose.PROBLEMS
         assert prose_repo.read("doc.md") == PATTERNED_DOC
 
-    @pytest.mark.spec("apply-command-honors-dismissals")
+    @pytest.mark.spec("apply-cmd-honors-dismissals")
     def it_rejects_a_dismissal_with_no_reason(self, prose_repo):
         patterned_doc(prose_repo)
         empty = dict(dismissal(prose_repo), dismiss=" ")
@@ -406,7 +406,7 @@ class DescribeDismissal:
         assert code == prose.PROBLEMS
         assert "doc.md:3  finding 2: dismiss needs a reason the match stays" in envelope["errors"]
 
-    @pytest.mark.spec("apply-command-honors-dismissals")
+    @pytest.mark.spec("apply-cmd-honors-dismissals")
     def it_does_not_apply_a_dismissal(self, prose_repo):
         patterned_doc(prose_repo)
         code, envelope = prose_repo.apply([rewrite(prose_repo), dismissal(prose_repo)])

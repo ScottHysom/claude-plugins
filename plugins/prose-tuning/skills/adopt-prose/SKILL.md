@@ -47,7 +47,7 @@ python3 "$PROSE" config list --file <target> --json
 malformed file, and the errors then look like they came from the merge.
 
 ## Step 2: classify
-<!-- spec: classify-command-finds-new-rules, classify-command-finds-identical-rules, classify-command-finds-colliding-rules, classify-command-finds-similar-rules, adoptprose-rereads-new-rules -->
+<!-- spec: classify-cmd-finds-new-rules, classify-cmd-finds-identical-rules, classify-cmd-finds-colliding-rules, classify-cmd-finds-similar-rules, adoptprose-rereads-new-rules -->
 
 ```sh
 python3 "$PROSE" config classify --file <source> --to <target> --json
@@ -78,7 +78,7 @@ common. This is judgment, and it is the part of this step the script cannot do.
 The identical and colliding buckets are exact, so leave them as they came.
 
 ## Step 3: adopt the new rules
-<!-- spec: adoptprose-passes-each-new-rule, adopt-command-copies-byte-for-byte, adopt-command-places-by-section -->
+<!-- spec: adoptprose-passes-each-new-rule, adopt-cmd-copies-byte-for-byte, adopt-cmd-places-by-section -->
 
 ```sh
 python3 "$PROSE" config adopt --file <source> --to <target> --rule <id> --rule <id> --json

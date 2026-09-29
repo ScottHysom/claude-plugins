@@ -131,7 +131,7 @@ DISTINCT = {
 
 
 class DescribeRepeats:
-    @pytest.mark.spec("repeats-command-fails-copied-blocks")
+    @pytest.mark.spec("repeats-cmd-fails-copied-blocks")
     def it_names_both_files_when_two_skills_share_a_paragraph(self, make_repo, run):
         root = make_repo({A: skill("a", "Intro a.\n\n" + SHARED), B: skill("b", SHARED)})
         code, _, err = run("repeats", "-C", str(root))
@@ -140,20 +140,20 @@ class DescribeRepeats:
         assert B + ":" in err
         assert "plugins/foo/reference/" in err
 
-    @pytest.mark.spec("repeats-command-fails-copied-blocks")
+    @pytest.mark.spec("repeats-cmd-fails-copied-blocks")
     def it_gives_the_line_each_copy_starts_on(self, make_repo, run):
         root = make_repo({A: skill("a", "Intro a.\n\n" + SHARED), B: skill("b", SHARED)})
         _, _, err = run("repeats", "-C", str(root))
         assert A + ":10" in err
         assert B + ":8" in err
 
-    @pytest.mark.spec("repeats-command-fails-copied-blocks")
+    @pytest.mark.spec("repeats-cmd-fails-copied-blocks")
     def it_ignores_differences_in_whitespace(self, make_repo, run):
         root = make_repo({A: skill("a", SHARED), B: skill("b", SHARED_REWRAPPED)})
         code, _, _ = run("repeats", "-C", str(root))
         assert code == cs.PROBLEMS
 
-    @pytest.mark.spec("repeats-command-fails-copied-blocks")
+    @pytest.mark.spec("repeats-cmd-fails-copied-blocks")
     def it_catches_one_list_item_copied_into_different_lists(self, make_repo, run):
         root = make_repo(
             {
@@ -165,7 +165,7 @@ class DescribeRepeats:
         assert code == cs.PROBLEMS
         assert "the copied bullet" in err
 
-    @pytest.mark.spec("repeats-command-fails-copied-blocks")
+    @pytest.mark.spec("repeats-cmd-fails-copied-blocks")
     def it_catches_a_repeated_code_block(self, make_repo, run):
         fence = "```sh\npython3 foo.py lint\n\npython3 foo.py list\n```\n"
         root = make_repo({A: skill("a", fence), B: skill("b", "Intro.\n\n" + fence)})
@@ -173,14 +173,14 @@ class DescribeRepeats:
         assert code == cs.PROBLEMS
         assert any("foo.py lint" in e and "foo.py list" in e for e in err.splitlines())
 
-    @pytest.mark.spec("repeats-command-passes-exempt-blocks")
+    @pytest.mark.spec("repeats-cmd-passes-exempt-blocks")
     def it_exempts_the_section_that_locates_the_script(self, make_repo, run):
         root = make_repo(DISTINCT)
         code, out, _ = run("repeats", "-C", str(root))
         assert code == cs.OK
         assert "no block repeated" in out
 
-    @pytest.mark.spec("repeats-command-passes-exempt-blocks")
+    @pytest.mark.spec("repeats-cmd-passes-exempt-blocks")
     def it_checks_the_section_after_the_one_that_locates_the_script(self, make_repo, run):
         body = LOCATE + "## Step 1\n\n" + SHARED
         root = make_repo({A: skill("a", body), B: skill("b", body)})
@@ -188,7 +188,7 @@ class DescribeRepeats:
         assert code == cs.PROBLEMS
         assert "Report first" in err
 
-    @pytest.mark.spec("repeats-command-passes-exempt-blocks")
+    @pytest.mark.spec("repeats-cmd-passes-exempt-blocks")
     def it_checks_a_section_whose_heading_differs_from_the_exception(self, make_repo, run):
         body = "## Locate the scripts\n\n" + SHARED
         root = make_repo(
@@ -201,7 +201,7 @@ class DescribeRepeats:
         assert code == cs.PROBLEMS
         assert "Report first" in err
 
-    @pytest.mark.spec("repeats-command-only-compares-sibling-skills")
+    @pytest.mark.spec("repeats-cmd-only-compares-sibling-skills")
     def it_allows_a_paragraph_repeated_across_plugins(self, make_repo, run):
         root = make_repo(
             {A: skill("a", SHARED), "plugins/bar/skills/c/SKILL.md": skill("c", SHARED)}
@@ -209,13 +209,13 @@ class DescribeRepeats:
         code, _, _ = run("repeats", "-C", str(root))
         assert code == cs.OK
 
-    @pytest.mark.spec("repeats-command-only-compares-sibling-skills")
+    @pytest.mark.spec("repeats-cmd-only-compares-sibling-skills")
     def it_allows_a_paragraph_repeated_within_one_skill(self, make_repo, run):
         root = make_repo({A: skill("a", SHARED + "\n" + SHARED), B: skill("b", "Other.\n")})
         code, _, _ = run("repeats", "-C", str(root))
         assert code == cs.OK
 
-    @pytest.mark.spec("repeats-command-passes-exempt-blocks")
+    @pytest.mark.spec("repeats-cmd-passes-exempt-blocks")
     def it_ignores_repeated_headings(self, make_repo, run):
         root = make_repo(
             {
@@ -226,7 +226,7 @@ class DescribeRepeats:
         code, _, _ = run("repeats", "-C", str(root))
         assert code == cs.OK
 
-    @pytest.mark.spec("repeats-command-skips-markers")
+    @pytest.mark.spec("repeats-cmd-skips-markers")
     def it_ignores_a_marker_two_skills_share(self, make_repo, run):
         shared = "<!-- spec: one-question-round -->\n"
         root = make_repo(
@@ -238,14 +238,14 @@ class DescribeRepeats:
         code, _, err = run("repeats", "-C", str(root))
         assert code == cs.OK, err
 
-    @pytest.mark.spec("repeats-command-passes-exempt-blocks")
+    @pytest.mark.spec("repeats-cmd-passes-exempt-blocks")
     def it_ignores_front_matter(self, make_repo, run):
         front = "---\nname: same\ndescription: same\n---\n\n"
         root = make_repo({A: front + "Only a.\n", B: front + "Only b.\n"})
         code, _, _ = run("repeats", "-C", str(root))
         assert code == cs.OK
 
-    @pytest.mark.spec("checkskills-command-reads-worktree-files")
+    @pytest.mark.spec("checkskills-cmd-reads-worktree-files")
     def it_sees_a_skill_that_is_not_yet_tracked(self, make_repo, run):
         root = make_repo({A: skill("a", SHARED)})
         (root / "plugins/foo/skills/b").mkdir(parents=True)
@@ -254,14 +254,14 @@ class DescribeRepeats:
         assert code == cs.PROBLEMS
         assert B in err
 
-    @pytest.mark.spec("repeats-command-scans-something")
+    @pytest.mark.spec("repeats-cmd-scans-something")
     def it_fails_when_no_skill_file_exists(self, make_repo, run):
         root = make_repo({"README.md": "nothing here\n"})
         code, _, err = run("repeats", "-C", str(root))
         assert code == cs.PROBLEMS
         assert "scanning nothing" in err
 
-    @pytest.mark.spec("repeats-command-scans-something")
+    @pytest.mark.spec("repeats-cmd-scans-something")
     def it_fails_when_a_skill_file_yields_no_blocks(self, make_repo, run):
         root = make_repo({A: "---\nname: a\n---\n\n# a\n\n" + LOCATE, B: skill("b", "Only b.\n")})
         code, _, err = run("repeats", "-C", str(root))
@@ -269,7 +269,7 @@ class DescribeRepeats:
         assert A in err
         assert "gone blind" in err
 
-    @pytest.mark.spec("repeats-command-fails-copied-blocks")
+    @pytest.mark.spec("repeats-cmd-fails-copied-blocks")
     def it_accepts_the_repo_as_it_stands(self, run):
         code, _, _ = run("repeats", "-C", str(REPO_ROOT))
         assert code == cs.OK
@@ -279,7 +279,7 @@ SKILL = "plugins/foo/skills/foo/SKILL.md"
 
 
 class DescribeDescriptions:
-    @pytest.mark.spec("descriptions-command-passes-lone-less-than")
+    @pytest.mark.spec("descriptions-cmd-passes-lone-less-than")
     def it_passes_a_description_with_no_tag(self, make_repo, run):
         root = make_repo({SKILL: described("Does foo. Use when asked to foo.")})
         code, out, err = run("descriptions", "-C", str(root))
@@ -287,7 +287,7 @@ class DescribeDescriptions:
         assert "1 skill description(s) clear" in out
         assert err == ""
 
-    @pytest.mark.spec("descriptions-command-fails-named-tags", "command-splits-output-streams")
+    @pytest.mark.spec("descriptions-cmd-fails-named-tags", "command-splits-output-streams")
     def it_fails_a_skill_whose_description_holds_a_tag(self, make_repo, run):
         root = make_repo({SKILL: described("Reads explicit <ins> markup.")})
         code, out, err = run("descriptions", "-C", str(root))
@@ -296,7 +296,7 @@ class DescribeDescriptions:
         assert out == ""
         assert 'COWORK.md, under "How skills load"' in err
 
-    @pytest.mark.spec("descriptions-command-fails-named-tags")
+    @pytest.mark.spec("descriptions-cmd-fails-named-tags")
     def it_fails_a_tag_on_a_continuation_line(self, make_repo, run):
         text = "---\nname: foo\ndescription: >\n  Does foo.\n  Reads <del> too.\n---\n"
         root = make_repo({SKILL: text})
@@ -306,7 +306,7 @@ class DescribeDescriptions:
         assert "`<del`" in err
 
     @pytest.mark.parametrize("tag", ["</del>", "<br/>", "<x:y>", "<Repl a='b'>"])
-    @pytest.mark.spec("descriptions-command-fails-named-tags")
+    @pytest.mark.spec("descriptions-cmd-fails-named-tags")
     def it_fails_a_closing_self_closing_or_attributed_tag(self, make_repo, run, tag):
         root = make_repo({SKILL: described("Handles %s markup." % tag)})
         code, _, err = run("descriptions", "-C", str(root))
@@ -314,13 +314,13 @@ class DescribeDescriptions:
         assert "XML-like tag" in err
 
     @pytest.mark.parametrize("text", ["Runs when a < b.", "Loves prose <3.", "Uses << and <-"])
-    @pytest.mark.spec("descriptions-command-passes-lone-less-than")
+    @pytest.mark.spec("descriptions-cmd-passes-lone-less-than")
     def it_passes_a_less_than_sign_not_followed_by_a_name(self, make_repo, run, text):
         root = make_repo({SKILL: described(text)})
         code, _, err = run("descriptions", "-C", str(root))
         assert code == cs.OK, err
 
-    @pytest.mark.spec("descriptions-command-reads-templates")
+    @pytest.mark.spec("descriptions-cmd-reads-templates")
     def it_checks_generated_skill_templates(self, make_repo, run):
         path = "plugins/foo/skills/foo/templates/history-skill.md"
         root = make_repo({SKILL: described("Does foo."), path: described("History for <b>it</b>.")})
@@ -330,7 +330,7 @@ class DescribeDescriptions:
         assert path in result["data"]["checked"]
         assert any(e.startswith(path + ":3:") for e in result["errors"])
 
-    @pytest.mark.spec("descriptions-command-only-checks-descriptions")
+    @pytest.mark.spec("descriptions-cmd-only-checks-descriptions")
     def it_ignores_front_matter_without_a_description(self, make_repo, run):
         style = "plugins/foo/templates/prose-style.md"
         root = make_repo({SKILL: described("Does foo."), style: "---\nname: <x>\n---\n"})
@@ -338,14 +338,14 @@ class DescribeDescriptions:
         assert code == cs.OK, err
         assert json.loads(out)["data"]["checked"] == [SKILL]
 
-    @pytest.mark.spec("descriptions-command-only-checks-descriptions")
+    @pytest.mark.spec("descriptions-cmd-only-checks-descriptions")
     def it_ignores_a_tag_in_the_skill_body(self, make_repo, run):
         text = described("Does foo.", body="Tag with <ins>.\ndescription: <del>\n")
         root = make_repo({SKILL: text})
         code, _, err = run("descriptions", "-C", str(root))
         assert code == cs.OK, err
 
-    @pytest.mark.spec("descriptions-command-only-checks-descriptions")
+    @pytest.mark.spec("descriptions-cmd-only-checks-descriptions")
     def it_stops_reading_at_the_end_of_the_front_matter(self, make_repo, run):
         other = "plugins/foo/notes.md"
         text = "---\nname: notes\n---\n\ndescription: <ins>\n"
@@ -354,20 +354,20 @@ class DescribeDescriptions:
         assert code == cs.OK, err
         assert json.loads(out)["data"]["checked"] == [SKILL]
 
-    @pytest.mark.spec("descriptions-command-only-checks-descriptions")
+    @pytest.mark.spec("descriptions-cmd-only-checks-descriptions")
     def it_stops_reading_the_description_at_the_next_key(self, make_repo, run):
         text = "---\nname: foo\ndescription: Does foo.\nmetadata:\n  note: <ins>\n---\n"
         root = make_repo({SKILL: text})
         code, _, err = run("descriptions", "-C", str(root))
         assert code == cs.OK, err
 
-    @pytest.mark.spec("descriptions-command-only-checks-descriptions")
+    @pytest.mark.spec("descriptions-cmd-only-checks-descriptions")
     def it_ignores_markdown_outside_plugins(self, make_repo, run):
         root = make_repo({SKILL: described("Does foo."), "docs/SKILL.md": described("<ins>")})
         code, _, err = run("descriptions", "-C", str(root))
         assert code == cs.OK, err
 
-    @pytest.mark.spec("checkskills-command-reads-worktree-files")
+    @pytest.mark.spec("checkskills-cmd-reads-worktree-files")
     def it_checks_a_committed_file(self, make_repo, run):
         root = make_repo({SKILL: described("Has <ins>.")})
         commit(root)
@@ -375,7 +375,7 @@ class DescribeDescriptions:
         assert code == cs.PROBLEMS
         assert SKILL in err
 
-    @pytest.mark.spec("checkskills-command-reads-worktree-files")
+    @pytest.mark.spec("checkskills-cmd-reads-worktree-files")
     def it_checks_a_file_git_is_not_yet_tracking(self, make_repo, run):
         root = make_repo({SKILL: described("Does foo.")})
         commit(root)
@@ -386,7 +386,7 @@ class DescribeDescriptions:
         assert code == cs.PROBLEMS
         assert new in err
 
-    @pytest.mark.spec("checkskills-command-reads-worktree-files")
+    @pytest.mark.spec("checkskills-cmd-reads-worktree-files")
     def it_skips_a_file_git_ignores(self, make_repo, run):
         ignored = "plugins/foo/skills/scratch/SKILL.md"
         root = make_repo(
@@ -399,7 +399,7 @@ class DescribeDescriptions:
         code, _, err = run("descriptions", "-C", str(root))
         assert code == cs.OK, err
 
-    @pytest.mark.spec("descriptions-command-scans-something")
+    @pytest.mark.spec("descriptions-cmd-scans-something")
     def it_fails_when_it_finds_no_descriptions(self, make_repo, run):
         root = make_repo({"plugins/foo/README.md": "# Foo\n"})
         code, _, err = run("descriptions", "-C", str(root))
@@ -418,7 +418,7 @@ class DescribeDescriptions:
         assert result["command"] == "descriptions"
         assert result["ok"] is False
 
-    @pytest.mark.spec("descriptions-command-reads-templates")
+    @pytest.mark.spec("descriptions-cmd-reads-templates")
     def it_passes_the_repo_as_it_stands(self, run):
         code, out, err = run("descriptions", "--json", "-C", str(REPO_ROOT))
         assert code == cs.OK, err
@@ -472,14 +472,14 @@ def sh(*lines):
 
 
 class DescribeCommands:
-    @pytest.mark.spec("commands-command-parses-invocations")
+    @pytest.mark.spec("commands-cmd-parses-invocations")
     def it_accepts_commands_the_script_has(self, make_repo, run):
         root = make_repo(uses(sh('python3 "$FOO" lint --json', 'python3 "$FOO" config list')))
         code, out, err = run("commands", "-C", str(root))
         assert code == cs.OK, err
         assert "2 invocation(s) in 1 file(s)" in out
 
-    @pytest.mark.spec("commands-command-parses-invocations", "command-splits-output-streams")
+    @pytest.mark.spec("commands-cmd-parses-invocations", "command-splits-output-streams")
     def it_rejects_an_unknown_subcommand(self, make_repo, run):
         root = make_repo(uses(sh('python3 "$FOO" config nope')))
         code, out, err = run("commands", "-C", str(root))
@@ -489,14 +489,14 @@ class DescribeCommands:
         assert "nope" in err
         assert "invalid choice" in err
 
-    @pytest.mark.spec("commands-command-parses-invocations")
+    @pytest.mark.spec("commands-cmd-parses-invocations")
     def it_rejects_an_unknown_flag(self, make_repo, run):
         root = make_repo(uses(sh('python3 "$FOO" lint --fix')))
         code, _, err = run("commands", "-C", str(root))
         assert code == cs.PROBLEMS
         assert "unrecognized arguments: --fix" in err
 
-    @pytest.mark.spec("commands-command-finds-named-script")
+    @pytest.mark.spec("commands-cmd-finds-named-script")
     def it_reads_the_prefix_form(self, make_repo, run):
         root = make_repo(
             {
@@ -513,7 +513,7 @@ class DescribeCommands:
         assert found["argv"] == ["lint", "--bad"]
         assert any(e.startswith(FOO_REFERENCE + ":2:") for e in body["errors"])
 
-    @pytest.mark.spec("commands-command-finds-named-script")
+    @pytest.mark.spec("commands-cmd-finds-named-script")
     def it_reads_a_variable_a_sibling_file_sets(self, make_repo, run):
         files = uses(sh('python3 "$FOO" lint'))
         files[FOO_REFERENCE] = sh('python3 "$FOO" config list --json')
@@ -523,7 +523,7 @@ class DescribeCommands:
         paths = [i["path"] for i in json.loads(out)["data"]["invocations"]]
         assert FOO_REFERENCE in paths
 
-    @pytest.mark.spec("commands-command-handles-fence-syntax")
+    @pytest.mark.spec("commands-cmd-handles-fence-syntax")
     def it_accepts_placeholders_and_optional_parts(self, make_repo, run):
         fence = sh(
             'python3 "$FOO" lint --file <two words> \\',
@@ -535,14 +535,14 @@ class DescribeCommands:
         [found] = json.loads(out)["data"]["invocations"]
         assert found["argv"] == ["lint", "--file", cs.PLACEHOLDER, "--json"]
 
-    @pytest.mark.spec("commands-command-handles-fence-syntax")
+    @pytest.mark.spec("commands-cmd-handles-fence-syntax")
     def it_checks_the_flag_inside_an_optional_part(self, make_repo, run):
         root = make_repo(uses(sh('python3 "$FOO" lint [--fix]')))
         code, _, err = run("commands", "-C", str(root))
         assert code == cs.PROBLEMS
         assert "--fix" in err
 
-    @pytest.mark.spec("commands-command-handles-fence-syntax")
+    @pytest.mark.spec("commands-cmd-handles-fence-syntax")
     def it_does_not_read_a_heredoc_body(self, make_repo, run):
         fence = sh(
             "python3 \"$FOO\" lint --file - <<'END'",
@@ -556,7 +556,7 @@ class DescribeCommands:
         argvs = [i["argv"] for i in json.loads(out)["data"]["invocations"]]
         assert argvs == [["lint", "--file", "-"], ["config", "list"]]
 
-    @pytest.mark.spec("commands-command-handles-fence-syntax")
+    @pytest.mark.spec("commands-cmd-handles-fence-syntax")
     def it_skips_a_fence_that_is_not_shell(self, make_repo, run):
         fence = sh('python3 "$FOO" lint') + '\n```\npython3 "$FOO" nope\n```\n'
         fence += '\n```text\npython3 "$FOO" nope\n```\n'
@@ -564,7 +564,7 @@ class DescribeCommands:
         code, _, err = run("commands", "-C", str(root))
         assert code == cs.OK, err
 
-    @pytest.mark.spec("commands-command-handles-fence-syntax")
+    @pytest.mark.spec("commands-cmd-handles-fence-syntax")
     def it_reads_a_fence_indented_in_a_list(self, make_repo, run):
         fence = '1. Run it:\n\n   ```sh\n   python3 "$FOO" nope\n   ```\n'
         root = make_repo(uses(fence))
@@ -572,7 +572,7 @@ class DescribeCommands:
         assert code == cs.PROBLEMS
         assert "nope" in err
 
-    @pytest.mark.spec("commands-command-finds-named-script")
+    @pytest.mark.spec("commands-cmd-finds-named-script")
     def it_resolves_a_repo_script_by_its_path(self, make_repo, run):
         files = uses(sh("python3 .github/scripts/bar.py lint --fix"))
         files[".github/scripts/bar.py"] = FOO_PY
@@ -583,21 +583,21 @@ class DescribeCommands:
         assert found["script"] == ".github/scripts/bar.py"
         assert "--fix" in json.loads(out)["errors"][0]
 
-    @pytest.mark.spec("commands-command-finds-named-script")
+    @pytest.mark.spec("commands-cmd-finds-named-script")
     def it_rejects_a_script_that_does_not_exist(self, make_repo, run):
         root = make_repo(uses(sh('python3 "$FOO" lint'), script=None))
         code, _, err = run("commands", "-C", str(root))
         assert code == cs.PROBLEMS
         assert "%s does not exist" % FOO_SCRIPT in err
 
-    @pytest.mark.spec("commands-command-finds-named-script")
+    @pytest.mark.spec("commands-cmd-finds-named-script")
     def it_rejects_a_variable_no_assignment_names(self, make_repo, run):
         root = make_repo(uses(sh('python3 "$BAR" lint')))
         code, _, err = run("commands", "-C", str(root))
         assert code == cs.PROBLEMS
         assert "no assignment in plugins/foo/ names a script for $BAR" in err
 
-    @pytest.mark.spec("commands-command-finds-named-script")
+    @pytest.mark.spec("commands-cmd-finds-named-script")
     def it_rejects_one_variable_naming_two_scripts(self, make_repo, run):
         files = uses(sh('python3 "$FOO" lint'))
         files[FOO_REFERENCE] = sh("FOO=.foo/other.py")
@@ -606,28 +606,28 @@ class DescribeCommands:
         assert code == cs.PROBLEMS
         assert "plugins/foo/scripts/other.py" in err
 
-    @pytest.mark.spec("commands-command-finds-named-script")
+    @pytest.mark.spec("commands-cmd-finds-named-script")
     def it_fails_when_a_script_has_no_parser(self, make_repo, run):
         root = make_repo(uses(sh('python3 "$FOO" lint'), script="print('no parser')\n"))
         code, _, err = run("commands", "-C", str(root))
         assert code == cs.PROBLEMS
         assert "has no build_parser()" in err
 
-    @pytest.mark.spec("commands-command-finds-named-script")
+    @pytest.mark.spec("commands-cmd-finds-named-script")
     def it_fails_a_script_that_will_not_import(self, make_repo, run):
         root = make_repo(uses(sh('python3 "$FOO" lint'), script="raise ImportError('broken')\n"))
         code, _, err = run("commands", "-C", str(root))
         assert code == cs.PROBLEMS
         assert "fails to import" in err
 
-    @pytest.mark.spec("commands-command-scans-something")
+    @pytest.mark.spec("commands-cmd-scans-something")
     def it_fails_when_it_finds_no_invocation(self, make_repo, run):
         root = make_repo(uses(sh("ls")))
         code, _, err = run("commands", "-C", str(root))
         assert code == cs.PROBLEMS
         assert "found no script invocation" in err
 
-    @pytest.mark.spec("commands-command-finds-named-script")
+    @pytest.mark.spec("commands-cmd-finds-named-script")
     def it_accepts_the_repo_as_it_stands(self, run):
         code, out, err = run("commands", "--json", "-C", str(REPO_ROOT))
         assert code == cs.OK, err
@@ -659,49 +659,49 @@ TWO = sh('python3 "$FOO" lint', 'python3 "$FOO" lint')
 
 
 class DescribeSteps:
-    @pytest.mark.spec("steps-command-counts-step-commands")
+    @pytest.mark.spec("steps-cmd-counts-step-commands")
     def it_accepts_steps_that_run_a_command_or_say_why_not(self, make_repo, run):
         root = make_repo(steps(RUNS, marker("the author decides")))
         code, out, err = run("steps", "-C", str(root))
         assert code == cs.OK, err
         assert "2 step(s)" in out
 
-    @pytest.mark.spec("steps-command-counts-step-commands")
+    @pytest.mark.spec("steps-cmd-counts-step-commands")
     def it_rejects_a_step_with_neither(self, make_repo, run):
         root = make_repo(steps(RUNS, "Think hard about it.\n"))
         code, _, err = run("steps", "-C", str(root))
         assert code == cs.PROBLEMS
         assert '%s:21: "Step 2: s2" names no command' % SKILL in err
 
-    @pytest.mark.spec("steps-command-counts-step-commands")
+    @pytest.mark.spec("steps-cmd-counts-step-commands")
     def it_does_not_count_a_command_its_script_rejects(self, make_repo, run):
         root = make_repo(steps(sh('python3 "$FOO" nope')))
         code, _, err = run("steps", "-C", str(root))
         assert code == cs.PROBLEMS
         assert "names no command" in err
 
-    @pytest.mark.spec("steps-command-checks-no-command-markers")
+    @pytest.mark.spec("steps-cmd-checks-no-command-markers")
     def it_rejects_a_marker_without_a_reason(self, make_repo, run):
         root = make_repo(steps(RUNS, marker("")))
         code, _, err = run("steps", "-C", str(root))
         assert code == cs.PROBLEMS
         assert "gives no reason" in err
 
-    @pytest.mark.spec("steps-command-checks-no-command-markers")
+    @pytest.mark.spec("steps-cmd-checks-no-command-markers")
     def it_rejects_a_marker_inside_a_line(self, make_repo, run):
         root = make_repo(steps(RUNS, "Decide. <!-- no-command: the author decides -->\n"))
         code, _, err = run("steps", "-C", str(root))
         assert code == cs.PROBLEMS
         assert "must be a line of its own" in err
 
-    @pytest.mark.spec("steps-command-checks-no-command-markers")
+    @pytest.mark.spec("steps-cmd-checks-no-command-markers")
     def it_rejects_a_marker_outside_a_step(self, make_repo, run):
         root = make_repo(steps(RUNS, head=marker("stray") + "\n"))
         code, _, err = run("steps", "-C", str(root))
         assert code == cs.PROBLEMS
         assert "outside any step" in err
 
-    @pytest.mark.spec("steps-command-checks-no-command-markers")
+    @pytest.mark.spec("steps-cmd-checks-no-command-markers")
     def it_rejects_a_stale_marker(self, make_repo, run):
         root = make_repo(steps(marker("nothing to run") + "\n" + RUNS))
         code, _, err = run("steps", "-C", str(root))
@@ -721,14 +721,14 @@ class DescribeSteps:
             ("Step 3: s3", "hand off"),
         ]
 
-    @pytest.mark.spec("steps-command-counts-step-commands")
+    @pytest.mark.spec("steps-cmd-counts-step-commands")
     def it_keeps_a_heading_inside_a_fence_in_its_step(self, make_repo, run):
         body = "```markdown\n## Not a heading\n```\n\n" + RUNS
         root = make_repo(steps(body))
         code, _, err = run("steps", "-C", str(root))
         assert code == cs.OK, err
 
-    @pytest.mark.spec("steps-command-counts-step-commands")
+    @pytest.mark.spec("steps-cmd-counts-step-commands")
     def it_ends_a_step_at_the_next_section(self, make_repo, run):
         files = steps(marker("the author decides"))
         files[SKILL] += "## Abandoning a run\n\n" + RUNS
@@ -757,14 +757,14 @@ class DescribeSteps:
         assert code == cs.PROBLEMS
         assert "there is no such step" in err
 
-    @pytest.mark.spec("steps-command-scans-something")
+    @pytest.mark.spec("steps-cmd-scans-something")
     def it_fails_when_it_finds_no_step(self, make_repo, run):
         root = make_repo({SKILL: skill("foo", FOO_LOCATE + "## Usage\n\nRun it.\n")})
         code, _, err = run("steps", "-C", str(root))
         assert code == cs.PROBLEMS
         assert "found no `## Step` heading" in err
 
-    @pytest.mark.spec("steps-command-requires-seam-marker")
+    @pytest.mark.spec("steps-cmd-requires-seam-marker")
     def it_rejects_two_commands_with_no_seam_marker(self, make_repo, run):
         root = make_repo(steps(RUNS, TWO))
         code, _, err = run("steps", "-C", str(root))
@@ -773,13 +773,13 @@ class DescribeSteps:
         assert "<!-- seam: <kind>: <reason> -->" in err
 
     @pytest.mark.parametrize("kind", ["judgment", "platform"])
-    @pytest.mark.spec("steps-command-requires-seam-marker")
+    @pytest.mark.spec("steps-cmd-requires-seam-marker")
     def it_accepts_two_commands_under_a_named_seam(self, make_repo, run, kind):
         root = make_repo(steps(seam(kind, "the author approves the report") + "\n" + TWO))
         code, _, err = run("steps", "-C", str(root))
         assert code == cs.OK, err
 
-    @pytest.mark.spec("steps-command-requires-seam-marker")
+    @pytest.mark.spec("steps-cmd-requires-seam-marker")
     def it_rejects_a_seam_of_an_unknown_kind(self, make_repo, run):
         root = make_repo(steps(seam("courier", "passes the list along") + "\n" + TWO))
         code, _, err = run("steps", "-C", str(root))
@@ -787,14 +787,14 @@ class DescribeSteps:
         assert "kind `courier`" in err
         assert "judgment or platform" in err
 
-    @pytest.mark.spec("steps-command-requires-seam-marker")
+    @pytest.mark.spec("steps-cmd-requires-seam-marker")
     def it_rejects_a_seam_marker_without_a_reason(self, make_repo, run):
         root = make_repo(steps(seam("judgment", "") + "\n" + TWO))
         code, _, err = run("steps", "-C", str(root))
         assert code == cs.PROBLEMS
         assert "a seam marker gives no reason" in err
 
-    @pytest.mark.spec("steps-command-requires-seam-marker")
+    @pytest.mark.spec("steps-cmd-requires-seam-marker")
     def it_rejects_a_seam_marker_inside_a_line(self, make_repo, run):
         body = "Decide. <!-- seam: judgment: the author decides -->\n\n" + TWO
         root = make_repo(steps(body))
@@ -802,14 +802,14 @@ class DescribeSteps:
         assert code == cs.PROBLEMS
         assert "a seam marker must be a line of its own" in err
 
-    @pytest.mark.spec("steps-command-requires-seam-marker")
+    @pytest.mark.spec("steps-cmd-requires-seam-marker")
     def it_rejects_a_seam_marker_outside_a_step(self, make_repo, run):
         root = make_repo(steps(RUNS, head=seam("judgment", "stray") + "\n"))
         code, _, err = run("steps", "-C", str(root))
         assert code == cs.PROBLEMS
         assert "a seam marker sits outside any step" in err
 
-    @pytest.mark.spec("steps-command-fails-stale-seam-marker")
+    @pytest.mark.spec("steps-cmd-fails-stale-seam-marker")
     def it_rejects_a_stale_seam_marker(self, make_repo, run):
         root = make_repo(steps(seam("judgment", "the author decides") + "\n" + RUNS))
         code, _, err = run("steps", "-C", str(root))
@@ -828,7 +828,7 @@ class DescribeSteps:
             ("Step 2: s2", 2, "platform", "device_bash"),
         ]
 
-    @pytest.mark.spec("steps-command-warns-on-known-seams")
+    @pytest.mark.spec("steps-cmd-warns-on-known-seams")
     def it_warns_for_a_known_seam(self, make_repo, run, monkeypatch):
         monkeypatch.setattr(cs, "KNOWN_SEAMS", {(SKILL, 2): 131})
         root = make_repo(steps(RUNS, TWO))
@@ -840,7 +840,7 @@ class DescribeSteps:
         )
         assert "%s:21 Step 2: s2: 2 commands, unmarked until #131" % SKILL in out
 
-    @pytest.mark.spec("steps-command-warns-on-known-seams")
+    @pytest.mark.spec("steps-cmd-warns-on-known-seams")
     def it_rejects_a_known_seam_that_runs_one_command(self, make_repo, run, monkeypatch):
         monkeypatch.setattr(cs, "KNOWN_SEAMS", {(SKILL, 1): 131})
         root = make_repo(steps(RUNS))
@@ -848,7 +848,7 @@ class DescribeSteps:
         assert code == cs.PROBLEMS
         assert "Remove its KNOWN_SEAMS entry, which points to #131" in err
 
-    @pytest.mark.spec("steps-command-warns-on-known-seams")
+    @pytest.mark.spec("steps-cmd-warns-on-known-seams")
     def it_rejects_a_known_seam_with_no_step(self, make_repo, run, monkeypatch):
         monkeypatch.setattr(cs, "KNOWN_SEAMS", {(SKILL, 7): 131})
         root = make_repo(steps(RUNS))
@@ -856,7 +856,7 @@ class DescribeSteps:
         assert code == cs.PROBLEMS
         assert "KNOWN_SEAMS lists step 7" in err
 
-    @pytest.mark.spec("steps-command-warns-on-known-seams")
+    @pytest.mark.spec("steps-cmd-warns-on-known-seams")
     def it_rejects_a_known_seam_that_also_has_a_marker(self, make_repo, run, monkeypatch):
         monkeypatch.setattr(cs, "KNOWN_SEAMS", {(SKILL, 1): 131})
         root = make_repo(steps(seam("judgment", "the author decides") + "\n" + TWO))
@@ -864,7 +864,7 @@ class DescribeSteps:
         assert code == cs.PROBLEMS
         assert "a seam marker and a KNOWN_SEAMS entry for #131" in err
 
-    @pytest.mark.spec("steps-command-warns-on-known-seams")
+    @pytest.mark.spec("steps-cmd-warns-on-known-seams")
     def it_accepts_the_repo_as_it_stands(self, run, monkeypatch):
         monkeypatch.setattr(cs, "KNOWN_GAPS", REAL_GAPS)
         monkeypatch.setattr(cs, "KNOWN_SEAMS", REAL_SEAMS, raising=False)
@@ -876,7 +876,7 @@ class DescribeSteps:
 
 
 class DescribeFences:
-    @pytest.mark.spec("fences-command-rejects-other-commands", "command-splits-output-streams")
+    @pytest.mark.spec("fences-cmd-rejects-other-commands", "command-splits-output-streams")
     def it_rejects_python_dash_c(self, make_repo, run):
         root = make_repo(uses(sh('python3 "$FOO" lint', "python3 -c 'print(1)'")))
         code, out, err = run("fences", "-C", str(root))
@@ -884,21 +884,21 @@ class DescribeFences:
         assert out == ""
         assert "%s:19: `python3`" % SKILL in err
 
-    @pytest.mark.spec("fences-command-rejects-other-commands")
+    @pytest.mark.spec("fences-cmd-rejects-other-commands")
     def it_rejects_grep_in_a_pipeline(self, make_repo, run):
         root = make_repo(uses(sh('python3 "$FOO" lint --json | grep -c ok')))
         code, _, err = run("fences", "-C", str(root))
         assert code == cs.PROBLEMS
         assert "%s:18: `grep`" % SKILL in err
 
-    @pytest.mark.spec("fences-command-requires-info-strings")
+    @pytest.mark.spec("fences-cmd-requires-info-strings")
     def it_rejects_a_fence_without_an_info_string(self, make_repo, run):
         root = make_repo(uses(sh('python3 "$FOO" lint') + "\n```\n<del>x</del>\n```\n"))
         code, _, err = run("fences", "-C", str(root))
         assert code == cs.PROBLEMS
         assert "%s:21: fence has no info string" % SKILL in err
 
-    @pytest.mark.spec("fences-command-allows-setup-commands")
+    @pytest.mark.spec("fences-cmd-allows-setup-commands")
     def it_allows_the_findings_heredoc(self, make_repo, run):
         fence = sh(
             "cat > \"${TMPDIR:-/tmp}/foo-findings.json\" <<'END'",
@@ -910,21 +910,21 @@ class DescribeFences:
         code, _, err = run("fences", "-C", str(root))
         assert code == cs.OK, err
 
-    @pytest.mark.spec("fences-command-allows-setup-commands")
+    @pytest.mark.spec("fences-cmd-allows-setup-commands")
     def it_does_not_scan_a_heredoc_body(self, make_repo, run):
         fence = sh("python3 \"$FOO\" lint --file - <<'END'", "grep -v x | awk '{print}'", "END")
         root = make_repo(uses(fence))
         code, _, err = run("fences", "-C", str(root))
         assert code == cs.OK, err
 
-    @pytest.mark.spec("fences-command-allows-setup-commands")
+    @pytest.mark.spec("fences-cmd-allows-setup-commands")
     def it_rejects_a_heredoc_that_is_not_the_findings_file(self, make_repo, run):
         root = make_repo(uses(sh("cat > notes.txt <<'END'", "x", "END")))
         code, _, err = run("fences", "-C", str(root))
         assert code == cs.PROBLEMS
         assert "`cat`" in err
 
-    @pytest.mark.spec("fences-command-allows-setup-commands")
+    @pytest.mark.spec("fences-cmd-allows-setup-commands")
     def it_rejects_the_findings_heredoc_sharing_its_line(self, make_repo, run):
         line = 'python3 "$FOO" lint && cat > "${TMPDIR:-/tmp}/foo-findings.json" <<\'END\''
         root = make_repo(uses(sh(line, "{}", "END")))
@@ -932,7 +932,7 @@ class DescribeFences:
         assert code == cs.PROBLEMS
         assert "`cat`" in err
 
-    @pytest.mark.spec("fences-command-allows-setup-commands")
+    @pytest.mark.spec("fences-cmd-allows-setup-commands")
     def it_allows_a_leading_cd(self, make_repo, run):
         root = make_repo(
             uses(sh('cd "<project folder>" && FOO=.foo/foo.py && python3 "$FOO" lint'))
@@ -940,7 +940,7 @@ class DescribeFences:
         code, _, err = run("fences", "-C", str(root))
         assert code == cs.OK, err
 
-    @pytest.mark.spec("fences-command-allows-setup-commands")
+    @pytest.mark.spec("fences-cmd-allows-setup-commands")
     def it_allows_linking_the_plugin_before_the_first_command(self, make_repo, run):
         link = (
             'mkdir -p /tmp/foo && ln -sfn "${CLAUDE_PLUGIN_ROOT:-${CLAUDE_SKILL_DIR}/../..}" '
@@ -962,27 +962,27 @@ class DescribeFences:
         ],
         ids=["mkdir", "ln"],
     )
-    @pytest.mark.spec("fences-command-allows-setup-commands")
+    @pytest.mark.spec("fences-cmd-allows-setup-commands")
     def it_rejects_linking_the_plugin_after_a_command(self, make_repo, run, line, word):
         root = make_repo(uses(sh(line)))
         code, _, err = run("fences", "-C", str(root))
         assert code == cs.PROBLEMS
         assert "`%s`" % word in err
 
-    @pytest.mark.spec("fences-command-allows-setup-commands")
+    @pytest.mark.spec("fences-cmd-allows-setup-commands")
     def it_allows_a_script_path_on_a_line_of_its_own(self, make_repo, run):
         root = make_repo(uses(sh("FOO=.foo/foo.py", 'python3 "$FOO" lint')))
         code, _, err = run("fences", "-C", str(root))
         assert code == cs.OK, err
 
-    @pytest.mark.spec("fences-command-allows-setup-commands")
+    @pytest.mark.spec("fences-cmd-allows-setup-commands")
     def it_rejects_cd_anywhere_but_the_start(self, make_repo, run):
         root = make_repo(uses(sh('python3 "$FOO" lint && cd ..')))
         code, _, err = run("fences", "-C", str(root))
         assert code == cs.PROBLEMS
         assert "`cd`" in err
 
-    @pytest.mark.spec("fences-command-allows-setup-commands")
+    @pytest.mark.spec("fences-cmd-allows-setup-commands")
     def it_rejects_echo_that_does_not_follow_the_installed_check(self, make_repo, run):
         root = make_repo(uses(sh('echo "$FOO" | cut -d/ -f1')))
         code, _, err = run("fences", "-C", str(root))
@@ -990,20 +990,20 @@ class DescribeFences:
         assert "`echo`" in err
         assert "`cut`" in err
 
-    @pytest.mark.spec("fences-command-allows-setup-commands")
+    @pytest.mark.spec("fences-cmd-allows-setup-commands")
     def it_allows_the_installed_check_in_locate_the_script(self, make_repo, run):
         root = make_repo(uses(sh('ls "$FOO" || echo "foo is not installed"')))
         code, _, err = run("fences", "-C", str(root))
         assert code == cs.OK, err
 
-    @pytest.mark.spec("fences-command-scans-something")
+    @pytest.mark.spec("fences-cmd-scans-something")
     def it_fails_when_it_finds_no_shell_fence(self, make_repo, run):
         root = make_repo({SKILL: skill("foo", "```text\nls\n```\n")})
         code, _, err = run("fences", "-C", str(root))
         assert code == cs.PROBLEMS
         assert "found no shell fence" in err
 
-    @pytest.mark.spec("fences-command-allows-setup-commands")
+    @pytest.mark.spec("fences-cmd-allows-setup-commands")
     def it_accepts_the_repo_as_it_stands(self, run):
         code, out, err = run("fences", "--json", "-C", str(REPO_ROOT))
         assert code == cs.OK, err
@@ -1011,12 +1011,12 @@ class DescribeFences:
         assert cs.INVOCATION in allowed
         assert "findings heredoc" in allowed
 
-    @pytest.mark.spec("fences-command-requires-info-strings")
+    @pytest.mark.spec("fences-cmd-requires-info-strings")
     def it_keeps_each_fences_info_string(self):
         text = "```sh\nls\n```\n\n```\nplain\n```\n\n~~~Text\nx\n~~~\n"
         assert [f.info for f in cs.fences(text)] == ["sh", "", "text"]
 
-    @pytest.mark.spec("fences-command-rejects-other-commands")
+    @pytest.mark.spec("fences-cmd-rejects-other-commands")
     def it_numbers_body_lines_from_the_file(self):
         [fence] = cs.fences("intro\n\n```sh\na\nb\n```\n")
         assert fence.line == 3

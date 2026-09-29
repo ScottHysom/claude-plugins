@@ -216,28 +216,28 @@ def cited_as(rid):
 
 
 class DescribeTrace:
-    @pytest.mark.spec("trace-command-fails-uncited-verifiers")
+    @pytest.mark.spec("trace-cmd-fails-uncited-verifiers")
     def it_passes_a_clone_where_every_link_holds(self, make_repo, run):
         code, out, err = run("trace", "-C", str(make_repo()))
         assert code == cp.OK, err
         assert "4 requirement(s) verified" in out
         assert err == ""
 
-    @pytest.mark.spec("trace-command-fails-uncited-verifiers")
+    @pytest.mark.spec("trace-cmd-fails-uncited-verifiers")
     def it_fails_a_test_that_cites_nothing(self, make_repo, run):
         root = make_repo({TEST: suite_file(method_marker="")})
         code, _, err = run("trace", "-C", str(root))
         assert code == cp.PROBLEMS
         assert "%s:5: DescribeFoo::it_does_x cites no requirement" % TEST in err
 
-    @pytest.mark.spec("trace-command-fails-uncited-verifiers")
+    @pytest.mark.spec("trace-cmd-fails-uncited-verifiers")
     def it_fails_a_step_that_cites_nothing(self, make_repo, run):
         root = make_repo({SKILL: skill(step_two_marker="")})
         code, _, err = run("trace", "-C", str(root))
         assert code == cp.PROBLEMS
         assert '"Step 2: ask" cites no requirement' in err
 
-    @pytest.mark.spec("trace-command-fails-uncited-verifiers")
+    @pytest.mark.spec("trace-cmd-fails-uncited-verifiers")
     def it_reads_a_marker_on_the_class_for_each_test_in_it(self, make_repo, run):
         root = make_repo(
             {TEST: suite_file(class_marker='@pytest.mark.spec("foo-does-x")\n', method_marker="")}
@@ -245,20 +245,20 @@ class DescribeTrace:
         code, _, err = run("trace", "-C", str(root))
         assert code == cp.OK, err
 
-    @pytest.mark.spec("trace-command-fails-uncited-verifiers")
+    @pytest.mark.spec("trace-cmd-fails-uncited-verifiers")
     def it_ignores_a_method_pytest_does_not_collect(self, make_repo, run):
         code, _, err = run("trace", "-C", str(make_repo()))
         assert code == cp.OK
         assert "helper" not in err
 
-    @pytest.mark.spec("trace-command-fails-uncited-verifiers")
+    @pytest.mark.spec("trace-cmd-fails-uncited-verifiers")
     def it_fails_a_step_marker_that_shares_its_line(self, make_repo, run):
         root = make_repo({SKILL: skill(step_two_marker="Ask. <!-- spec: foo-does-x -->\n")})
         code, _, err = run("trace", "-C", str(root))
         assert code == cp.PROBLEMS
         assert "must be a line of its own" in err
 
-    @pytest.mark.spec("trace-command-fails-unknown-ids")
+    @pytest.mark.spec("trace-cmd-fails-unknown-ids")
     def it_fails_a_test_citing_an_id_its_spec_lacks(self, make_repo, run):
         root = make_repo(
             {TEST: suite_file(method_marker='    @pytest.mark.spec("foo-does-x", "does-y")\n')}
@@ -267,7 +267,7 @@ class DescribeTrace:
         assert code == cp.PROBLEMS
         assert "cites `does-y`, which specs/foo.md does not hold" in err
 
-    @pytest.mark.spec("trace-command-fails-unknown-ids")
+    @pytest.mark.spec("trace-cmd-fails-unknown-ids")
     def it_fails_a_step_citing_an_id_its_spec_lacks(self, make_repo, run):
         root = make_repo({SKILL: skill(step_two_marker="<!-- spec: foo-does-x, nope -->\n")})
         code, _, err = run("trace", "-C", str(root))
@@ -275,14 +275,14 @@ class DescribeTrace:
         assert "%s:" % SKILL in err
         assert "cites `nope`" in err
 
-    @pytest.mark.spec("trace-command-fails-unknown-ids")
+    @pytest.mark.spec("trace-cmd-fails-unknown-ids")
     def it_fails_a_workflow_step_citing_an_id_the_repo_spec_lacks(self, make_repo, run):
         root = make_repo({WORKFLOW: WORKFLOW_TEXT.replace("ci-runs-check", "ci-runs-check, gone")})
         code, _, err = run("trace", "-C", str(root))
         assert code == cp.PROBLEMS
         assert "%s:5: cites `gone`, which specs/repo.md does not hold" % WORKFLOW in err
 
-    @pytest.mark.spec("trace-command-fails-unknown-ids")
+    @pytest.mark.spec("trace-cmd-fails-unknown-ids")
     def it_resolves_a_repo_id_cited_from_a_plugin_test(self, make_repo, run):
         root = make_repo(
             {
@@ -295,7 +295,7 @@ class DescribeTrace:
         code, _, err = run("trace", "-C", str(root))
         assert code == cp.OK, err
 
-    @pytest.mark.spec("trace-command-fails-unknown-ids")
+    @pytest.mark.spec("trace-cmd-fails-unknown-ids")
     def it_fails_a_marker_whose_id_is_not_a_string_literal(self, make_repo, run):
         root = make_repo(
             {TEST: "import pytest\n" + suite_file(method_marker="    @pytest.mark.spec(ID)\n")}
@@ -304,7 +304,7 @@ class DescribeTrace:
         assert code == cp.PROBLEMS
         assert "as string literals" in err
 
-    @pytest.mark.spec("trace-command-fails-unverified-requirements")
+    @pytest.mark.spec("trace-cmd-fails-unverified-requirements")
     def it_fails_a_test_requirement_no_test_cites(self, make_repo, run):
         root = make_repo(
             {
@@ -316,7 +316,7 @@ class DescribeTrace:
         assert code == cp.PROBLEMS
         assert "specs/foo.md:11: `foo-does-x` (test) is verified by nothing of its kind" in err
 
-    @pytest.mark.spec("trace-command-fails-unverified-requirements")
+    @pytest.mark.spec("trace-cmd-fails-unverified-requirements")
     def it_fails_a_step_requirement_only_a_test_cites(self, make_repo, run):
         root = make_repo(
             {
@@ -336,14 +336,14 @@ class DescribeTrace:
         assert code == cp.PROBLEMS
         assert "`skill-asks-once` (step) is verified by nothing of its kind" in err
 
-    @pytest.mark.spec("trace-command-fails-unverified-requirements")
+    @pytest.mark.spec("trace-cmd-fails-unverified-requirements")
     def it_fails_a_check_requirement_no_workflow_step_cites(self, make_repo, run):
         root = make_repo({WORKFLOW: WORKFLOW_TEXT.replace("      # spec: ci-runs-check\n", "")})
         code, _, err = run("trace", "-C", str(root))
         assert code == cp.PROBLEMS
         assert "`ci-runs-check` (check) is verified by nothing of its kind" in err
 
-    @pytest.mark.spec("trace-command-fails-unverified-requirements")
+    @pytest.mark.spec("trace-cmd-fails-unverified-requirements")
     def it_fails_a_workflow_comment_that_is_not_above_a_step(self, make_repo, run):
         text = WORKFLOW_TEXT.replace("      # Runs the check.\n", "").replace(
             "      # spec: ci-runs-check\n", "      # spec: ci-runs-check\n\n"
@@ -352,7 +352,7 @@ class DescribeTrace:
         assert code == cp.PROBLEMS
         assert "directly above a step's `- name:`" in err
 
-    @pytest.mark.spec("trace-command-warns-on-listed-items")
+    @pytest.mark.spec("trace-cmd-warns-on-listed-items")
     def it_passes_a_listed_test_with_a_warning_naming_its_issue(self, make_repo, run):
         root = make_repo(
             {
@@ -369,7 +369,7 @@ class DescribeTrace:
         assert code == cp.OK, err
         assert "warning: 1 test(s) cite no requirement yet; #130 will trace them." in err
 
-    @pytest.mark.spec("trace-command-warns-on-listed-items")
+    @pytest.mark.spec("trace-cmd-warns-on-listed-items")
     def it_passes_a_listed_step_with_a_warning_naming_its_issue(self, make_repo, run):
         root = make_repo(
             {
@@ -383,7 +383,7 @@ class DescribeTrace:
         assert code == cp.OK, err
         assert "1 step(s) cite no requirement yet; #131" in err
 
-    @pytest.mark.spec("trace-command-fails-stale-list-entries")
+    @pytest.mark.spec("trace-cmd-fails-stale-list-entries")
     def it_fails_a_listed_test_that_now_cites(self, make_repo, run):
         root = make_repo({cp.UNTRACED_FILE: untraced({TEST_ID: 130})})
         code, _, err = run("trace", "-C", str(root))
@@ -391,50 +391,50 @@ class DescribeTrace:
         assert "now cites a requirement. Remove its entry" in err
         assert "#130" in err
 
-    @pytest.mark.spec("trace-command-fails-stale-list-entries")
+    @pytest.mark.spec("trace-cmd-fails-stale-list-entries")
     def it_fails_a_listed_item_that_is_gone(self, make_repo, run):
         root = make_repo({cp.UNTRACED_FILE: untraced(steps={SKILL + "::9": 131})})
         code, _, err = run("trace", "-C", str(root))
         assert code == cp.PROBLEMS
         assert "lists %s::9 for #131, and there is no such step" % SKILL in err
 
-    @pytest.mark.spec("trace-command-fails-stale-list-entries")
+    @pytest.mark.spec("trace-cmd-fails-stale-list-entries")
     def it_stops_on_a_list_it_cannot_read(self, make_repo, run):
         root = make_repo({cp.UNTRACED_FILE: json.dumps({"tests": {TEST_ID: "soon"}})})
         code, _, err = run("trace", "-C", str(root))
         assert code == cp.CANNOT_RUN
         assert err.startswith("check-specs.py: ")
 
-    @pytest.mark.spec("trace-command-checks-spec-grammar")
+    @pytest.mark.spec("trace-cmd-checks-spec-grammar")
     def it_fails_a_requirement_outside_a_need(self, make_repo, run):
         spec = FOO_SPEC.replace("- Anything else.\n", "- `stray` (test): When lost, it is.\n")
         code, _, err = run("trace", "-C", str(make_repo({"specs/foo.md": spec})))
         assert code == cp.PROBLEMS
         assert "specs/foo.md:5: a requirement sits outside any need" in err
 
-    @pytest.mark.spec("trace-command-checks-spec-grammar")
+    @pytest.mark.spec("trace-cmd-checks-spec-grammar")
     def it_fails_a_bullet_under_a_need_that_is_not_a_requirement(self, make_repo, run):
         spec = FOO_SPEC + "- Just a note.\n"
         code, _, err = run("trace", "-C", str(make_repo({"specs/foo.md": spec})))
         assert code == cp.PROBLEMS
         assert "is not a requirement" in err
 
-    @pytest.mark.spec("trace-command-checks-spec-grammar")
+    @pytest.mark.spec("trace-cmd-checks-spec-grammar")
     def it_fails_a_duplicate_id(self, make_repo, run):
         spec = FOO_SPEC + "- `foo-does-x` (test): When asked again, foo does x.\n"
         code, _, err = run("trace", "-C", str(make_repo({"specs/foo.md": spec})))
         assert code == cp.PROBLEMS
         assert "already the id of the requirement at line 11" in err
 
-    @pytest.mark.spec("trace-command-checks-spec-grammar")
-    @pytest.mark.parametrize("rid", ["Does_Y", "foo-command-can-do-y-and-z"])
+    @pytest.mark.spec("trace-cmd-checks-spec-grammar")
+    @pytest.mark.parametrize("rid", ["Does_Y", "foo-cmd-can-do-y-and-z"])
     def it_fails_an_id_that_breaks_the_grammar(self, make_repo, run, rid):
         spec = FOO_SPEC + "- `%s` (test): When asked, foo does y.\n" % rid
         code, _, err = run("trace", "-C", str(make_repo({"specs/foo.md": spec})))
         assert code == cp.PROBLEMS
         assert "`%s` is not an id" % rid in err
 
-    @pytest.mark.spec("trace-command-checks-spec-grammar")
+    @pytest.mark.spec("trace-cmd-checks-spec-grammar")
     @pytest.mark.parametrize(
         ("path", "spec", "where"),
         [
@@ -458,7 +458,7 @@ class DescribeTrace:
         assert "_y` is not an id" in err
         assert "is not in the form" not in err
 
-    @pytest.mark.spec("trace-command-checks-spec-grammar")
+    @pytest.mark.spec("trace-cmd-checks-spec-grammar")
     def it_fails_a_need_that_repeats_a_requirement(self, make_repo, run):
         spec = FOO_SPEC + (
             "- `user-sees-y` (test): When asked, the user sees y.\n\n"
@@ -471,7 +471,7 @@ class DescribeTrace:
             "specs/foo.md:16: `user-sees-y` is already the id of the requirement at line 14" in err
         )
 
-    @pytest.mark.spec("trace-command-checks-spec-grammar")
+    @pytest.mark.spec("trace-cmd-checks-spec-grammar")
     def it_fails_a_constraint_that_repeats_a_need(self, make_repo, run):
         spec = FOO_SPEC + "\n## constraint user-gets-things-done: Things\n\nThey get done.\n"
         code, _, err = run("trace", "-C", str(make_repo({"specs/foo.md": spec})))
@@ -481,9 +481,9 @@ class DescribeTrace:
             in err
         )
 
-    @pytest.mark.spec("trace-command-checks-spec-grammar")
+    @pytest.mark.spec("trace-cmd-checks-spec-grammar")
     def it_traces_an_id_of_six_words(self, make_repo, run):
-        rid = "steps-command-does-x-when-asked"
+        rid = "steps-cmd-does-x-when-asked"
         root = make_repo(
             {
                 "specs/foo.md": FOO_SPEC + "- `%s` (test): When asked, foo does x.\n" % rid,
@@ -493,14 +493,18 @@ class DescribeTrace:
         code, _, err = run("trace", "-C", str(root))
         assert code == cp.OK, err
 
-    @pytest.mark.spec("trace-command-checks-spec-grammar")
+    @pytest.mark.spec("trace-cmd-checks-spec-grammar")
     @pytest.mark.parametrize(
         ("rid", "says"),
         [
             ("foo", "it has 1 word(s), and an id has 2 to 5"),
             ("receipt-late-fee", "`late` is not a verb ending in `s`"),
-            ("steps-command", "it has 1 word(s)"),
-            ("steps-command-late-x", "`late` is not a verb ending in `s`"),
+            ("steps-cmd", "it has 1 word(s)"),
+            ("steps-cmd-late-x", "`late` is not a verb ending in `s`"),
+            (
+                "claim-command-adds-y",
+                "`command` sits where a command's marker goes, and the marker is `cmd`",
+            ),
             ("foo-does-x-and-y-too", "it has 6 word(s)"),
             ("foo-cannot", "`cannot` is followed by no verb"),
             ("foo-never-drop-x", "`never` is followed by `drop`"),
@@ -519,7 +523,7 @@ class DescribeTrace:
         )
         assert 'SPEC-METHODOLOGY.md, under "Ids", has the form' in err
 
-    @pytest.mark.spec("trace-command-checks-spec-grammar")
+    @pytest.mark.spec("trace-cmd-checks-spec-grammar")
     @pytest.mark.parametrize(
         "rid",
         [
@@ -527,17 +531,18 @@ class DescribeTrace:
             "foo-cannot-drop-y",
             "foo-only-reads-y",
             "foo-does-y-when-asked",
-            "steps-command-counts-step-commands",
-            "steps-command-does-y-when-asked",
-            "steps-command-never-drops-y",
-            "claim-command-adds-y",
+            "steps-cmd-counts-step-commands",
+            "steps-cmd-does-y-when-asked",
+            "steps-cmd-never-drops-y",
+            "claim-cmd-adds-y",
+            "command-splits-y",
         ],
     )
     def it_passes_a_requirement_id_in_the_form(self, make_repo, run, rid):
         code, _, err = run("trace", "-C", str(make_repo(cited_as(rid))))
         assert code == cp.OK, err
 
-    @pytest.mark.spec("trace-command-checks-spec-grammar")
+    @pytest.mark.spec("trace-cmd-checks-spec-grammar")
     def it_fails_a_need_id_that_opens_with_no_role(self, make_repo, run):
         spec = FOO_SPEC.replace("need user-gets-things-done:", "need foo-gets-things-done:")
         code, _, err = run("trace", "-C", str(make_repo({"specs/foo.md": spec})))
@@ -547,14 +552,14 @@ class DescribeTrace:
             in err
         )
 
-    @pytest.mark.spec("trace-command-checks-spec-grammar")
+    @pytest.mark.spec("trace-cmd-checks-spec-grammar")
     def it_fails_a_constraint_id_not_in_the_form(self, make_repo, run):
         bar = "# bar\n\n## constraint slow-bar: Bar is slow\n\nIt is.\n"
         code, _, err = run("trace", "-C", str(make_repo({"specs/bar.md": bar})))
         assert code == cp.PROBLEMS
         assert "specs/bar.md:3: the constraint id `slow-bar` is not in the form, since `bar`" in err
 
-    @pytest.mark.spec("trace-command-checks-spec-grammar")
+    @pytest.mark.spec("trace-cmd-checks-spec-grammar")
     @pytest.mark.parametrize(
         ("kind", "says"),
         [("eval", "nothing in this repo runs one yet"), ("manual", "names the kind")],
@@ -565,28 +570,28 @@ class DescribeTrace:
         assert code == cp.PROBLEMS
         assert says in err
 
-    @pytest.mark.spec("trace-command-scans-something")
+    @pytest.mark.spec("trace-cmd-scans-something")
     def it_fails_when_there_is_no_spec(self, make_repo, run):
         root = make_repo({"specs/foo.md": None, "specs/repo.md": None, TEST: None, REPO_TEST: None})
         code, _, err = run("trace", "-C", str(root))
         assert code == cp.PROBLEMS
         assert "found no spec file" in err
 
-    @pytest.mark.spec("trace-command-scans-something")
+    @pytest.mark.spec("trace-cmd-scans-something")
     def it_fails_when_there_is_no_test(self, make_repo, run):
         root = make_repo({TEST: None, REPO_TEST: None})
         code, _, err = run("trace", "-C", str(root))
         assert code == cp.PROBLEMS
         assert "found no test;" in err
 
-    @pytest.mark.spec("trace-command-scans-something")
+    @pytest.mark.spec("trace-cmd-scans-something")
     def it_fails_when_there_is_no_step(self, make_repo, run):
         root = make_repo({SKILL: None})
         code, _, err = run("trace", "-C", str(root))
         assert code == cp.PROBLEMS
         assert "found no step;" in err
 
-    @pytest.mark.spec("trace-command-fails-uncited-verifiers")
+    @pytest.mark.spec("trace-cmd-fails-uncited-verifiers")
     def it_prints_one_envelope_on_stdout_with_json(self, make_repo, run):
         code, out, err = run("trace", "--json", "-C", str(make_repo()))
         assert code == cp.OK
@@ -597,7 +602,7 @@ class DescribeTrace:
         tests = {t["id"]: t["cites"] for t in result["data"]["tests"]}
         assert tests[TEST_ID] == ["foo-does-x"]
 
-    @pytest.mark.spec("trace-command-warns-on-listed-items")
+    @pytest.mark.spec("trace-cmd-warns-on-listed-items")
     def it_accepts_the_repo_as_it_stands(self, run):
         code, _, err = run("trace", "-C", str(REPO_ROOT))
         assert code == cp.OK, err
@@ -638,45 +643,45 @@ class DescribeInventory:
                 return item
         raise AssertionError("%s %s not listed" % (kind, label))
 
-    @pytest.mark.spec("inventory-command-lists-parser-surface")
+    @pytest.mark.spec("inventory-cmd-lists-parser-surface")
     def it_lists_a_subcommand_with_the_invocation_that_runs_it(self, listed):
         item = self.surface(listed, "command", "go")
         assert [n["path"] for n in item["named_by"]] == [SKILL, SKILL]
 
-    @pytest.mark.spec("inventory-command-lists-parser-surface")
+    @pytest.mark.spec("inventory-cmd-lists-parser-surface")
     def it_lists_an_option_named_only_in_prose(self, listed):
         item = self.surface(listed, "option", "go --skip")
         assert item["named_by"] == [{"path": SKILL, "line": 22, "text": "go --skip"}]
 
-    @pytest.mark.spec("inventory-command-lists-parser-surface")
+    @pytest.mark.spec("inventory-cmd-lists-parser-surface")
     def it_lists_each_choices_value_and_what_names_it(self, listed):
         assert self.surface(listed, "choice", "go --mode a")["named_by"][0]["line"] == 19
         assert self.surface(listed, "choice", "go --mode b")["named_by"] == []
 
-    @pytest.mark.spec("inventory-command-lists-string-collections")
+    @pytest.mark.spec("inventory-cmd-lists-string-collections")
     def it_lists_each_collection_of_strings_and_resolves_named_ones(self, listed):
         found = {c["name"]: c["items"] for c in listed["collections"]}
         assert found["MODES"] == ["a", "b"]
         assert sorted(found["NAMED"]) == ["c", "d"]
         assert "MIXED" not in found
 
-    @pytest.mark.spec("inventory-command-lists-tests")
+    @pytest.mark.spec("inventory-cmd-lists-tests")
     def it_lists_each_test_with_the_lines_it_runs(self, listed):
         assert listed["tests"] == [
             {"id": TEST_ID, "line": 6, "cites": ["foo-does-x"], "runs": {SCRIPT: ["10-12"]}}
         ]
 
-    @pytest.mark.spec("inventory-command-lists-skill-steps")
+    @pytest.mark.spec("inventory-cmd-lists-skill-steps")
     def it_lists_each_step_with_the_commands_it_runs(self, listed):
         steps = {s["id"]: s for s in listed["steps"]}
         assert [c["argv"] for c in steps[STEP_ID]["commands"]] == [["go", "--mode", "a"]]
         assert steps[SKILL + "::2"]["commands"] == []
 
-    @pytest.mark.spec("inventory-command-lists-unrun-lines")
+    @pytest.mark.spec("inventory-cmd-lists-unrun-lines")
     def it_lists_the_lines_no_test_runs(self, listed):
         assert listed["unrun"] == {SCRIPT: ["4-6", "14"]}
 
-    @pytest.mark.spec("inventory-command-lists-parser-surface")
+    @pytest.mark.spec("inventory-cmd-lists-parser-surface")
     def it_prints_each_section_without_json(self, make_repo, run):
         root = make_repo({cp.DEFAULT_REPORT: coverage_report()})
         code, out, _ = run("inventory", "foo", "-C", str(root))
@@ -685,7 +690,7 @@ class DescribeInventory:
         assert "choice go --mode b: named by no skill text" in out
         assert "%s: %s 10-12" % (TEST_ID, SCRIPT) in out
 
-    @pytest.mark.spec("inventory-command-requires-per-test-report")
+    @pytest.mark.spec("inventory-cmd-requires-per-test-report")
     def it_stops_on_a_report_that_does_not_name_each_line_s_tests(self, make_repo, run):
         root = make_repo({cp.DEFAULT_REPORT: coverage_report(contexts=False)})
         code, out, err = run("inventory", "foo", "-C", str(root))
@@ -693,13 +698,13 @@ class DescribeInventory:
         assert out == ""
         assert "--cov-context=test" in err
 
-    @pytest.mark.spec("inventory-command-requires-per-test-report")
+    @pytest.mark.spec("inventory-cmd-requires-per-test-report")
     def it_stops_when_there_is_no_report(self, make_repo, run):
         code, _, err = run("inventory", "foo", "-C", str(make_repo()))
         assert code == cp.CANNOT_RUN
         assert "no coverage report" in err
 
-    @pytest.mark.spec("inventory-command-lists-parser-surface")
+    @pytest.mark.spec("inventory-cmd-lists-parser-surface")
     def it_stops_on_a_plugin_with_no_script(self, make_repo, run):
         root = make_repo({cp.DEFAULT_REPORT: coverage_report()})
         code, _, err = run("inventory", "bar", "-C", str(root))
@@ -724,7 +729,7 @@ def listed_test(issue):
 
 
 class DescribeTraceOnClosedIssues:
-    @pytest.mark.spec("trace-command-fails-closed-issue-entries")
+    @pytest.mark.spec("trace-cmd-fails-closed-issue-entries")
     def it_fails_a_listed_test_whose_issue_has_closed(self, make_repo, run):
         github = FakeGitHub({130: {"state": "CLOSED"}})
         code, _, err = run(
@@ -733,7 +738,7 @@ class DescribeTraceOnClosedIssues:
         assert code == cp.PROBLEMS
         assert "lists %s for #130, which has closed" % TEST_ID in err
 
-    @pytest.mark.spec("trace-command-fails-closed-issue-entries")
+    @pytest.mark.spec("trace-cmd-fails-closed-issue-entries")
     def it_fails_a_known_seams_step_whose_issue_has_closed(self, make_repo, run):
         root = make_repo({SEAM_SKILL: "---\nname: adopt-prose\n---\n"})
         github = FakeGitHub({n: {"state": "CLOSED"} for n in range(1000)})
@@ -741,9 +746,7 @@ class DescribeTraceOnClosedIssues:
         assert code == cp.PROBLEMS
         assert "KNOWN_SEAMS lists step 1 of %s for #" % SEAM_SKILL in err
 
-    @pytest.mark.spec(
-        "trace-command-fails-closed-issue-entries", "trace-command-warns-on-listed-items"
-    )
+    @pytest.mark.spec("trace-cmd-fails-closed-issue-entries", "trace-cmd-warns-on-listed-items")
     def it_passes_a_listed_test_whose_issue_is_open(self, make_repo, run):
         github = FakeGitHub({130: {"state": "OPEN"}})
         code, _, err = run(
@@ -753,14 +756,14 @@ class DescribeTraceOnClosedIssues:
         assert "#130 will trace them" in err
         assert len(github.queries) == 1
 
-    @pytest.mark.spec("trace-command-fails-closed-issue-entries")
+    @pytest.mark.spec("trace-cmd-fails-closed-issue-entries")
     def it_warns_that_it_did_not_look_without_a_token(self, make_repo, run):
         code, _, err = run("trace", "-C", str(make_repo(listed_test(130))))
         assert code == cp.OK, err
         assert "did not check that the issues" in err
         assert "GITHUB_TOKEN" in err
 
-    @pytest.mark.spec("trace-command-fails-closed-issue-entries")
+    @pytest.mark.spec("trace-cmd-fails-closed-issue-entries")
     def it_stops_on_an_issue_it_cannot_read(self, make_repo, run):
         code, _, err = run(
             "trace",
@@ -781,26 +784,26 @@ GO = SCRIPT + "::go"
 
 
 class DescribeSurface:
-    @pytest.mark.spec("surface-command-fails-unnamed-options")
+    @pytest.mark.spec("surface-cmd-fails-unnamed-options")
     def it_passes_when_a_requirement_names_every_item(self, make_repo, run):
         code, out, err = run("surface", "-C", str(make_repo({"specs/foo.md": NAMING_SPEC})))
         assert code == cp.OK, err
         assert "5 item(s) of 1 parser(s); 5 named" in out
 
-    @pytest.mark.spec("surface-command-fails-unnamed-options")
+    @pytest.mark.spec("surface-cmd-fails-unnamed-options")
     def it_fails_an_unnamed_subcommand_option_and_choice(self, make_repo, run):
         code, _, err = run("surface", "-C", str(make_repo()))
         assert code == cp.PROBLEMS
         for item in (GO, GO + " --skip", GO + " --mode b"):
             assert "%s is named by no requirement in specs/foo.md or specs/repo.md" % item in err
 
-    @pytest.mark.spec("surface-command-fails-unnamed-options")
+    @pytest.mark.spec("surface-cmd-fails-unnamed-options")
     def it_ignores_a_name_in_a_skill(self, make_repo, run):
         code, _, err = run("surface", "-C", str(make_repo()))
         assert code == cp.PROBLEMS
         assert "%s --skip is named by no requirement" % GO in err
 
-    @pytest.mark.spec("surface-command-fails-unnamed-options")
+    @pytest.mark.spec("surface-cmd-fails-unnamed-options")
     def it_counts_a_name_in_the_repo_spec(self, make_repo, run):
         spec = NAMING_SPEC.replace(", foo goes,\n  and `go --skip` leaves one out.", ".")
         repo = REPO_SPEC + "- `skips` (test): When `--skip` is given, a step is left out.\n"
@@ -809,7 +812,7 @@ class DescribeSurface:
         )
         assert code == cp.OK, err
 
-    @pytest.mark.spec("surface-command-fails-unnamed-options")
+    @pytest.mark.spec("surface-cmd-fails-unnamed-options")
     def it_counts_a_script_s_file_name_only_for_that_script(self, make_repo, run):
         other = NAMING_SPEC.replace("`go --skip`", "`bar.py go --skip`")
         code, _, err = run("surface", "-C", str(make_repo({"specs/foo.md": other})))
@@ -819,7 +822,7 @@ class DescribeSurface:
         code, _, err = run("surface", "-C", str(make_repo({"specs/foo.md": own}, name="own")))
         assert code == cp.OK, err
 
-    @pytest.mark.spec("surface-command-fails-unnamed-options")
+    @pytest.mark.spec("surface-cmd-fails-unnamed-options")
     def it_reads_a_repo_script_and_skips_one_with_no_parser(self, make_repo, run):
         tool = SOURCE.replace('prog="foo"', 'prog="tool"')
         root = make_repo(
@@ -834,7 +837,7 @@ class DescribeSurface:
         assert ".github/scripts/tool.py::go is named by no requirement in specs/repo.md." in err
         assert "plain.py" not in err
 
-    @pytest.mark.spec("surface-command-warns-on-listed-items")
+    @pytest.mark.spec("surface-cmd-warns-on-listed-items")
     def it_passes_a_listed_item_with_a_warning_naming_its_issue(self, make_repo, run):
         spec = NAMING_SPEC.replace("\n  and `go --skip` leaves one out.", "")
         root = make_repo(
@@ -844,7 +847,7 @@ class DescribeSurface:
         assert code == cp.OK, err
         assert "1 item(s) are named by no requirement yet; #173 will settle them." in err
 
-    @pytest.mark.spec("surface-command-warns-on-listed-items")
+    @pytest.mark.spec("surface-cmd-warns-on-listed-items")
     def it_fails_a_listed_item_a_requirement_now_names(self, make_repo, run):
         root = make_repo(
             {"specs/foo.md": NAMING_SPEC, cp.UNTRACED_FILE: untraced(surface={GO: 173})}
@@ -853,7 +856,7 @@ class DescribeSurface:
         assert code == cp.PROBLEMS
         assert "%s is now named by a requirement. Remove its entry" % GO in err
 
-    @pytest.mark.spec("surface-command-warns-on-listed-items")
+    @pytest.mark.spec("surface-cmd-warns-on-listed-items")
     def it_fails_a_listed_item_no_parser_has(self, make_repo, run):
         root = make_repo(
             {"specs/foo.md": NAMING_SPEC, cp.UNTRACED_FILE: untraced(surface={GO + " --gone": 1})}
@@ -862,13 +865,13 @@ class DescribeSurface:
         assert code == cp.PROBLEMS
         assert "lists %s --gone for #1, and no parser has it" % GO in err
 
-    @pytest.mark.spec("surface-command-scans-something")
+    @pytest.mark.spec("surface-cmd-scans-something")
     def it_fails_when_there_is_no_parser(self, make_repo, run):
         code, _, err = run("surface", "-C", str(make_repo({SCRIPT: None})))
         assert code == cp.PROBLEMS
         assert "found no script with a build_parser()" in err
 
-    @pytest.mark.spec("surface-command-warns-on-listed-items")
+    @pytest.mark.spec("surface-cmd-warns-on-listed-items")
     def it_accepts_the_repo_as_it_stands(self, run):
         code, _, err = run("surface", "-C", str(REPO_ROOT))
         assert code == cp.OK, err
@@ -930,13 +933,13 @@ def disclosed(run, root, environ, github=None):
 
 
 class DescribeDisclosed:
-    @pytest.mark.spec("disclosed-command-lists-ids")
+    @pytest.mark.spec("disclosed-cmd-lists-ids")
     def it_passes_a_pull_request_that_changes_no_spec(self, pull_request, run):
         code, out, err = disclosed(run, *pull_request())
         assert code == cp.OK, err
         assert "0 requirement change(s) and 0 new need(s)" in out
 
-    @pytest.mark.spec("disclosed-command-lists-ids")
+    @pytest.mark.spec("disclosed-cmd-lists-ids")
     @pytest.mark.parametrize(
         ("spec", "how"),
         [
@@ -955,7 +958,7 @@ class DescribeDisclosed:
             "in specs/foo.md was %s, and the pull request description does not name it" % how in err
         )
 
-    @pytest.mark.spec("disclosed-command-lists-ids")
+    @pytest.mark.spec("disclosed-cmd-lists-ids")
     def it_passes_each_id_the_description_names(self, pull_request, run):
         spec = FOO_SPEC.replace("foo does x", "foo does x twice") + (
             "- `foo-does-y` (test): When asked, foo does y.\n"
@@ -965,7 +968,7 @@ class DescribeDisclosed:
         assert code == cp.OK, err
         assert "2 requirement change(s)" in out
 
-    @pytest.mark.spec("disclosed-command-lists-ids")
+    @pytest.mark.spec("disclosed-cmd-lists-ids")
     def it_does_not_count_rewrapping_as_a_change(self, pull_request, run):
         spec = FOO_SPEC.replace(
             "skill asks them\n  in one batch", "skill\n  asks them in one batch"
@@ -973,14 +976,14 @@ class DescribeDisclosed:
         code, _, err = disclosed(run, *pull_request({"specs/foo.md": spec}))
         assert code == cp.OK, err
 
-    @pytest.mark.spec("disclosed-command-lists-ids")
+    @pytest.mark.spec("disclosed-cmd-lists-ids")
     def it_reads_every_requirement_of_a_new_spec_file(self, pull_request, run):
         bar = "# bar\n\n## constraint bar-is-slow: Bar is slow\n\nIt is.\n\n- `bar-waits` (test): Bar waits.\n"
         code, _, err = disclosed(run, *pull_request({"specs/bar.md": bar}))
         assert code == cp.PROBLEMS
         assert "`bar-waits` in specs/bar.md was added" in err
 
-    @pytest.mark.spec("disclosed-command-requires-issue-for-need")
+    @pytest.mark.spec("disclosed-cmd-requires-issue-for-need")
     def it_fails_a_new_need_when_the_pull_request_closes_no_issue(self, pull_request, run):
         code, _, err = disclosed(
             run, *pull_request({"specs/foo.md": FOO_SPEC + NEW_NEED}, body="`foo-goes-fast`")
@@ -988,7 +991,7 @@ class DescribeDisclosed:
         assert code == cp.PROBLEMS
         assert "adds the need `user-goes-fast`, and the pull request closes no issue" in err
 
-    @pytest.mark.spec("disclosed-command-requires-issue-for-need")
+    @pytest.mark.spec("disclosed-cmd-requires-issue-for-need")
     def it_fails_a_new_need_its_issue_does_not_name(self, pull_request, run):
         root, environ = pull_request(
             {"specs/foo.md": FOO_SPEC + NEW_NEED}, body="Closes #7\n`foo-goes-fast`"
@@ -998,7 +1001,7 @@ class DescribeDisclosed:
         assert code == cp.PROBLEMS
         assert "adds the need `user-goes-fast`, which #7 does not name" in err
 
-    @pytest.mark.spec("disclosed-command-requires-issue-for-need")
+    @pytest.mark.spec("disclosed-cmd-requires-issue-for-need")
     def it_passes_a_new_need_its_issue_names(self, pull_request, run):
         root, environ = pull_request(
             {"specs/foo.md": FOO_SPEC + NEW_NEED}, body="Closes #7\n`foo-goes-fast`"
@@ -1008,7 +1011,7 @@ class DescribeDisclosed:
         assert code == cp.OK, err
         assert "1 new need(s)" in out
 
-    @pytest.mark.spec("disclosed-command-fails-post-approval-edits")
+    @pytest.mark.spec("disclosed-cmd-fails-post-approval-edits")
     def it_fails_an_issue_edited_after_approval(self, pull_request, run):
         root, environ = pull_request(body="Closes #7")
         github = FakeGitHub({7: approved_issue(edited="2026-09-02T10:00:00Z")})
@@ -1017,7 +1020,7 @@ class DescribeDisclosed:
         assert "#7 was edited at 2026-09-02T10:00:00Z, after `approved` was added" in err
         assert "removing the label and adding it again" in err
 
-    @pytest.mark.spec("disclosed-command-fails-post-approval-edits")
+    @pytest.mark.spec("disclosed-cmd-fails-post-approval-edits")
     def it_passes_once_the_label_is_added_again(self, pull_request, run):
         root, environ = pull_request(body="Closes #7")
         issue = approved_issue(
@@ -1026,20 +1029,20 @@ class DescribeDisclosed:
         code, _, err = disclosed(run, root, environ, FakeGitHub({7: issue}))
         assert code == cp.OK, err
 
-    @pytest.mark.spec("disclosed-command-fails-post-approval-edits")
+    @pytest.mark.spec("disclosed-cmd-fails-post-approval-edits")
     def it_leaves_an_unapproved_issue_to_the_linked_issue_check(self, pull_request, run):
         root, environ = pull_request(body="Closes #7")
         issue = approved_issue(edited="2026-09-02T10:00:00Z", labeled=())
         code, _, err = disclosed(run, root, environ, FakeGitHub({7: issue}))
         assert code == cp.OK, err
 
-    @pytest.mark.spec("disclosed-command-fails-post-approval-edits")
+    @pytest.mark.spec("disclosed-cmd-fails-post-approval-edits")
     def it_stops_on_an_issue_it_cannot_read(self, pull_request, run):
         code, _, err = disclosed(run, *pull_request(body="Closes #7"))
         assert code == cp.CANNOT_RUN
         assert err.startswith("check-specs.py: cannot read #7")
 
-    @pytest.mark.spec("disclosed-command-lists-ids")
+    @pytest.mark.spec("disclosed-cmd-lists-ids")
     def it_stops_outside_a_pull_request_event(self, make_repo, run):
         code, _, err = run(
             "disclosed", "--base", "HEAD", "-C", str(make_repo()), environ=GITHUB_ENV

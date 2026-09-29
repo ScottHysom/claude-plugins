@@ -85,7 +85,7 @@ def plan(source, findings):
 
 
 class DescribeWholeLineCuts:
-    @pytest.mark.spec("apply-command-leaves-one-blank-line")
+    @pytest.mark.spec("apply-cmd-leaves-one-blank-line")
     @given(batch=batches())
     def it_leaves_no_two_blank_lines_together(self, batch):
         source, findings, _ = batch
@@ -93,7 +93,7 @@ class DescribeWholeLineCuts:
         assert rejected == []
         assert "\n\n\n" not in new
 
-    @pytest.mark.spec("apply-command-leaves-one-blank-line")
+    @pytest.mark.spec("apply-cmd-leaves-one-blank-line")
     @given(batch=batches())
     def it_leaves_no_blank_line_at_either_end(self, batch):
         source, findings, _ = batch
@@ -101,7 +101,7 @@ class DescribeWholeLineCuts:
         assert not new.startswith("\n")
         assert not new.endswith("\n\n")
 
-    @pytest.mark.spec("apply-command-leaves-one-blank-line")
+    @pytest.mark.spec("apply-cmd-leaves-one-blank-line")
     @given(batch=batches())
     def it_keeps_every_line_nobody_cut_in_order(self, batch):
         source, findings, removed = batch
@@ -139,13 +139,13 @@ def accept(source):
 
 
 class DescribeResolvedBlockCuts:
-    @pytest.mark.spec("resolve-command-tidies-cuts")
+    @pytest.mark.spec("resolve-cmd-tidies-cuts")
     @given(batch=tagged_cuts())
     def it_leaves_no_two_blank_lines_together(self, batch):
         source, _ = batch
         assert "\n\n\n" not in accept(source)
 
-    @pytest.mark.spec("resolve-command-tidies-cuts")
+    @pytest.mark.spec("resolve-cmd-tidies-cuts")
     @given(batch=tagged_cuts())
     def it_leaves_no_blank_line_at_either_end(self, batch):
         source, _ = batch
@@ -153,7 +153,7 @@ class DescribeResolvedBlockCuts:
         assert not new.startswith("\n")
         assert not new.endswith("\n\n")
 
-    @pytest.mark.spec("resolve-command-tidies-cuts")
+    @pytest.mark.spec("resolve-cmd-tidies-cuts")
     @given(batch=tagged_cuts())
     def it_keeps_every_paragraph_nobody_cut_in_order(self, batch):
         source, kept = batch

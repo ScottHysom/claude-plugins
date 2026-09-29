@@ -65,7 +65,7 @@ def read(path):
 
 class DescribeRender:
     @pytest.mark.spec(
-        "render-command-copies-instructions-verbatim", "render-command-appends-ignore-patterns"
+        "render-cmd-copies-instructions-verbatim", "render-cmd-appends-ignore-patterns"
     )
     @settings(suppress_health_check=[HealthCheck.too_slow], deadline=None)
     @given(INSTRUCTIONS, st.lists(PATTERN, unique=True, max_size=4))

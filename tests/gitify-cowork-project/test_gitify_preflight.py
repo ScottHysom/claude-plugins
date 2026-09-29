@@ -9,7 +9,7 @@ import gitify
 
 
 class DescribePreflight:
-    @pytest.mark.spec("preflight-command-names-template-problems")
+    @pytest.mark.spec("preflight-cmd-names-template-problems")
     def it_finds_the_shipped_templates_clean(self, runner):
         code, env = runner.run("preflight")
         assert code == gitify.OK
@@ -23,7 +23,7 @@ class DescribePreflight:
         assert "ok" in runner.out
         assert runner.err == ""
 
-    @pytest.mark.spec("preflight-command-names-template-problems")
+    @pytest.mark.spec("preflight-cmd-names-template-problems")
     def it_names_a_template_missing_from_disk(self, runner):
         templates = runner.templates_copy()
         (templates / "commit.sh").unlink()
@@ -31,7 +31,7 @@ class DescribePreflight:
         assert code == gitify.PROBLEMS
         assert any("commit.sh is in the manifest" in e for e in env["errors"])
 
-    @pytest.mark.spec("preflight-command-names-template-problems")
+    @pytest.mark.spec("preflight-cmd-names-template-problems")
     def it_names_a_template_missing_from_the_manifest(self, runner):
         templates = runner.templates_copy()
         (templates / "extra.md").write_text("# Extra\n")
@@ -39,7 +39,7 @@ class DescribePreflight:
         assert code == gitify.PROBLEMS
         assert any("extra.md" in e and "never ship" in e for e in env["errors"])
 
-    @pytest.mark.spec("preflight-command-names-template-problems")
+    @pytest.mark.spec("preflight-cmd-names-template-problems")
     def it_names_an_unknown_placeholder(self, runner):
         templates = runner.templates_copy()
         with open(templates / "CLAUDE.md", "a") as fh:
@@ -48,7 +48,7 @@ class DescribePreflight:
         assert code == gitify.PROBLEMS
         assert any("{{NOT_A_THING}}" in e for e in env["errors"])
 
-    @pytest.mark.spec("preflight-command-names-template-problems")
+    @pytest.mark.spec("preflight-cmd-names-template-problems")
     def it_names_a_stray_brace_with_its_line(self, runner):
         templates = runner.templates_copy()
         (templates / "gitignore").write_text("one\n{{PROJECT_NAME}\n")
@@ -56,13 +56,13 @@ class DescribePreflight:
         assert code == gitify.PROBLEMS
         assert any(e.startswith("gitignore:2") and "'{{'" in e for e in env["errors"])
 
-    @pytest.mark.spec("preflight-command-names-template-problems")
+    @pytest.mark.spec("preflight-cmd-names-template-problems")
     def it_reports_a_missing_templates_directory_rather_than_crashing(self, runner):
         code, env = runner.run("preflight", "--templates", str(runner.tmp / "nowhere"))
         assert code == gitify.PROBLEMS
         assert any("not found" in e for e in env["errors"])
 
-    @pytest.mark.spec("render-command-refuses-leftover-placeholders")
+    @pytest.mark.spec("render-cmd-refuses-leftover-placeholders")
     def it_refuses_to_render_from_a_malformed_template(self, runner, make_answers):
         templates = runner.templates_copy()
         (templates / "gitignore").write_text("a stray }} brace\n")
