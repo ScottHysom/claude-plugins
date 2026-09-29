@@ -165,7 +165,7 @@ class DescribeGeneratedRecords:
         if outcome == "round-tripped":
             assert back == SAMPLE
 
-    @pytest.mark.spec("repo:answers-checked")
+    @pytest.mark.spec("repo:script-checks-every-answer")
     @settings(suppress_health_check=[HealthCheck.too_slow])
     @given(records())
     def it_names_a_reason_for_every_refusal(self, batch):

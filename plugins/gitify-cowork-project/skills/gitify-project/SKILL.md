@@ -102,7 +102,7 @@ step made:
 `PROJECT_MOUNT` is worked out from the folders. Do not pass it.
 
 ## Step 3: render
-<!-- spec: render-stages-files, repo:answers-checked -->
+<!-- spec: render-stages-files, repo:script-checks-every-answer -->
 
 ```sh
 GITIFY=/tmp/gitify/plugin/scripts/gitify.py && python3 "$GITIFY" render --answers /tmp/gitify/answers.json --json

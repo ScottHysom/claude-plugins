@@ -94,14 +94,14 @@ def run(capsys):
 
 
 class DescribeFloors:
-    @pytest.mark.spec("floor-holds")
+    @pytest.mark.spec("floors-command-fails-below-floor")
     def it_passes_a_script_at_its_floor(self, repo, run):
         code, out, err = run("floors", "-C", str(repo))
         assert code == cc.OK
         assert SCRIPT in out
         assert err == ""
 
-    @pytest.mark.spec("floor-holds")
+    @pytest.mark.spec("floors-command-fails-below-floor")
     def it_fails_a_script_below_its_floor(self, repo, run):
         write(repo, {cc.DEFAULT_REPORT: report({SCRIPT: (79.99, [3])})})
         code, out, err = run("floors", "-C", str(repo))
@@ -109,7 +109,7 @@ class DescribeFloors:
         assert "below its floor of 80.00%" in err
         assert out == ""
 
-    @pytest.mark.spec("floor-rises")
+    @pytest.mark.spec("floors-command-warns-to-raise-floor")
     def it_warns_with_the_figure_to_raise_a_floor_to(self, repo, run):
         write(repo, {cc.DEFAULT_REPORT: report({SCRIPT: (91.2345, [])})})
         code, _, err = run("floors", "-C", str(repo))
@@ -117,7 +117,7 @@ class DescribeFloors:
         assert "warning:" in err
         assert "Raise the floor in %s to 91.23" % cc.FLOORS_FILE in err
 
-    @pytest.mark.spec("floor-for-new-script")
+    @pytest.mark.spec("floors-command-requires-new-script-floor")
     def it_fails_a_script_with_no_floor(self, repo, run):
         write(
             repo,
@@ -128,21 +128,21 @@ class DescribeFloors:
         assert "%s has no floor" % OTHER in err
         assert "at 50.00" in err
 
-    @pytest.mark.spec("unmeasured-script-fails")
+    @pytest.mark.spec("floors-command-fails-unmeasured-script")
     def it_fails_a_script_the_report_left_out(self, repo, run):
         write(repo, {OTHER: SOURCE, cc.FLOORS_FILE: floors({SCRIPT: 80.0, OTHER: 1.0})})
         code, _, err = run("floors", "-C", str(repo))
         assert code == cc.PROBLEMS
         assert "%s is not in the coverage report" % OTHER in err
 
-    @pytest.mark.spec("floors-list-scripts")
+    @pytest.mark.spec("floors-command-fails-stray-floor")
     def it_fails_a_floor_for_a_script_that_is_gone(self, repo, run):
         write(repo, {cc.FLOORS_FILE: floors({SCRIPT: 80.0, OTHER: 70.0})})
         code, _, err = run("floors", "-C", str(repo))
         assert code == cc.PROBLEMS
         assert "%s has a floor" % OTHER in err
 
-    @pytest.mark.spec("floor-never-lowered")
+    @pytest.mark.spec("floors-command-fails-lowered-floor")
     def it_fails_a_floor_lowered_since_the_base(self, repo, run):
         git(repo, "checkout", "-q", "-b", "work")
         write(repo, {cc.FLOORS_FILE: floors({SCRIPT: 75.0})})
@@ -150,7 +150,7 @@ class DescribeFloors:
         assert code == cc.PROBLEMS
         assert json.loads(out)["data"]["lowered"] == [SCRIPT]
 
-    @pytest.mark.spec("floor-never-lowered")
+    @pytest.mark.spec("floors-command-fails-lowered-floor")
     def it_allows_a_floor_raised_since_the_base(self, repo, run):
         git(repo, "checkout", "-q", "-b", "work")
         write(
@@ -160,21 +160,21 @@ class DescribeFloors:
         code, _, _ = run("floors", "-C", str(repo), "--base", "main")
         assert code == cc.OK
 
-    @pytest.mark.spec("branch-report-required")
+    @pytest.mark.spec("checkcoverage-command-requires-branch-report")
     def it_refuses_a_report_measured_without_branches(self, repo, run):
         write(repo, {cc.DEFAULT_REPORT: report({SCRIPT: (80.0, [])}, branch=False)})
         code, _, err = run("floors", "-C", str(repo))
         assert code == cc.CANNOT_RUN
         assert "without branch coverage" in err
 
-    @pytest.mark.spec("stop-names-remedy")
+    @pytest.mark.spec("script-names-remedy-on-stop")
     def it_says_how_to_make_a_missing_report(self, repo, run):
         (repo / cc.DEFAULT_REPORT).unlink()
         code, _, err = run("floors", "-C", str(repo))
         assert code == cc.CANNOT_RUN
         assert "pytest --cov" in err
 
-    @pytest.mark.spec("stop-names-remedy")
+    @pytest.mark.spec("script-names-remedy-on-stop")
     def it_says_how_to_fetch_a_base_that_is_missing(self, repo, run):
         code, _, err = run("floors", "-C", str(repo), "--base", "origin/nope")
         assert code == cc.CANNOT_RUN
@@ -182,7 +182,7 @@ class DescribeFloors:
 
 
 class DescribeDiff:
-    @pytest.mark.spec("added-line-unrun")
+    @pytest.mark.spec("diff-command-fails-unrun-added-line")
     def it_passes_an_added_line_a_test_runs(self, repo, run):
         git(repo, "checkout", "-q", "-b", "work")
         write(repo, {SCRIPT: SOURCE + "X = 1\n", cc.DEFAULT_REPORT: report({SCRIPT: (80, [])})})
@@ -190,7 +190,7 @@ class DescribeDiff:
         assert code == cc.OK
         assert "1 added lines" in out
 
-    @pytest.mark.spec("added-line-unrun")
+    @pytest.mark.spec("diff-command-fails-unrun-added-line")
     def it_names_an_added_line_no_test_runs(self, repo, run):
         git(repo, "checkout", "-q", "-b", "work")
         write(repo, {SCRIPT: SOURCE + "X = 1\n", cc.DEFAULT_REPORT: report({SCRIPT: (80, [5])})})
@@ -198,14 +198,14 @@ class DescribeDiff:
         assert code == cc.PROBLEMS
         assert "%s:5: no test runs this new line: `X = 1`" % SCRIPT in err
 
-    @pytest.mark.spec("added-line-unrun")
+    @pytest.mark.spec("diff-command-fails-unrun-added-line")
     def it_ignores_an_unrun_line_the_branch_did_not_add(self, repo, run):
         git(repo, "checkout", "-q", "-b", "work")
         write(repo, {SCRIPT: SOURCE + "X = 1\n", cc.DEFAULT_REPORT: report({SCRIPT: (80, [3])})})
         code, _, _ = run("diff", "-C", str(repo), "--base", "main")
         assert code == cc.OK
 
-    @pytest.mark.spec("added-line-unrun")
+    @pytest.mark.spec("diff-command-fails-unrun-added-line")
     def it_ignores_a_line_only_the_base_changed_since_the_branch_left(self, repo, run):
         git(repo, "checkout", "-q", "-b", "work")
         write(repo, {SCRIPT: SOURCE + "X = 1\n"})
@@ -218,7 +218,7 @@ class DescribeDiff:
         code, _, _ = run("diff", "-C", str(repo), "--base", "main")
         assert code == cc.OK
 
-    @pytest.mark.spec("added-line-unrun")
+    @pytest.mark.spec("diff-command-fails-unrun-added-line")
     def it_treats_every_line_of_a_new_script_as_added(self, repo, run):
         git(repo, "checkout", "-q", "-b", "work")
         write(
@@ -229,7 +229,7 @@ class DescribeDiff:
         assert code == cc.PROBLEMS
         assert "%s:3:" % OTHER in err
 
-    @pytest.mark.spec("unmeasured-script-fails")
+    @pytest.mark.spec("floors-command-fails-unmeasured-script")
     def it_fails_added_lines_in_a_script_the_report_left_out(self, repo, run):
         git(repo, "checkout", "-q", "-b", "work")
         write(repo, {OTHER: SOURCE})
@@ -239,21 +239,21 @@ class DescribeDiff:
 
 
 class DescribePragmas:
-    @pytest.mark.spec("pragma-reason")
+    @pytest.mark.spec("pragmas-command-requires-reasons")
     def it_passes_a_pragma_that_gives_its_reason(self, repo, run):
         write(repo, {SCRIPT: "x = 1  # pragma: no cover - only on Windows\n"})
         code, out, _ = run("pragmas", "-C", str(repo))
         assert code == cc.OK
         assert "1 pragmas" in out
 
-    @pytest.mark.spec("pragma-reason")
+    @pytest.mark.spec("pragmas-command-requires-reasons")
     def it_fails_a_pragma_with_no_reason(self, repo, run):
         write(repo, {SCRIPT: "x = 1\ny = 2  # pragma: no cover\n"})
         code, _, err = run("pragmas", "-C", str(repo))
         assert code == cc.PROBLEMS
         assert "%s:2:" % SCRIPT in err
 
-    @pytest.mark.spec("pragma-reason")
+    @pytest.mark.spec("pragmas-command-requires-reasons")
     def it_sees_the_spellings_coverage_itself_accepts(self, repo, run):
         write(repo, {SCRIPT: "x = 1  #pragma no cover\n"})
         code, _, _ = run("pragmas", "-C", str(repo))
@@ -262,7 +262,7 @@ class DescribePragmas:
 
 class DescribeScanningNothing:
     @pytest.mark.parametrize("command", ["floors", "diff", "pragmas"])
-    @pytest.mark.spec("coverage-scans-something")
+    @pytest.mark.spec("checkcoverage-command-scans-something")
     def it_refuses_to_pass_a_clone_with_no_plugin_script(self, tmp_path, run, command):
         root = tmp_path / "empty"
         root.mkdir()
@@ -274,21 +274,21 @@ class DescribeScanningNothing:
 
 
 class DescribeMain:
-    @pytest.mark.spec("cannot-run-exits-2")
+    @pytest.mark.spec("script-exits-2-when-unrunnable")
     def it_cannot_run_outside_a_clone(self, tmp_path, run):
         code, out, err = run("pragmas", "-C", str(tmp_path))
         assert code == cc.CANNOT_RUN
         assert out == ""
         assert err.startswith("%s: `git rev-parse --show-toplevel` failed" % cc.PROG)
 
-    @pytest.mark.spec("cannot-run-exits-2")
+    @pytest.mark.spec("script-exits-2-when-unrunnable")
     def it_cannot_run_on_a_directory_that_does_not_exist(self, tmp_path, run):
         code, out, err = run("pragmas", "-C", str(tmp_path / "nope"))
         assert code == cc.CANNOT_RUN
         assert out == ""
         assert err.startswith("%s: no such directory" % cc.PROG)
 
-    @pytest.mark.spec("closed-pipe-exits-0")
+    @pytest.mark.spec("script-ignores-closed-pipe")
     def it_exits_ok_when_its_reader_closes_the_pipe(self, repo, capsys, closed_pipe):
         closed_pipe()
         assert cc.main(["floors", "-C", str(repo)]) == cc.OK

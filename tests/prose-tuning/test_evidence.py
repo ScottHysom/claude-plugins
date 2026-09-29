@@ -240,7 +240,7 @@ class DescribeAnswers:
 
 
 class DescribePlainOutput:
-    @pytest.mark.spec("repo:plain-output-streams")
+    @pytest.mark.spec("repo:command-splits-output-streams")
     def it_prints_each_record_and_the_counts(self, prose_repo, target, capsys):
         prose_repo.commit()
         body = target.replace("Final paragraph.", "Final paragraph, now longer.").replace(

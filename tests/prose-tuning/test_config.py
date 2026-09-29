@@ -129,7 +129,7 @@ class DescribeFrontMatter:
         errors = config_from(source).errors
         assert [e for e in errors if message in e and ":%d " % line in e], errors
 
-    @pytest.mark.spec("front-matter-grammar", "repo:plain-output-streams")
+    @pytest.mark.spec("front-matter-grammar", "repo:command-splits-output-streams")
     def it_fails_lint_and_reports_on_stderr(self, prose_repo, capsys):
         (prose_repo.root / prose.CONFIG_PATH).write_text("---\nname T\n---\n")
         capsys.readouterr()
@@ -155,7 +155,7 @@ class DescribeRuleShape:
         )
         assert any("half an example" in e for e in cfg.errors)
 
-    @pytest.mark.spec("rule-shape-checked", "repo:plain-output-streams")
+    @pytest.mark.spec("rule-shape-checked", "repo:command-splits-output-streams")
     def it_warns_on_stderr_about_a_rule_with_no_example(self, prose_repo, capsys):
         (prose_repo.root / prose.CONFIG_PATH).write_text(
             self.HEAD + "### sentences-own-subject: Title\n\nBody.\n"
@@ -208,7 +208,7 @@ class DescribeConfigList:
             "after": "The list is curated, not collected.",
         }
 
-    @pytest.mark.spec("rules-listed", "repo:plain-output-streams")
+    @pytest.mark.spec("rules-listed", "repo:command-splits-output-streams")
     def it_prints_one_line_per_rule_without_json(self, prose_repo, capsys):
         capsys.readouterr()
         code = prose.main(["config", "list", "-C", str(prose_repo.root)])
@@ -405,7 +405,7 @@ class DescribeConfigClassify:
         assert (code, env) == (prose.CANNOT_RUN, None)
         assert "nowhere.md does not exist" in prose_repo.err
 
-    @pytest.mark.spec("repo:plain-output-streams")
+    @pytest.mark.spec("repo:command-splits-output-streams")
     def it_prints_each_bucket_on_stdout_without_json(self, prose_repo):
         src, tgt = prose_repo.root / "source.md", prose_repo.root / "target-style.md"
         src.write_text(
@@ -527,7 +527,7 @@ class DescribeConfigAdopt:
         _, env = self.adopt(prose_repo, src, tgt, "--rule", "sentences-own-subject")
         assert env["data"]["commit_note"] == "Adopted from %s: sentences-own-subject" % src
 
-    @pytest.mark.spec("adopt-commit-note", "repo:plain-output-streams")
+    @pytest.mark.spec("adopt-commit-note", "repo:command-splits-output-streams")
     def it_prints_the_commit_note_without_json(self, prose_repo, capsys):
         src, tgt = self.files(prose_repo, "## Sentences\n\n" + self.OWN_SUBJECT, "")
         capsys.readouterr()
@@ -610,7 +610,7 @@ class DescribeConfigAdopt:
         assert text.count("## Sentences") == 1
         assert text.index("sentences-own-subject") < text.index("sentences-count-needs-list")
 
-    @pytest.mark.spec("repo:dry-run-writes-nothing")
+    @pytest.mark.spec("repo:command-never-writes-in-preview")
     def it_writes_nothing_on_a_dry_run(self, prose_repo):
         src, tgt = self.files(prose_repo, "## Sentences\n\n" + self.OWN_SUBJECT, "")
         before = tgt.read_bytes()
@@ -619,7 +619,7 @@ class DescribeConfigAdopt:
         assert [a["id"] for a in env["data"]["adopted"]] == ["sentences-own-subject"]
         assert tgt.read_bytes() == before
 
-    @pytest.mark.spec("repo:partial-applies-rest")
+    @pytest.mark.spec("repo:command-applies-rest-if-partial")
     def it_writes_nothing_when_one_id_is_refused(self, prose_repo):
         src, tgt = self.files(
             prose_repo, "## Sentences\n\n" + self.OWN_SUBJECT, "## Sentences\n\n" + self.COUNT
@@ -631,7 +631,7 @@ class DescribeConfigAdopt:
         assert (code, env["data"]["adopted"]) == (prose.PROBLEMS, [])
         assert tgt.read_bytes() == before
 
-    @pytest.mark.spec("repo:partial-applies-rest")
+    @pytest.mark.spec("repo:command-applies-rest-if-partial")
     def it_writes_the_rest_with_partial(self, prose_repo):
         src, tgt = self.files(
             prose_repo, "## Sentences\n\n" + self.OWN_SUBJECT, "## Sentences\n\n" + self.COUNT
@@ -726,7 +726,7 @@ class DescribeConfigAdopt:
         assert "nowhere.md does not exist" in prose_repo.err
         assert not missing.exists()
 
-    @pytest.mark.spec("repo:plain-output-streams")
+    @pytest.mark.spec("repo:command-splits-output-streams")
     def it_prints_each_adopted_and_refused_id_on_stdout_without_json(self, prose_repo):
         src, tgt = self.files(
             prose_repo, "## Sentences\n\n" + self.OWN_SUBJECT, "## Sentences\n\n" + self.COUNT
