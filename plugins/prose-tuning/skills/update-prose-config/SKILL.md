@@ -61,7 +61,7 @@ and neither can then be pointed at. Every candidate below is checked against
 this list.
 
 ## Step 3: gather the evidence
-<!-- spec: signal-to-interview -->
+<!-- spec: updateproseconfig-asks-about-signals -->
 
 ```sh
 python3 "$PROSE" evidence --json
@@ -93,7 +93,7 @@ or `prose-style.md` changed. If something must be edited first, re-run
 `evidence` afterwards and build the batch from the new output.
 
 ## Step 4: the threshold for calling something a rule
-<!-- spec: rule-threshold -->
+<!-- spec: updateproseconfig-makes-rules-at-threshold -->
 
 <!-- no-command: judgment. The model weighs each candidate against the threshold. -->
 
@@ -108,7 +108,7 @@ with no commentary is a rule about one sentence, and it will fire on every
 document in the project forever.
 
 ## Step 5: tag what needs the author's eye
-<!-- spec: tags-one-batch -->
+<!-- spec: updateproseconfig-inserts-in-one-batch -->
 
 Insert every tag in one call, as one batch, with JSON on stdin and the token
 `evidence` printed:
@@ -149,7 +149,7 @@ argue with a refusal; give it whole lines instead. Question ids are assigned by
 the script, never by hand.
 
 ## Step 6: the interview, once
-<!-- spec: interview-one-batch -->
+<!-- spec: updateproseconfig-asks-in-one-batch -->
 
 <!-- no-command: judgment. The author answers one batch of questions. -->
 
@@ -230,7 +230,7 @@ Read the warnings. A block-form tag resolved inside a list is the one case worth
 eyeballing, because a tag between two list items ends the list.
 
 ## Step 9: validate by reproduction
-<!-- spec: fix-the-rule -->
+<!-- spec: updateproseconfig-fixes-the-rule -->
 
 ```sh
 python3 "$PROSE" reproduce --json
@@ -252,7 +252,7 @@ the document: extend its pattern, or write the rule it is missing. Then run
 `config lint` and `reproduce` again.
 
 ## Step 10: hand off
-<!-- spec: learning-never-commits -->
+<!-- spec: updateproseconfig-never-commits -->
 
 <!-- no-command: hand-off to the author. The run ends with the working tree dirty. -->
 

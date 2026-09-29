@@ -47,49 +47,49 @@ BAD_ID_ERRORS = [
 
 
 class DescribeWellFormedRuleFile:
-    @pytest.mark.spec("rules-listed")
+    @pytest.mark.spec("list-command-gives-every-rule")
     def it_reads_every_rule(self, config_from):
         assert len(config_from(WELL_FORMED).rules) == 2
 
-    @pytest.mark.spec("scope-block-read")
+    @pytest.mark.spec("scope-command-honors-include-and-exclude")
     def it_parses_the_scope_block(self, config_from):
         cfg = config_from(WELL_FORMED)
         assert cfg.scope_include == ["**/*.md"]
         assert cfg.scope_exclude == ["x.md"]
 
-    @pytest.mark.spec("rule-shape-checked")
+    @pytest.mark.spec("lint-command-checks-rule-shape")
     def it_reports_a_duplicate_id(self, config_from):
         assert any("duplicate rule id" in e for e in config_from(WELL_FORMED).errors)
 
-    @pytest.mark.spec("rules-listed")
+    @pytest.mark.spec("list-command-gives-every-rule")
     def it_extracts_the_worked_example(self, config_from):
         rule = config_from(WELL_FORMED).rules[0]
         assert (rule.before, rule.after) == ("a", "b")
 
-    @pytest.mark.spec("new-id-checked")
+    @pytest.mark.spec("checkid-command-vets-new-ids")
     def it_refuses_a_taken_id(self, config_from):
         _, problem = config_from(WELL_FORMED).check_id("sentences", "own-subject")
         assert problem is not None
 
-    @pytest.mark.spec("new-id-checked")
+    @pytest.mark.spec("checkid-command-vets-new-ids")
     def it_allows_a_free_id(self, config_from):
         rid, problem = config_from(WELL_FORMED).check_id("sentences", "name-the-role")
         assert (rid, problem) == ("sentences-name-the-role", None)
 
 
 class DescribeRuleIdGrammar:
-    @pytest.mark.spec("id-grammar")
+    @pytest.mark.spec("lint-command-checks-id-grammar")
     @pytest.mark.parametrize("message", BAD_ID_ERRORS)
     def it_names_each_bad_id_once(self, config_from, message):
         hits = [e for e in config_from(BAD_IDS).errors if message in e]
         assert len(hits) == 1, "matched %d: %s" % (len(hits), hits)
 
-    @pytest.mark.spec("id-grammar")
+    @pytest.mark.spec("lint-command-checks-id-grammar")
     def it_reports_nothing_else(self, config_from):
         errors = config_from(BAD_IDS).errors
         assert len(errors) == len(BAD_ID_ERRORS), errors
 
-    @pytest.mark.spec("id-grammar")
+    @pytest.mark.spec("lint-command-checks-id-grammar")
     def it_only_warns_about_a_name_that_repeats_its_section(self, config_from):
         """Readable but redundant - sentences-sentences-subject. Worth a
         nudge, not worth refusing the file.
@@ -98,13 +98,13 @@ class DescribeRuleIdGrammar:
         opens = [w for w in cfg.warnings if "opens with its own section" in w]
         assert len(opens) == 1
 
-    @pytest.mark.spec("id-grammar")
+    @pytest.mark.spec("lint-command-checks-id-grammar")
     def it_keeps_a_good_name(self, config_from):
         assert config_from(BAD_IDS).rules[-1].name == "own-subject"
 
 
 class DescribeFrontMatter:
-    @pytest.mark.spec("front-matter-grammar")
+    @pytest.mark.spec("lint-command-checks-front-matter")
     def it_refuses_a_key_outside_the_grammar(self, config_from):
         """Silently ignoring a key the author meant to set is worse than refusing
         the file, because the rule file looks like it took effect.
@@ -112,7 +112,7 @@ class DescribeFrontMatter:
         cfg = config_from("---\nname: T\nscope:\n  nested:\n    deep: 1\n---\n")
         assert cfg.errors
 
-    @pytest.mark.spec("front-matter-grammar")
+    @pytest.mark.spec("lint-command-checks-front-matter")
     @pytest.mark.parametrize(
         ("source", "line", "message"),
         [
@@ -129,7 +129,7 @@ class DescribeFrontMatter:
         errors = config_from(source).errors
         assert [e for e in errors if message in e and ":%d " % line in e], errors
 
-    @pytest.mark.spec("front-matter-grammar", "repo:command-splits-output-streams")
+    @pytest.mark.spec("lint-command-checks-front-matter", "repo:command-splits-output-streams")
     def it_fails_lint_and_reports_on_stderr(self, prose_repo, capsys):
         (prose_repo.root / prose.CONFIG_PATH).write_text("---\nname T\n---\n")
         capsys.readouterr()
@@ -143,19 +143,19 @@ class DescribeFrontMatter:
 class DescribeRuleShape:
     HEAD = "---\nname: T\n---\n\n## Sentences\n\n"
 
-    @pytest.mark.spec("rule-shape-checked")
+    @pytest.mark.spec("lint-command-checks-rule-shape")
     def it_refuses_a_rule_with_no_body(self, config_from):
         cfg = config_from(self.HEAD + "### sentences-own-subject: Title\n")
         assert any("rule sentences-own-subject has no body" in e for e in cfg.errors)
 
-    @pytest.mark.spec("rule-shape-checked")
+    @pytest.mark.spec("lint-command-checks-rule-shape")
     def it_refuses_half_a_worked_example(self, config_from):
         cfg = config_from(
             self.HEAD + "### sentences-own-subject: Title\n\nBody.\n\n> **Before.** a\n"
         )
         assert any("half an example" in e for e in cfg.errors)
 
-    @pytest.mark.spec("rule-shape-checked", "repo:command-splits-output-streams")
+    @pytest.mark.spec("lint-command-checks-rule-shape", "repo:command-splits-output-streams")
     def it_warns_on_stderr_about_a_rule_with_no_example(self, prose_repo, capsys):
         (prose_repo.root / prose.CONFIG_PATH).write_text(
             self.HEAD + "### sentences-own-subject: Title\n\nBody.\n"
@@ -174,7 +174,7 @@ class DescribeRuleMetadata:
     has to keep linting.
     """
 
-    @pytest.mark.spec("old-metadata-accepted")
+    @pytest.mark.spec("lint-command-accepts-any-source")
     @pytest.mark.parametrize("value", ["shipped", "adopted", "anything"])
     def it_accepts_a_source_key_from_an_older_file(self, config_from, value):
         cfg = config_from(
@@ -185,7 +185,7 @@ class DescribeRuleMetadata:
         )
         assert (cfg.errors, cfg.rules[0].meta["source"]) == ([], value)
 
-    @pytest.mark.spec("metadata-keys-checked")
+    @pytest.mark.spec("lint-command-names-unknown-keys")
     def it_refuses_a_key_it_does_not_know(self, config_from):
         cfg = config_from(
             "---\nname: T\n---\n\n## Sentences\n\n"
@@ -197,7 +197,7 @@ class DescribeRuleMetadata:
 
 
 class DescribeConfigList:
-    @pytest.mark.spec("rules-listed")
+    @pytest.mark.spec("list-command-gives-every-rule")
     def it_gives_every_rule_with_its_id_title_and_example(self, prose_repo):
         code, env = prose_repo.run("config", "list")
         assert code == prose.OK
@@ -208,7 +208,7 @@ class DescribeConfigList:
             "after": "The list is curated, not collected.",
         }
 
-    @pytest.mark.spec("rules-listed", "repo:command-splits-output-streams")
+    @pytest.mark.spec("list-command-gives-every-rule", "repo:command-splits-output-streams")
     def it_prints_one_line_per_rule_without_json(self, prose_repo, capsys):
         capsys.readouterr()
         code = prose.main(["config", "list", "-C", str(prose_repo.root)])
@@ -226,12 +226,12 @@ class DescribeCheckIdCommand:
         )
         return code, capsys.readouterr()
 
-    @pytest.mark.spec("new-id-checked")
+    @pytest.mark.spec("checkid-command-vets-new-ids")
     def it_prints_a_free_id(self, prose_repo, capsys):
         code, captured = self.check(prose_repo, capsys, "sentences", "name-the-role")
         assert (code, captured.out) == (prose.OK, "sentences-name-the-role\n")
 
-    @pytest.mark.spec("new-id-checked")
+    @pytest.mark.spec("checkid-command-vets-new-ids")
     @pytest.mark.parametrize(
         ("section", "name", "message"),
         [
@@ -260,13 +260,13 @@ class DescribeRuleSimilarity:
         r.body = list(body)
         return r
 
-    @pytest.mark.spec("similarity-score")
+    @pytest.mark.spec("classify-command-scores-similarity")
     def it_scores_the_same_rule_renamed_high(self):
         a = self.rule("sentences-own-subject", "sentences", "own-subject", self.SHARED)
         b = self.rule("voice-carries-subject", "voice", "carries-subject", self.SHARED)
         assert prose.rule_similarity(a, b)[2] >= 0.9
 
-    @pytest.mark.spec("similarity-score")
+    @pytest.mark.spec("classify-command-scores-similarity")
     def it_still_scores_on_a_shared_name_alone(self):
         a = self.rule("sentences-own-subject", "sentences", "own-subject", self.SHARED)
         b = self.rule(
@@ -277,7 +277,7 @@ class DescribeRuleSimilarity:
         )
         assert prose.rule_similarity(a, b)[2] >= 0.6
 
-    @pytest.mark.spec("similarity-score")
+    @pytest.mark.spec("classify-command-scores-similarity")
     def it_scores_unrelated_rules_low(self):
         a = self.rule("sentences-own-subject", "sentences", "own-subject", self.SHARED)
         b = self.rule(
@@ -295,7 +295,7 @@ class DescribeBodyKey:
         r.body = list(body)
         return r
 
-    @pytest.mark.spec("fill-marker-ignored")
+    @pytest.mark.spec("classify-command-ignores-fill-markers")
     def it_ignores_a_fill_marker(self):
         """A rule awaiting an example is still the same rule. If the marker
         counted, adopt-prose would offer to add what is already there.
@@ -304,7 +304,7 @@ class DescribeBodyKey:
         without = self.rule(["Same", "rule."])
         assert with_marker.body_key() == without.body_key()
 
-    @pytest.mark.spec("classify-colliding")
+    @pytest.mark.spec("classify-command-finds-colliding-rules")
     def it_gives_different_bodies_different_keys(self):
         assert self.rule(["Same rule."]).body_key() != self.rule(["A different rule."]).body_key()
 
@@ -328,7 +328,7 @@ class DescribeConfigClassify:
         assert code == prose.OK
         return {r["id"]: r for r in env["data"]["rules"]}
 
-    @pytest.mark.spec("classify-new")
+    @pytest.mark.spec("classify-command-finds-new-rules")
     def it_puts_a_rule_the_target_lacks_in_new(self, prose_repo):
         rules = self.classify(
             prose_repo,
@@ -338,7 +338,7 @@ class DescribeConfigClassify:
         assert rules["sentences-own-subject"]["bucket"] == prose.BUCKET_NEW
         assert rules["sentences-own-subject"]["target"] is None
 
-    @pytest.mark.spec("classify-identical")
+    @pytest.mark.spec("classify-command-finds-identical-rules")
     def it_puts_a_same_id_same_body_rule_in_identical(self, prose_repo):
         rules = self.classify(
             prose_repo,
@@ -348,7 +348,7 @@ class DescribeConfigClassify:
         got = rules["sentences-own-subject"]
         assert (got["bucket"], got["target"]) == (prose.BUCKET_IDENTICAL, "sentences-own-subject")
 
-    @pytest.mark.spec("classify-colliding")
+    @pytest.mark.spec("classify-command-finds-colliding-rules")
     def it_puts_a_same_id_different_body_rule_in_colliding(self, prose_repo):
         rules = self.classify(
             prose_repo,
@@ -358,7 +358,7 @@ class DescribeConfigClassify:
         got = rules["sentences-own-subject"]
         assert (got["bucket"], got["target"]) == (prose.BUCKET_COLLIDING, "sentences-own-subject")
 
-    @pytest.mark.spec("classify-similar")
+    @pytest.mark.spec("classify-command-finds-similar-rules")
     def it_puts_a_renamed_rule_in_similar_with_its_candidate(self, prose_repo):
         rules = self.classify(
             prose_repo,
@@ -370,7 +370,9 @@ class DescribeConfigClassify:
         assert got["target"] == "sentences-carries-subject"
         assert [c["target"] for c in got["candidates"]] == ["sentences-carries-subject"]
 
-    @pytest.mark.spec("classify-identical", "fill-marker-ignored")
+    @pytest.mark.spec(
+        "classify-command-finds-identical-rules", "classify-command-ignores-fill-markers"
+    )
     def it_treats_a_body_differing_only_by_a_fill_marker_and_rewrap_as_identical(self, prose_repo):
         """The bodies differ as text, so comparing `body` would make this a
         collision, and nearly every shipped rule would look like one.
@@ -383,7 +385,7 @@ class DescribeConfigClassify:
         )
         assert rules["sentences-own-subject"]["bucket"] == prose.BUCKET_IDENTICAL
 
-    @pytest.mark.spec("classify-id-first")
+    @pytest.mark.spec("classify-command-settles-ids-first")
     def it_settles_a_shared_id_before_scoring_similarity(self, prose_repo):
         rules = self.classify(
             prose_repo,
@@ -396,7 +398,7 @@ class DescribeConfigClassify:
         got = rules["sentences-own-subject"]
         assert (got["bucket"], got["candidates"]) == (prose.BUCKET_COLLIDING, [])
 
-    @pytest.mark.spec("missing-file-stops")
+    @pytest.mark.spec("classify-command-names-missing-target")
     def it_refuses_a_missing_target_file(self, prose_repo):
         src = prose_repo.root / "source.md"
         src.write_text(self.HEAD + "## Sentences\n\n" + self.rule("sentences-own-subject", "x"))
@@ -478,7 +480,7 @@ class DescribeConfigAdopt:
     def adopt(self, prose_repo, src, tgt, *argv):
         return prose_repo.run("config", "adopt", "--file", str(src), "--to", str(tgt), *argv)
 
-    @pytest.mark.spec("adopt-byte-for-byte")
+    @pytest.mark.spec("adopt-command-copies-byte-for-byte")
     def it_copies_a_rule_byte_for_byte(self, prose_repo):
         src, tgt = self.files(
             prose_repo, "## Sentences\n\n" + self.OWN_SUBJECT, "## Sentences\n\n" + self.COUNT
@@ -488,7 +490,7 @@ class DescribeConfigAdopt:
         body = self.OWN_SUBJECT.split("\n", 2)[2]
         assert "\n" + body in tgt.read_text()
 
-    @pytest.mark.spec("adopt-byte-for-byte")
+    @pytest.mark.spec("adopt-command-copies-byte-for-byte")
     def it_drops_the_metadata_comment_an_earlier_version_wrote(self, prose_repo):
         src, tgt = self.files(
             prose_repo, "## Sentences\n\n" + self.OWN_SUBJECT, "## Sentences\n\n" + self.COUNT
@@ -499,7 +501,7 @@ class DescribeConfigAdopt:
         assert "### sentences-own-subject: Carries its own subject\n\nA sentence" in text
         assert "prose-rule" not in text
 
-    @pytest.mark.spec("adopt-commit-note")
+    @pytest.mark.spec("adopt-command-gives-commit-note")
     def it_names_the_source_project_and_the_ids_for_the_commit(self, prose_repo):
         src, tgt = self.files(
             prose_repo, "## Sentences\n\n" + self.OWN_SUBJECT + "\n" + self.COUNT, ""
@@ -518,7 +520,7 @@ class DescribeConfigAdopt:
             "Adopted from repo: sentences-own-subject, sentences-count-needs-list",
         )
 
-    @pytest.mark.spec("adopt-commit-note")
+    @pytest.mark.spec("adopt-command-gives-commit-note")
     def it_names_the_source_path_outside_a_repository(self, prose_repo, tmp_path_factory):
         src = tmp_path_factory.mktemp("elsewhere") / "prose-style.md"
         src.write_text(self.HEAD + "## Sentences\n\n" + self.OWN_SUBJECT)
@@ -527,7 +529,7 @@ class DescribeConfigAdopt:
         _, env = self.adopt(prose_repo, src, tgt, "--rule", "sentences-own-subject")
         assert env["data"]["commit_note"] == "Adopted from %s: sentences-own-subject" % src
 
-    @pytest.mark.spec("adopt-commit-note", "repo:command-splits-output-streams")
+    @pytest.mark.spec("adopt-command-gives-commit-note", "repo:command-splits-output-streams")
     def it_prints_the_commit_note_without_json(self, prose_repo, capsys):
         src, tgt = self.files(prose_repo, "## Sentences\n\n" + self.OWN_SUBJECT, "")
         capsys.readouterr()
@@ -537,7 +539,7 @@ class DescribeConfigAdopt:
         assert code == prose.OK
         assert "for the commit description: Adopted from repo: sentences-own-subject" in out
 
-    @pytest.mark.spec("adopt-refuses-collision")
+    @pytest.mark.spec("adopt-command-refuses-collision")
     def it_refuses_an_id_the_target_has(self, prose_repo):
         src, tgt = self.files(
             prose_repo,
@@ -551,14 +553,14 @@ class DescribeConfigAdopt:
         assert "collision" in env["errors"][0]
         assert tgt.read_bytes() == before
 
-    @pytest.mark.spec("adopt-refuses-unknown")
+    @pytest.mark.spec("adopt-command-refuses-unknown")
     def it_refuses_an_id_the_source_lacks(self, prose_repo):
         src, tgt = self.files(prose_repo, "## Sentences\n\n" + self.OWN_SUBJECT, "")
         code, env = self.adopt(prose_repo, src, tgt, "--rule", "sentences-no-such-rule")
         assert code == prose.PROBLEMS
         assert [r["id"] for r in env["data"]["refused"]] == ["sentences-no-such-rule"]
 
-    @pytest.mark.spec("adopt-placement")
+    @pytest.mark.spec("adopt-command-places-by-section")
     def it_places_a_rule_after_the_last_of_its_section(self, prose_repo):
         src, tgt = self.files(
             prose_repo,
@@ -578,7 +580,7 @@ class DescribeConfigAdopt:
         line = env["data"]["adopted"][0]["line"]
         assert text.split("\n")[line - 1].startswith("### sentences-own-subject:")
 
-    @pytest.mark.spec("adopt-placement")
+    @pytest.mark.spec("adopt-command-places-by-section")
     def it_adds_the_section_heading_when_the_target_has_none(self, prose_repo):
         src, tgt = self.files(
             prose_repo,
@@ -589,7 +591,7 @@ class DescribeConfigAdopt:
         assert code == prose.OK
         assert "These rules apply:\n\n## Register\n\n### register-plain-words" in tgt.read_text()
 
-    @pytest.mark.spec("adopt-source-order")
+    @pytest.mark.spec("adopt-command-keeps-source-order")
     def it_keeps_the_source_order_for_rules_going_to_one_place(self, prose_repo):
         src, tgt = self.files(
             prose_repo,
@@ -649,7 +651,7 @@ class DescribeConfigAdopt:
         assert code == prose.PROBLEMS
         assert "### sentences-own-subject" in tgt.read_text()
 
-    @pytest.mark.spec("adopt-lints-clean")
+    @pytest.mark.spec("adopt-command-lints-clean")
     def it_leaves_a_target_that_lints_clean(self, prose_repo):
         src, tgt = self.files(
             prose_repo,
@@ -668,14 +670,14 @@ class DescribeConfigAdopt:
         code, env = prose_repo.run("config", "lint", "--file", str(tgt))
         assert (code, env["data"]["rules"]) == (prose.OK, 3)
 
-    @pytest.mark.spec("adopt-refuses-unlinted")
+    @pytest.mark.spec("adopt-command-refuses-unlinted")
     def it_refuses_a_source_that_does_not_lint(self, prose_repo):
         src, tgt = self.files(prose_repo, "## Sentences\n\n### sentences-01: Bad\n\nBody.\n", "")
         code, _ = self.adopt(prose_repo, src, tgt, "--rule", "sentences-01")
         assert code == prose.CANNOT_RUN
         assert "does not lint clean" in prose_repo.err
 
-    @pytest.mark.spec("adopt-refuses-unknown")
+    @pytest.mark.spec("adopt-command-refuses-unknown")
     def it_refuses_an_id_named_twice(self, prose_repo):
         src, tgt = self.files(prose_repo, "## Sentences\n\n" + self.OWN_SUBJECT, "")
         code, env = self.adopt(
@@ -692,7 +694,7 @@ class DescribeConfigAdopt:
             {"id": "sentences-own-subject", "reason": "sentences-own-subject is named twice"}
         ]
 
-    @pytest.mark.spec("adopt-placement")
+    @pytest.mark.spec("adopt-command-places-by-section")
     def it_places_a_rule_under_the_matching_heading_when_its_section_is_empty(self, prose_repo):
         src, tgt = self.files(
             prose_repo,
@@ -706,7 +708,7 @@ class DescribeConfigAdopt:
         assert "No rules yet.\n\n### sentences-own-subject" in text
         assert "> **After.** A reader can state it.\n\n## Register" in text
 
-    @pytest.mark.spec("adopt-lints-clean")
+    @pytest.mark.spec("adopt-command-lints-clean")
     def it_ends_a_target_with_no_final_newline_before_adding_to_it(self, prose_repo):
         src, tgt = self.files(
             prose_repo, "## Register\n\n" + self.TONE, "## Sentences\n\n" + self.COUNT.rstrip("\n")
@@ -717,7 +719,7 @@ class DescribeConfigAdopt:
         code, env = prose_repo.run("config", "lint", "--file", str(tgt))
         assert (code, env["data"]["rules"]) == (prose.OK, 2)
 
-    @pytest.mark.spec("missing-file-stops")
+    @pytest.mark.spec("classify-command-names-missing-target")
     def it_refuses_a_missing_target_file(self, prose_repo):
         src, _ = self.files(prose_repo, "## Sentences\n\n" + self.OWN_SUBJECT, "")
         missing = prose_repo.root / "nowhere.md"

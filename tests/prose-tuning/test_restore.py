@@ -10,7 +10,7 @@ import prose
 
 
 class DescribeRestore:
-    @pytest.mark.spec("restore-from-head")
+    @pytest.mark.spec("restore-command-writes-last-commit")
     def it_writes_the_file_as_it_was_at_the_last_commit(self, prose_repo, target):
         prose_repo.commit()
         (prose_repo.root / "target.md").write_text("Mangled.\n")
@@ -18,7 +18,7 @@ class DescribeRestore:
         assert code == prose.OK, env["errors"]
         assert prose_repo.read() == target
 
-    @pytest.mark.spec("restore-from-head")
+    @pytest.mark.spec("restore-command-writes-last-commit")
     def it_names_a_file_the_last_commit_does_not_hold(self, prose_repo):
         prose_repo.commit()
         new = prose_repo.root / "new.md"
