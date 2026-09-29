@@ -10,7 +10,9 @@ either way.
 
 `trace` fails a test or a skill step that cites no requirement, a citation of
 an id its component's spec lacks, and a requirement nothing verifies the way
-its kind says. The kinds, and what verifies each:
+its kind says. It also fails a need, constraint or requirement id that is not
+in the form SPEC-METHODOLOGY.md gives under "Ids". The kinds, and what
+verifies each:
 
   test   a test marked `@pytest.mark.spec("<id>")`, on the test or its class
   step   a `## Step` of a SKILL.md with `<!-- spec: <id>, <id> -->` on a line
@@ -47,9 +49,7 @@ component spec and specs/repo.md, which holds the flags every script shares.
 backticks, each requirement id its diff adds, changes or removes, as `<id>`
 or `<component>:<id>`. It also fails one that adds a need no issue it closes
 names, and one that closes an issue whose body was edited after `approved`
-was last added to it. Every need, constraint and requirement id it adds must
-take the form SPEC-METHODOLOGY.md gives under "Ids", so a renamed id is
-checked and an id already on the base is not. Agents post under the owner's account, so an edit to an
+was last added to it. Agents post under the owner's account, so an edit to an
 approved issue looks like the owner's own; removing the label and adding it
 again is how the owner re-approves. It reads the pull request from
 $GITHUB_EVENT_PATH, so it runs in CI on a pull_request event.
@@ -80,19 +80,14 @@ Commands:
   inventory  what needs tracing in one plugin
   surface    every subcommand, option and choices value is named by a
              requirement, or is listed in .github/untraced.json
-  disclosed  a pull request names each requirement it changes, each need it
-             adds is named by an issue it closes, and each id it adds takes
-             the form
+  disclosed  a pull request names each requirement it changes, and each need
+             it adds is named by an issue it closes
 
 Every command takes --json and -C/--repo.
 
 Exit codes: 0 clean, 1 ran and found problems, 2 could not run.
 
 Things that look like bugs and are not:
-
-- `trace` accepts an id of one to six words and checks nothing else of its
-  form, while `disclosed` checks the form of each id a pull request adds. The
-  ids written before the form was set pass until #267 renames them.
 
 - The tests are found by reading their source, not by running pytest, so the
   check needs nothing outside the standard library. It reads the files under
@@ -405,6 +400,16 @@ def spec_path(component):
     return "%s/%s%s" % (SPECS, component, MARKDOWN)
 
 
+def form_error(where, kind, rid, errors):
+    """Add an error when an id is not in the form id_form checks."""
+    reason = id_form(kind, rid)
+    if reason:
+        errors.append(
+            "%s: the %s id `%s` is not in the form, since %s. Rename it, and every "
+            "citation of it. %s" % (where, kind, rid, reason, ID_FORM)
+        )
+
+
 def parse_spec(path, text, errors):
     """The requirements of one spec file, as {id: {"kind", "line", "under", "text"}}.
 
@@ -422,6 +427,8 @@ def parse_spec(path, text, errors):
         if SECTION_RE.match(line):
             heading = HEADING_RE.match(line)
             under = heading.group(2) if heading else None
+            if heading:
+                form_error(where, heading.group(1), under, errors)
             continue
         if under is None:
             if REQUIREMENT_START_RE.match(line):
@@ -446,6 +453,7 @@ def parse_spec(path, text, errors):
                 "hyphens." % (where, rid)
             )
             continue
+        form_error(where, "requirement", rid, errors)
         if rid in requirements:
             errors.append(
                 "%s: `%s` is already the id of the requirement at line %d. Ids are unique "
@@ -1325,19 +1333,14 @@ def cmd_surface(args, root):
 # --------------------------------------------------------------------------
 
 
-def spec_headings(text):
-    """{(kind, id)} of a spec file's needs and constraints."""
+def spec_needs(text):
+    """The ids of a spec file's needs."""
     out = set()
     for line in text.splitlines():
         m = HEADING_RE.match(line)
-        if m:
-            out.add((m.group(1), m.group(2)))
+        if m and m.group(1) == "need":
+            out.add(m.group(2))
     return out
-
-
-def spec_needs(text):
-    """The ids of a spec file's needs."""
-    return set(rid for kind, rid in spec_headings(text) if kind == "need")
 
 
 def id_form(kind, rid):
@@ -1459,18 +1462,6 @@ def cmd_disclosed(args, root):
                 "`%s` in %s was %s, and the pull request description does not name it. "
                 "List it in backticks, so the owner reviews the requirement."
                 % (rid, spec_path(component), how)
-            )
-
-    new_ids = [(c, "requirement", r) for c, r, how in changes if how == "added"]
-    for component in sorted(after):
-        old = spec_headings(before.get(component, ""))
-        new_ids += [(component, k, r) for k, r in sorted(spec_headings(after[component]) - old)]
-    for component, kind, rid in new_ids:
-        reason = id_form(kind, rid)
-        if reason:
-            errors.append(
-                "%s adds the %s `%s`, and %s. Rename it. %s"
-                % (spec_path(component), kind, rid, reason, ID_FORM)
             )
 
     ours, _ = load_check_linked().linked_issues(title + "\n" + body, repository)

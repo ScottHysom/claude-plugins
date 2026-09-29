@@ -285,10 +285,8 @@ and `id` parts, and fails a spec file that breaks them. How it reads them:
 - Under a need or a constraint, every bullet must be a requirement.
 - A continuation line is indented, and follows its requirement with no blank
   line between.
-- It reads the id in a need or a constraint heading without checking its
-  form. In a requirement it checks only that the id is one to six words, so
-  an id older than the form under "Ids", below, still passes. `disclosed`
-  checks the form of every id a pull request adds.
+- It checks every need, constraint and requirement id against the form
+  under "Ids", below.
 - In claude-plugins it refuses `eval`, since nothing there runs an eval yet.
 
 The rest is convention, which the owner reviews:
@@ -413,14 +411,13 @@ standard-library Python, JSON output on request, and exit codes of 0 for clean,
   - every line no test runs
 - **`trace`** fails a test or a skill step that cites no requirement, and any
   citation of an id no spec holds. It also fails a requirement that nothing of
-  its kind cites.
+  its kind cites, and an id not in the form "Ids" gives.
 - **`surface`** fails a command, option or allowed value that no requirement
   names. A command-line parser, a route table and a configuration schema are
   each a registry a script can list, and each can be held to this rule.
 - **`disclosed`** fails a pull request whose description does not list every
   requirement its diff adds, changes or removes. It also fails one that adds a
-  need its linked ticket does not name, and one that adds an id not in the
-  form "Ids" gives.
+  need its linked ticket does not name.
 - **The seam check** fails a skill step that runs more than one command
   without a `<!-- seam: <kind>: <reason> -->` marker.
 - **The coverage check** fails when a component's branch coverage, which counts

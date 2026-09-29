@@ -512,9 +512,10 @@ Source: #114, #129, and SPEC-METHODOLOGY.md, under "The chain".
   cites a requirement, or no longer exists, `trace` fails until its entry is
   removed.
 - `trace-command-checks-spec-grammar` (test): When a spec file has a
-  requirement outside a need or a constraint, a malformed requirement, an id
-  of more than six words, a duplicate id or a kind nothing in the repo
-  verifies, `trace` fails it.
+  requirement outside a need or a constraint, a malformed requirement, a need,
+  constraint or requirement id not in the form SPEC-METHODOLOGY.md gives under
+  "Ids", a duplicate id or a kind nothing in the repo verifies, `trace` fails
+  it.
 - `trace-command-scans-something` (test): When `trace` finds no spec, no test
   or no skill step, it fails.
 - `ci-runs-trace` (check): When a pull request is opened or updated, CI runs
@@ -552,9 +553,6 @@ Source: #114, #129, and SPEC-METHODOLOGY.md, under "The chain".
   backticks, `check-specs.py disclosed` fails it.
 - `disclosed-command-requires-issue-for-need` (test): When a pull request adds
   a need that no issue it closes names, `disclosed` fails it.
-- `disclosed-command-checks-new-ids` (test): When a pull request adds a need, a
-  constraint or a requirement whose id is not in the form SPEC-METHODOLOGY.md
-  gives under "Ids", `disclosed` fails it.
 - `ci-runs-disclosed` (check): When a pull request is opened, edited or
   updated, CI runs `disclosed`.
 
