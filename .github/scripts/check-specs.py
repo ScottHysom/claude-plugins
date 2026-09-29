@@ -97,8 +97,10 @@ Things that look like bugs and are not:
 - A marker on a class cites for every test in it.
 - A spec file is parsed only as far as tracing needs: its need and constraint
   headings and the requirement bullets under them. A requirement bullet
-  anywhere else, a malformed one, a duplicate id and an unknown kind are
-  errors, since the check cannot trace what it cannot read. `eval` is a kind
+  anywhere else, a malformed one, a malformed need, constraint or
+  requirement id, an id that repeats another in the same file, and an
+  unknown kind are errors, since the check cannot trace what it cannot read.
+  Needs, constraints and requirements share one set of ids. `eval` is a kind
   SPEC-METHODOLOGY.md names, and nothing in this repo runs an eval yet, so a
   requirement of that kind fails.
 - A citation of a requirement of another kind is allowed. A test may cite a
@@ -410,12 +412,37 @@ def form_error(where, kind, rid, errors):
         )
 
 
+def not_an_id(where, rid, errors):
+    """Add an error and return True when rid does not match ID_RE."""
+    if ID_RE.match(rid):
+        return False
+    errors.append(
+        "%s: `%s` is not an id. An id is one to six lower-case words joined by "
+        "hyphens." % (where, rid)
+    )
+    return True
+
+
+def repeated_id(where, kind, rid, number, ids, errors):
+    """Add an error and return True when rid is already an id in the file, else
+    record it. Needs, constraints and requirements share one set of ids."""
+    if rid in ids:
+        errors.append(
+            "%s: `%s` is already the id of the %s at line %d. Ids are unique within a "
+            "file." % ((where, rid) + ids[rid])
+        )
+        return True
+    ids[rid] = (kind, number)
+    return False
+
+
 def parse_spec(path, text, errors):
     """The requirements of one spec file, as {id: {"kind", "line", "under", "text"}}.
 
     A requirement's text is its bullet and the indented lines that continue it.
     """
     requirements = {}
+    ids = {}
     under = None
     current = None
     for number, line in enumerate(text.splitlines(), 1):
@@ -428,7 +455,10 @@ def parse_spec(path, text, errors):
             heading = HEADING_RE.match(line)
             under = heading.group(2) if heading else None
             if heading:
-                form_error(where, heading.group(1), under, errors)
+                kind = heading.group(1)
+                if not not_an_id(where, under, errors):
+                    form_error(where, kind, under, errors)
+                repeated_id(where, kind, under, number, ids, errors)
             continue
         if under is None:
             if REQUIREMENT_START_RE.match(line):
@@ -447,18 +477,10 @@ def parse_spec(path, text, errors):
             )
             continue
         rid, kind = m.group(1), m.group(2)
-        if not ID_RE.match(rid):
-            errors.append(
-                "%s: `%s` is not an id. An id is one to six lower-case words joined by "
-                "hyphens." % (where, rid)
-            )
+        if not_an_id(where, rid, errors):
             continue
         form_error(where, "requirement", rid, errors)
-        if rid in requirements:
-            errors.append(
-                "%s: `%s` is already the id of the requirement at line %d. Ids are unique "
-                "within a file." % (where, rid, requirements[rid]["line"])
-            )
+        if repeated_id(where, "requirement", rid, number, ids, errors):
             continue
         if kind == EVAL:
             errors.append(
