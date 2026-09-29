@@ -37,7 +37,7 @@ no written need.
 
 Tests did not catch any of it. A test shows that a behavior works, and says
 nothing about whether anyone needs it. Several of the unneeded behaviors had
-tests, and the `source` check had none.
+tests, and the lint code that held `source` to its values had none.
 
 ## The model
 
@@ -62,9 +62,10 @@ The method names these roles:
 ### Needs and constraints
 
 A need says who wants what outcome, and why. It takes the situation-first form
-of a job story: "When <situation>, <role> wants <outcome>, so <reason>." A need
-comes from a source outside the code, such as the owner's words, a README, a
-ticket or a commit message.
+of a job story: "When <situation>, <role> wants <outcome>, so <reason>." The
+role can open the situation instead, as in "When a renter returns a car, they
+want ...". A need comes from a source outside the code, such as the owner's
+words, a README, a ticket or a commit message, and cites it.
 
 A constraint is a fact about the platform that forces a design, such as "the
 fleet vendor's API allows 60 calls a minute". A constraint cites where the fact
@@ -76,48 +77,85 @@ A requirement is one sentence stating one behavior. EARS, the Easy Approach to
 Requirements Syntax from Alistair Mavin and colleagues at Rolls-Royce, opens a
 requirement with its trigger: "When <trigger>, <component> <response>." A
 requirement here keeps that order whenever the behavior has a trigger. Every
-line in a spec file is a requirement, so the sentence needs no "shall".
+bullet under a need or a constraint is a requirement, so the sentence needs no
+"shall".
 
 Each requirement sits under the need or constraint it serves, and that nesting
-is the whole trace from a behavior to its reason. Each also names how it is
-verified:
+is the whole trace from a behavior to its reason. Each also names its kind,
+which says what cites it:
 
 - `test`: an automated test cites it.
-- `step`: a step in the model's instructions cites it.
-- `check`: a CI check enforces it.
+- `step`: a skill step, meaning a step in the model's instructions, cites it.
+- `check`: a CI workflow does it, and the workflow step that does so cites it.
 - `eval`: an eval cites it. An eval runs the model's instructions on a set
   task and grades what the model did. This kind is optional.
 
 ### The chain
 
-A behavior reaches its reason through a chain of links, and CI checks each one:
+A behavior reaches its reason through a chain. Each arrow reads as a sentence,
+from the code up to the need it serves:
 
-```text
-need or constraint  ->  requirement  ->  test or step  ->  code
-                   grammar          trace           coverage
+```mermaid
+flowchart LR
+  code -- runs under --> test
+  test -- cites --> req[requirement]
+  step[skill step] -- cites --> req
+  ci[CI workflow step] -- cites --> req
+  req -- serves --> need[need or constraint]
 ```
 
-- **Grammar:** a requirement can only sit under a need or a constraint.
-- **Trace:** every test and every step cites a requirement that exists, and
-  every requirement is verified the way its kind says.
-- **Coverage:** every line of the code runs under some test.
-- **Disclosure:** a pull request lists every requirement it adds, changes or
-  removes, where the owner reads it. It spans the first two links.
+A skill step and a CI workflow step carry their citation on the instructions
+or the workflow that does the work, so no code sits below them in the chain.
+Nothing measures what the model does when it follows a skill step. An eval is
+what would close that gap.
+
+A script in CI checks each link on every pull request:
+
+| Link | Checked by | Fails when |
+|---|---|---|
+| Code runs under a test | The coverage check | A pull request adds a line no test runs, or a component falls below its coverage floor |
+| A test or a skill step cites a requirement | `trace` | One cites nothing, or cites an id no spec holds |
+| Every requirement is cited by something of its kind | `trace` | Nothing of the requirement's kind cites it |
+| A requirement serves a need or a constraint | `trace`, as it reads the spec files | A requirement sits outside any need or constraint |
+
+"The checks", below, describes each script.
 
 Coverage is the link most easily left out, and #114 shows why it matters. No
-test ran the `source` check, so no test could cite a requirement for it, and a
-trace through tests alone would have passed. A coverage rule forces a test onto
-new logic, and the trace rule forces that test to cite a requirement.
+test ran the lint code that held `source` to its values, so no test could cite
+a requirement for it, and a trace through tests alone would have passed. The
+coverage check forces a test onto new logic, and `trace` forces that test to
+cite a requirement.
 
-No check can decide whether a need is real. That judgment stays with the owner.
-The chain guarantees that every behavior surfaces as a short line the owner
-reads, instead of hiding in a long diff.
+No script can decide whether a need is real, or whether a requirement truly
+serves the need it sits under. Those judgments stay with the owner. The chain
+turns every behavior into a short line in a spec file. `disclosed`, under
+"Admission", puts each new line in front of the owner, instead of leaving it
+in a long diff.
 
-## Where the model sits
+## Script and model in a skill
 
-A repository whose instructions have a model run scripts needs one more rule.
-It covers the seams between two commands: the points where the model stands
-between one command's output and the next command.
+A skill, or any other instructions a model follows at run time, splits its
+work between the model and a script written for it. The split holds whether
+the repository runs the skill on itself or ships it to users.
+
+The script does the deterministic work, meaning the work where two runs on the
+same input should give the same answer:
+
+- parsing
+- selecting files
+- diffing
+- validating
+- reading config
+- writing results
+
+The model does only what needs judgment, such as inferring a rule, writing
+prose or deciding whether something conforms. It also calls the tools that no
+script can reach.
+
+A seam is a point where the model stands between one command's output and the
+next command. A skill keeps a seam only where a judgment or such a tool call
+has to sit between two commands, and one command does the work everywhere
+else. That gives the skill the fewest seams its work allows.
 
 Every seam is one of these kinds:
 
@@ -131,7 +169,7 @@ Every seam is one of these kinds:
 - **Courier.** The model does work a script could do, in one of these ways:
   - it carries a value from one command's output into the next, unchanged
   - it chooses what to do from an exit code, by a table in its instructions
-  - it runs a check that a command could run on itself
+  - it verifies something a command could verify itself
   - it edits a file by a rule
 
 A courier seam costs context on every run, and it is a place the model can go
@@ -160,10 +198,12 @@ Specs live in a `specs/` folder at the repository root, with one file per
 component and `specs/repo.md` for what the whole repository shares. Keep the
 folder out of anything that ships.
 
-A spec file follows this grammar, which a script can parse line by line:
+A spec file looks like this:
 
 ```markdown
 # rentals
+
+This file records what the rentals service is for.
 
 ## Out of scope
 
@@ -175,6 +215,8 @@ A spec file follows this grammar, which a script can parse line by line:
 When a renter returns a car, they want every charge listed on the receipt, so
 they can check each one against the agreement they signed.
 
+Source: the product brief, under "Receipts".
+
 - `receipt-lists-charges` (test): When `rentals close` ends a rental, it prints
   one line per charge, with its amount and its reason.
 - `receipt-late-fee` (test): When the car comes back after the agreed time,
@@ -185,32 +227,91 @@ they can check each one against the agreement they signed.
 When a renter books through the booking skill, they want every open question
 asked at once, so the booking takes a single exchange.
 
+Source: ticket #12.
+
 - `booking-one-batch` (step): When a booking has open questions, the booking
   skill puts all of them to the renter in one batch.
 
 ## constraint fleet-rate-limit: The fleet API allows 60 calls a minute
 
-The fleet vendor's API reference, under "Rate limits".
+The fleet vendor's API refuses any call over that limit, so a sync that sends
+more loses updates.
+
+Source: the fleet vendor's API reference, under "Rate limits".
 
 - `sync-under-limit` (test): When `rentals sync` updates the fleet, it sends
   at most 60 requests in any one minute.
 ```
 
-The rules for a spec file:
+### Grammar
+
+A script can parse a spec file line by line. Its grammar, written in EBNF
+(extended Backus-Naur form, a notation for the shape of a text), is:
+
+```ebnf
+spec         ::= title intro? out-of-scope section*
+title        ::= "# " component
+out-of-scope ::= "## Out of scope" item+
+item         ::= "- " text
+section      ::= need | constraint
+need         ::= "## need " id ": " heading-text story source requirement*
+constraint   ::= "## constraint " id ": " heading-text fact source requirement*
+source       ::= "Source: " text
+requirement  ::= "- `" id "` (" kind "): " text continuation*
+continuation ::= indent text
+kind         ::= "test" | "step" | "check" | "eval"
+id           ::= word ( "-" word )? ( "-" word )? ( "-" word )?
+word         ::= [a-z0-9]+
+```
+
+How to read the notation:
+
+- `?` marks a part that may be left out.
+- `*` marks a part that may repeat, or be absent.
+- `+` marks a part that appears at least once.
+- `|` separates choices.
+- Quoted text appears as written.
+- A name with no rule of its own, such as `text` or `story`, stands for free
+  text.
+
+The grammar leaves out blank lines, and the line breaks inside a paragraph.
+
+`trace` reads the `need`, `constraint`, `requirement`, `continuation`, `kind`
+and `id` parts, and fails a spec file that breaks them. How it reads them:
+
+- Any `##` heading ends the section above it. A heading that is not a need
+  or a constraint, a misspelled one included, opens no section, so a
+  requirement under it fails as one outside any need.
+- Under a need or a constraint, every bullet must be a requirement.
+- A continuation line is indented, and follows its requirement with no blank
+  line between.
+- It reads the id in a need or a constraint heading without checking its
+  form.
+- In claude-plugins it refuses `eval`, since nothing there runs an eval yet.
+
+The rest is convention, which the owner reviews:
+
+- the title and the intro
+- the out-of-scope items
+- the job story and the `Source:` line
+- the shape of each requirement's sentence
+
+"Needs and constraints" and "Requirements", above, give the templates for the
+job story and the sentence.
+
+The rules the grammar cannot show:
 
 - An "Out of scope" section comes first. It lists what the component
   deliberately does not do, so an agent can see that a feature is unwanted
   before building it. Each item names the thing that is out of scope, such as
   "Selling cars". An item written as a negative, such as "No sales", can read
   as though the absence were what the section rules out.
-- A need heading reads `## need <id>: <title>`, and a constraint heading reads
-  `## constraint <id>: <title>`. The line beneath says who wants what and why,
-  or where the constraint is recorded.
-- A requirement is a bullet beneath its heading: the id in backticks, the kind
-  of verification in parentheses, a colon, and one sentence.
-- An id says what it means, in one to four lower-case words joined by hyphens.
-  A report can then name `receipt-late-fee` and be checked without opening the
-  file. An id keeps its name when its sentence is reworded.
+- A need's paragraph says who wants what and why. A constraint's paragraph
+  states the fact and what it forces. The `Source:` line under either says
+  where it is recorded.
+- An id says what it means. A report can then name `receipt-late-fee` and be
+  checked without opening the file. An id keeps its name when its sentence is
+  reworded.
 - Ids are unique within a file. A requirement in `specs/repo.md` is named from
   another file as `repo:<id>`.
 - A requirement that goes is deleted. Version control keeps what it said.
@@ -226,12 +327,12 @@ def test_late_return_adds_a_late_fee_line(rental): ...
 ```
 
 Register the marker, and run pytest with `--strict-markers`, so a misspelled
-marker fails. Other test runners have tags of their own, and the check only has
+marker fails. Other test runners have tags of their own, and `trace` only has
 to read them.
 
-A step in the model's instructions cites its requirements in a comment on its
-own line under the step's heading. A step that runs more than one command also
-says which kind of seam sits between them:
+A skill step cites its requirements in a comment on its own line under the
+step's heading. A skill step that runs more than one command also says which
+kind of seam sits between them:
 
 ```markdown
 ## Step 2: ask the open questions
@@ -244,13 +345,24 @@ Whether the model reads it depends on the tool that loads the instructions,
 since some tools strip such comments first. Check that tool before counting on
 the markers to cost no context.
 
+A CI workflow step cites its requirements in a comment above the step's
+`- name:` line, with only comment lines between:
+
+```yaml
+# spec: lint-in-ci
+- name: Lint
+  run: ruff check .
+```
+
 Code does not cite requirements. The tests that run the code do, and coverage
 connects the two.
 
 ## The checks
 
-Each check is a subcommand of a script that CI runs. Build the scripts the way
-the repository builds its other checks. In claude-plugins that means
+Each check is a subcommand of a script that CI runs on every pull request, and
+fails the pull request when it finds a problem. `inventory`, the first below,
+is the exception: it is a report, run by hand. Build the scripts the way the
+repository builds its other checks. In claude-plugins that means
 standard-library Python, JSON output on request, and exit codes of 0 for clean,
 1 for problems found and 2 for could not run.
 
@@ -263,17 +375,17 @@ standard-library Python, JSON output on request, and exit codes of 0 for clean,
   - every test, with the lines it runs
   - every step in the model's instructions, with the commands it runs
   - every line no test runs
-- **`trace`** fails a test or a step that cites no requirement, or an id no spec
-  holds. It also fails a requirement that nothing verifies the way its kind
-  says.
+- **`trace`** fails a test or a skill step that cites no requirement, and any
+  citation of an id no spec holds. It also fails a requirement that nothing of
+  its kind cites.
 - **`surface`** fails a command, option or allowed value that no requirement
   names. A command-line parser, a route table and a configuration schema are
   each a registry a script can list, and each can be held to this rule.
 - **`disclosed`** fails a pull request whose description does not list every
   requirement its diff adds, changes or removes. It also fails one that adds a
   need its linked ticket does not name.
-- **The seam check** fails a step that runs more than one command without a
-  `<!-- seam: <kind>: <reason> -->` marker.
+- **The seam check** fails a skill step that runs more than one command
+  without a `<!-- seam: <kind>: <reason> -->` marker.
 - **The coverage check** fails when a component's branch coverage, which counts
   both sides of each `if`, drops below its floor. It also fails a pull request
   that adds a line no test runs. A floor starts at the component's figure on
@@ -335,6 +447,9 @@ through the owner:
   removes, or the id a bug breaks. Approving the ticket then approves those
   lines explicitly.
 
+`disclosed`, under "The checks", fails a pull request that leaves a new need
+out of its linked ticket, or a changed requirement out of its description.
+
 claude-plugins' issue #103 showed the failure this prevents. An agent wrote the
 issue against the code as it stood, so its "Done when" required the script to
 write `source=adopted`. Approving the idea approved the key, and nobody saw it
@@ -377,7 +492,7 @@ whatever the agent cannot place. Take one component at a time:
 
 | Item | Question | With no good answer |
 |---|---|---|
-| Command or option | Which instruction step, README instruction or documented workflow passes it? | Remove it, or wire it into a step if the need is real |
+| Command or option | Which skill step, README instruction or documented procedure passes it? | Remove it, or wire it into a skill step if the need is real |
 | Value accepted | What writes it? | Stop accepting it |
 | Data written or printed | What reads it to decide something? | Stop writing it |
 | Refusal or guard | Can a real caller reach it, and what harm does it prevent? | Remove it |
@@ -402,10 +517,10 @@ not a source.
    - **Merge:** the item is a courier seam, and its work moves into the
      script.
 7. **Pull requests.** The spec pull request changes no behavior. It adds the
-   component's needs and requirements, cites them from the tests and steps that
-   stay, and lists every pending ruling with its ticket. Every other ruling
-   gets a ticket and a small pull request of its own, which changes the code,
-   its tests, its docs and its instructions together.
+   component's needs and requirements, cites them from the tests and skill
+   steps that stay, and lists every pending ruling with its ticket. Every
+   other ruling gets a ticket and a small pull request of its own, which
+   changes the code, its tests, its docs and its instructions together.
 8. **Switch.** When the backfill's spec pull request lands, its checks become
    errors for everything but the items still on the list, each keyed to its
    ruling's ticket. An entry whose ticket has closed fails, so the list
@@ -427,8 +542,8 @@ These rules hold throughout:
   removes, cites the kept behavior's requirement. The ruling's pull request
   edits the assertion. A test of the ruled behavior alone stays on the list of
   untraced items, keyed to the ruling's ticket.
-- Every requirement needs a test or a step that verifies it. When a kept
-  behavior has none, the spec pull request adds the test. A test changes no
+- Every requirement needs something of its kind that cites it. When a kept
+  behavior has no test, the spec pull request adds one. A test changes no
   behavior.
 - A behavior that follows a convention of the whole repository, such as how
   every script prints its output, gets its requirement in `specs/repo.md`.
@@ -472,8 +587,8 @@ drawn criticism the method is built to avoid:
 - **Guessing.** Some tools tell the model to guess where a spec is unclear, and
   to record the guess as an assumption. Here a guess goes to the owner as an
   unplaced item, and stays out of the spec.
-- **Stale specs.** A spec written after the fact goes stale. Here a line that
-  no test or step cites fails `trace`.
+- **Stale specs.** A spec written after the fact goes stale. Here a
+  requirement that nothing of its kind cites fails `trace`.
 - **False control.** An agent can ignore a spec it only reads. Here CI checks
   each link, and admission rides on the owner's approval.
 

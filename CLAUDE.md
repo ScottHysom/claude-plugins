@@ -113,7 +113,8 @@ requirement is admitted.
 
   Everywhere else the script does the joining work, in one command, or in a
   command that takes the model's decision as input. SPEC-METHODOLOGY.md, under
-  "Where the model sits", lists the joining work that belongs to the script.
+  "Script and model in a skill", lists the joining work that belongs to the
+  script.
   `check-skills.py steps` lists every step that runs more than one script
   command, and fails one without `<!-- seam: <kind>: <reason> -->` on its own
   line under its heading, where the kind is `judgment` or `platform`. Its
