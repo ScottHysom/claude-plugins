@@ -147,7 +147,7 @@ class DescribeReport:
         # Every finding is still shown, so the author can choose between them.
         assert [r["finding"] for r in envelope["data"]["findings"]] == [1, 2, 3]
 
-    @pytest.mark.spec("overlaps-named", "repo:plain-output-streams")
+    @pytest.mark.spec("overlaps-named", "repo:command-splits-output-streams")
     def it_writes_the_overlap_to_stderr_and_the_findings_to_stdout(self, prose_repo, capsys):
         write_doc(prose_repo)
         path = prose_repo.findings_file([dash(prose_repo), cut(prose_repo)])

@@ -409,7 +409,7 @@ class DescribeInsertCommand:
             "Curated, not collected.", '<del why="restates">Curated, not collected.</del>'
         )
 
-    @pytest.mark.spec("repo:answers-checked")
+    @pytest.mark.spec("repo:script-checks-every-answer")
     def it_writes_nothing_when_a_records_text_is_not_on_its_line(self, prose_repo, target):
         record = {"file": "target.md", "kind": "del", "start": 7, "text": "Final paragraph."}
         code, envelope = self.insert(prose_repo, json.dumps([record]))
@@ -420,14 +420,14 @@ class DescribeInsertCommand:
         )
         assert prose_repo.read() == target
 
-    @pytest.mark.spec("repo:dry-run-writes-nothing")
+    @pytest.mark.spec("repo:command-never-writes-in-preview")
     def it_leaves_the_file_alone_on_a_dry_run(self, prose_repo, target):
         record = {"file": "target.md", "kind": "q", "start": 8, "text": "earned?"}
         code, _ = self.insert(prose_repo, json.dumps([record]), "--dry-run")
         assert code == prose.OK
         assert prose_repo.read() == target
 
-    @pytest.mark.spec("repo:answers-checked")
+    @pytest.mark.spec("repo:script-checks-every-answer")
     @pytest.mark.parametrize(
         ("batch_text", "problem"),
         [
@@ -442,7 +442,7 @@ class DescribeInsertCommand:
         assert problem in prose_repo.err
         assert prose_repo.read() == target
 
-    @pytest.mark.spec("repo:answers-checked")
+    @pytest.mark.spec("repo:script-checks-every-answer")
     def it_stops_the_run_with_a_message_on_a_missing_batch_file(self, prose_repo):
         """The skills write the batch and then name it, so a wrong path is a
         typo away. apply reports a missing findings file as a message and exit
@@ -455,7 +455,7 @@ class DescribeInsertCommand:
         assert envelope is None
         assert "cannot read batch" in prose_repo.err
 
-    @pytest.mark.spec("repo:answers-checked")
+    @pytest.mark.spec("repo:script-checks-every-answer")
     @pytest.mark.parametrize(
         ("record", "problem"),
         [
@@ -484,7 +484,7 @@ class DescribeInsertCommand:
         assert problem in envelope["errors"][0]
         assert prose_repo.read() == target
 
-    @pytest.mark.spec("repo:answers-checked")
+    @pytest.mark.spec("repo:script-checks-every-answer")
     def it_refuses_a_record_for_a_file_that_does_not_exist(self, prose_repo, target):
         record = {"file": "gone.md", "kind": "q", "start": 1, "text": "a"}
         code, envelope = self.insert(prose_repo, json.dumps([record]))
@@ -502,7 +502,7 @@ class DescribeInsertCommand:
         assert code == prose.OK, envelope["errors"]
         assert '<q id="5">earned?</q>\n' in prose_repo.read()
 
-    @pytest.mark.spec("repo:plain-output-streams")
+    @pytest.mark.spec("repo:command-splits-output-streams")
     def it_prints_each_tag_it_wrote(self, prose_repo, capsys):
         record = {"file": "target.md", "kind": "q", "start": 8, "text": "earned?"}
         batch = prose_repo.root / "batch.json"

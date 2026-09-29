@@ -61,31 +61,31 @@ def ruff_on_path(monkeypatch):
 
 
 class DescribeFindRuff:
-    @pytest.mark.spec("hook-main-venv")
+    @pytest.mark.spec("hook-borrows-main-venv")
     def it_uses_the_main_checkouts_venv_from_a_worktree(self, repo):
         main, worktree = repo
         expected = install_ruff(main)
         assert os.path.realpath(ruff_hook.find_ruff(str(worktree))) == os.path.realpath(expected)
 
-    @pytest.mark.spec("hook-own-venv-first")
+    @pytest.mark.spec("hook-prefers-own-venv")
     def it_prefers_the_worktrees_own_venv(self, repo):
         main, worktree = repo
         install_ruff(main)
         expected = install_ruff(worktree)
         assert ruff_hook.find_ruff(str(worktree)) == expected
 
-    @pytest.mark.spec("hook-main-venv")
+    @pytest.mark.spec("hook-borrows-main-venv")
     def it_uses_the_venv_in_the_main_checkout_itself(self, repo):
         main, _ = repo
         expected = install_ruff(main)
         assert ruff_hook.find_ruff(str(main)) == expected
 
-    @pytest.mark.spec("hook-path-fallback")
+    @pytest.mark.spec("hook-falls-back-to-path")
     def it_falls_back_to_ruff_on_path_when_no_venv_exists(self, repo):
         _, worktree = repo
         assert ruff_hook.find_ruff(str(worktree)) == ON_PATH
 
-    @pytest.mark.spec("hook-path-fallback")
+    @pytest.mark.spec("hook-falls-back-to-path")
     def it_falls_back_to_ruff_on_path_outside_a_git_repo(self, tmp_path):
         assert ruff_hook.find_ruff(str(tmp_path)) == ON_PATH
 
@@ -139,7 +139,7 @@ class DescribeMain:
         assert code == 2
         assert "ruff format failed" in err
 
-    @pytest.mark.spec("hook-ruff-missing")
+    @pytest.mark.spec("hook-names-ruff-install")
     def it_names_the_install_command_when_no_ruff_is_found(self, edit, monkeypatch):
         monkeypatch.setattr(ruff_hook, "find_ruff", lambda root: None)
         code, err, _ = edit("x.py", "x = 1\n")
@@ -148,7 +148,7 @@ class DescribeMain:
 
 
 class DescribeRegistration:
-    @pytest.mark.spec("hook-registered")
+    @pytest.mark.spec("settingsjson-registers-ruff-hook")
     def it_runs_after_every_write_or_edit(self):
         settings = json.loads(SETTINGS.read_text())
         entries = [

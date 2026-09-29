@@ -105,7 +105,7 @@ class DescribeStage:
             prose.COPY_TEMPLATE,
         ]
 
-    @pytest.mark.spec("repo:dry-run-writes-nothing")
+    @pytest.mark.spec("repo:command-never-writes-in-preview")
     def it_writes_nothing_on_a_dry_run(self, tmp_path, capsys):
         code, _, _ = stage(capsys, "--folder", FOLDER, "--stage", str(tmp_path / "s"), "--dry-run")
         assert code == prose.OK
@@ -144,7 +144,7 @@ class DescribeStage:
         assert code == prose.CANNOT_RUN
         assert "--connected must be an absolute path" in err
 
-    @pytest.mark.spec("stage-checksums", "repo:plain-output-streams")
+    @pytest.mark.spec("stage-checksums", "repo:command-splits-output-streams")
     def it_prints_the_check_and_the_prefix_without_json(self, tmp_path, capsys):
         capsys.readouterr()
         code = prose.main(["stage", "--folder", FOLDER, "--stage", str(tmp_path)])
@@ -250,7 +250,7 @@ class DescribeSetup:
         code, env = prose_repo.run("preflight", "--for", "config")
         assert code == prose.OK, env["errors"]
 
-    @pytest.mark.spec("setup-copies-locally", "repo:plain-output-streams")
+    @pytest.mark.spec("setup-copies-locally", "repo:command-splits-output-streams")
     def it_prints_the_prefix_without_json(self, prose_repo, monkeypatch, capsys):
         monkeypatch.setattr(prose, "OUTPUTS_ROOT", str(prose_repo.root.parent / "absent"))
         capsys.readouterr()
@@ -260,7 +260,7 @@ class DescribeSetup:
         assert out.startswith("local\n")
         assert "PROSE=.prose-tuning/prose.py && " in out
 
-    @pytest.mark.spec("repo:dry-run-writes-nothing")
+    @pytest.mark.spec("repo:command-never-writes-in-preview")
     def it_writes_nothing_locally_on_a_dry_run(self, prose_repo, monkeypatch):
         code, _ = self.local(prose_repo, monkeypatch, "--dry-run")
         assert code == prose.OK

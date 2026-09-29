@@ -46,7 +46,7 @@ class DescribeApply:
         assert envelope["errors"] == []
         assert "The closing paragraph." in prose_repo.read()
 
-    @pytest.mark.spec("apply-writes-approved", "repo:plain-output-streams")
+    @pytest.mark.spec("apply-writes-approved", "repo:command-splits-output-streams")
     def it_prints_the_edits_per_file_and_per_rule(self, prose_repo, target_lines, capsys):
         finding = prose_repo.finding(
             target_lines["last-paragraph"],
@@ -662,7 +662,7 @@ class DescribePartial:
             prose_repo.finding(target_lines["fence"]),
         ]
 
-    @pytest.mark.spec("repo:partial-applies-rest")
+    @pytest.mark.spec("repo:command-applies-rest-if-partial")
     def it_writes_nothing_when_one_finding_is_bad(self, prose_repo, target_lines):
         before = prose_repo.read()
         code, envelope = prose_repo.apply(self.records(prose_repo, target_lines))
@@ -671,14 +671,14 @@ class DescribePartial:
         assert envelope["errors"][-1] == "nothing was written; pass --partial to apply the rest"
         assert prose_repo.read() == before
 
-    @pytest.mark.spec("repo:partial-applies-rest")
+    @pytest.mark.spec("repo:command-applies-rest-if-partial")
     def it_writes_the_good_finding_with_partial(self, prose_repo, target_lines):
         code, envelope = prose_repo.apply(self.records(prose_repo, target_lines), "--partial")
         assert code == prose.PROBLEMS
         assert [a["line"] for a in envelope["data"]["applied"]] == [target_lines["last-paragraph"]]
         assert "The closing paragraph." in prose_repo.read()
 
-    @pytest.mark.spec("refuse-non-prose", "repo:partial-applies-rest")
+    @pytest.mark.spec("refuse-non-prose", "repo:command-applies-rest-if-partial")
     def it_still_leaves_the_protected_line_alone_with_partial(self, prose_repo, target_lines):
         prose_repo.apply(self.records(prose_repo, target_lines), "--partial")
         line = prose_repo.read().splitlines()[target_lines["fence"] - 1]
@@ -686,7 +686,7 @@ class DescribePartial:
 
 
 class DescribeDryRun:
-    @pytest.mark.spec("repo:dry-run-writes-nothing")
+    @pytest.mark.spec("repo:command-never-writes-in-preview")
     def it_reports_without_writing(self, prose_repo, target_lines):
         before = prose_repo.read()
         code, envelope = prose_repo.apply(

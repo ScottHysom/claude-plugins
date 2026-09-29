@@ -136,7 +136,9 @@ def run_json(capsys, repo, *argv):
 
 
 class DescribeClaim:
-    @pytest.mark.spec("claim-switches", "claim-labels")
+    @pytest.mark.spec(
+        "claim-command-switches-to-issue-branch", "claim-command-adds-in-progress-label"
+    )
     def it_pushes_the_branch_switches_to_it_and_says_so(self, capsys, remote, clone, github):
         a = clone("a")
         gh = github(make_issue(12, "approved"))
@@ -150,7 +152,7 @@ class DescribeClaim:
         assert any(c[1] == "comment" and cli.CLAIM_MARK in c[-1] for c in gh.calls)
 
     @pytest.mark.parametrize("main_moved", [False, True], ids=["same-main", "main-moved"])
-    @pytest.mark.spec("claim-one-winner")
+    @pytest.mark.spec("claim-command-picks-one-winner")
     def it_lets_only_one_of_two_agents_claiming_at_once_win(
         self, capsys, remote, clone, github, monkeypatch, main_moved
     ):
@@ -183,7 +185,7 @@ class DescribeClaim:
         assert git(remote, "rev-parse", "issue/12") == before
         assert gh.writes() == []
 
-    @pytest.mark.spec("claim-one-winner")
+    @pytest.mark.spec("claim-command-picks-one-winner")
     def it_refuses_a_held_issue_before_pushing(self, capsys, remote, clone, github):
         a, b = clone("a"), clone("b")
         github(make_issue(12, "approved"))
@@ -203,7 +205,7 @@ class DescribeClaim:
             (make_issue(12, "approved", state="CLOSED"), "#12 is closed"),
         ],
     )
-    @pytest.mark.spec("claim-needs-approved")
+    @pytest.mark.spec("claim-command-refuses-unapproved-issues")
     def it_refuses_an_issue_that_may_not_be_worked_on(
         self, capsys, remote, clone, github, item, message
     ):
@@ -214,7 +216,7 @@ class DescribeClaim:
         assert remote_branches(remote) == {cli.BASE}
         assert gh.writes() == []
 
-    @pytest.mark.spec("dry-run-writes-nothing")
+    @pytest.mark.spec("command-never-writes-in-preview")
     def it_changes_nothing_on_a_dry_run(self, capsys, remote, clone, github):
         a = clone("a")
         gh = github(make_issue(12, "approved"))
@@ -224,7 +226,7 @@ class DescribeClaim:
         assert remote_branches(remote) == {cli.BASE}
         assert gh.writes() == []
 
-    @pytest.mark.spec("claim-labels", "plain-output-streams")
+    @pytest.mark.spec("claim-command-adds-in-progress-label", "command-splits-output-streams")
     def it_warns_when_the_label_fails_after_the_push(self, capsys, remote, clone, github):
         github(make_issue(12, "approved"), fail=("--add-label",))
         code, out = run(capsys, clone("a"), "claim", "12")
@@ -232,7 +234,7 @@ class DescribeClaim:
         assert "warning: claimed, but could not add the in-progress label" in out.err
         assert "issue/12" in remote_branches(remote)
 
-    @pytest.mark.spec("claim-push-refused")
+    @pytest.mark.spec("claim-command-stops-on-refused-push")
     def it_cannot_run_when_the_push_is_refused_for_another_reason(
         self, capsys, remote, clone, github
     ):
@@ -246,7 +248,7 @@ class DescribeClaim:
         assert out.err.startswith("issues.py: could not push issue/12")
         assert gh.writes() == []
 
-    @pytest.mark.spec("claim-switches", "plain-output-streams")
+    @pytest.mark.spec("claim-command-switches-to-issue-branch", "command-splits-output-streams")
     def it_warns_when_it_cannot_switch_to_the_branch(self, capsys, remote, clone, github):
         a = clone("a")
         git(a, "branch", "issue/12")
@@ -258,7 +260,7 @@ class DescribeClaim:
 
 
 class DescribeNext:
-    @pytest.mark.spec("next-offers-free")
+    @pytest.mark.spec("next-command-offers-free-issue")
     def it_skips_labeled_and_branch_held_issues(self, capsys, remote, clone, github):
         a = clone("a")
         github(make_issue(10, "approved"))
@@ -274,19 +276,19 @@ class DescribeNext:
         assert code == cli.OK
         assert data["data"]["issue"] == {"number": 13, "title": "issue 13"}
 
-    @pytest.mark.spec("next-offers-free")
+    @pytest.mark.spec("next-command-offers-free-issue")
     def it_never_offers_a_closed_issue(self, capsys, clone, github):
         github(make_issue(12, "approved", state="CLOSED"))
         assert run_json(capsys, clone("a"), "next")[1]["data"]["issue"] is None
 
-    @pytest.mark.spec("next-offers-free")
+    @pytest.mark.spec("next-command-offers-free-issue")
     def it_is_not_a_problem_when_nothing_is_free(self, capsys, clone, github):
         github(make_issue(11, "approved", "in-progress"))
         code, out = run(capsys, clone("a"), "next")
         assert code == cli.OK
         assert out.out == "No approved issue is free.\n"
 
-    @pytest.mark.spec("next-offers-free", "plain-output-streams")
+    @pytest.mark.spec("next-command-offers-free-issue", "command-splits-output-streams")
     def it_names_the_free_issue_on_stdout(self, capsys, clone, github):
         github(make_issue(13, "approved"))
         code, out = run(capsys, clone("a"), "next")
@@ -295,7 +297,7 @@ class DescribeNext:
 
 
 class DescribeRelease:
-    @pytest.mark.spec("release-frees")
+    @pytest.mark.spec("release-command-frees-unused-claim")
     def it_deletes_an_empty_branch_and_the_label(self, capsys, remote, clone, github):
         a = clone("a")
         github(make_issue(12, "approved"))
@@ -307,7 +309,7 @@ class DescribeRelease:
         assert ("issue", "edit", "12", "--remove-label", cli.IN_PROGRESS) in gh.calls
         assert ("issue", "comment", "12", "--body", "Released issue/12. blocked on #9") in gh.calls
 
-    @pytest.mark.spec("release-keeps-work")
+    @pytest.mark.spec("release-command-keeps-work")
     def it_never_deletes_work(self, capsys, remote, clone, github):
         a = clone("a")
         github(make_issue(12, "approved"))
@@ -323,14 +325,14 @@ class DescribeRelease:
         assert "issue/12" in remote_branches(remote)
         assert gh.writes() == []
 
-    @pytest.mark.spec("release-needs-claim")
+    @pytest.mark.spec("release-command-requires-held-claim")
     def it_is_a_problem_on_an_unclaimed_issue(self, capsys, clone, github):
         github(make_issue(12, "approved"))
         code, out = run(capsys, clone("a"), "release", "12")
         assert code == cli.PROBLEMS
         assert "#12 is not claimed" in out.err
 
-    @pytest.mark.spec("dry-run-writes-nothing")
+    @pytest.mark.spec("command-never-writes-in-preview")
     def it_changes_nothing_on_a_dry_run(self, capsys, remote, clone, github):
         a = clone("a")
         github(make_issue(12, "approved"))
@@ -342,7 +344,7 @@ class DescribeRelease:
         assert "issue/12" in remote_branches(remote)
         assert gh.writes() == []
 
-    @pytest.mark.spec("release-frees", "next-offers-free")
+    @pytest.mark.spec("release-command-frees-unused-claim", "next-command-offers-free-issue")
     def it_leaves_the_issue_free_again(self, capsys, remote, clone, github):
         a = clone("a")
         github(make_issue(12, "approved"))
@@ -352,7 +354,7 @@ class DescribeRelease:
         github(make_issue(12, "approved"))
         assert run_json(capsys, a, "next")[1]["data"]["issue"]["number"] == 12
 
-    @pytest.mark.spec("release-keeps-work")
+    @pytest.mark.spec("release-command-keeps-work")
     def it_keeps_a_branch_pushed_to_while_releasing(
         self, capsys, remote, clone, github, monkeypatch
     ):
@@ -375,7 +377,7 @@ class DescribeRelease:
         assert "issue/12" in remote_branches(remote)
         assert gh.writes() == []
 
-    @pytest.mark.spec("release-frees")
+    @pytest.mark.spec("release-command-frees-unused-claim")
     def it_frees_an_issue_whose_label_outlived_its_branch(self, capsys, remote, clone, github):
         gh = github(make_issue(12, "approved", "in-progress"))
         code, out = run(capsys, clone("a"), "release", "12")
@@ -423,7 +425,7 @@ class DescribeStale:
         github(make_issue(12, "approved", "in-progress"), pulls=["issue/12"])
         assert run(capsys, a, "stale")[0] == cli.OK
 
-    @pytest.mark.spec("stale-disagreement")
+    @pytest.mark.spec("stale-command-reports-label-mismatch")
     def it_reports_a_branch_left_after_the_issue_closed(self, capsys, clone, github):
         a = claimed(capsys, clone, github)
         github(make_issue(12, "approved", state="CLOSED"))
@@ -431,14 +433,14 @@ class DescribeStale:
         assert code == cli.PROBLEMS
         assert "#12 is closed but issue/12 still exists" in out.err
 
-    @pytest.mark.spec("stale-disagreement")
+    @pytest.mark.spec("stale-command-reports-label-mismatch")
     def it_reports_a_label_without_a_branch(self, capsys, clone, github):
         github(make_issue(12, "approved", "in-progress"))
         code, out = run(capsys, clone("a"), "stale")
         assert code == cli.PROBLEMS
         assert "#12 is labeled in-progress but issue/12 does not exist" in out.err
 
-    @pytest.mark.spec("stale-disagreement")
+    @pytest.mark.spec("stale-command-reports-label-mismatch")
     def it_reports_a_closed_issue_that_kept_the_label(self, capsys, clone, github):
         github(make_issue(12, "approved", "in-progress", state="CLOSED"))
         code, out = run(capsys, clone("a"), "stale")
@@ -450,7 +452,7 @@ class DescribeMain:
     @pytest.mark.parametrize(
         "argv", [["next"], ["claim", "12", "--dry-run"], ["release", "12"], ["stale"]]
     )
-    @pytest.mark.spec("json-envelope")
+    @pytest.mark.spec("command-prints-json-envelope")
     def it_prints_the_same_envelope_for_every_command(self, capsys, clone, github, argv):
         github(make_issue(12, "approved"))
         _, data = run_json(capsys, clone("a"), *argv)
@@ -458,7 +460,7 @@ class DescribeMain:
         assert data["version"] == cli.ENVELOPE_VERSION
         assert data["command"] == argv[0]
 
-    @pytest.mark.spec("cannot-run-exits-2")
+    @pytest.mark.spec("script-exits-2-when-unrunnable")
     def it_cannot_run_when_gh_fails(self, capsys, clone, github):
         github(fail=("view",))
         code, out = run(capsys, clone("a"), "claim", "12")
@@ -466,14 +468,14 @@ class DescribeMain:
         assert out.out == ""
         assert out.err == "issues.py: gh view failed\n"
 
-    @pytest.mark.spec("cannot-run-exits-2")
+    @pytest.mark.spec("script-exits-2-when-unrunnable")
     def it_cannot_run_outside_a_clone(self, capsys, tmp_path, github):
         github()
         code, out = run(capsys, tmp_path, "next")
         assert code == cli.CANNOT_RUN
         assert out.err.startswith("issues.py: ")
 
-    @pytest.mark.spec("closed-pipe-exits-0")
+    @pytest.mark.spec("script-ignores-closed-pipe")
     def it_exits_ok_when_its_reader_closes_the_pipe(self, capsys, clone, github, closed_pipe):
         github(make_issue(13, "approved"))
         closed_pipe()

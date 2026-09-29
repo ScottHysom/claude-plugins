@@ -88,7 +88,7 @@ class DescribeTheProbeCommand:
         assert code == gitify.PROBLEMS
         assert any("is not inside connected_folder" in e for e in env["errors"])
 
-    @pytest.mark.spec("repo:plain-output-streams")
+    @pytest.mark.spec("repo:command-splits-output-streams")
     def it_prints_the_command_on_stdout_in_plain_output(self, runner):
         code, _ = runner.run("probe", "--connected-folder", "/a/Projects", json_output=False)
         assert code == gitify.OK

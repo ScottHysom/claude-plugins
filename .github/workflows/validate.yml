@@ -39,7 +39,7 @@ jobs:
           curl -fsSL https://claude.ai/install.sh | bash
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
-      # spec: cli-version-shown
+      # spec: ci-prints-cli-version
       - name: Report version
         run: claude --version
 
@@ -47,11 +47,11 @@ jobs:
       # no frontmatter at all passes: Claude Code loads it, but with no
       # description to decide when to use the skill. Validating a plugin
       # directory also checks the skills inside it.
-      # spec: manifests-validate-in-ci
+      # spec: ci-validates-manifests
       - name: Validate the marketplace manifest
         run: claude plugin validate --strict .
 
-      # spec: manifests-validate-in-ci
+      # spec: ci-validates-manifests
       - name: Validate every plugin manifest
         run: |
           rc=0
@@ -71,7 +71,7 @@ jobs:
 
       # `claude plugin validate` checks each manifest alone, so it cannot see two
       # manifests disagreeing with each other. This catches that.
-      # spec: manifests-agree-in-ci
+      # spec: ci-runs-manifest-check
       - name: Check manifests agree with each other
         run: python3 .github/scripts/check-manifest-consistency.py check
 
@@ -79,7 +79,7 @@ jobs:
       # that looks like an XML tag. A marketplace install accepts it, and so does
       # `validate --strict` above, so without this the first sign is a failed
       # upload. COWORK.md, under "How skills load", records the difference.
-      # spec: descriptions-in-ci
+      # spec: ci-runs-descriptions
       - name: Check skill descriptions pass Cowork's upload
         run: python3 .github/scripts/check-skills.py descriptions
 
@@ -88,7 +88,7 @@ jobs:
       # post as the owner, so GitHub cannot tell their work apart; this job is
       # required, so the rules hold whichever surface an agent ran on.
       # README.md, under "Issues", describes the process.
-      # spec: linked-in-ci
+      # spec: ci-runs-checklinkedissues
       - name: Check linked issues are approved and claimed
         if: github.event_name == 'pull_request'
         env:
@@ -127,11 +127,11 @@ jobs:
       # the Claude Code hook, which only run where someone set them up. Ruff's
       # results depend on ruff.toml's target-version, not on the Python running
       # it, so both legs agree.
-      # spec: format-in-ci
+      # spec: ci-checks-python-formatting
       - name: Check formatting
         run: ruff format --check --diff .
 
-      # spec: lint-in-ci
+      # spec: ci-lints-python
       - name: Lint
         run: ruff check --output-format=github .
 
@@ -141,7 +141,7 @@ jobs:
       # script parses; shellcheck catches the rest. A plugin's shell templates
       # are copied into every project it sets up, so a bug there reaches all of
       # them.
-      # spec: shell-lint-in-ci
+      # spec: ci-lints-shell
       - name: Lint shell scripts
         run: |
           git ls-files -z '*.sh' | xargs -0 -r -n1 sh -n
@@ -151,7 +151,7 @@ jobs:
       # round-trip property - insert then strip returns the file byte-identical
       # - is the only thing standing between a tagging pass and a mangled
       # document, so it runs on every push.
-      # spec: suite-in-ci
+      # spec: ci-runs-suite-under-coverage
       - name: Run the test suite
         run: pytest --cov --cov-report=json:coverage.json --cov-report=term-missing:skip-covered
 
@@ -161,7 +161,7 @@ jobs:
       # .github/coverage-floors.json that only ever rises. Branch arcs differ
       # between Python versions, so the floors are the 3.13 leg's figures and
       # only that leg checks them.
-      # spec: floors-in-ci
+      # spec: ci-runs-floors
       - name: Check plugin scripts keep their coverage floors
         if: matrix.python-version == '3.13'
         env:
@@ -170,7 +170,7 @@ jobs:
 
       # A floor holds the total, so a new untested line can hide behind an old
       # tested one. This fails each line a pull request adds that no test runs.
-      # spec: diff-in-ci
+      # spec: ci-runs-diff
       - name: Check every new plugin line runs under the suite
         if: matrix.python-version == '3.13' && github.event_name == 'pull_request'
         env:
@@ -179,7 +179,7 @@ jobs:
 
       # `# pragma: no cover` takes a line out of both checks above, so it says
       # why on the line, as `# noqa` does.
-      # spec: pragmas-in-ci
+      # spec: ci-runs-pragmas
       - name: Check coverage exclusions give their reason
         run: python3 .github/scripts/check-coverage.py pragmas
 
@@ -187,7 +187,7 @@ jobs:
       # and nothing in the manifest can hold a file back - so a test file left
       # beside a script ships to every user, and no diff says so. This is what
       # keeps the next suite from landing there.
-      # spec: tests-outside-plugins, tests-collected
+      # spec: placement-command-fails-plugin-tests, ci-runs-placement-and-naming
       - name: Check tests stay out of plugins/
         run: python3 .github/scripts/check-tests.py placement
 
@@ -197,7 +197,7 @@ jobs:
       # the grep it replaced, it fails when it has scanned nothing rather than
       # passing. It runs in this job rather than in `validate` so the matrix
       # also proves the script itself runs on the 3.9 floor.
-      # spec: tests-collected
+      # spec: ci-runs-placement-and-naming
       - name: Check test naming
         run: python3 .github/scripts/check-tests.py naming
 
@@ -206,7 +206,7 @@ jobs:
       # SKILL.md reads fine in either file and drifts the first time one is
       # edited. In #44 only review caught the copies. Like the naming check,
       # it fails when it has scanned nothing.
-      # spec: repeats-in-ci
+      # spec: ci-runs-repeats
       - name: Check skills share steps rather than copy them
         run: python3 .github/scripts/check-skills.py repeats
 
@@ -215,7 +215,7 @@ jobs:
       # This puts every script invocation in a skill's shell fences through
       # that script's own parser. It runs here so the 3.9 matrix loads each
       # plugin script too, and it fails when it has found nothing to resolve.
-      # spec: commands-in-ci
+      # spec: ci-runs-commands
       - name: Check skills name commands their scripts have
         run: python3 .github/scripts/check-skills.py commands
 
@@ -227,7 +227,7 @@ jobs:
       # names the judgment or platform seam between them in a seam marker, or
       # warns with the issue that will sift it. Like the checks above, it fails
       # when it has found no step at all.
-      # spec: steps-in-ci, seams-in-ci
+      # spec: ci-runs-steps, ci-runs-steps-for-seams
       - name: Check each skill step runs a command or says why not
         run: python3 .github/scripts/check-skills.py steps
 
@@ -236,7 +236,7 @@ jobs:
       # This allows only script invocations and the few setup lines listed in
       # the script, and needs every fence labeled so a shell block cannot pass
       # as quoted markup. Like the others, it fails when it has found nothing.
-      # spec: fences-in-ci
+      # spec: ci-runs-fences
       - name: Check skills' shell fences run only their scripts
         run: python3 .github/scripts/check-skills.py fences
 
@@ -247,7 +247,7 @@ jobs:
       # the way its kind says. The tests and steps still waiting wait in
       # .github/untraced.json, each warning with its open issue. The token lets
       # it fail an entry whose issue has closed.
-      # spec: trace-in-ci
+      # spec: ci-runs-trace
       - name: Check tests and skill steps cite a requirement
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -255,7 +255,7 @@ jobs:
 
       # A subcommand, option or choices value no requirement names is a
       # behavior no need asked for, and nothing above sees it arrive.
-      # spec: surface-in-ci
+      # spec: ci-runs-surface
       - name: Check every parser option is named by a requirement
         run: python3 .github/scripts/check-specs.py surface
 
@@ -263,7 +263,7 @@ jobs:
       # unannounced, or an issue edited after approval, looks approved. This
       # fails a pull request whose description does not name each requirement
       # it changes, or that adds a need its issue does not name.
-      # spec: disclosed-in-ci
+      # spec: ci-runs-disclosed
       - name: Check the pull request discloses its spec changes
         if: github.event_name == 'pull_request'
         env:

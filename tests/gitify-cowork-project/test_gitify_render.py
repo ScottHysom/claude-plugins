@@ -86,7 +86,7 @@ class DescribeACleanRender:
         assert project["project"] in pointer
         assert "\n" not in pointer
 
-    @pytest.mark.spec("field-pointer", "repo:plain-output-streams")
+    @pytest.mark.spec("field-pointer", "repo:command-splits-output-streams")
     def it_prints_the_pointer_in_its_plain_output(self, runner, make_answers, project):
         path = runner.tmp / "answers.json"
         path.write_text(json.dumps(make_answers(project_folder=None)))
@@ -96,7 +96,7 @@ class DescribeACleanRender:
         pointer = gitify.FIELD_POINTER.format(path=project["connected"])
         assert "Project Instructions field:\n%s\n" % pointer in runner.out
 
-    @pytest.mark.spec("repo:dry-run-writes-nothing")
+    @pytest.mark.spec("repo:command-never-writes-in-preview")
     def it_reports_and_writes_nothing_on_a_dry_run(self, runner, make_answers):
         code, env = runner.render(make_answers(), "--dry-run")
         assert code == gitify.OK
@@ -108,7 +108,7 @@ class DescribeACleanRender:
         _, env = runner.render(make_answers())
         assert any("device_commit_files will reject it" in w for w in env["warnings"])
 
-    @pytest.mark.spec("repo:plain-output-streams")
+    @pytest.mark.spec("repo:command-splits-output-streams")
     def it_sends_human_output_to_stdout_and_warnings_to_stderr(self, runner, make_answers):
         path = runner.tmp / "answers.json"
         path.write_text(json.dumps(make_answers()))
@@ -250,7 +250,7 @@ VALUE_CASES = [
 
 
 class DescribeValidatingAValue:
-    @pytest.mark.spec("repo:answers-checked")
+    @pytest.mark.spec("repo:script-checks-every-answer")
     @pytest.mark.parametrize(("name", "value", "message"), VALUE_CASES)
     def it_rejects_a_bad_value_and_writes_nothing(self, runner, make_answers, name, value, message):
         data = make_answers()
@@ -260,7 +260,7 @@ class DescribeValidatingAValue:
         assert any(message in e for e in errors_of(env)), env["errors"]
         assert_nothing_staged(runner)
 
-    @pytest.mark.spec("repo:answers-checked")
+    @pytest.mark.spec("repo:script-checks-every-answer")
     def it_names_an_unknown_value(self, runner, make_answers):
         data = make_answers()
         data["values"]["NOT_A_THING"] = "x"
@@ -268,7 +268,7 @@ class DescribeValidatingAValue:
         assert code == gitify.PROBLEMS
         assert "values.NOT_A_THING is not a placeholder" in errors_of(env)
 
-    @pytest.mark.spec("repo:answers-checked")
+    @pytest.mark.spec("repo:script-checks-every-answer")
     def it_refuses_a_computed_value(self, runner, make_answers):
         data = make_answers()
         data["values"]["PROJECT_MOUNT"] = "x"
@@ -276,14 +276,14 @@ class DescribeValidatingAValue:
         assert code == gitify.PROBLEMS
         assert any("computed from the folders" in e for e in errors_of(env))
 
-    @pytest.mark.spec("repo:answers-checked")
+    @pytest.mark.spec("repo:script-checks-every-answer")
     def it_rejects_values_that_are_not_an_object(self, runner, make_answers):
         code, env = runner.render(make_answers(values=["Foo Research"]))
         assert code == gitify.PROBLEMS
         assert "values must be an object" in errors_of(env)
         assert_nothing_staged(runner)
 
-    @pytest.mark.spec("repo:plain-output-streams")
+    @pytest.mark.spec("repo:command-splits-output-streams")
     def it_writes_its_rejections_to_stderr_in_plain_output(self, runner, make_answers):
         path = runner.tmp / "answers.json"
         path.write_text(json.dumps(make_answers(values={})))
@@ -294,7 +294,7 @@ class DescribeValidatingAValue:
         assert "values.PROJECT_NAME is required" in runner.err
         assert runner.out == ""
 
-    @pytest.mark.spec("repo:answers-checked")
+    @pytest.mark.spec("repo:script-checks-every-answer")
     def it_names_an_unknown_answers_key(self, runner, make_answers):
         code, env = runner.render(make_answers(extra={}))
         assert code == gitify.PROBLEMS
@@ -313,7 +313,7 @@ FOLDER_CASES = [
 
 
 class DescribeValidatingTheFolders:
-    @pytest.mark.spec("repo:answers-checked")
+    @pytest.mark.spec("repo:script-checks-every-answer")
     @pytest.mark.parametrize(("change", "message"), FOLDER_CASES)
     def it_rejects_a_bad_folder(self, runner, make_answers, change, message):
         code, env = runner.render(make_answers(**change))
@@ -328,7 +328,7 @@ class DescribeValidatingTheFolders:
 
 
 class DescribeRefusingToRun:
-    @pytest.mark.spec("repo:answers-checked")
+    @pytest.mark.spec("repo:script-checks-every-answer")
     def it_cannot_run_on_a_duplicate_key_in_the_answers(self, runner, make_answers):
         raw = json.dumps(make_answers())[:-1] + ', "ignore": []}'
         code, env = runner.render(None, raw=raw)
@@ -336,13 +336,13 @@ class DescribeRefusingToRun:
         assert env is None
         assert "appears twice" in runner.err
 
-    @pytest.mark.spec("repo:answers-checked")
+    @pytest.mark.spec("repo:script-checks-every-answer")
     def it_cannot_run_on_answers_that_are_not_json(self, runner):
         code, _ = runner.render(None, raw="not json")
         assert code == gitify.CANNOT_RUN
         assert runner.err.startswith("gitify.py: cannot read answers")
 
-    @pytest.mark.spec("repo:answers-checked")
+    @pytest.mark.spec("repo:script-checks-every-answer")
     def it_cannot_run_on_answers_that_are_not_an_object(self, runner):
         code, _ = runner.render(None, raw="[]")
         assert code == gitify.CANNOT_RUN
