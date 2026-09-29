@@ -1,8 +1,8 @@
 # claude-plugins
 
 Guidance for Claude working in this repo. `README.md` covers layout, adding a
-plugin, versioning, running the tests, issues and editing from Cowork. Read it
-rather than relying on a summary here; this file holds what the README does not.
+plugin, versioning, running the tests and issues. Read it rather than relying
+on a summary here; this file holds what the README does not.
 
 ## Workflow
 

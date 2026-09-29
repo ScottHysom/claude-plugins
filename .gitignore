@@ -13,9 +13,6 @@
 # Nothing here builds: a plugin ships as its directory under plugins/, copied
 # verbatim by the marketplace. README.md, under "Layout".
 
-# Commit message drafted by Claude, consumed by commit.sh
-.commit-msg
-
 # Python: bytecode from importing the plugin scripts, and the test runner's and
 # formatter's caches. Contributors also tend to keep a venv here for
 # requirements-dev.txt.

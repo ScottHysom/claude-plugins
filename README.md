@@ -425,9 +425,6 @@ detached `origin/main`, and is otherwise left alone.
 The `validate` job backs this up: a pull request that closes #N must come from
 `issue/N`, so an agent that skipped the claim is caught before it merges.
 
-Claiming writes to git, which Cowork cannot do (see "Editing this repo from
-Cowork"), so a Cowork session asks the owner to claim for it.
-
 ### Keeping `approved` meaningful
 
 Agents post through the owner's GitHub account, `ScottHysom`, so GitHub cannot
@@ -451,14 +448,6 @@ tell an agent adding `approved` from the owner adding it. What covers that:
 A separate GitHub account for agents would make the first check enforceable
 on GitHub itself: a workflow could remove `approved` whenever anyone else adds
 it.
-
-## Editing this repo from Cowork
-
-Cowork's device bridge cannot delete files, so a commit it attempts strands a
-`.git/HEAD.lock` that blocks every later write. `commit.sh` clears that and
-commits. Claude drafts the message into `.commit-msg`; you run `./commit.sh`.
-
-Editing the repo yourself needs none of this. Just use git.
 
 ## Versioning
 
