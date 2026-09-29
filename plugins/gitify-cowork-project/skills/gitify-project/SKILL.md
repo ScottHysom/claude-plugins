@@ -47,7 +47,7 @@ script.
   through `propose_skills`. It needs a marketplace install. Say so and stop.
 
 ## Step 1: find the folder, and look at it
-<!-- spec: probe-lists-folder, probe-stops-missing, probe-stops-repo, ask-about-unwanted -->
+<!-- spec: probe-command-lists-folder, probe-command-stops-on-missing-folder, probe-command-stops-on-existing-repo, gitifyproject-asks-about-unwanted-files -->
 
 Call `get_device_info`. `connected_folder` is one of its `connectedFolders`,
 exactly as listed. The project folder is the connected folder itself, or a
@@ -73,7 +73,7 @@ one you find. Patterns they agree to go in `ignore` below. They get a second
 chance at `setup.sh`, which shows every file before anything is committed.
 
 ## Step 2: the answers
-<!-- spec: copy-field-exactly, ignore-answer -->
+<!-- spec: gitifyproject-copies-field-exactly, render-command-appends-ignore-patterns -->
 
 <!-- no-command: judgment. The model writes the project name and the ignore list, and step 3's render checks them. -->
 
@@ -102,7 +102,7 @@ step made:
 `PROJECT_MOUNT` is worked out from the folders. Do not pass it.
 
 ## Step 3: render
-<!-- spec: render-stages-files, repo:script-checks-every-answer -->
+<!-- spec: render-command-stages-files, repo:script-checks-every-answer -->
 
 ```sh
 GITIFY=/tmp/gitify/plugin/scripts/gitify.py && python3 "$GITIFY" render --answers /tmp/gitify/answers.json --json
@@ -117,7 +117,7 @@ GITIFY=/tmp/gitify/plugin/scripts/gitify.py && python3 "$GITIFY" render --answer
 `--dry-run` checks the answers without writing.
 
 ## Step 4: copy the files onto the device
-<!-- spec: stop-on-precheck, recopy-on-failure, check-after-copy -->
+<!-- spec: gitifyproject-stops-on-precheck, gitifyproject-recopies-failed-files, check-command-names-damaged-copies -->
 
 <!-- no-command: hand-off to the device bridge. device_bash and device_commit_files run what render printed. -->
 
@@ -137,7 +137,7 @@ Take each value from `render`'s `data`, as printed:
 Do not `git init`. Step 5 covers why.
 
 ## Step 5: hand off
-<!-- spec: hand-off-setup, hand-off-field -->
+<!-- spec: gitifyproject-hands-off-setup, gitifyproject-hands-off-field-line -->
 
 <!-- no-command: hand-off to the user. The bridge cannot commit, so the user runs setup.sh. -->
 
