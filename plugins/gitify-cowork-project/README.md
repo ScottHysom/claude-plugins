@@ -72,7 +72,11 @@ Claude then writes the files and leaves you the steps it cannot take:
    `sh setup.sh commit`.
 2. **Replace the Project Instructions field with the one line Claude gives
    you.** Claude cannot write the field itself. Whatever the field held is now
-   in `CLAUDE.md`, copied exactly, and the line tells Claude to read it.
+   in `CLAUDE.md`, copied exactly, and the line tells Claude to read it. The
+   line also tells Claude that the project's documents live only in the
+   folder. A session started from the Claude mobile app begins without the
+   folder, so Claude asks you for access to it instead of saving documents
+   anywhere else.
 
 ## Everyday use
 

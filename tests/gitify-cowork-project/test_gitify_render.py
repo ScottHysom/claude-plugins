@@ -86,6 +86,18 @@ class DescribeACleanRender:
         assert project["project"] in pointer
         assert "\n" not in pointer
 
+    @pytest.mark.spec("render-cmd-prints-field-pointer")
+    def it_keeps_documents_in_the_folder_when_the_session_lacks_it(
+        self, runner, make_answers, project
+    ):
+        # A session started from the phone sees the field and not the folder.
+        _, env = runner.render(make_answers())
+        pointer = env["data"]["field_pointer"]
+        assert "documents live only in that folder" in pointer
+        assert "ask for access to it first" in pointer
+        assert "never write project documents anywhere else" in pointer
+        assert "\n" not in pointer
+
     @pytest.mark.spec("render-cmd-prints-field-pointer", "repo:command-splits-output-streams")
     def it_prints_the_pointer_in_its_plain_output(self, runner, make_answers, project):
         path = runner.tmp / "answers.json"
@@ -139,7 +151,7 @@ class DescribeTheInstructions:
     def it_keeps_its_notes_for_people_out_of_claudes_context(self, runner, make_answers):
         runner.render(make_answers())
         text = loaded(runner.staged("CLAUDE.md"))
-        assert re.match(r"# Foo Research\n\s*## Git history\n", text)
+        assert re.match(r"# Foo Research\n\s*## Where documents live\n", text)
         assert "This note" not in text
 
     @pytest.mark.spec("render-cmd-copies-instructions-verbatim")
@@ -210,6 +222,15 @@ class DescribeTheHistorySection:
         text = loaded(runner.staged("CLAUDE.md"))
         assert "If\nit holds anything else, copy that into this file" in text
         assert "put the field back to the one line" in text
+
+    @pytest.mark.spec("claudemd-keeps-documents-in-folder")
+    def it_keeps_the_documents_in_the_folder(self, runner, make_answers):
+        runner.render(make_answers())
+        text = loaded(runner.staged("CLAUDE.md"))
+        assert "## Where documents live\n" in text
+        assert "This project's documents live only in this folder." in text
+        assert "claude.ai Project's own\ndocuments" in text
+        assert "`Claude outputs/`" in text
 
 
 class DescribeTheIgnorePatterns:

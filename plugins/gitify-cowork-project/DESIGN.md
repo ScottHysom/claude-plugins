@@ -50,6 +50,14 @@ reaches every conversation from its start, so the line gets `CLAUDE.md` read
 wherever Cowork's own loading does not. What Cowork loads, and when, is in
 [Designing for Cowork](https://github.com/ScottHysom/claude-plugins/blob/main/COWORK.md#how-instruction-files-load).
 
+A session started from the Claude mobile app gets the field but not the
+folder, so `CLAUDE.md` is out of reach there. The line therefore also says the
+project's documents live only in that folder, and tells Claude to ask for
+access to it and never to write them anywhere else. Without that, Claude saves
+lasting work to the claude.ai Project's own documents, outside git and apart
+from the rest. `CLAUDE.md` repeats the rule in a section of its own, for a
+session that has the folder.
+
 ## How Claude learns the folder is under git
 
 A section of `CLAUDE.md` tells Claude that git keeps the history, so change

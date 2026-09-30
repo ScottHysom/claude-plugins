@@ -147,14 +147,36 @@ instructions", and the gitify-project description.
   `CLAUDE.md`, the note for people at its top is an HTML comment and costs no
   context.
 - `render-cmd-prints-field-pointer` (test): When `render` stages the
-  files, it prints the one line for the Project Instructions field, naming
-  `CLAUDE.md` at the project's path.
+  files, it prints the one line for the Project Instructions field. The line
+  names `CLAUDE.md` at the project's path, says the project's documents live
+  only in that folder, and tells Claude to ask for access when the folder is
+  not connected and never to write project documents anywhere else.
 - `gitifyproject-hands-off-field-line` (step): When the files are on the
   device, gitify-project gives the user that line to put in place of
   everything in the field.
 - `claudemd-gives-field-rule` (test): When `render` writes `CLAUDE.md`, its
   history section tells Claude to copy anything in the field besides that line
   into `CLAUDE.md`, and to ask the user to put the field back to the one line.
+
+## need user-keeps-documents-in-folder: Keep every document in the project's folder
+
+When a session can't reach the project's folder, the user wants Claude to ask
+for it, and never to write project documents anywhere else, so the documents
+don't split between the folder and the claude.ai Project.
+
+Source: #297.
+
+- `claudemd-keeps-documents-in-folder` (test): When `render` writes
+  `CLAUDE.md`, it holds a section outside any HTML comment saying the
+  project's documents belong only in this folder, not in the claude.ai
+  Project's own documents or in chat outputs.
+
+## constraint mobileapp-omits-folder: A session started from the mobile app has no folder
+
+A session started from the Claude mobile app gets the Project Instructions
+field, but not the project's folders.
+
+Source: #297, and COWORK.md, under "How instruction files load".
 
 ## need user-commits-from-cowork: Commit from a Cowork session
 
