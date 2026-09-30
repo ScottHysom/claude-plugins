@@ -412,10 +412,11 @@ standard-library Python, JSON output on request, and exit codes of 0 for clean,
   - every test, with the lines it runs
   - every step in the model's instructions, with the commands it runs
   - every line not run by any test
-- **`trace`** fails a test or a skill step that does not cite a requirement, and
-  any citation of an id that does not exist in a spec. It also fails a
-  requirement that nothing of its kind cites, and an id not in the form "Ids"
-  gives.
+- **`trace`** fails when it finds any of these:
+  - a test or a skill step that does not cite a requirement
+  - a citation of an id that does not exist in a spec
+  - a requirement that nothing of its kind cites
+  - an id not in the form "Ids" gives
 - **`surface`** fails a command, option or allowed value that is not named by a
   requirement. A command-line parser, a route table and a configuration schema
   are each a registry a script can list, and each can be held to this rule.

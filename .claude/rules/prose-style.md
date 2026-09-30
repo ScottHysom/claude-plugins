@@ -86,10 +86,13 @@ for an em-dash almost always wants a period or a colon instead.
 
 ### standing-bullet-over-run: Prefer a bullet list over a long delimited run
 
-A run of three or more phrases becomes bullets under a lead-in line.
+A run of three or more phrases or clauses becomes bullets under a lead-in line.
+A run of clauses is often a list of things in disguise, such as the conditions
+a check fails on. It counts even when it spans two sentences joined by "It
+also fails".
 
-> **Before.** reading papers at the source, contributing to an open-source project, or producing public writing about any of this
-> **After.** The ways this could go further:
+> **Before.** `changes` fails one whose description does not name each requirement id, and one that adds a need no issue it closes names. It also fails one that closes an issue edited after `approved` was last added to it.
+> **After.** `changes` runs in CI on a pull request. It fails under any of these conditions:
 
 ### standing-us-spelling: Use US spelling
 

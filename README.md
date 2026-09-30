@@ -247,11 +247,15 @@ A plugin's tests and skill steps cite ids in that plugin's spec. The repo's
 own tests and the workflows cite ids in `specs/repo.md`. Either can name a repo
 requirement as `repo:<id>`.
 
-`trace` fails a test or a step that cites nothing, a citation of an id its
-spec lacks, and a requirement that nothing of its kind cites. It also fails a
-need, constraint or requirement id that does not read as its subject and then
-a verb, the form SPEC-METHODOLOGY.md gives under "Ids". The tests and
-steps still waiting on a ruling are listed in `.github/untraced.json`, each
+`trace` fails when it finds any of these:
+
+- a test or a step that cites nothing
+- a citation of an id its spec lacks
+- a requirement that nothing of its kind cites
+- a need, constraint or requirement id that does not read as its subject and
+  then a verb, the form SPEC-METHODOLOGY.md gives under "Ids"
+
+The tests and steps still waiting on a ruling are listed in `.github/untraced.json`, each
 with the open issue that will trace it, and pass with a warning. When one
 gains a citation, its entry goes in the same pull request, and `trace` fails
 until it does. `trace` also fails an entry, there or in check-skills.py's
