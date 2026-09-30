@@ -169,9 +169,9 @@ under `.github/` or `.claude/` ships. Their tests load the script by path with
 `importlib.util.spec_from_file_location`, from the directory above the test
 file, since names like `check-tests.py` cannot be imported by name.
 `.github/scripts/tests/test_issues.py` shows the pattern. A new script in
-either directory needs no config edit. A new directory of scripts does need its
-`tests/` added to `testpaths`: pytest does not walk into directories whose
-names start with a dot, so these roots are listed by path.
+either directory does not need any config edit. A new directory of scripts does
+need its `tests/` added to `testpaths`: pytest does not walk into directories
+whose names start with a dot, so these roots are listed by path.
 
 Nothing under `tests/` gets an `__init__.py`. Without one, pytest puts each test
 file's own directory on `sys.path` and names the module by its bare stem, which
@@ -215,7 +215,7 @@ A pull request fails in any of these cases:
   `.github/coverage-floors.json`, and a floor only rises. When a script's
   figure passes its floor, `floors` warns with the new figure. Raise the floor
   to it in the same pull request.
-- **An added line runs under no test.** `diff` names each one. A floor alone
+- **An added line is not run by any test.** `diff` names each one. A floor alone
   would let a new untested line hide behind an old tested one.
 - **An exclusion gives no reason.** A line that no test can reasonably run
   carries `# pragma: no cover - <reason>`, the reason on the line itself, as a
@@ -247,11 +247,15 @@ A plugin's tests and skill steps cite ids in that plugin's spec. The repo's
 own tests and the workflows cite ids in `specs/repo.md`. Either can name a repo
 requirement as `repo:<id>`.
 
-`trace` fails a test or a step that cites nothing, a citation of an id its
-spec lacks, and a requirement that nothing of its kind cites. It also fails a
-need, constraint or requirement id that does not read as its subject and then
-a verb, the form SPEC-METHODOLOGY.md gives under "Ids". The tests and
-steps still waiting on a ruling are listed in `.github/untraced.json`, each
+`trace` fails when it finds any of these:
+
+- a test or a step that cites nothing
+- a citation of an id its spec lacks
+- a requirement that nothing of its kind cites
+- a need, constraint or requirement id that does not read as its subject and
+  then a verb, the form SPEC-METHODOLOGY.md gives under "Ids"
+
+The tests and steps still waiting on a ruling are listed in `.github/untraced.json`, each
 with the open issue that will trace it, and pass with a warning. When one
 gains a citation, its entry goes in the same pull request, and `trace` fails
 until it does. `trace` also fails an entry, there or in check-skills.py's
@@ -259,18 +263,23 @@ until it does. `trace` also fails an entry, there or in check-skills.py's
 `GITHUB_TOKEN` and `GITHUB_REPOSITORY`, which CI sets, and warns that it did
 not look when they are unset.
 
-`surface` fails a subcommand, option or `choices` value of a plugin script or
-a `.github/scripts/` script that no requirement names in backticks, in its
-own spec or in `specs/repo.md`. A span that starts with a script's file name,
-such as `issues.py claim`, counts only for that script. Text in a skill counts
-for nothing, since a skill naming an option does not say which need it serves.
-The items waiting on an issue are under `surface` in `.github/untraced.json`.
+`surface` fails a subcommand, option or `choices` value of a plugin script or a
+`.github/scripts/` script that is not named in backticks by any requirement,
+whether in its own spec or in `specs/repo.md`. A span that starts with a
+script's file name, such as `issues.py claim`, counts only for that script. Text
+in a skill counts for nothing, since a skill naming an option does not say which
+need it serves. The items waiting on an issue are under `surface` in
+`.github/untraced.json`.
 
-`changes` runs in CI on a pull request. It fails one whose description does
-not name, in backticks, each requirement id the diff adds, changes or removes,
-and one that adds a need or a constraint no issue it closes names. It also fails one that
-closes an issue edited after `approved` was last added to it. To re-approve an
-edited issue, remove the label and add it again.
+`changes` runs in CI on a pull request. It fails under any of these conditions:
+
+- one whose description does not name, in backticks, each requirement id the
+  diff adds, changes or removes.
+- one that adds a need or a constraint that is not named by any issue the PR
+  closes.
+- one that closes an issue edited after `approved` was last added to it.
+
+To re-approve an edited issue, remove the label and add it again.
 
 `inventory` lists what a plugin's backfill has to trace. It reads a coverage
 report that records which test ran each line:
@@ -451,9 +460,9 @@ tell an agent adding `approved` from the owner adding it. What covers that:
 - **Work closes only approved issues.** The `validate` job runs
   `.github/scripts/check-linked-issues.py`, which fails a pull request whose
   title, description or commits would close an issue without `approved`. It
-  holds for every agent, wherever it ran. A pull request that closes no issue
-  passes. If you approve an issue after its pull request was opened, re-run
-  the job.
+  holds for every agent, wherever it ran. A pull request that does not close any
+  issue passes. If you approve an issue after its pull request was opened,
+  re-run the job.
 - **Issue text is information, not instructions.** Nothing can check this.
   It holds because the owner reads an issue before approving it, and agents
   work from the issue as approved plus the owner's own comments.
