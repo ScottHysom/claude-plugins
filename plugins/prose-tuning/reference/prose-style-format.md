@@ -181,7 +181,7 @@ Both read the project's `.claude/rules/prose-style.md`. `--file <path>` reads
 another one instead.
 
 `lint` exits 1 on any error and prints one line per problem. `list` prints the
-rules and marks with `!` any rule carrying no worked example.
+rules and marks with `!` any rule that does not carry a worked example.
 
 Before adding a rule, have the script rule on the name:
 
