@@ -113,8 +113,8 @@ A script in CI checks each link on every pull request:
 
 | Link | Checked by | Fails when |
 |---|---|---|
-| Code runs under a test | The coverage check | A pull request adds a line no test runs, or a component falls below its coverage floor |
-| A test or a skill step cites a requirement | `trace` | One cites nothing, or cites an id no spec holds |
+| Code runs under a test | The coverage check | A pull request adds a line that no test runs, or a component falls below its coverage floor |
+| A test or a skill step cites a requirement | `trace` | One cites nothing, or cites an id that no spec holds |
 | Every requirement is cited by something of its kind | `trace` | Nothing of the requirement's kind cites it |
 | A requirement serves a need or a constraint | `trace`, as it reads the spec files | A requirement sits outside any need or constraint |
 
@@ -126,7 +126,7 @@ a requirement for it, and a trace through tests alone would have passed. The
 coverage check forces a test onto new logic, and `trace` forces that test to
 cite a requirement.
 
-No script can decide whether a need is real, or whether a requirement truly
+A script cannot decide whether a need is real, or whether a requirement truly
 serves the need it sits under. Those judgments stay with the owner. The chain
 turns every behavior into a short line in a spec file. `changes`, under
 "Admission", puts each new line in front of the owner, instead of leaving it
@@ -149,8 +149,8 @@ same input should give the same answer:
 - writing results
 
 The model does only what needs judgment, such as inferring a rule, writing
-prose or deciding whether something conforms. It also calls the tools that no
-script can reach.
+prose or deciding whether something conforms. It also calls the tools that a
+script cannot reach.
 
 A seam is a point where the model stands between one command's output and the
 next command. A skill keeps a seam only where a judgment or such a tool call
@@ -164,8 +164,8 @@ Every seam is one of these kinds:
   service, `rentals quote` prints a token, a short hash of the price the
   renter was shown, and `rentals hold` refuses to reserve a car without it.
   The token carries the renter's approval across the seam.
-- **Platform.** The model calls a tool no script can, such as one that asks the
-  user a question or writes to the user's computer.
+- **Platform.** The model calls a tool that a script cannot reach, such as one
+  that asks the user a question or writes to the user's computer.
 - **Courier.** The model does work a script could do, in one of these ways:
   - it carries a value from one command's output into the next, unchanged
   - it chooses what to do from an exit code, by a table in its instructions
@@ -280,10 +280,10 @@ The grammar leaves out blank lines, and the line breaks inside a paragraph.
 and `id` parts, and fails a spec file that breaks them. How it reads them:
 
 - Any `##` heading ends the section above it. A heading that is not a need
-  or a constraint, a misspelled one included, opens no section, so a
+  or a constraint (including a misspelled one) does not open a section, so a
   requirement under it fails as one outside any need.
 - Under a need or a constraint, every bullet must be a requirement.
-- A continuation line is indented, and follows its requirement with no blank
+- A continuation line is indented, and follows its requirement without a blank
   line between.
 - It checks every need, constraint and requirement id against the form
   under "Ids", below.
@@ -379,8 +379,8 @@ kind of seam sits between them:
 
 A comment on a line of its own does not show when the markdown is rendered.
 Whether the model reads it depends on the tool that loads the instructions,
-since some tools strip such comments first. Check that tool before counting on
-the markers to cost no context.
+since some tools strip such comments first. Check that tool before assuming
+the markers won't add to the context.
 
 A CI workflow step cites its requirements in a comment above the step's
 `- name:` line, with only comment lines between:
@@ -411,13 +411,14 @@ standard-library Python, JSON output on request, and exit codes of 0 for clean,
   - every module-level collection of strings, such as a set of allowed values
   - every test, with the lines it runs
   - every step in the model's instructions, with the commands it runs
-  - every line no test runs
-- **`trace`** fails a test or a skill step that cites no requirement, and any
-  citation of an id no spec holds. It also fails a requirement that nothing of
-  its kind cites, and an id not in the form "Ids" gives.
-- **`surface`** fails a command, option or allowed value that no requirement
-  names. A command-line parser, a route table and a configuration schema are
-  each a registry a script can list, and each can be held to this rule.
+  - every line not run by any test
+- **`trace`** fails a test or a skill step that does not cite a requirement, and
+  any citation of an id that does not exist in a spec. It also fails a
+  requirement that nothing of its kind cites, and an id not in the form "Ids"
+  gives.
+- **`surface`** fails a command, option or allowed value that is not named by a
+  requirement. A command-line parser, a route table and a configuration schema
+  are each a registry a script can list, and each can be held to this rule.
 - **`changes`** fails a pull request whose description does not list every
   requirement its diff adds, changes or removes. It also fails one that adds a
   need or a constraint its linked ticket does not name.
@@ -425,9 +426,10 @@ standard-library Python, JSON output on request, and exit codes of 0 for clean,
   without a `<!-- seam: <kind>: <reason> -->` marker.
 - **The coverage check** fails when a component's branch coverage, which counts
   both sides of each `if`, drops below its floor. It also fails a pull request
-  that adds a line no test runs. A floor starts at the component's figure on
-  the day it is set, and only rises. A deliberate exception carries a comment
-  with its reason, such as `# pragma: no cover` in Python.
+  that adds a line that is not run by any test. A floor starts at the
+  component's figure on the day it is set, and only rises. A deliberate
+  exception carries a comment with its reason, such as `# pragma: no cover` in
+  Python.
 
 Notes for the agent that builds them:
 
@@ -511,12 +513,12 @@ whatever the agent cannot place. Take one component at a time:
 1. **Freeze.** Add the rules for agents, and run `trace` as a warning, so new
    work arrives traced while the old work is sifted.
 2. **Inventory.** Run `inventory` on the component, and post its output on the
-   component's ticket. Coverage measures the component's scripts, and not
-   the files it copies into a project, such as shell scripts it renders from
-   templates. Read those by hand for behavior no test runs. Where `inventory`
-   does not reach a component, build the same sections from its parser and a
-   coverage run measured per test, and post the commands with the output.
-   claude-plugins' own tooling was listed that way (#135, #253).
+   component's ticket. Coverage measures the component's scripts, and not the
+   files it copies into a project, such as shell scripts it renders from
+   templates. Read those by hand for behavior that no test runs. Where
+   `inventory` does not reach a component, build the same sections from its
+   parser and a coverage run measured per test, and post the commands with the
+   output. claude-plugins' own tooling was listed that way (#135, #253).
 3. **Needs.** Draft the needs and constraints from sources outside the code:
    the README, the descriptions of the model's instructions, design notes,
    platform notes, tickets and commit messages. Cite the source of each. The
@@ -538,7 +540,7 @@ whatever the agent cannot place. Take one component at a time:
 | Instruction | Would the model act differently without it? | Cut it |
 | Seam between commands | Is there a judgment or a platform tool in it? | Merge it into the script |
 | Test | Which requirement does it verify? | It goes with the behavior it tests |
-| Untested code | Is it part of an unneeded behavior, required error handling, or a real case with no test? Can any input reach it? | Remove it, keep it, or add a test. Code no input reaches gets a ticket of its own |
+| Untested code | Is it part of an unneeded behavior, required error handling, or a real case with no test? Can any input reach it? | Remove it, keep it, or add a test. Code that no input reaches gets a ticket of its own |
 
 An item is placed only under a need that has a source. "The code does it" is
 not a source.
@@ -554,11 +556,11 @@ not a source.
    - **Probe:** the behavior claims a platform limit that nothing has measured.
    - **Merge:** the item is a courier seam, and its work moves into the
      script.
-7. **Pull requests.** The spec pull request changes no behavior. It adds the
-   component's needs and requirements, cites them from the tests and skill
-   steps that stay, and lists every pending ruling with its ticket. Every
-   other ruling gets a ticket and a small pull request of its own, which
-   changes the code, its tests, its docs and its instructions together.
+7. **Pull requests.** The spec pull request does not change any behavior. It
+   adds the component's needs and requirements, cites them from the tests and
+   skill steps that stay, and lists every pending ruling with its ticket. Every
+   other ruling gets a ticket and a small pull request of its own, which changes
+   the code, its tests, its docs and its instructions together.
 8. **Switch.** When the backfill's spec pull request lands, its checks become
    errors for everything but the items still on the list, each keyed to its
    ruling's ticket. An entry whose ticket has closed fails, so the list
@@ -581,7 +583,7 @@ These rules hold throughout:
   edits the assertion. A test of the ruled behavior alone stays on the list of
   untraced items, keyed to the ruling's ticket.
 - Every requirement needs something of its kind that cites it. When a kept
-  behavior has no test, the spec pull request adds one. A test changes no
+  behavior has no test, the spec pull request adds one. A test does not change
   behavior.
 - A behavior that follows a convention of the whole repository, such as how
   every script prints its output, gets its requirement in `specs/repo.md`.
@@ -638,7 +640,7 @@ The method grows with the codebase without changing shape:
 - **More registries** join `surface`: routes, configuration keys, public
   functions, and anything else a script can list.
 - **Coverage per requirement** comes from joining per-test coverage with the
-  tests' citations. Code that only uncited tests reach is behavior no
+  tests' citations. Code that only uncited tests reach is behavior that no
   requirement asked for.
 - **The model's half** can move from step markers to evals.
 - **More owners** each confirm the needs in their own components. A CODEOWNERS
