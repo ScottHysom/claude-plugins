@@ -225,8 +225,10 @@ A new plugin script gets its floor in the pull request that adds it. `floors`
 fails until it has one, and prints the figure to use.
 
 CI checks the floors and the added lines on the 3.13 leg only, because Python
-versions differ in how they count branches. A local run on 3.9 can land a
-little either side of a floor.
+versions differ in how they count branches. `floors` stops on any other
+version, exiting 2 and naming 3.13, since its figures cannot be compared with
+the floors. On a 3.9 venv, run `diff` and `pragmas` and leave `floors` to CI,
+or run the suite from a 3.13 venv.
 
 ### Requirements
 
