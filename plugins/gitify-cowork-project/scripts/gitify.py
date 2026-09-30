@@ -99,8 +99,14 @@ GITIGNORE_HEADING = "# This project"
 # folder, whose CLAUDE.md Cowork also loads by itself: the field reaches every
 # conversation from its start, so the line gets CLAUDE.md read wherever
 # Cowork's own loading does not. COWORK.md, under "How instruction files load",
-# has what Cowork loads and when.
-FIELD_POINTER = "Before anything else, read CLAUDE.md at the root of {path}."
+# has what Cowork loads and when. A session started from the Claude mobile app
+# gets the field but not the folder, so the line also says where the documents
+# live and to ask for the folder rather than write them anywhere else.
+FIELD_POINTER = (
+    "Before anything else, read CLAUDE.md at the root of {path}. This project's"
+    " documents live only in that folder. If it isn't connected to this session,"
+    " ask for access to it first, and never write project documents anywhere else."
+)
 
 PLACEHOLDER_RE = re.compile(r"\{\{([A-Z_]+)\}\}")
 # Anything that means a placeholder survived into the output, or was mistyped.

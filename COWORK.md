@@ -111,6 +111,14 @@ an existing folder", beside the same files run through Claude Code 2.1.274.
   folder icon and the project's name sits below the prompt box. A session in
   it reports no connected folder. Only the field carries standing
   instructions there.
+- **A session started from the Claude mobile app has no folder at first.**
+  Seen in the session behind #297, in a Project made with "Use an existing
+  folder". The session got the field, `get_device_info` reported
+  `"connectedFolders": []`, and the Projects tool showed no documents. `device_request_folder_access`,
+  approved on the Mac, connected the folder mid-session, and the grant
+  survived a later context reload. Cowork's support article says a cloud
+  session reaches connected folders only if it was started on desktop. This
+  one was started on the phone and still reached the folder once granted.
 
 ## What the design follows from this
 
