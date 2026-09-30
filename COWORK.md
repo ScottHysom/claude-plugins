@@ -6,7 +6,7 @@ something new, record it here, not only in a script's docstring or a pull
 request, so the next design starts from it.
 
 Nothing here comes from documentation. Each point is what a probe in a real
-session printed. A question no probe has answered yet goes under "Not yet
+session printed. A question that no probe has answered yet goes under "Not yet
 known", added back when there is one.
 
 ## The container and the device
@@ -30,15 +30,14 @@ known", added back when there is one.
   container and hands its output across, or it is copied across and runs on the
   device.
 - **Every `device_bash` call starts afresh,** in `$HOME`, with no variable or
-  `cd` kept from the call before. A command that needs the project starts
+  `cd` retained from the call before. A command that needs the project starts
   with its own `cd`.
-- **Every call to the container's shell starts afresh too,** in
-  `/home/claude`, with no variable or `cd` kept from the call before. After a
-  call that changes directory, the tool adds "Shell cwd was reset to
-  /home/claude" to its output; the command did not print that line. A
-  command that needs a plugin script sets its path in the same call. Probed
-  on 2026-09-23, in a Project with a connected folder and one without, with
-  the same result.
+- **Every call to the container's shell starts afresh too,** in `/home/claude`,
+  with no variable or `cd` retained from the call before. After a call that
+  changes directory, the tool adds "Shell cwd was reset to /home/claude" to its
+  output; the command did not print that line. A command that needs a plugin
+  script sets its path in the same call. Probed on 2026-09-23, in a Project with
+  a connected folder and one without, with the same result.
 
 ## Moving files: `device_commit_files`
 
@@ -109,7 +108,7 @@ an existing folder", beside the same files run through Claude Code 2.1.274.
 - **A "Start from scratch" Project has no folder,** whatever Cowork's guide
   says: none is created on disk and none is linked, though a chip with a
   folder icon and the project's name sits below the prompt box. A session in
-  it reports no connected folder. Only the field carries standing
+  it does not report any connected folder. Only the field carries standing
   instructions there.
 
 ## What the design follows from this

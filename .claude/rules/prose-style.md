@@ -86,10 +86,13 @@ for an em-dash almost always wants a period or a colon instead.
 
 ### standing-bullet-over-run: Prefer a bullet list over a long delimited run
 
-A run of three or more phrases becomes bullets under a lead-in line.
+A run of three or more phrases or clauses becomes bullets under a lead-in line.
+A run of clauses is often a list of things in disguise, such as the conditions
+a check fails on. It counts even when it spans two sentences joined by "It
+also fails".
 
-> **Before.** reading papers at the source, contributing to an open-source project, or producing public writing about any of this
-> **After.** The ways this could go further:
+> **Before.** `changes` fails one whose description does not name each requirement id, and one that adds a need no issue it closes names. It also fails one that closes an issue edited after `approved` was last added to it.
+> **After.** `changes` runs in CI on a pull request. It fails under any of these conditions:
 
 ### standing-us-spelling: Use US spelling
 
@@ -151,6 +154,33 @@ it into the preceding sentence rather than appending it as its own.
 > **Before.** Understanding what these involve is in scope. Doing them is not.
 > **After.** It is in scope to understand what these involve, and not a requirement to do them.
 
+### sentences-negate-the-verb: A negation goes on the verb, not the noun
+
+"Cites no requirement" makes the reader find the negation on the object.
+"Does not cite a requirement" puts it on the verb, where the reader looks for
+it. The same holds for a subject: "No script can decide" becomes "A script
+cannot decide", and "tools that no script can reach" becomes "tools that a
+script cannot reach". "Has no", as in "a behavior has no test", stays.
+
+**Pattern.** `\b(?!(?:has|is|was|does)\b)[a-z]+s no\b`
+**Pattern.** `\b[a-z]+ed no\b`
+**Pattern.** `\b(?:under|to (?!(?:why|what|how|where|when)\b)[a-z]+) no\b`
+**Pattern.** `\b[Nn]o [a-z]+ can\b`
+
+> **Before.** The spec pull request changes no behavior.
+> **After.** The spec pull request does not change any behavior.
+
+### sentences-keep-relative-that: A relative clause keeps its "that"
+
+"A line no test runs" drops the word that tells the reader a clause has
+started. Write "a line that no test runs", or "a line not run by any test".
+Either form is fine.
+
+**Pattern.** `(?i)\b(?!(?:that|which|with|and|or|of|is|has|by|to|in|for|as|under|was|does|are|when|where|why|so|because|if|since|once|until|while|but)\b)(?![a-z]+(?:s|ed)\b)[a-z]+ no (?!longer\b)[a-z]+ (?:[a-z]+ ){0,2}(?:[a-z]+s|[a-z]+ed|can|has|have|will)\b`
+
+> **Before.** Read those by hand for behavior no test runs.
+> **After.** Read those by hand for behavior that no test runs.
+
 ### sentences-load-bearing-colon: A colon the reader could delete is the wrong mark
 
 Rephrase rather than repunctuate.
@@ -199,6 +229,27 @@ the claim has said it twice. Keep the version doing work the others do not.
 Applying a fact elsewhere is not restating it: the same fact can appear in two
 tables doing different work in each.
 
+### sentences-word-reads-one-way: A word that reads two ways is replaced
+
+"No variable kept from the call before" can mean "carried over from" or
+"prevented from". Use a word that has only the meaning intended.
+
+**Pattern.** `\bkept from\b`
+
+> **Before.** Every call starts afresh, with no variable or `cd` kept from the call before.
+> **After.** Every call starts afresh, with no variable or `cd` retained from the call before.
+
+### sentences-parenthetical-including: An included case goes in parentheses
+
+An aside naming a case that is included goes in parentheses, led by
+"including". A trailing "X included" set off by commas reads as part of the
+main clause.
+
+**Pattern.** `,\s[^,()]+\sincluded,`
+
+> **Before.** A heading that is not a need or a constraint, a misspelled one included, opens no section.
+> **After.** A heading that is not a need or a constraint (including a misspelled one) does not open a section.
+
 ## Headings
 
 ### headings-noun-phrase: A heading is a short noun phrase
@@ -241,6 +292,11 @@ already found obvious, or have not. Leave the judgment to them.
 
 > **Before.** The non-obvious result is in the bolded column.
 > **After.** The result in the bolded column:
+
+### register-contractions-allowed: Contractions are fine
+
+A contraction such as "won't" is as acceptable as "will not", in every
+document. Neither form is preferred.
 
 ### register-skill-clauses-change-behavior: In a skill's instructions, every clause changes what the model does
 
