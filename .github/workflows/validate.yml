@@ -160,7 +160,9 @@ jobs:
       # plugin script's coverage, branches included, has a floor in
       # .github/coverage-floors.json that only ever rises. Branch arcs differ
       # between Python versions, so the floors are the 3.13 leg's figures and
-      # only that leg checks them.
+      # only that leg checks them. check-coverage.py's FLOORS_PYTHON names the
+      # same version, and `floors` exits 2 on any other, so the two move
+      # together.
       # spec: ci-runs-floors
       - name: Check plugin scripts keep their coverage floors
         if: matrix.python-version == '3.13'

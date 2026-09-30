@@ -8,6 +8,7 @@ floors' history and the added lines both come from git.
 import importlib.util
 import json
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -27,6 +28,12 @@ def isolated_git(monkeypatch):
     """Keep the developer's git config (signing, hooks, default branch) out."""
     monkeypatch.setenv("GIT_CONFIG_GLOBAL", "/dev/null")
     monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
+
+
+@pytest.fixture(autouse=True)
+def floors_measured_here(monkeypatch):
+    """Take the floors as measured on the running Python, so both CI legs check them."""
+    monkeypatch.setattr(cc, "FLOORS_PYTHON", tuple(sys.version_info[:2]))
 
 
 def git(root, *argv):
@@ -179,6 +186,25 @@ class DescribeFloors:
         code, _, err = run("floors", "-C", str(repo), "--base", "origin/nope")
         assert code == cc.CANNOT_RUN
         assert "git fetch" in err
+
+
+class DescribeFloorsPython:
+    @pytest.mark.spec("floors-cmd-names-floor-version")
+    def it_stops_on_a_python_the_floors_were_not_measured_on(self, repo, run, monkeypatch):
+        monkeypatch.setattr(cc, "FLOORS_PYTHON", (2, 7))
+        write(repo, {cc.DEFAULT_REPORT: report({SCRIPT: (79.99, [3])})})
+        code, out, err = run("floors", "-C", str(repo))
+        assert code == cc.CANNOT_RUN
+        assert "Python 2.7's figures" in err
+        assert "Add tests" not in err
+        assert out == ""
+
+    @pytest.mark.spec("floors-cmd-names-floor-version")
+    def it_checks_the_floors_on_the_python_they_were_measured_on(self, repo, run):
+        write(repo, {cc.DEFAULT_REPORT: report({SCRIPT: (79.99, [3])})})
+        code, _, err = run("floors", "-C", str(repo))
+        assert code == cc.PROBLEMS
+        assert "below its floor" in err
 
 
 class DescribeDiff:

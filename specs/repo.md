@@ -400,14 +400,21 @@ Source: README.md, under "Adding a plugin", step 4.
 
 ## need contributor-validates-before-push: Run CI's checks before pushing
 
-When a contributor adds a skill, they want to run CI's skill checks before
-committing it, so the checks read files git does not track yet.
+When a contributor changes the repo, they want to run CI's checks before
+pushing and get CI's answer, or be told why a local run cannot give it. A
+contributor adding a skill runs the skill checks before committing it, so the
+checks read files git does not track yet.
 
-Source: README.md, under "Adding a plugin", step 4: "Validate, then push".
+Source: README.md, under "Adding a plugin", step 4: "Validate, then push",
+and #284.
 
 - `checkskills-cmd-reads-worktree-files` (test): When a skill file is
   committed, or new and not yet added, each check-skills.py command reads it,
   and skips a file git ignores.
+- `floors-cmd-names-floor-version` (test): When the Python running
+  `check-coverage.py floors` is not the version the floors were measured on,
+  `floors` exits 2 and names that version, rather than telling the
+  contributor to add tests.
 
 ## need contributor-keeps-manifests-in-step: Keep the two manifests in step
 

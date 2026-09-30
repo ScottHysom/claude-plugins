@@ -40,9 +40,12 @@ Things that look like bugs and are not:
   comparable with the floors.
 - `floors` warns, rather than fails, when a script is above its floor. The
   warning prints the figure to raise the floor to, which is how a floor rises.
-- CI measures on one Python version only. Branch arcs differ between Python
-  versions, so the floors are that version's figures, and a local run on
-  another version can land a little either side of them.
+- `floors` stops, exiting 2, on any Python but FLOORS_PYTHON. Branch arcs
+  differ between Python versions, so the floors are the figures of the one
+  version CI checks them on, and another version's figures are not comparable.
+  It reads the version of the Python running it, since coverage's JSON report
+  does not record one. The suite and the check run from the same venv, locally
+  and in CI.
 - `diff` compares the merge base with the working tree, not with HEAD, so
   locally it covers uncommitted edits too, as the report does. CI checks out a
   clean tree, where the two are the same. A script that did not exist at the
@@ -71,6 +74,9 @@ OK, PROBLEMS, CANNOT_RUN = 0, 1, 2
 PROG = "check-coverage.py"
 FLOORS_FILE = ".github/coverage-floors.json"
 DEFAULT_REPORT = "coverage.json"
+# The Python the floors are measured on: the leg of .github/workflows/validate.yml
+# that runs `floors`. The two move together.
+FLOORS_PYTHON = (3, 13)
 
 # A plugin's script, as CLAUDE.md places it: plugins/<plugin>/scripts/<name>.py.
 PLUGIN_SCRIPT_RE = re.compile(r"^plugins/[^/]+/scripts/[^/]+\.py$")
@@ -234,6 +240,11 @@ def load_floors(root):
         return parse_floors(fh.read(), FLOORS_FILE)
 
 
+def version(parts):
+    """A Python version as people write it: (3, 13) is 3.13."""
+    return ".".join(str(p) for p in parts)
+
+
 def floor_of(percent):
     """The floor a figure sets: rounded down, so it never sits above the figure."""
     scale = 10**FLOOR_DECIMALS
@@ -271,6 +282,14 @@ def cmd_floors(args, root):
     scripts = plugin_scripts(root)
     report = load_report(root, args.report)
     floors = load_floors(root)
+    running = tuple(sys.version_info[:2])
+    if running != FLOORS_PYTHON:
+        raise Fatal(
+            "the floors in %s are Python %s's figures, and this is Python %s, which "
+            "counts branches differently, so its figures cannot be compared with them. "
+            "Run the suite and `floors` under Python %s, or leave the floors to CI."
+            % (FLOORS_FILE, version(FLOORS_PYTHON), version(running), version(FLOORS_PYTHON))
+        )
     errors, warnings, measured = [], [], {}
 
     for path in scripts:
