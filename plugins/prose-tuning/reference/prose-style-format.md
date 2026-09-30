@@ -82,7 +82,7 @@ Nothing enforces the naming discipline. `config lint` checks the grammar and the
 word count and stops there, the same way it cannot tell that two rules
 contradict each other. Both are left to judgment.
 
-**A rule carries no metadata.** Where a rule came from belongs in the commit
+**A rule does not carry metadata.** Where a rule came from belongs in the commit
 that adds it. Files written by earlier versions of prose-tuning can carry a
 `<!-- prose-rule: ... -->` comment under a rule's heading, with `source=` or
 `origin=` keys. `config lint` accepts that comment, and rejects any other key

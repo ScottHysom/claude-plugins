@@ -77,7 +77,7 @@ A requirement is one sentence stating one behavior. EARS, the Easy Approach to
 Requirements Syntax from Alistair Mavin and colleagues at Rolls-Royce, opens a
 requirement with its trigger: "When <trigger>, <component> <response>." A
 requirement here keeps that order whenever the behavior has a trigger. Every
-bullet under a need or a constraint is a requirement, so the sentence needs no
+bullet under a need or a constraint is a requirement, so the sentence does not need a
 "shall".
 
 Each requirement sits under the need or constraint it serves, and that nesting

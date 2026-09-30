@@ -38,7 +38,7 @@ nothing left to drift.
 
 The note at the top of `CLAUDE.md` says how the file works. It is an HTML
 comment on lines of its own, which Cowork leaves out when it loads the file, so
-it costs no context.
+it does not cost any context.
 
 Claude cannot write the field itself. That is why replacing it is the user's
 step.

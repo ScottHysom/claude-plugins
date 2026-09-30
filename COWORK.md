@@ -97,8 +97,7 @@ an existing folder", beside the same files run through Claude Code 2.1.274.
 | Path-scoped rules, a subfolder's `CLAUDE.md` | When Claude reads a matching file | Never |
 | `AGENTS.md` beside a `CLAUDE.md` | Not loaded | Not loaded |
 
-- **The first message sees only the field.** Its whole turn, every tool call
-  included, runs without the folder's `CLAUDE.md`. The file arrives with the
+- **The first message sees only the field.** Its whole turn (including every tool call) runs without the folder's `CLAUDE.md`. The file arrives with the
   second message, before any tool call, even when neither message uses a
   tool: it is tied to the message, not to touching the folder.
 - **Only the connected folder's root counts.** A `CLAUDE.md` in a folder

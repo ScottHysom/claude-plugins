@@ -29,7 +29,7 @@ PROSE=.prose-tuning/prose.py && python3 "$PROSE" preflight --for apply
 ```
 
 - **Use the prefix on every call.** A call that leaves it out runs
-  `python3 ""`, which fails with "can't find '__main__' module" and names no
+  `python3 ""`, which fails with "can't find '__main__' module" and does not name a
   script.
 - **Run from the project root,** the `repo` in the `setup` result. The prefix
   and every path the skill gives are relative to it.

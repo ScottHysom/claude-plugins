@@ -217,7 +217,7 @@ A pull request fails in any of these cases:
   to it in the same pull request.
 - **An added line is not run by any test.** `diff` names each one. A floor alone
   would let a new untested line hide behind an old tested one.
-- **An exclusion gives no reason.** A line that no test can reasonably run
+- **An exclusion does not give a reason.** A line that a test cannot reasonably run
   carries `# pragma: no cover - <reason>`, the reason on the line itself, as a
   `# noqa` does. `pragmas` fails one without it.
 

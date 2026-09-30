@@ -11,7 +11,7 @@ does not have. If the bridge is not available, say so and stop rather than
 building the files somewhere they cannot reach.
 
 The folder already holds the user's work. This skill adds git and nothing else:
-it writes no document, and no rule about what documents say or how they read.
+it does not write a document, or a rule about what documents say or how they read.
 Do not offer to add any.
 
 ## What this produces
@@ -37,7 +37,7 @@ mkdir -p /tmp/gitify && ln -sfn "${CLAUDE_PLUGIN_ROOT:-${CLAUDE_SKILL_DIR}/../..
 This links the plugin at `/tmp/gitify/plugin`, a path short enough to repeat.
 Each call to your shell starts afresh, so every later command sets `GITIFY`
 again in front, as the steps below show. A command without it runs
-`python3 ""`, which fails with "can't find '__main__' module" and names no
+`python3 ""`, which fails with "can't find '__main__' module" and does not name a
 script.
 
 - **0**: the templates are complete. Go on.

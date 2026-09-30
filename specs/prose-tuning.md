@@ -139,7 +139,7 @@ for a style pass". The owner confirmed the need in the ruling on #132.
 - `evidence-cmd-reads-answers` (test): When an `<a>` follows a `<q>`
   before any other `<q>`, `evidence` reports it as that question's answer, and
   reports a `<q>` with none as open.
-- `evidence-cmd-prints-token` (test): When `evidence` finds no fault in
+- `evidence-cmd-prints-token` (test): When `evidence` does not find a fault in
   the markup, it prints a token, as `data.token` and as its last line, and
   otherwise prints none.
 - `insert-cmd-requires-token` (test): When the token passed to `tags
@@ -214,7 +214,7 @@ description.
   and `apply` refuse it and name it by its place in the batch.
 - `report-cmd-shows-current-text` (test): When `report` prints a finding,
   it shows the text at the finding's place in the file as it is now, each line
-  between `|` marks, with `(cut)` for an empty rewrite, and it writes no file.
+  between `|` marks, with `(cut)` for an empty rewrite, and it does not write a file.
 - `report-cmd-prints-approval-token` (test): When `report` exits 0, it
   prints a token as its last line, and otherwise prints none.
 - `apply-cmd-requires-token` (test): When the token passed to `apply
@@ -228,7 +228,7 @@ description.
   `--file` or both, it writes only the findings that pass every filter given,
   and with none it writes every finding.
 - `apply-cmd-names-empty-filters` (test): When a filter given to `apply`
-  matches no finding, alone or with the other filter, `apply` names it and
+  does not match any finding, alone or with the other filter, `apply` names it and
   writes nothing.
 - `report-cmd-names-overlaps` (test): When two findings overlap, `report`
   and `apply` name both, and `apply` writes neither.
@@ -423,8 +423,8 @@ in the ruling on #131.
   two rules, the score is the higher of how alike their bodies are and how
   many words their names share.
 - `classify-cmd-settles-ids-first` (test): When a target rule has a source
-  rule's id, `config classify` settles it as identical or colliding and lists
-  no candidates.
+  rule's id, `config classify` settles it as identical or colliding and does not list
+  any candidates.
 - `classify-cmd-names-missing-target` (test): When the file given to
   `--to` does not exist, `config classify` and `config adopt` name it and exit
   2.
