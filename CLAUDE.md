@@ -38,7 +38,7 @@ back them. What agents do:
 - **Label it** with one of `bug`, `enhancement` or `docs`, and one area:
   `plugin:<name>` or `repo`. Never `approved`.
 - **Work only on issues labeled `approved`.** The owner may also ask for work
-  directly, without an issue; that needs no label.
+  directly, without an issue; that does not need a label.
 - **Claim an issue before any work on it**, whether the owner named it or you
   found it with `python3 .github/scripts/issues.py next`. Run
   `python3 .github/scripts/issues.py claim N` and work on the `issue/N` branch
@@ -111,7 +111,7 @@ requirement is admitted.
     next command takes the decision as input. `report`'s approval token goes
     to `apply`, and `evidence`'s token goes to `tags insert`. Each token proves
     the judgment was made on the files as they are.
-  - **Platform.** The model calls a tool no script can, such as Cowork's
+  - **Platform.** The model calls a tool that a script cannot, such as Cowork's
     `device_bash`, `device_commit_files` or `propose_skills`, or asks the user
     a question.
 
@@ -142,7 +142,7 @@ requirement is admitted.
   Every fence carries an info string: `sh` for what the model runs, or what
   it holds, such as `markdown` or `text`. `check-skills.py fences` fails a
   pull request that breaks either.
-  A step that is judgment or a hand-off, and so runs no command, carries
+  A step that is judgment or a hand-off, and so does not run a command, carries
   `<!-- no-command: <reason> -->` on its own line under its heading.
   `check-skills.py steps` fails a step with neither, and its module docstring
   covers `KNOWN_GAPS`, the list of steps waiting on an issue for a command.
@@ -261,7 +261,7 @@ requirement is admitted.
   promise broke rather than which function was touched. `pytest.ini` collects
   only those two prefixes, which means a test named any other way is not run
   and not reported; `.github/scripts/check-tests.py naming` is what catches
-  one. It fails when it has scanned nothing, because the grep it replaced matched no files once
+  one. It fails when it has scanned nothing, because the grep it replaced did not match any files once
   its pathspec went stale, and still passed.
 - **prose.py's round trip is the property that must never regress.** For any
   batch, insert then strip returns the file byte-identical; it is the only

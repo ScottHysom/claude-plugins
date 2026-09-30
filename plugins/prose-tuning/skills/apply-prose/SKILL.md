@@ -86,7 +86,7 @@ the dash when the match wraps onto the next line. Then come the rule id and
 the matched text, as a JSON string that goes into a finding's `text` as it
 stands. The last line names the rules checked by pattern.
 
-When it says no rule carries one, the project's rules were written before
+When it says that none of the rules carries one, the project's rules were written before
 rules could, and every rule is checked by reading. Tell the author that
 `adopt-prose` from the shipped rules brings in their patterns.
 
@@ -251,7 +251,7 @@ python3 "$PROSE" apply --findings "${TMPDIR:-/tmp}/prose-findings.json" \
   --token 3f9a1c0e7b2d4a68 --only sentences-own-subject --file landscape.md
 ```
 
-A rule id or file that matches no finding is an error, not an empty run.
+A rule id or file that does not match any finding is an error, not an empty run.
 
 `apply` exits 1 and writes nothing when the findings file, a document a finding
 names or `prose-style.md` has changed since that `report`. Run `report` again
@@ -286,7 +286,7 @@ tree dirty.
 
 ## What this skill does not do
 
-It does not add rules. A passage that reads badly under no existing rule is a
+It does not add rules. A passage that reads badly but does not break any existing rule is a
 note to the author and a candidate for `update-prose-config`. Editing it here
 would be a freelance rewrite wearing a rule's clothing, and nothing downstream
 could tell the difference.

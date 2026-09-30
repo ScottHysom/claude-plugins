@@ -16,7 +16,7 @@ requirements.
 ## need owner-keeps-model-at-seams: Keep the model to judgment and platform seams
 
 When a skill runs script commands, the owner wants the model between two of
-them only where it makes a judgment or calls a tool no script can, so no run
+them only where it makes a judgment or calls a tool that a script cannot, so no run
 spends context on work a script could do, or gets that work wrong.
 
 Source: #126, and CLAUDE.md, under "Skills and scripts".
@@ -63,7 +63,7 @@ Source: CLAUDE.md, under "Script conventions".
 
 When CI, a skill or a contributor runs a repo script, they want its exit code
 to say whether it ran clean, found problems or could not run, and a stop to
-say what to do next, so the caller needs no table of remedies and a test can
+say what to do next, so the caller does not need a table of remedies and a test can
 drive any command through `main(argv)`.
 
 Source: CLAUDE.md, under "Script conventions", and #24, "Importing the module
@@ -84,7 +84,7 @@ does nothing".
 ## need user-installs-from-marketplace: Install any plugin from one marketplace
 
 When the user wants one of the owner's plugins, they want to add the
-marketplace once and install any plugin listed in it, so each plugin needs no
+marketplace once and install any plugin listed in it, so each plugin does not need any
 setup of its own.
 
 Source: README.md, under "Adding this marketplace".
@@ -151,10 +151,10 @@ Source: README.md, under "Issues" and "Keeping `approved` meaningful".
   keyword names another repository's issue, check-linked-issues.py fails it
   without looking it up.
 - `checklinkedissues-cmd-passes-unlinked-requests` (test): When a pull
-  request closes no issue, check-linked-issues.py passes it from any branch.
+  request does not close an issue, check-linked-issues.py passes it from any branch.
 - `checklinkedissues-cmd-stops-on-failed-lookup` (test): When
   check-linked-issues.py cannot read a pull request's commits or the claim
-  branches, it exits 2 and prints no links.
+  branches, it exits 2 and does not print any links.
 - `ci-runs-checklinkedissues` (check): When a pull request is opened, edited
   or updated, CI runs check-linked-issues.py.
 - `changes-cmd-fails-post-approval-edits` (test): When an issue a pull
@@ -220,7 +220,7 @@ Source: README.md, under "Claiming an issue", and #33.
 ## need owner-frees-abandoned-claims: Free an abandoned claim without losing work
 
 When an agent stops without opening a pull request, the owner wants its claim
-freed for someone else, so the issue does not stay held, and wants no commit
+freed for someone else, so the issue does not stay held, and does not want any commit
 on the claim branch lost in the freeing.
 
 Source: README.md, under "Claiming an issue", and CLAUDE.md, under "Issues".
@@ -247,14 +247,14 @@ Source: #289, and README.md, under "Claiming an issue".
   closed, and the local `issue/N` either inside the head of a merged pull
   request from it or holding no change `origin/main` lacks, it switches any
   worktree that has the branch checked out to a detached `origin/main`,
-  removes no worktree, and deletes the branch.
+  does not remove a worktree, and deletes the branch.
 - `clear-cmd-keeps-unmerged-work` (test): When #N is open, the local
   `issue/N` does not exist, or it holds a commit no merged pull request from
   it has and a change `origin/main` lacks, `issues.py clear` exits 1, says
   what to do next and deletes nothing.
 - `clear-cmd-keeps-uncommitted-changes` (test): When a worktree that has
   `issue/N` checked out has uncommitted changes, `issues.py clear N` exits 1,
-  names the worktree and says to commit or discard the changes, and moves no
+  names the worktree and says to commit or discard the changes, and does not move a
   worktree and deletes nothing, with or without `--dry-run`.
 
 ## need owner-prevents-stale-branches: Keep finished branches from piling up
@@ -267,7 +267,7 @@ Source: #294, and README.md, under "Claiming an issue".
 
 - `sweep-cmd-deletes-merged-branches` (test): When `issues.py sweep` runs, it
   deletes every local branch but `main` whose tip is inside the head of a
-  merged pull request from that branch, or which holds no change `origin/main`
+  merged pull request from that branch, or which does not hold any change `origin/main`
   lacks, as a branch with no commits of its own does.
 - `sweep-cmd-keeps-live-branches` (test): When a local branch holds a change
   `origin/main` lacks, is checked out in any worktree, or still exists on
@@ -275,7 +275,7 @@ Source: #294, and README.md, under "Claiming an issue".
 - `branchsweep-reports-deleted-branches` (test): When branch_sweep.py's sweep
   deletes branches, the hook names them on stdout in one line, and prints
   nothing when it deletes none.
-- `branchsweep-never-blocks` (test): When `issues.py sweep` fails, prints no
+- `branchsweep-never-blocks` (test): When `issues.py sweep` fails, does not print a
   result or runs past the hook's own time limit, branch_sweep.py exits 0 and
   prints one line saying why and naming the command to run by hand.
 - `settingsjson-registers-branch-sweep` (test): When a Claude Code session
@@ -430,20 +430,20 @@ Source: README.md, under "Adding a plugin", step 4.
 - `check-cmd-fails-name-drift` (test): When plugin.json's `name`, or the
   source directory's name, differs from the entry's `name`, `check` fails it.
 - `check-cmd-requires-source-manifest` (test): When a catalog entry's
-  source directory holds no plugin.json, `check` fails it.
+  source directory does not hold a plugin.json, `check` fails it.
 - `check-cmd-requires-entry-fields` (test): When a catalog entry lacks
   `name`, `source`, `description` or `version`, `check` names the field and
   fails.
 - `check-cmd-requires-catalog` (test): When the catalog is missing or
-  lists no plugins, `check` fails.
+  does not list any plugins, `check` fails.
 - `ci-runs-manifest-check` (check): When a pull request is opened or updated,
   CI runs `check`.
 
 ## need owner-sees-every-line-tested: Know every plugin line runs under a test
 
 When a contributor changes a plugin script, the owner wants CI to fail a
-script whose coverage falls below its floor, or a new line no test runs, so a
-line no test runs cannot also escape the trace.
+script whose coverage falls below its floor, or a new line that no test runs, so a
+line that no test runs cannot also escape the trace.
 
 Source: #128, README.md, under "Coverage", and SPEC-METHODOLOGY.md, under
 "The chain".
@@ -471,9 +471,9 @@ Source: #128, README.md, under "Coverage", and SPEC-METHODOLOGY.md, under
   counting from the merge base, and every line of a new script counts as
   added.
 - `pragmas-cmd-requires-reasons` (test): When a coverage exclusion, in any
-  spelling coverage.py accepts, gives no reason on its line,
+  spelling coverage.py accepts, does not give a reason on its line,
   `check-coverage.py pragmas` fails it.
-- `checkcoverage-cmd-scans-something` (test): When the clone holds no
+- `checkcoverage-cmd-scans-something` (test): When the clone does not hold a
   plugin script, each check-coverage.py command exits 2.
 - `ci-runs-floors` (check): When a pull request is opened or updated, or main
   is pushed, CI runs `floors`, with `--base` set to a pull request's base.
@@ -500,7 +500,7 @@ Source: README.md, under "Running the tests", CLAUDE.md, under "Tests", and
 - `naming-cmd-fails-old-test-names` (test): When a test file holds `def
   test_` or `class Test` at any indent, `check-tests.py naming` fails and
   names the file and line.
-- `naming-cmd-scans-something` (test): When `naming` finds no test file,
+- `naming-cmd-scans-something` (test): When `naming` does not find a test file,
   or a `testpaths` root that exists holds none, it fails.
 - `ci-runs-placement-and-naming` (check): When a pull request is opened or
   updated, CI runs `placement` and `naming`.
@@ -547,7 +547,7 @@ asked for, and no requirement loses the last thing that verifies it.
 Source: #114, #129, and SPEC-METHODOLOGY.md, under "The chain".
 
 - `trace-cmd-fails-uncited-verifiers` (test): When a test or a skill step
-  cites no requirement, and `.github/untraced.json` does not list it,
+  does not cite a requirement, and `.github/untraced.json` does not list it,
   `check-specs.py trace` fails it.
 - `trace-cmd-fails-unknown-ids` (test): When a test, a skill step or a
   workflow step cites an id its component's spec does not hold, `trace` fails
@@ -595,10 +595,10 @@ Source: #114, #129, and SPEC-METHODOLOGY.md, under "The chain".
   no requirement in its component's spec or in `specs/repo.md`,
   `check-specs.py surface` fails it.
 - `surface-cmd-warns-on-listed-items` (test): When the `surface` section of
-  `.github/untraced.json` lists an item no requirement names, `surface`
+  `.github/untraced.json` lists an item that no requirement names, `surface`
   passes it with a warning naming its issue, and fails an entry whose item is
   named or gone.
-- `surface-cmd-scans-something` (test): When `surface` finds no script
+- `surface-cmd-scans-something` (test): When `surface` does not find a script
   with a `build_parser()`, it fails.
 - `ci-runs-surface` (check): When a pull request is opened or updated, CI runs
   `surface`.

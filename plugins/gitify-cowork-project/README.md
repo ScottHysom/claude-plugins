@@ -18,7 +18,7 @@ The plugin suits a project whether it is new or already under way:
   real work. History shows what a document said last week and why a figure
   changed, and it gives a way back from an edit that went wrong.
 
-The plugin adds the history and nothing else. It writes no documents, and no
+The plugin adds the history and nothing else. It does not write any documents, or any
 rules about what documents say or how they read. Those belong to the project,
 and a project that wants a house style adds one separately.
 

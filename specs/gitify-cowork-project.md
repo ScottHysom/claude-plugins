@@ -81,7 +81,7 @@ file is the owner's, in the ruling on #130.
 
 - `probe-cmd-lists-folder` (test): When the command `probe
   --connected-folder` prints runs on the device, it prints the number of
-  files, a line for each top-level entry, hidden ones included, and a line for
+  files, a line for each top-level entry (including hidden ones), and a line for
   each file over 10 MB.
 - `gitifyproject-asks-about-unwanted-files` (step): When the listing shows
   large media, exports, archives, caches or anything that looks private,
@@ -96,7 +96,7 @@ file is the owner's, in the ruling on #130.
   `.gitignore` after the first run, the next run and `sh setup.sh commit`
   leave its files out.
 - `setupsh-rejects-unknown-arguments` (test): When `setup.sh` is given an
-  argument other than `commit`, it prints its usage, exits 2 and creates no
+  argument other than `commit`, it prints its usage, exits 2 and does not create a
   repo.
 - `gitifyproject-hands-off-setup` (step): When the files are on the device,
   gitify-project tells the user to run `sh setup.sh` from their own terminal,
@@ -144,7 +144,7 @@ instructions", and the gitify-project description.
   `null`, `CLAUDE.md` holds only the header, and a blank or non-text value is
   rejected.
 - `claudemd-hides-people-note` (test): When Claude loads the rendered
-  `CLAUDE.md`, the note for people at its top is an HTML comment and costs no
+  `CLAUDE.md`, the note for people at its top is an HTML comment and does not cost any
   context.
 - `render-cmd-prints-field-pointer` (test): When `render` stages the
   files, it prints the one line for the Project Instructions field. The line

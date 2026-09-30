@@ -242,9 +242,9 @@ reports each edit made since then as one entry in `edits`:
 - **`reproduced: true`** means a pattern matched what the edit changed. The
   entry's `matches` name the rule and the text at HEAD, with HEAD's line
   numbers.
-- **`reproduced: false`** means no pattern did. Check the edit by reading it
-  against the rules listed in `unpatterned`, which no command can check. An
-  edit the interview settled as a fact, not a style choice, needs no rule.
+- **`reproduced: false`** means that none of the patterns did. Check the edit by reading it
+  against the rules listed in `unpatterned`, which a command cannot check. An
+  edit the interview settled as a fact, not a style choice, does not need a rule.
 
 An edit that no pattern reproduces and no unpatterned rule accounts for shows
 a rule that is wrong or incomplete. Say which, and fix the rule rather than
