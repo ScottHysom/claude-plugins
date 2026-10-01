@@ -15,7 +15,7 @@ has no place in the code, however useful it seems.
 An agent building software fills gaps with guesses. It completes patterns, adds
 options a person would have stopped to ask about, and guards against inputs
 nothing produces. Martin Fowler and Kent Beck's catalog of code smells calls
-this speculative generality: machinery built for a need nobody has. Without a
+this speculative generality: machinery built for a need that nobody has. Without a
 written record of what the code is for, nothing can show that a behavior was
 never asked for, and each later change treats the code as the spec.
 
@@ -51,7 +51,7 @@ The method names these roles:
 - **The owner** decides what the codebase is for, approves work and reviews
   it.
 - **The agent** is the AI model doing the work, such as Claude in Claude Code.
-- **A contributor** is anyone changing the code, the agent included.
+- **A contributor** is anyone changing the code (including the agent).
 - **The model** is an AI model following written instructions at run time,
   such as Claude following a skill, a file of instructions for one kind of
   task.
@@ -479,7 +479,7 @@ adding the approval label, and CI refuses work on a ticket that lacks it.
 
 A new need or constraint is the decision that matters most, so it enters the
 spec only through the owner. Either one justifies a behavior, so a constraint
-an agent made up would let in a behavior nobody asked for.
+an agent made up would let in a behavior that nobody asked for.
 
 - A new need or constraint is named in the approved ticket that adds it.
 - A new requirement under an existing need or constraint is listed in the pull

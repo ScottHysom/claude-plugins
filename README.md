@@ -275,8 +275,8 @@ need it serves. The items waiting on an issue are under `surface` in
 
 - one whose description does not name, in backticks, each requirement id the
   diff adds, changes or removes.
-- one that adds a need or a constraint that is not named by any issue the PR
-  closes.
+- one that adds a need or a constraint that is not named by any issue the
+  pull request closes.
 - one that closes an issue edited after `approved` was last added to it.
 
 To re-approve an edited issue, remove the label and add it again.
@@ -358,9 +358,13 @@ it; that file says how to make local blame read it.
 ### Shell scripts
 
 Shell scripts are linted by [shellcheck](https://www.shellcheck.net/), which
-catches the bugs shell hides until someone else runs the script: an unquoted
-variable that splits a path containing a space, bash-only syntax under
-`#!/bin/sh`, a failed `cd` the script carries on past. It comes with the test
+catches the bugs shell hides until someone else runs the script:
+
+- an unquoted variable that splits a path containing a space
+- bash-only syntax under `#!/bin/sh`
+- a failed `cd` the script carries on past
+
+It comes with the test
 dependencies, pinned in `requirements-dev.txt`, so from the venv:
 
 ```sh

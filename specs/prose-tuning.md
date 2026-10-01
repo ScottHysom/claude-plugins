@@ -69,8 +69,8 @@ rule are the owner's figure, in the ruling on #132.
 - `reproduce-cmd-refuses-unlinted-rules` (test): When `prose-style.md`
   does not lint clean, `reproduce` names the fault and exits 1 before reading
   any file.
-- `updateproseconfig-fixes-the-rule` (step): When an edit is reproduced by no
-  pattern and accounted for by no unpatterned rule, update-prose-config fixes
+- `updateproseconfig-fixes-the-rule` (step): When an edit is not reproduced by any
+  pattern, and not accounted for by any unpatterned rule, update-prose-config fixes
   the rule rather than the document.
 - `preflight-cmd-checks-before-teaching` (test): When `preflight --for
   config` runs, it exits 1 on markup that does not parse or a `prose-style.md`
@@ -119,7 +119,7 @@ description.
 - `resolve-cmd-warns-in-lists` (test): When `tags resolve` removes a
   block-form tag inside a list, it warns with the tag's file and line.
 - `resolve-cmd-refuses-bad-markup` (test): When a file's markup does not
-  parse, `tags resolve` and `tags strip` write no file and name the fault.
+  parse, `tags resolve` and `tags strip` do not write a file, and name the fault.
 
 ## need user-answers-in-document: Answer questions in the document
 
@@ -320,7 +320,7 @@ ruling on #133.
 - `applyprose-reads-segments-only` (step): When apply-prose judges whether
   prose conforms, it reads only what `segments` returns, never the raw file.
 - `script-keeps-every-byte` (test): When the script reads a file into lines and
-  writes it back, every byte comes back as it was, line endings included.
+  writes it back, every byte (including line endings) comes back as it was.
 
 ## need user-finishes-teaching-first: Keep teaching and applying apart
 
@@ -348,7 +348,7 @@ Source: README.md, under "Checking your documents", and the apply-prose
 description.
 
 - `segments-cmd-reads-scope-by-default` (test): When `segments` or
-  `patterns` is given no file, it reads every file in scope, and names a file
+  `patterns` is not given a file, it reads every file in scope, and names a file
   given that does not exist.
 - `lint-cmd-checks-front-matter` (test): When the front matter holds
   anything but `key: value` pairs and one `scope:` block of `include:` and

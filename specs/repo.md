@@ -249,7 +249,7 @@ Source: #289, and README.md, under "Claiming an issue".
   worktree that has the branch checked out to a detached `origin/main`,
   does not remove a worktree, and deletes the branch.
 - `clear-cmd-keeps-unmerged-work` (test): When #N is open, the local
-  `issue/N` does not exist, or it holds a commit no merged pull request from
+  `issue/N` does not exist, or it holds a commit that no merged pull request from
   it has and a change `origin/main` lacks, `issues.py clear` exits 1, says
   what to do next and deletes nothing.
 - `clear-cmd-keeps-uncommitted-changes` (test): When a worktree that has
@@ -568,10 +568,10 @@ Source: #114, #129, and SPEC-METHODOLOGY.md, under "The chain".
 - `trace-cmd-checks-spec-grammar` (test): When a spec file has a
   requirement outside a need or a constraint, a malformed requirement, a need,
   constraint or requirement id not in the form SPEC-METHODOLOGY.md gives under
-  "Ids", a duplicate id or a kind nothing in the repo verifies, `trace` fails
+  "Ids", a duplicate id or a kind that nothing in the repo verifies, `trace` fails
   it.
-- `trace-cmd-scans-something` (test): When `trace` finds no spec, no test
-  or no skill step, it fails.
+- `trace-cmd-scans-something` (test): When `trace` does not find any spec, or any
+  test, or any skill step, it fails.
 - `ci-runs-trace` (check): When a pull request is opened or updated, CI runs
   `trace`.
 - `inventory-cmd-lists-parser-surface` (test): When `check-specs.py
@@ -591,8 +591,8 @@ Source: #114, #129, and SPEC-METHODOLOGY.md, under "The chain".
   report does not say which test ran each line, `inventory` stops and names
   the command that writes one that does.
 - `surface-cmd-fails-unnamed-options` (test): When a subcommand, option or
-  `choices` value of a plugin script or a repo script is named in backticks by
-  no requirement in its component's spec or in `specs/repo.md`,
+  `choices` value of a plugin script or a repo script is not named in backticks by
+  any requirement in its component's spec or in `specs/repo.md`,
   `check-specs.py surface` fails it.
 - `surface-cmd-warns-on-listed-items` (test): When the `surface` section of
   `.github/untraced.json` lists an item that no requirement names, `surface`

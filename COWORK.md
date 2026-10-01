@@ -1,7 +1,7 @@
 # Designing for Cowork
 
-What Cowork lets a plugin's skills and scripts do, as live sessions have shown
-it. Read this before designing anything that runs there. When a probe settles
+This file records what Cowork lets a plugin's skills and scripts do, as live
+sessions have shown it. Read this before designing anything that runs there. When a probe settles
 something new, record it here, not only in a script's docstring or a pull
 request, so the next design starts from it.
 
@@ -13,7 +13,7 @@ known", added back when there is one.
 
 | | Container: the model's own shell | Device: `device_bash` |
 |---|---|---|
-| What it is | Cowork's cloud container | A Linux VM on the user's computer |
+| What it is | Cowork's cloud container | A Linux virtual machine (VM) on the user's computer |
 | Reads the installed plugin | Yes, under `/root/.claude/plugins/synced/...` | No: Permission denied |
 | Sees the user's connected folder | No | Yes, at `$HOME/mnt/<folder name>` |
 | Python | 3.11 | 3.10 |
@@ -41,22 +41,22 @@ known", added back when there is one.
 
 ## Moving files: `device_commit_files`
 
-- **Copies byte for byte, from `/mnt/user-data/outputs/` only.** It creates any
+- **The tool copies byte for byte, from `/mnt/user-data/outputs/` only.** It creates any
   directories it needs, so a mistyped folder quietly becomes a new, empty one.
-- **Writes only into a connected folder.** It rejects paths elsewhere on the
+- **The tool writes only into a connected folder.** It rejects paths elsewhere on the
   user's computer, and it rejects paths inside the VM, such as `$TMPDIR`: it
   addresses the computer, not the VM.
-- **Never writes under `.git`:** "Writing to .git is not permitted via remote
+- **The tool never writes under `.git`:** "Writing to .git is not permitted via remote
   tools". That includes `.git/info/exclude`.
-- **Copies dotfiles.** A file named `.gitignore` arrives like any other.
+- **The tool copies dotfiles.** A file named `.gitignore` arrives like any other.
 - **Execute bits are lost.** Run scripts as `sh x.sh` or `python3 x.py`.
 
 ## What the bridge cannot do
 
-- **Delete a file in the connected folder.** Anything a skill writes there
+- **The bridge cannot delete a file in the connected folder.** Anything a skill writes there
   stays until the user removes it. So a write that replaces a file by moving a
   temp file over it fails, because that unlinks the target.
-- **Write through git.** A git command that writes leaves a `.git/*.lock` the
+- **The bridge cannot write through git.** A git command that writes leaves a `.git/*.lock` the
   bridge cannot remove, and every later git write fails. Projects carry a
   `commit.sh` that the user runs from their own terminal for this reason.
 
@@ -112,7 +112,7 @@ an existing folder", beside the same files run through Claude Code 2.1.274.
 - **A session started from the Claude mobile app has no folder at first.**
   Seen in the session behind #297, in a Project made with "Use an existing
   folder". The session got the field, `get_device_info` reported
-  `"connectedFolders": []`, and the Projects tool showed no documents. `device_request_folder_access`,
+  `"connectedFolders": []`, and the Projects tool did not show any documents. `device_request_folder_access`,
   approved on the Mac, connected the folder mid-session, and the grant
   survived a later context reload. Cowork's support article says a cloud
   session reaches connected folders only if it was started on desktop. This
@@ -134,7 +134,7 @@ an existing folder", beside the same files run through Claude Code 2.1.274.
 - **Only read git.**
 - **A plugin's files in a project stay in the plugin's own folder.** Name it
   `.<plugin name>/` and give it a `.gitignore` holding `*`. Git then ignores the
-  whole folder, that `.gitignore` included, so the project's commits never pick
+  whole folder (including that `.gitignore`), so the project's commits never pick
   it up. The project's own `.gitignore` doesn't have to know the plugin exists,
   and no other plugin's templates have to either.
 - **Instructions every session needs go in `.claude/rules/`, with no
