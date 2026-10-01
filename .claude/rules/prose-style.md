@@ -167,6 +167,8 @@ script cannot reach". "Has no", as in "a behavior has no test", stays.
 **Pattern.** `\b[a-z]+ing no\b`
 **Pattern.** `\b(?:under|to (?!(?:why|what|how|where|when)\b)[a-z]+) no\b`
 **Pattern.** `\b[Nn]o [a-z]+ can\b`
+**Pattern.** `\b(?:by|in|to) no (?!(?:longer|one|matter|more)\b)[a-z]+`
+**Pattern.** `\b(?:give|given|put|run|show|shown|take|taken|write|written) no\b`
 
 > **Before.** The spec pull request changes no behavior.
 > **After.** The spec pull request does not change any behavior.
@@ -177,7 +179,8 @@ script cannot reach". "Has no", as in "a behavior has no test", stays.
 started. Write "a line that no test runs", or "a line not run by any test".
 Either form is fine.
 
-**Pattern.** `(?i)\b(?!(?:that|which|with|and|or|of|is|has|by|to|in|for|as|under|was|does|are|when|where|why|so|because|if|since|once|until|while|but)\b)(?![a-z]+(?:s|ed)\b)[a-z]+ no (?!longer\b)[a-z]+ (?:[a-z]+ ){0,2}(?:[a-z]+s|[a-z]+ed|can|has|have|will)\b`
+**Pattern.** `(?i)\b(?!(?:that|which|with|and|or|of|is|has|by|to|in|for|as|under|was|does|are|when|where|why|so|because|if|since|once|until|while|but)\b)(?![a-z]+(?:s|ed)\b)[a-z]+ no (?!(?:longer|matter)\b)[a-z]+ (?:[a-z]+ ){0,4}(?:[a-z]+s|[a-z]+ed|can|has|have|will)\b`
+**Pattern.** `(?i)\b(?:a|an|the|every|each|any) [a-z]+ (?:nobody|nothing) (?!else\b)[a-z]+`
 
 > **Before.** Read those by hand for behavior no test runs.
 > **After.** Read those by hand for behavior that no test runs.
@@ -247,6 +250,7 @@ An aside naming a case that is included goes in parentheses, led by
 main clause.
 
 **Pattern.** `,\s[^,()]+\sincluded,`
+**Pattern.** `,\s[^,()]+\sincluded\.`
 
 > **Before.** A heading that is not a need or a constraint, a misspelled one included, opens no section.
 > **After.** A heading that is not a need or a constraint (including a misspelled one) does not open a section.
