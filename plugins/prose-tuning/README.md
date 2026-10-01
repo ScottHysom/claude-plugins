@@ -92,6 +92,12 @@ you to delete.
 4. Claude writes the rules and leaves the changes for you to review and
    commit.
 
+If you edit in one copy of the project and Claude's session opens in another,
+as the Claude Code desktop app does when it starts each session in a fresh
+worktree, Claude finds your edits there. It asks before copying them into its
+own copy and writes the rules beside them. Your original edits stay where you
+made them, for you to discard once the rules are committed.
+
 Where an edit needs explaining, say so in the document itself:
 
 ```

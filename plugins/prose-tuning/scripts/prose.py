@@ -19,6 +19,7 @@ Commands:
     segments    the prose-eligible spans of each file, one per line
     patterns    where each rule's pattern matches those spans
     evidence    explicit tags + inferred edits + open questions
+    carry       copy another worktree's pending edits into this one
     reproduce   whether the rules' patterns reproduce the edits since HEAD
     config      list | lint | check-id | similar | classify | adopt | init | move
     tags        check | list | insert | resolve | strip
@@ -65,10 +66,12 @@ Some things in here look like bugs and are not:
    unlinks the target, and this script has to run against a folder on the Cowork
    device bridge, which cannot unlink. Do not "fix" this.
 
-2. Git is only ever read (rev-parse, ls-files, status, check-ignore, show).
-   Nothing here writes through git, so no .git/*.lock is ever created. The
-   bridge strands those locks because it cannot delete them, which is the whole
-   reason the projects this runs against carry a commit.sh.
+2. Git is only ever read (rev-parse, ls-files, status, check-ignore, show,
+   worktree list). Nothing here writes through git, so no .git/*.lock is
+   ever created. The bridge strands those locks because it cannot delete
+   them, which is the whole reason the projects this runs against carry a
+   commit.sh. carry copies another worktree's edits with plain file reads
+   and writes for the same reason, rather than moving them with git.
 
 3. report prints an approval token, and apply refuses to run without the same
    one. The token is a hash of the findings, every document a finding names
@@ -154,6 +157,14 @@ DEVICE_MOUNT_ROOT = "$HOME/mnt"
 
 # What evidence, reproduce and restore compare the working tree against.
 BASE_REF = "HEAD"
+
+# The lines of `git worktree list --porcelain` that Repo.worktrees reads.
+WORKTREE_LINE = "worktree "
+BRANCH_LINE = "branch "
+BRANCH_REF_PREFIX = "refs/heads/"
+BARE_LINE = "bare"
+# The command evidence names when another worktree holds the pending edits.
+CARRY_COMMAND = "carry --from %s"
 
 DEFAULT_INCLUDE = ["**/*.md"]
 DEFAULT_EXCLUDE = [
@@ -486,6 +497,39 @@ class Repo:
 
     def dirty_md(self):
         return [(s, p) for s, p in self.dirty() if p.endswith(".md")]
+
+    def pending(self):
+        """Every path with an uncommitted change, each untracked file named.
+
+        status names an untracked folder rather than the files in it, so the
+        untracked markdown comes from ls-files instead.
+        """
+        return set(p for _, p in self.dirty()) | set(self.untracked_md())
+
+    def worktrees(self):
+        """[(root, branch)] for every other worktree of this repository.
+
+        branch is None for a detached HEAD. A bare repository has no tree,
+        and a worktree whose folder is gone has nothing to read, so neither
+        is listed.
+        """
+        trees = []
+        for line in self._lines("worktree", "list", "--porcelain"):
+            if line.startswith(WORKTREE_LINE):
+                trees.append({"root": line[len(WORKTREE_LINE) :], "branch": None, "bare": False})
+            elif trees and line.startswith(BRANCH_LINE):
+                branch = line[len(BRANCH_LINE) :]
+                if branch.startswith(BRANCH_REF_PREFIX):
+                    branch = branch[len(BRANCH_REF_PREFIX) :]
+                trees[-1]["branch"] = branch
+            elif trees and line == BARE_LINE:
+                trees[-1]["bare"] = True
+        here = os.path.realpath(self.root)
+        return [
+            (t["root"], t["branch"])
+            for t in trees
+            if not t["bare"] and os.path.realpath(t["root"]) != here and os.path.isdir(t["root"])
+        ]
 
     def abspath(self, relpath):
         return os.path.join(self.root, relpath)
@@ -2855,6 +2899,35 @@ def evidence_token(repo, config, scope):
     return digest.token()
 
 
+def pending_files(repo):
+    """The files a run would learn from in repo, by repo's own prose-style.md.
+
+    Every file in its scope with an uncommitted change, and prose-style.md
+    itself when it has one, since an author can edit the rules by hand too.
+    A file deleted since the last commit has nothing to read or copy.
+    """
+    config = Config(config_path(repo), CONFIG_PATH)
+    pending = repo.pending()
+    out = [
+        rel
+        for rel in Scope(repo, config).files()
+        if rel in pending and os.path.exists(repo.abspath(rel))
+    ]
+    if CONFIG_PATH in pending and os.path.exists(config.path):
+        out.append(CONFIG_PATH)
+    return out
+
+
+def other_pending(repo):
+    """[{root, branch, files}] for each other worktree holding pending files."""
+    out = []
+    for root, branch in repo.worktrees():
+        files = pending_files(Repo(root))
+        if files:
+            out.append({"root": root, "branch": branch, "files": files})
+    return out
+
+
 def cmd_evidence(args):
     repo, config, scope = load(args)
     ref = args.since
@@ -2880,6 +2953,23 @@ def cmd_evidence(args):
             new_files.append(rel)
         inferred += hunks
 
+    # A tree with nothing to learn from may be a fresh worktree, opened while
+    # the author's edits sit in another checkout of the same repository.
+    elsewhere = []
+    if not (explicit or inferred or questions or errors):
+        elsewhere = other_pending(repo)
+    for tree in elsewhere:
+        errors.append(
+            "this tree does not hold any pending edits, and %s%s holds them in %s. Ask the author "
+            "whether to learn from them here, then run `%s` and evidence again."
+            % (
+                tree["root"],
+                ", on %s," % tree["branch"] if tree["branch"] else "",
+                ", ".join(tree["files"]),
+                CARRY_COMMAND % shlex.quote(tree["root"]),
+            )
+        )
+
     unanswered = sum(1 for q in questions if q["answer"] is None)
     # No token for evidence that failed: markup that does not parse is fixed
     # first, and that edit would change the token anyway.
@@ -2890,6 +2980,7 @@ def cmd_evidence(args):
         "inferred": inferred,
         "questions": questions,
         "new_files": new_files,
+        "other_worktrees": elsewhere,
         "counts": {
             "explicit": len(explicit),
             "inferred": len(inferred),
@@ -4298,6 +4389,64 @@ def cmd_restore(args):
     )
 
 
+def cmd_carry(args):
+    """Copy another worktree's pending files into this one, all or nothing.
+
+    The run then goes on here, and the rules land in this tree's
+    prose-style.md: Claude Code will not let a worktree session edit another
+    checkout's .claude/. The other worktree is only read, so its edits stay
+    on its branch until the author discards them.
+    """
+    repo = Repo(args.repo)
+    source = os.path.realpath(args.source)
+    trees = dict((os.path.realpath(root), branch) for root, branch in repo.worktrees())
+    if source not in trees:
+        raise Fatal(
+            "%s is not another worktree of this repository; `git worktree list` names them"
+            % args.source
+        )
+    other = Repo(source)
+    branch = trees[source]
+    files = pending_files(other)
+    errors = []
+    if not files:
+        errors.append("%s does not hold any pending edits to carry" % source)
+    here = repo.pending()
+    for rel in files:
+        if rel in here:
+            errors.append(
+                "%s has uncommitted changes here; commit or discard them, then carry again" % rel
+            )
+        elif other.show(BASE_REF, rel) != repo.show(BASE_REF, rel):
+            errors.append(
+                "%s differs between the two trees' last commits, so its edits would read "
+                "differently here; merge the branches first, or run the skill in %s" % (rel, source)
+            )
+    if not errors and not args.dry_run:
+        for rel in files:
+            with open(other.abspath(rel), "rb") as fh:
+                raw = fh.read()
+            target = repo.abspath(rel)
+            os.makedirs(os.path.dirname(target), exist_ok=True)
+            # In place, on purpose. See the module docstring.
+            with open(target, "wb") as fh:
+                fh.write(raw)
+    data = {
+        "from": source,
+        "branch": branch,
+        "files": files,
+        "written": not errors and not args.dry_run,
+    }
+
+    def human():
+        verb = "would carry" if args.dry_run else "carried"
+        for rel in files:
+            print("%s %s" % (verb, rel))
+        print("\nthe originals stay in %s%s" % (source, ", on %s" % branch if branch else ""))
+
+    return emit(args, "carry", repo.root, data, errors=errors, human=human)
+
+
 def copy_sources():
     """(path in the project, bytes) for each file the copy in .prose-tuning/ holds."""
     with open(SCRIPT_PATH, "rb") as fh:
@@ -4493,6 +4642,25 @@ def build_parser():
         help="suppress one inferred hunk (repeatable)",
     )
     p.set_defaults(func=cmd_evidence)
+
+    p = sub.add_parser(
+        "carry",
+        parents=[common],
+        help="copy another worktree's pending edits into this one",
+        description="Copy every file with a pending edit in another worktree of this "
+        "repository into the same path here, byte for byte, and its prose-style.md when "
+        "that has one. Writes nothing when a file has changes here, or differs between "
+        "the two trees' last commits. The other worktree is only read.",
+    )
+    p.add_argument(
+        "--from",
+        dest="source",
+        required=True,
+        metavar="PATH",
+        help="the worktree that holds the edits, as evidence names it",
+    )
+    p.add_argument("--dry-run", action="store_true", help="say what would be copied")
+    p.set_defaults(func=cmd_carry)
 
     p = sub.add_parser(
         "reproduce",
