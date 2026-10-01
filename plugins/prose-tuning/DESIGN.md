@@ -44,6 +44,17 @@ The front matter allows only `key: value` pairs and one `scope:` block, and
 no YAML parser, so a richer grammar would be parsed by guesswork. A key dropped
 without an error would be a scope override that appears to work.
 
+### Edits in another checkout
+
+A session in a worktree the Claude Code desktop app made cannot edit the main
+checkout's `.claude/`, so a run started there cannot write the rules beside the
+author's edits. `carry` copies the edits into the session's tree instead, and
+the run finishes there. It reads the other checkout with plain file reads and
+`git show`, never writing to it, and refuses a file whose last commit differs
+between the two trees, since the same edit would then read as a different
+diff. `specs/prose-tuning.md`, under `constraint worktree-guards-shared-claude`,
+has the source.
+
 ## Packaging
 
 The skills call a bundled script, `scripts/prose.py`. Cowork's

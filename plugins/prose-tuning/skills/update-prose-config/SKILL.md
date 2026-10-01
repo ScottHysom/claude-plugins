@@ -61,7 +61,8 @@ and neither can then be pointed at. Every candidate below is checked against
 this list.
 
 ## Step 3: gather the evidence
-<!-- spec: updateproseconfig-asks-about-signals -->
+<!-- spec: updateproseconfig-asks-about-signals, updateproseconfig-asks-which-checkout -->
+<!-- seam: judgment: the author picks which checkout to carry edits from, or none -->
 
 ```sh
 python3 "$PROSE" evidence --json
@@ -69,6 +70,20 @@ python3 "$PROSE" evidence --json
 
 One command returns everything: explicit markup, untagged edits, and any open
 questions. The explicit and inferred halves matter differently.
+
+**When `data.other_worktrees` is not empty,** this tree does not hold any
+edits and another checkout of the repo does. Put one `AskUserQuestion` to the
+author, with an option for each entry giving its `root`, `branch` and
+`files`, and an option to carry none. Ask even when there is only one entry, because carrying
+puts the edits on this branch as well as theirs. On a pick, carry that one and
+gather the evidence again:
+
+```sh
+python3 "$PROSE" carry --from "<root>" --json
+python3 "$PROSE" evidence --json
+```
+
+If the author picks none, stop. This tree has nothing to learn from.
 
 **`explicit`** is markup the author wrote: an `<ins>`, `<del>` or `<repl>` with
 its `why` and its `<alt>` proposals. The author has already said what they mean.
@@ -252,13 +267,15 @@ the document: extend its pattern, or write the rule it is missing. Then run
 `config lint` and `reproduce` again.
 
 ## Step 10: hand off
-<!-- spec: updateproseconfig-never-commits -->
+<!-- spec: updateproseconfig-never-commits, updateproseconfig-names-original-checkout -->
 
 <!-- no-command: hand-off to the author. The run ends with the working tree dirty. -->
 
-Report what changed, which files are dirty, and stop. **Never commit.** The
-project's own maintenance skill owns commit types, message format, and the
-bridge's lock-file workaround.
+Report what changed, which files are dirty, and stop. If step 3 carried edits,
+name the checkout and branch that still hold the originals, from `carry`'s
+`data.from` and `data.branch`, and leave discarding them to the author.
+**Never commit.** The project's own maintenance skill owns commit types,
+message format, and the bridge's lock-file workaround.
 
 ## Abandoning a run
 
@@ -274,5 +291,6 @@ does `git show HEAD:<file>` into the file, which works on both.
 ## Scope
 
 This skill writes inside the project repo it was invoked in, and nowhere else.
+`carry` reads another worktree of the same repo and writes only this tree.
 Carrying a rule upstream into the rules this plugin ships is `adopt-prose`'s
 job, and it is deliberate rather than automatic.

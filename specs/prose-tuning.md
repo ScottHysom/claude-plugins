@@ -10,6 +10,8 @@ requirements.
 - A single edit to a single document, which the user asks Claude for
   directly.
 - Putting a project under git, which gitify-cowork-project does.
+- Finding edits in a separate clone of the repo. Git lists only the worktrees
+  that share one `.git`.
 
 ## need user-keeps-corrections: Keep a correction past the conversation
 
@@ -517,6 +519,56 @@ Source: README.md, the opening section and "Setting up".
   in `.prose-tuning/`, `config init` starts from the rules staged beside it,
   and never from a `templates/` folder in the project.
 
+## need user-teaches-from-own-branch: Teach from edits made in another checkout
+
+When the user has edited on a branch of their own in one checkout of the repo,
+and runs update-prose-config from a session opened in another, they want the
+skill to find those edits and finish the run where the session is, so they can
+edit wherever they edit and run the skill wherever the session opens.
+
+Run in Claude Code from the checkout that holds the edits, the skill reads
+them and writes the rules there.
+
+Run in Claude Code from a worktree the desktop app made, whose tree does not hold
+any pending edits while another checkout does, the skill names that checkout. On
+the author's word it copies the edits into the session's tree and writes the
+rules there. The originals stay in the other checkout for the user to discard.
+
+Run in Cowork, the skill reads the edits in the connected project folder on
+the device and writes the rules there. `evidence` and `carry` run on the
+device too, and read git without writing to it, so another worktree on the
+device is found and copied the same way.
+
+Source: #301, and the owner's rulings while planning it, that the run carries
+the edits into the session's tree and that the design and the build land
+together.
+
+- `evidence-cmd-names-other-worktrees` (test): When this tree does not hold
+  any pending edit, markup or question in scope, and another worktree of the
+  repo holds pending edits, `evidence` names each such worktree with its
+  branch and files, and exits 1 naming `carry --from` with its path.
+- `carry-cmd-copies-pending-files` (test): When `carry --from` runs, it copies
+  byte for byte each file in that worktree's scope with a pending edit, and its
+  `prose-style.md` when that has one, to the same path here, and names a
+  worktree that does not hold any.
+- `carry-cmd-refuses-different-base` (test): When a file to be carried differs
+  between the last commits of the two trees, `carry` names it and writes
+  nothing.
+- `carry-cmd-refuses-dirty-target` (test): When a file `carry` would write has
+  uncommitted changes here, `carry` names it and writes nothing.
+- `carry-cmd-refuses-unknown-worktree` (test): When `--from` is not another
+  worktree of this repo, `carry` names it and exits 2.
+- `carry-cmd-honors-dry-run` (test): When `carry` is given `--dry-run`, it
+  lists the files it would copy and writes nothing.
+- `updateproseconfig-asks-which-checkout` (step): When `evidence` names
+  another worktree, update-prose-config asks the author in one
+  `AskUserQuestion` which worktree to carry from, if any, listing each one's
+  path, branch and files. It asks even when only one worktree is named, runs
+  `carry --from` with the one picked, and gathers the evidence again.
+- `updateproseconfig-names-original-checkout` (step): When a run carried
+  edits, update-prose-config's hand-off names the checkout and branch that
+  still hold the original edits, and leaves discarding them to the user.
+
 ## constraint shell-starts-fresh: Each shell call starts without the last one's variables
 
 Each Bash call in Claude Code, and each `device_bash` call on Cowork, starts a
@@ -548,3 +600,17 @@ Source: the owner's review of #139, and README.md, under "When to use it".
 
 - `command-requires-a-repo` (test): When a command runs outside a git
   repository, or git is not installed, it names the cause and exits 2.
+
+## constraint worktree-guards-shared-claude: A worktree session cannot edit another checkout's .claude/
+
+Claude Code refuses an edit from a session in a worktree the desktop app made
+to the `.claude/` folder of the repo's main checkout. So a run started in such
+a worktree writes `prose-style.md` in the worktree's own tree, and only reads
+the checkout that holds the edits.
+
+Source: #301, which quotes the refusal. It comes from Claude Code itself, not
+from a hook in the repo or in the user's settings.
+
+- `carry-cmd-writes-only-this-tree` (test): When `carry` runs, the worktree it
+  copies from is left byte for byte as it was, and git reports the same
+  changes there.
