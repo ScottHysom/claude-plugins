@@ -571,7 +571,7 @@ Source: #114, #129, and SPEC-METHODOLOGY.md, under "The chain".
   "Ids", a duplicate id or a kind nothing in the repo verifies, `trace` fails
   it.
 - `trace-cmd-scans-something` (test): When `trace` does not find any spec,
-  does not find any test or does not find any skill step, it fails.
+  test or skill step, it fails.
 - `ci-runs-trace` (check): When a pull request is opened or updated, CI runs
   `trace`.
 - `inventory-cmd-lists-parser-surface` (test): When `check-specs.py
