@@ -162,11 +162,17 @@ it. The same holds for a subject: "No script can decide" becomes "A script
 cannot decide", and "tools that no script can reach" becomes "tools that a
 script cannot reach". "Has no", as in "a behavior has no test", stays.
 
+A negation that covers a list goes on the verb once, and the list follows it.
+"Does not find any spec, test or skill step" still fails on each item alone.
+Repeating the verb for each item, as in "does not find any spec, does not find
+any test or does not find any skill step", adds words and no meaning.
+
 **Pattern.** `\b(?!(?:has|is|was|does)\b)[a-z]+s no\b`
 **Pattern.** `\b[a-z]+ed no\b`
 **Pattern.** `\b[a-z]+ing no\b`
 **Pattern.** `\b(?:under|to (?!(?:why|what|how|where|when)\b)[a-z]+) no\b`
 **Pattern.** `\b[Nn]o [a-z]+ can\b`
+**Pattern.** `(?i)\b((?:do|does|did|can|could|will|would|is|are|was|were)(?: not|n't) [a-z]+)\b[^.;:]*?\b\1\b`
 
 > **Before.** The spec pull request changes no behavior.
 > **After.** The spec pull request does not change any behavior.
