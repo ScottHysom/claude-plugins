@@ -164,6 +164,7 @@ script cannot reach". "Has no", as in "a behavior has no test", stays.
 
 **Pattern.** `\b(?!(?:has|is|was|does)\b)[a-z]+s no\b`
 **Pattern.** `\b[a-z]+ed no\b`
+**Pattern.** `\b[a-z]+ing no\b`
 **Pattern.** `\b(?:under|to (?!(?:why|what|how|where|when)\b)[a-z]+) no\b`
 **Pattern.** `\b[Nn]o [a-z]+ can\b`
 

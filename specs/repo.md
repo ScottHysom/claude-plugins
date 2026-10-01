@@ -245,7 +245,7 @@ Source: #289, and README.md, under "Claiming an issue".
 
 - `clear-cmd-deletes-merged-branch` (test): When `issues.py clear N` finds #N
   closed, and the local `issue/N` either inside the head of a merged pull
-  request from it or holding no change `origin/main` lacks, it switches any
+  request from it or not holding any change `origin/main` lacks, it switches any
   worktree that has the branch checked out to a detached `origin/main`,
   does not remove a worktree, and deletes the branch.
 - `clear-cmd-keeps-unmerged-work` (test): When #N is open, the local
