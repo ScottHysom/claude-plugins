@@ -53,8 +53,8 @@ form, or any text containing a double quote, is a child element:
 ```
 
 **`<alt>` is a proposal.** It offers a rule the edit implies, or an equivalent rewrite,
-or several. It repeats, and it is also valid on its own at the top level, tied
-to no passage:
+or several. It repeats, and it is also valid on its own at the top level, not tied
+to any passage:
 
 ```markdown
 <repl>

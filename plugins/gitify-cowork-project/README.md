@@ -54,11 +54,11 @@ short section on the history, which tells Claude:
 
 With the plugin installed, ask Claude to put the project under git.
 
-Claude checks the folder first. It stops in any of these cases:
+Claude checks the folder first. It stops when the folder:
 
-- The folder is not there.
-- The folder is already a git repository.
-- The folder already has a file with the same name as one Claude would write.
+- is not there.
+- is already a git repository.
+- already has a file with the same name as one Claude would write.
 
 Otherwise Claude lists what is in the folder and asks about anything that
 probably should not be in git, such as large media or exports.

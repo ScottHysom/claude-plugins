@@ -5,7 +5,7 @@ description: Put an existing Cowork Project folder under git, writing commit.sh,
 
 # Putting an existing Cowork Project under git
 
-Requires Cowork with a connected folder. This skill writes to the user's device
+The skill runs only in Cowork with a connected folder. This skill writes to the user's device
 through the bridge (`device_bash`, `device_commit_files`), which Claude Code
 does not have. If the bridge is not available, say so and stop rather than
 building the files somewhere they cannot reach.
@@ -25,7 +25,7 @@ Do not offer to add any.
 `gitify.py` does everything that should come out the same on every run. It
 runs in **your own shell**, the container, which can read the plugin but
 cannot see the user's folder. `device_bash` can see the folder but cannot read
-the plugin. The commands `probe` and `render` print bridge the two; do not
+the plugin. The commands that `probe` and `render` print bridge the two; do not
 retype file contents across them.
 
 ## Locate the script
@@ -69,7 +69,7 @@ Exit 1 means one of the paths breaks a rule; `errors` says which. Otherwise run
 
 Read the listing for things that probably should not be in git: large media,
 exports, archives, caches, anything that looks private. Ask the user about each
-one you find. Patterns they agree to go in `ignore` below. They get a second
+one you find. Each pattern that they agree to goes in `ignore`, below. They get a second
 chance at `setup.sh`, which shows every file before anything is committed.
 
 ## Step 2: the answers

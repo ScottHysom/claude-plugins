@@ -35,7 +35,7 @@ gitify-project description.
 - `render-cmd-refuses-leftover-placeholders` (test): When a placeholder or
   brace would survive into a rendered file, `render` names it and writes
   nothing.
-- `render-cmd-stages-files` (test): When the answers `render --answers`
+- `render-cmd-stages-files` (test): When the answers that `render --answers`
   reads pass every check, it stages each file the plugin writes and prints the
   `files` list `device_commit_files` takes.
 - `render-cmd-ignores-chat-outputs` (test): When `render` writes
@@ -79,7 +79,7 @@ history.
 Source: README.md, under "Setting it up". The 10 MB threshold for a large
 file is the owner's, in the ruling on #130.
 
-- `probe-cmd-lists-folder` (test): When the command `probe
+- `probe-cmd-lists-folder` (test): When the command that `probe
   --connected-folder` prints runs on the device, it prints the number of
   files, a line for each top-level entry (including hidden ones), and a line for
   each file over 10 MB.
@@ -139,7 +139,7 @@ instructions", and the gitify-project description.
   character, and passes `null` when it is empty.
 - `render-cmd-copies-instructions-verbatim` (test): When the answers carry
   the field's text, `render` puts it in `CLAUDE.md` byte for byte after the
-  template's header, ends it with a newline, and puts it in no other file.
+  template's header, ends it with a newline, and does not put it in any other file.
 - `render-cmd-accepts-null-instructions` (test): When `instructions` is
   `null`, `CLAUDE.md` holds only the header, and a blank or non-text value is
   rejected.

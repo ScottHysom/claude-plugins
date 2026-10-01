@@ -94,6 +94,18 @@ also fails".
 > **Before.** `changes` fails one whose description does not name each requirement id, and one that adds a need no issue it closes names. It also fails one that closes an issue edited after `approved` was last added to it.
 > **After.** `changes` runs in CI on a pull request. It fails under any of these conditions:
 
+### standing-hoist-shared-opening: Move a shared opening into the lead-in
+
+When most items of a list open with the same phrase, that phrase moves into a
+lead-in line above the list, and every item reads on from it. Rewrite an item
+that does not open with the phrase so it reads on too. The phrase is a unit of
+the sentence, such as its subject, or its subject and verb. A lone article or
+word such as "every" does not count, and nor does half a noun phrase, such as
+the "A new" in "A new need" and "A new requirement".
+
+> **Before.** - The tool copies dotfiles. - The tool never writes under `.git`. - Execute bits are lost.
+> **After.** The tool: - copies dotfiles. - never writes under `.git`. - loses execute bits.
+
 ### standing-us-spelling: Use US spelling
 
 Behavior, not behaviour. Judgment, not judgement. The patterns list the
@@ -113,6 +125,8 @@ British forms that turn up most. A word they miss is still wrong.
 
 A sentence that borrows its subject from the heading above it, from the
 sentence before it, or from the reader's inference is incomplete.
+A list item that reads on from its lead-in line is part of that line's
+sentence, as `standing-hoist-shared-opening` asks, and does not borrow.
 
 **Check.** Read the sentence with nothing before it. If it no longer says who
 or what, its subject is missing.
@@ -172,6 +186,8 @@ any test or does not find any skill step", adds words and no meaning.
 **Pattern.** `\b[a-z]+ing no\b`
 **Pattern.** `\b(?:under|to (?!(?:why|what|how|where|when)\b)[a-z]+) no\b`
 **Pattern.** `\b[Nn]o [a-z]+ can\b`
+**Pattern.** `\b(?:by|in|to) no (?!(?:longer|one|matter|more)\b)[a-z]+`
+**Pattern.** `\b(?:give|given|put|run|show|shown|take|taken|write|written) no\b`
 **Pattern.** `(?i)\b((?:do|does|did|can|could|will|would|is|are|was|were)(?: not|n't) [a-z]+)\b[^.;:]*?\b\1\b`
 
 > **Before.** The spec pull request changes no behavior.
@@ -183,7 +199,8 @@ any test or does not find any skill step", adds words and no meaning.
 started. Write "a line that no test runs", or "a line not run by any test".
 Either form is fine.
 
-**Pattern.** `(?i)\b(?!(?:that|which|with|and|or|of|is|has|by|to|in|for|as|under|was|does|are|when|where|why|so|because|if|since|once|until|while|but)\b)(?![a-z]+(?:s|ed)\b)[a-z]+ no (?!longer\b)[a-z]+ (?:[a-z]+ ){0,2}(?:[a-z]+s|[a-z]+ed|can|has|have|will)\b`
+**Pattern.** `(?i)\b(?!(?:that|which|with|and|or|of|is|has|by|to|in|for|as|under|was|does|are|when|where|why|so|because|if|since|once|until|while|but)\b)(?![a-z]+(?:s|ed)\b)[a-z]+ no (?!(?:longer|matter)\b)[a-z]+ (?:[a-z]+ ){0,4}(?:[a-z]+s|[a-z]+ed|can|has|have|will)\b`
+**Pattern.** `(?i)\b(?:a|an|the|every|each|any) [a-z]+ (?:nobody|nothing) (?!else\b)[a-z]+`
 
 > **Before.** Read those by hand for behavior no test runs.
 > **After.** Read those by hand for behavior that no test runs.
@@ -253,6 +270,7 @@ An aside naming a case that is included goes in parentheses, led by
 main clause.
 
 **Pattern.** `,\s[^,()]+\sincluded,`
+**Pattern.** `,\s[^,()]+\sincluded\.`
 
 > **Before.** A heading that is not a need or a constraint, a misspelled one included, opens no section.
 > **After.** A heading that is not a need or a constraint (including a misspelled one) does not open a section.

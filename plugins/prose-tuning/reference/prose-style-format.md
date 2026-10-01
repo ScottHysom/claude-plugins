@@ -40,8 +40,14 @@ reports anything else as an error.
 
 The rules file is excluded whatever the override says.
 
-Glob syntax: `**/` matches any number of directories, `**` matches anything,
-`*` matches within one path segment, `?` matches one character. Patterns match
+A scope pattern uses glob syntax:
+
+- `**/` matches any number of directories.
+- `**` matches anything.
+- `*` matches within one path segment.
+- `?` matches one character.
+
+Patterns match
 the whole repo-relative path, so `CLAUDE.md` matches only at the root and
 `**/README.md` matches at any depth.
 
