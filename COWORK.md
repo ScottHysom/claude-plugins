@@ -41,22 +41,26 @@ known", added back when there is one.
 
 ## Moving files: `device_commit_files`
 
-- **The tool copies byte for byte, from `/mnt/user-data/outputs/` only.** It creates any
+`device_commit_files`:
+
+- **Copies byte for byte, from `/mnt/user-data/outputs/` only.** It creates any
   directories it needs, so a mistyped folder quietly becomes a new, empty one.
-- **The tool writes only into a connected folder.** It rejects paths elsewhere on the
+- **Writes only into a connected folder.** It rejects paths elsewhere on the
   user's computer, and it rejects paths inside the VM, such as `$TMPDIR`: it
   addresses the computer, not the VM.
-- **The tool never writes under `.git`:** "Writing to .git is not permitted via remote
+- **Never writes under `.git`:** "Writing to .git is not permitted via remote
   tools". That includes `.git/info/exclude`.
-- **The tool copies dotfiles.** A file named `.gitignore` arrives like any other.
-- **Execute bits are lost.** Run scripts as `sh x.sh` or `python3 x.py`.
+- **Copies dotfiles.** A file named `.gitignore` arrives like any other.
+- **Loses execute bits.** Run scripts as `sh x.sh` or `python3 x.py`.
 
 ## What the bridge cannot do
 
-- **The bridge cannot delete a file in the connected folder.** Anything a skill writes there
+The bridge cannot:
+
+- **Delete a file in the connected folder.** Anything a skill writes there
   stays until the user removes it. So a write that replaces a file by moving a
   temp file over it fails, because that unlinks the target.
-- **The bridge cannot write through git.** A git command that writes leaves a `.git/*.lock` the
+- **Write through git.** A git command that writes leaves a `.git/*.lock` the
   bridge cannot remove, and every later git write fails. Projects carry a
   `commit.sh` that the user runs from their own terminal for this reason.
 

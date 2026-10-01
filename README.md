@@ -271,13 +271,13 @@ in a skill counts for nothing, since a skill naming an option does not say which
 need it serves. The items waiting on an issue are under `surface` in
 `.github/untraced.json`.
 
-`changes` runs in CI on a pull request. It fails under any of these conditions:
+`changes` runs in CI on a pull request. It fails a pull request:
 
-- one whose description does not name, in backticks, each requirement id the
+- whose description does not name, in backticks, each requirement id the
   diff adds, changes or removes.
-- one that adds a need or a constraint that is not named by any issue the
-  pull request closes.
-- one that closes an issue edited after `approved` was last added to it.
+- that adds a need or a constraint that is not named by any issue the pull
+  request closes.
+- that closes an issue edited after `approved` was last added to it.
 
 To re-approve an edited issue, remove the label and add it again.
 

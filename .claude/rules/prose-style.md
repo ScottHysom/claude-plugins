@@ -94,6 +94,18 @@ also fails".
 > **Before.** `changes` fails one whose description does not name each requirement id, and one that adds a need no issue it closes names. It also fails one that closes an issue edited after `approved` was last added to it.
 > **After.** `changes` runs in CI on a pull request. It fails under any of these conditions:
 
+### standing-hoist-shared-opening: Move a shared opening into the lead-in
+
+When most items of a list open with the same phrase, that phrase moves into a
+lead-in line above the list, and every item reads on from it. Rewrite an item
+that does not open with the phrase so it reads on too. The phrase is a unit of
+the sentence, such as its subject, or its subject and verb. A lone article or
+word such as "every" does not count, and nor does half a noun phrase, such as
+the "A new" in "A new need" and "A new requirement".
+
+> **Before.** - The tool copies dotfiles. - The tool never writes under `.git`. - Execute bits are lost.
+> **After.** The tool: - copies dotfiles. - never writes under `.git`. - loses execute bits.
+
 ### standing-us-spelling: Use US spelling
 
 Behavior, not behaviour. Judgment, not judgement. The patterns list the
@@ -113,6 +125,8 @@ British forms that turn up most. A word they miss is still wrong.
 
 A sentence that borrows its subject from the heading above it, from the
 sentence before it, or from the reader's inference is incomplete.
+A list item that reads on from its lead-in line is part of that line's
+sentence, as `standing-hoist-shared-opening` asks, and does not borrow.
 
 **Check.** Read the sentence with nothing before it. If it no longer says who
 or what, its subject is missing.

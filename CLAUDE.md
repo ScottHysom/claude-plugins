@@ -273,8 +273,10 @@ requirement is admitted.
 
 ## Comments and docs
 
-- Do not count things that grow, such as "six cases" or "the last two bugs". Say what
+Do not:
+
+- count things that grow, such as "six cases" or "the last two bugs". Say what
   the thing is for and let the code be the list; a count is wrong the moment
   someone adds one.
-- Do not repeat an explanation that already lives somewhere. Point to it.
-- Use plain words over jargon.
+- repeat an explanation that already lives somewhere. Point to it.
+- use jargon where a plain word will do.
