@@ -189,13 +189,11 @@ another one instead.
 `lint` exits 1 on any error and prints one line per problem. `list` prints the
 rules and marks with `!` any rule that does not carry a worked example.
 
-Before adding a rule, have the script rule on the name:
-
-```sh
-python3 "$PROSE" config check-id --section sentences --name own-subject
-```
-
-It exits non-zero when the name is malformed or already taken.
+`config write` adds and rewrites rules from JSON, in the shape this page
+gives. It refuses a name that is malformed or already taken, and a rule that
+would not lint, and writes nothing until every record passes.
+`config check-id --section <section> --name <name>` rules on one name
+alone.
 
 ## Migrating a file that still uses positional ids
 

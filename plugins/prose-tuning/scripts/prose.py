@@ -21,7 +21,8 @@ Commands:
     evidence    explicit tags + inferred edits + open questions
     carry       copy another worktree's pending edits into this one
     reproduce   whether the rules' patterns reproduce the edits since HEAD
-    config      list | lint | check-id | similar | classify | adopt | init | move
+    config      list | lint | check-id | similar | classify | adopt | write |
+                init | move
     tags        check | list | insert | resolve | strip
     report      the findings for approval, and which of them overlap
     apply       apply approved rewrites
@@ -773,7 +774,10 @@ class Config:
     dropped key is a scope override that looks like it works.
     """
 
-    def __init__(self, path, shown=None):
+    def __init__(self, path, shown=None, text=None):
+        """text, when given, is parsed in place of the file at path, so that
+        config write can lint what it would write before writing it.
+        """
         self.path = path
         # How messages name the file: its repo-relative path when there is one.
         self.shown = shown or os.path.basename(path)
@@ -783,9 +787,9 @@ class Config:
         self.rules = []
         self.errors = []
         self.warnings = []
-        self.exists = os.path.exists(path)
+        self.exists = text is not None or os.path.exists(path)
         if self.exists:
-            self._parse(Text.read(path))
+            self._parse(Text(text) if text is not None else Text.read(path))
 
     def rel(self):
         return self.shown
@@ -3265,6 +3269,20 @@ def plan_adoption(config, source_lines, target, target_lines, ids):
             key = (len(target_lines), rule.group or None)
         spots.setdefault(key, []).append(adopted_block(source_lines, rule))
 
+    return place_blocks(target_lines, spots), [r.id for r in chosen], refused
+
+
+def place_blocks(lines, spots, replaced=None):
+    """lines with each rule block put in its spot, and each replaced range
+    swapped for its new lines.
+
+    spots maps (position, heading to open or None) to blocks, in first-seen
+    order. replaced maps (start, end) to lines. Every position is one read
+    from lines as given, and the edits go in from the bottom up, so an
+    earlier one cannot move a later one. Where an insertion and a
+    replacement start on one line, the replacement goes first and the
+    insertion lands above it.
+    """
     by_pos = {}
     for (pos, heading), blocks in spots.items():
         piece = ["## %s\n" % heading, "\n"] if heading else []
@@ -3272,19 +3290,24 @@ def plan_adoption(config, source_lines, target, target_lines, ids):
             piece += (["\n"] if i else []) + block
         by_pos.setdefault(pos, []).append(piece)
 
-    out = list(target_lines)
+    edits = [((pos, pos), None) for pos in by_pos]
+    edits += [(span, new) for span, new in (replaced or {}).items()]
+    out = list(lines)
     if out and not out[-1].endswith("\n"):
         out[-1] += "\n"
-    for pos in sorted(by_pos, reverse=True):
+    for (start, end), new in sorted(edits, key=lambda e: e[0], reverse=True):
+        if new is not None:
+            out[start:end] = new
+            continue
         chunk = []
-        for i, piece in enumerate(by_pos[pos]):
+        for i, piece in enumerate(by_pos[start]):
             chunk += (["\n"] if i else []) + piece
-        if pos > 0 and out[pos - 1].strip():
+        if start > 0 and out[start - 1].strip():
             chunk.insert(0, "\n")
-        if pos < len(out):
+        if start < len(out):
             chunk.append("\n")
-        out[pos:pos] = chunk
-    return out, [r.id for r in chosen], refused
+        out[start:start] = chunk
+    return out
 
 
 def config_adopt(args, repo, config):
@@ -3341,6 +3364,311 @@ def config_adopt(args, repo, config):
     return emit(args, "config adopt", repo.root, data, errors=errors, human=human)
 
 
+# config write: the parts of a rule a record can give, the fields of each
+# kind of record, and what a written rule is reported as.
+WRITE_PARTS = ("title", "body", "example", "patterns")
+NEW_RULE_FIELDS = frozenset(("section", "name", "heading", *WRITE_PARTS))
+REWRITE_FIELDS = frozenset(("id", "expect", *WRITE_PARTS))
+WRITTEN_NEW = "new"
+WRITTEN_REWRITE = "rewritten"
+# What config write prefixes to a block to lint it on its own.
+LINT_FRONT = "---\nname: one rule\n---\n\n"
+
+
+def pattern_line(source):
+    """The **Pattern.** line that holds source, as parse_pattern reads it.
+
+    The code span is fenced by one more backtick than the longest run inside
+    it, and padded with a space at each end when source starts or ends with a
+    backtick or a space, which parse_pattern strips again.
+    """
+    runs = [len(r) for r in re.findall(r"`+", source)]
+    fence = "`" * (max([*runs, 0]) + 1)
+    pad = " " if source[:1] in "` " or source[-1:] in "` " else ""
+    return "**Pattern.** %s%s%s%s%s\n" % (fence, pad, source, pad, fence)
+
+
+def rule_block(rid, title, prose, patterns, example):
+    """A rule's lines, in the order prose-style-format.md shows: heading,
+    prose, patterns, worked example. prose is a list of lines.
+    """
+    block = ["### %s: %s\n" % (rid, title), "\n"]
+    block += [ln if ln.endswith("\n") else ln + "\n" for ln in prose]
+    if patterns:
+        block += ["\n"] + [pattern_line(p) for p in patterns]
+    if example:
+        block += [
+            "\n",
+            "> **Before.** %s\n" % example["before"],
+            "> **After.** %s\n" % example["after"],
+        ]
+    return block
+
+
+def rule_parts(lines, rule):
+    """(start, end, prose lines) of a rule's block as the file has it.
+
+    start is the heading's index and end the index after its last line that is
+    not blank. The prose is every line under the heading but its patterns, its
+    worked example and a metadata comment, less blank lines at either end.
+    """
+    start = rule.line - 1
+    end = heading_end(lines, start)
+    while end > start + 1 and not lines[end - 1].strip():
+        end -= 1
+    prose = [
+        ln
+        for ln in lines[start + 1 : end]
+        if not (
+            PATTERN_LINE.match(ln)
+            or BEFORE_LINE.match(ln.rstrip("\r\n"))
+            or AFTER_LINE.match(ln.rstrip("\r\n"))
+            or META_COMMENT.match(ln.strip())
+        )
+    ]
+    while prose and not prose[0].strip():
+        prose.pop(0)
+    while prose and not prose[-1].strip():
+        prose.pop()
+    return start, end, prose
+
+
+def one_line(value, what):
+    """A message when value is not one non-empty line of text, else None."""
+    if not isinstance(value, str) or not value.strip():
+        return "%s is not a non-empty string" % what
+    if "\n" in value or "\r" in value:
+        return "%s runs over more than one line" % what
+    return None
+
+
+def part_problem(record, part):
+    """A message when the record's value for part cannot go into a rule."""
+    value = record[part]
+    if part == "title":
+        return one_line(value, "title")
+    if part == "body":
+        if not isinstance(value, str) or not value.strip():
+            return "body is not a non-empty string"
+        for ln in value.split("\n"):
+            ln = ln.rstrip("\r")
+            if ANY_H2.match(ln) or ANY_H3.match(ln):
+                return "body holds a heading: %r" % ln
+            if PATTERN_LINE.match(ln):
+                return "body holds a **Pattern.** line; give it in patterns"
+            if BEFORE_LINE.match(ln) or AFTER_LINE.match(ln):
+                return "body holds a worked example; give it in example"
+            if META_COMMENT.match(ln.strip()):
+                return "body holds a prose-rule comment; where a rule came from goes in the commit"
+        return None
+    if part == "example":
+        if value is None:
+            return None
+        if not isinstance(value, dict) or set(value) != {"before", "after"}:
+            return "example is not null or an object with before and after"
+        return one_line(value["before"], "example before") or one_line(
+            value["after"], "example after"
+        )
+    if not isinstance(value, list) or not all(isinstance(p, str) for p in value):
+        return "patterns is not a list of strings"
+    for source in value:
+        parsed, problem = parse_pattern(pattern_line(source)[len("**Pattern.**") : -1])
+        if problem:
+            return problem
+    return None
+
+
+class WriteRefusal(Exception):
+    """One record config write cannot write, and why."""
+
+
+def record_id(rec):
+    """The id a record names, or None when it is not a record."""
+    if not isinstance(rec, dict):
+        return None
+    if "id" in rec:
+        return rec["id"]
+    return "%s-%s" % (rec.get("section"), rec.get("name"))
+
+
+def checked_fields(rec):
+    """Whether rec is a rewrite. Raises WriteRefusal on a field that is
+    unknown, missing or cannot go into a rule.
+    """
+    if not isinstance(rec, dict):
+        raise WriteRefusal("record is not an object")
+    rewrite = "id" in rec
+    fields = REWRITE_FIELDS if rewrite else NEW_RULE_FIELDS
+    unknown = sorted(set(rec) - fields)
+    if unknown:
+        raise WriteRefusal(
+            "unknown field %s; a %s takes %s"
+            % (", ".join(unknown), "rewrite" if rewrite else "new rule", ", ".join(sorted(fields)))
+        )
+    if rewrite and not isinstance(rec["id"], str):
+        raise WriteRefusal("id is not a string")
+    missing = [] if rewrite else [f for f in ("section", "name", "title", "body") if f not in rec]
+    if missing:
+        raise WriteRefusal("a new rule needs %s" % ", ".join(missing))
+    if not rewrite and not (isinstance(rec["section"], str) and isinstance(rec["name"], str)):
+        raise WriteRefusal("section and name are not strings")
+    for part in WRITE_PARTS:
+        problem = part in rec and part_problem(rec, part)
+        if problem:
+            raise WriteRefusal(problem)
+    if "heading" in rec:
+        problem = one_line(rec["heading"], "heading")
+        if problem:
+            raise WriteRefusal(problem)
+    return rewrite
+
+
+def rewritten_block(config, lines, rec):
+    """((start, end), block) for a rewrite: the range of the rule it replaces,
+    and the rule with the parts the record names put in place of the old ones.
+    """
+    rid = rec["id"]
+    rule = config.by_id().get(rid)
+    if rule is None:
+        raise WriteRefusal("%s has no rule %s to rewrite" % (config.rel(), rid))
+    if rec.get("expect") != rule.body_text():
+        raise WriteRefusal(
+            "the body of %s is not what expect holds; it changed since it was "
+            "read, so run config list --json and rebuild this record" % rid
+        )
+    if not any(part in rec for part in WRITE_PARTS):
+        raise WriteRefusal("the record names no part of %s to rewrite" % rid)
+    start, end, prose = rule_parts(lines, rule)
+    example = {"before": rule.before, "after": rule.after} if rule.before is not None else None
+    block = rule_block(
+        rid,
+        rec.get("title", rule.title),
+        rec["body"].strip("\n").split("\n") if "body" in rec else prose,
+        rec.get("patterns", [source for _l, source in rule.patterns]),
+        rec.get("example", example),
+    )
+    return (start, end), block
+
+
+def new_block(config, lines, rec, opened):
+    """((position, heading to open or None), block) for a new rule.
+
+    opened maps each section a record earlier in the batch opened to its spot,
+    so a later rule in that section goes under the same heading.
+    """
+    _, problem = config.check_id(rec["section"], rec["name"])
+    if problem:
+        raise WriteRefusal(problem)
+    section, heading = rec["section"], rec.get("heading")
+    mine = [r for r in config.rules if r.section == section]
+    known = bool(mine) or section in opened
+    if heading is not None and known:
+        raise WriteRefusal(
+            "heading opens a new section, and %s already has rules in %s" % (config.rel(), section)
+        )
+    if heading is None and not known:
+        raise WriteRefusal(
+            "%s has no rule in section %s; give heading, the ## heading "
+            "to open the section under" % (config.rel(), section)
+        )
+    if mine:
+        spot = (heading_end(lines, mine[-1].line - 1), None)
+    else:
+        spot = opened.get(section, (len(lines), heading))
+    block = rule_block(
+        "%s-%s" % (section, rec["name"]),
+        rec["title"],
+        rec["body"].strip("\n").split("\n"),
+        rec.get("patterns"),
+        rec.get("example"),
+    )
+    return spot, block
+
+
+def plan_writes(config, lines, records):
+    """(the file's new lines, what was written, what was refused).
+
+    Each record is checked against the file as read and against the records
+    accepted before it, so a second rule in a section new to the file goes
+    under the heading the first opened. A record is refused whole: on a
+    malformed field, a name check_id refuses, an id written twice, a rewrite
+    of an id the file does not have or whose body changed since expect was
+    read, and a block that would not lint on its own.
+    """
+    opened, seen = {}, {}
+    spots, replaced, written, refused = {}, {}, [], []
+    for n, rec in enumerate(records, 1):
+        rid = record_id(rec)
+        try:
+            rewrite = checked_fields(rec)
+            if rid in seen:
+                raise WriteRefusal("%s is written by record %d too" % (rid, seen[rid]))
+            if rewrite:
+                where, block = rewritten_block(config, lines, rec)
+            else:
+                where, block = new_block(config, lines, rec, opened)
+            alone = Config(config.path, config.rel(), LINT_FRONT + "".join(block))
+            if alone.errors:
+                raise WriteRefusal("; ".join(e.split("  ", 1)[-1] for e in alone.errors))
+        except WriteRefusal as exc:
+            refused.append({"index": n, "id": rid, "reason": str(exc)})
+            continue
+        seen[rid] = n
+        if rewrite:
+            replaced[where] = block
+        else:
+            opened.setdefault(rec["section"], where)
+            spots.setdefault(where, []).append(block)
+        written.append({"id": rid, "change": WRITTEN_REWRITE if rewrite else WRITTEN_NEW})
+    return place_blocks(lines, spots, replaced), written, refused
+
+
+def config_write(args, repo, config):
+    """Write approved rules into prose-style.md from a JSON batch.
+
+    update-prose-config's step 7. A record is either a new rule (section,
+    name, title, body, and optionally example, patterns and heading) or a
+    rewrite (id, expect, and any of title, body, example and patterns). Writes
+    nothing while any record is refused unless --partial is passed, and
+    nothing at all when the result would not lint clean.
+    """
+    if config.errors:
+        raise Fatal(
+            "%s does not lint clean; run: prose.py config lint" % config.rel()
+            + ("" if not args.config_file else " --file %s" % config.path)
+        )
+    records = read_json(args.batch, "the batch")
+    if not isinstance(records, list):
+        raise Fatal("the batch is not a JSON list of records")
+    lines = Text.read(config.path).lines
+    out, written, refused = plan_writes(config, lines, records)
+    errors = ["record %d (%s): %s" % (r["index"], r["id"], r["reason"]) for r in refused]
+    if refused and not args.partial:
+        errors.append("nothing was written; fix the records named, or pass --partial")
+        written = []
+    result = Config(config.path, config.rel(), "".join(out))
+    if written and result.errors:
+        errors += result.errors
+        errors.append("nothing was written; the result would not lint clean")
+        written = []
+    if written and not args.dry_run:
+        Text("".join(out)).write(config.path)
+
+    at = {r.id: r.line for r in result.rules}
+    for w in written:
+        w["line"] = at[w["id"]]
+    data = {"path": config.rel(), "dry_run": args.dry_run, "written": written, "refused": refused}
+
+    def human():
+        verb = "would write" if args.dry_run else "wrote"
+        for w in written:
+            print("%s  %s  %s at line %d" % (verb, w["id"], w["change"], w["line"]))
+        for r in refused:
+            print("refused  record %d  %s" % (r["index"], r["id"]))
+
+    return emit(args, "config write", repo.root, data, errors=errors, human=human)
+
+
 def cmd_config(args):
     repo, config, scope = load(args)
     which = args.config_cmd
@@ -3387,6 +3715,9 @@ def cmd_config(args):
 
     if which == "adopt":
         return config_adopt(args, repo, config)
+
+    if which == "write":
+        return config_write(args, repo, config)
 
     if which == "check-id":
         rid, problem = config.check_id(args.section, args.name)
@@ -4681,6 +5012,7 @@ def build_parser():
         ("similar", "rules two files state twice"),
         ("classify", "which bucket each rule falls in when adopted"),
         ("adopt", "copy new rules into another file, marked as adopted"),
+        ("write", "write approved rules into the file from JSON"),
         ("init", "start one from the shipped rules"),
         ("move", "move a root prose-style.md to %s" % CONFIG_DIR),
     ]:
@@ -4712,6 +5044,17 @@ def build_parser():
             c.add_argument("--dry-run", action="store_true", help="say what would be copied")
             c.add_argument(
                 "--partial", action="store_true", help="adopt what is valid instead of nothing"
+            )
+        if name == "write":
+            c.add_argument(
+                "--batch",
+                required=True,
+                metavar="PATH",
+                help="the records as a JSON list, or - for stdin",
+            )
+            c.add_argument("--dry-run", action="store_true", help="say what would be written")
+            c.add_argument(
+                "--partial", action="store_true", help="write what is valid instead of nothing"
             )
         if name == "move":
             c.add_argument("--dry-run", action="store_true", help="say what would be copied")
