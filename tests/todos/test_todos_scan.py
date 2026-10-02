@@ -90,6 +90,23 @@ class DescribePendingLines:
         repo.write("a.txt", b"TODO: committed\r\nx\r\nTODO: new\r\n")
         assert titles(repo.scan()[0]) == ["new"]
 
+    def it_reads_the_last_commit_as_checkout_writes_it(self, repo):
+        repo.write(".gitattributes", "*.txt ident\n")
+        repo.write("a.txt", "TODO: committed $Id$\n")
+        repo.commit()
+        os.remove(str(repo.root / "a.txt"))
+        repo.git("checkout", "--", "a.txt")
+        expanded = (repo.root / "a.txt").read_text()
+        assert expanded.startswith("TODO: committed $Id: ")
+        repo.write("a.txt", expanded + "a new line\n")
+        assert repo.scan() == ([], [])
+
+    def it_does_not_read_a_line_whose_ending_alone_changed(self, repo):
+        repo.write("a.txt", b"TODO: committed\nx\n")
+        repo.commit()
+        repo.write("a.txt", b"TODO: committed\r\nx\r\n")
+        assert repo.scan() == ([], [])
+
     @pytest.mark.skipif(os.geteuid() == 0, reason="root reads any file")
     def it_warns_and_skips_a_file_it_cannot_read(self, repo):
         path = repo.write("secret.txt", "TODO: unreadable\n")
