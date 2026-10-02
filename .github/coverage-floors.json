@@ -1,4 +1,5 @@
 {
   "plugins/gitify-cowork-project/scripts/gitify.py": 96.65,
-  "plugins/prose-tuning/scripts/prose.py": 93.58
+  "plugins/prose-tuning/scripts/prose.py": 93.58,
+  "plugins/todos/scripts/todos.py": 100.0
 }
