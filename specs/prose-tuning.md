@@ -83,6 +83,29 @@ rule are the owner's figure, in the ruling on #132.
 - `lint-cmd-checks-rule-shape` (test): When a rule has no body, half a
   worked example or the id of another rule, `config lint` names it and exits
   1, and it warns on a rule with no example.
+- `updateproseconfig-writes-through-cmd` (step): When the author approves
+  rules, update-prose-config hands them to `config write` in one batch and does
+  not edit `prose-style.md` itself.
+- `write-cmd-writes-from-data` (test): When `config write --batch` is given
+  new rules and rewrites as JSON, it writes each in the format
+  `prose-style.md` requires, or refuses the record and names it by its place
+  and id.
+- `write-cmd-lints-clean` (test): When `config write` writes rules,
+  `prose-style.md` still lints clean. A record whose rule would not lint is
+  refused, and a file that does not lint clean is not written to at all.
+- `write-cmd-writes-all-or-none` (test): When `config write` refuses any
+  record, it writes nothing unless `--partial` is passed. Given `--dry-run`,
+  it reports what it would write and writes nothing.
+- `write-cmd-places-by-section` (test): When `config write` adds a rule, it
+  puts it after the last rule of its section. A rule in a section the file
+  does not have goes at the end under the `##` heading its record gives, and
+  without one it is refused.
+- `write-cmd-keeps-unnamed-parts` (test): When `config write` rewrites a
+  rule, it replaces the title, body, example or patterns the record gives and
+  keeps the rest.
+- `write-cmd-refuses-stale` (test): When a rewrite's `expect` is not the
+  rule's body as the file holds it now, or the file has no rule with its id,
+  `config write` refuses it.
 
 ## need user-answers-in-one-round: Answer every open question at once
 
@@ -193,6 +216,8 @@ update-prose-config description.
 - `checkid-cmd-vets-new-ids` (test): When `config check-id` is given
   `--section` and `--name`, it prints the id when it is well formed and free,
   and otherwise names the fault and exits 1.
+- `write-cmd-vets-new-names` (test): When a new rule given to `config write`
+  has a malformed name or one already taken, the command refuses it.
 
 ## need user-approves-each-rewrite: Approve each rewrite before it is made
 

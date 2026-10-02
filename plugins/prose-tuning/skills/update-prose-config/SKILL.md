@@ -182,52 +182,71 @@ The in-file route is for an author working asynchronously: this skill writes
 answers from either channel. Prefer the batch when the author is present.
 
 ## Step 7: write the rules
+<!-- spec: updateproseconfig-writes-through-cmd -->
 
-Name the rule before writing it, and let the script rule on the name:
+Name each rule. The name is one to four words saying what the rule means, and
+there is nothing to allocate. A name that reads as a near-duplicate of one
+already in the file usually is one, and the fix is to rewrite that rule rather
+than add a second under a name split finely enough to be free.
 
-```sh
-python3 "$PROSE" config check-id --section sentences --name own-subject
-```
-
-The name is one to four words saying what the rule means, and there is nothing
-to allocate. `check-id` exits non-zero when the name is malformed or already
-taken.
-
-Read `$ROOT/reference/prose-style-format.md` for the shape. Every rule carries a
-worked before-and-after taken from the actual edit, because that example is the
-rule's provenance as well as its explanation.
+Every rule carries a worked before-and-after taken from the actual edit,
+because that example is the rule's provenance as well as its explanation.
 
 **Decide whether the rule gets a pattern.** "When a rule gets a pattern", in
-the same file, says which rules do. For each one that does, write its
-`**Pattern.**` lines now, from the evidence behind the rule. `apply-prose` runs
-them in every file, and a rule without one is checked only by reading. Put each
-pattern in the final approval beside its rule, since a word list is a guess
-about scope that the author settles. When a rule already in the file gains a
-new form in this run's evidence, extend its pattern rather than adding a rule.
+`$ROOT/reference/prose-style-format.md`, says which rules do. For each one
+that does, write its patterns now, from the evidence behind the rule.
+`apply-prose` runs them in every file, and a rule without one is checked only
+by reading. Put each pattern in the final approval beside its rule, since a
+word list is a guess about scope that the author settles. When a rule already
+in the file gains a new form in this run's evidence, extend its pattern rather
+than adding a rule.
 
 **When a new rule contradicts an existing one, rewrite the body of the existing
 id.** Do not add a second rule, and do not mark the old one retired. The id is
 the identity, the body is current truth, and
-`git log -p .claude/rules/prose-style.md` holds
-what it used to say.
+`git log -p .claude/rules/prose-style.md` holds what it used to say.
 
-**The script cannot detect a contradiction** and does not try. Nothing in
-`config lint` can tell that `sentences-negation-earns-place` and a new
-`register-state-it-plainly` disagree. That is why step 2 is mandatory and why a
-candidate touching covered ground goes to the author instead of into the file.
-Never reconcile two rules unilaterally.
+**The script cannot detect a contradiction** and does not try. That is why
+step 2 is mandatory and why a candidate touching covered ground goes to the
+author instead of into the file. Never reconcile two rules unilaterally.
 
-Naming a rule is itself the check. A name that reads as a near-duplicate of one
-already in the file usually is one, and the fix is to rewrite that rule rather
-than add a second under a name split finely enough to be free.
+Do not edit `prose-style.md` yourself. Once the author approves, hand every
+new rule and rewrite to the script in one batch, with JSON on stdin:
 
 ```sh
-python3 "$PROSE" config lint
+python3 "$PROSE" config write --batch - <<'END'
+[{"section":"sentences","name":"no-in-order-to",
+  "title":"Write to, not in order to",
+  "body":"The two extra words carry nothing.",
+  "example":{"before":"Run it in order to check.","after":"Run it to check."},
+  "patterns":["\\bin order to\\b"]},
+ {"id":"standing-us-spelling","expect":"<its body from config list --json>",
+  "patterns":["(?i)\\bcolour\\b","(?i)\\bwhilst\\b"]}]
+END
 ```
 
-The lint must pass before going on. A pattern that misses its rule's Before example, or
-matches its After, is refused there. Fix the pattern, since the example is the
-evidence.
+A new rule gives:
+
+| Field | Means |
+|---|---|
+| `section`, `name` | the id's two parts |
+| `title` | the heading's text after the id, one line |
+| `body` | the prose under the heading, with any `**Check.**` line, and no pattern or example |
+| `example` | `{"before": ..., "after": ...}`, one line each |
+| `patterns` | a list of Python regexes, written as the regex itself, not as a code span |
+| `heading` | only for the first rule of a section the file does not have: the `##` heading to open it under |
+
+A rewrite gives `id`, `expect` (the rule's `body` exactly as
+`config list --json` printed it in step 2), and only the parts that change, of
+`title`, `body`, `example` and `patterns`. A part it gives replaces the old
+one whole, so a pattern list carries the old patterns it keeps. `"example": null`
+drops the example.
+
+The script checks every name, and every rewrite against the file as it is now.
+It writes all or none, and refuses a record whose rule would not lint: for
+instance, a pattern that misses its Before example or matches its After. On a
+refusal, fix what it names, since the example is the evidence, and run the
+batch again.
 
 ## Step 8: resolve the markup
 
@@ -263,8 +282,8 @@ reports each edit made since then as one entry in `edits`:
 
 An edit that no pattern reproduces and no unpatterned rule accounts for shows
 a rule that is wrong or incomplete. Say which, and fix the rule rather than
-the document: extend its pattern, or write the rule it is missing. Then run
-`config lint` and `reproduce` again.
+the document: extend its pattern, or write the rule it is missing. Hand the fix
+to `config write` as step 7 does, then run `reproduce` again.
 
 ## Step 10: hand off
 <!-- spec: updateproseconfig-never-commits, updateproseconfig-names-original-checkout -->

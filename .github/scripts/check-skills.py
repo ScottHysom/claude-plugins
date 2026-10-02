@@ -287,7 +287,6 @@ KNOWN_GAPS = {}
 KNOWN_SEAMS = {
     ("plugins/prose-tuning/skills/adopt-prose/SKILL.md", 1): 167,
     ("plugins/prose-tuning/skills/update-prose-config/SKILL.md", 1): 181,
-    ("plugins/prose-tuning/skills/update-prose-config/SKILL.md", 7): 183,
     ("plugins/prose-tuning/skills/update-prose-config/SKILL.md", 8): 184,
     ("plugins/prose-tuning/skills/apply-prose/SKILL.md", 2): 196,
     ("plugins/prose-tuning/skills/apply-prose/SKILL.md", 7): 190,
