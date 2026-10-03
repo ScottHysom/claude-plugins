@@ -14,18 +14,28 @@ Usage:
 Commands:
     setup   copy this script into the project's .todos/, which git ignores
     scan    list the TODOs in the working tree's changes since the last
-            commit, and the labels of the repository they would be filed in
+            commit, the open issues like each, and the labels of the
+            repository they would be filed in
     report  check the model's drafts against the files as they are now, and
             print them whole, ending with an approval token
-    file    file each draft that report showed, and remove its TODO
+    file    file or post each draft that report showed, and remove its TODO
 
 Exit codes: 0 clean, 1 ran and found problems, 2 could not run.
 
 Drafts. `--drafts` names a file holding a JSON array, one object per TODO to
 file. `file`, `line` and `text` name the TODO: its path, its first line's
 number and that line's text, all as `scan` gave them. `route` says where it
-goes. The only route is `issue`, which takes `title`, `body` and `labels`.
-`python3 todos.py report --help` shows an example.
+goes. The route `issue` takes `title`, `body` and `labels`, for a new issue.
+The route `comment` takes `issue` and `body`, for a comment on an open issue
+that already covers the TODO. `python3 todos.py report --help` shows an
+example.
+
+Open issues like a TODO. `scan` lists, for each TODO, the first SIMILAR_LIMIT
+open issues GitHub's search returns for its title. GitHub's REST search allows
+a signed-in client 30 requests a minute, so every title goes in one GraphQL
+query, with an aliased `search` per title. A word of the title holding a colon
+is quoted, so a title such as "is:closed in config" cannot act as a search
+qualifier and widen the search past this repository's open issues.
 
 The token. `report` ends with a token that hashes the drafts file, the
 repository gh resolves for the clone, the last commit and every file a draft
@@ -38,9 +48,13 @@ Filing. A filed issue cannot be counted on to come back, since deleting one
 takes admin rights, so `file` checks everything it can before its first gh
 call: the token, every draft, and that it can open each file it would change
 for writing. It then files the drafts file by file, from the last TODO in each
-to the first, and removes each TODO as soon as its issue exists. A run cut
-short leaves every TODO whose issue does not exist, and none whose issue does.
-It stops at the first gh call that fails.
+to the first, and removes each TODO as soon as its issue or comment exists. A
+run cut short leaves every TODO whose issue or comment does not exist, and
+none whose does. It stops at the first gh call that fails.
+
+A comment draft is checked against its issue twice, by `report` and again by
+`file`, since the token covers the drafts and not the issue, which may close
+in between.
 
 Removing a TODO takes its lines and tidies the blank lines around it:
 - Added blank lines go, and committed ones stay.
@@ -180,34 +194,47 @@ GH_ENV = {"GH_PROMPT_DISABLED": "1", "GH_NO_UPDATE_NOTIFIER": "1", "NO_COLOR": "
 # gh label list stops at 30 without --limit.
 LABEL_LIMIT = 10000
 ISSUE_URL_RE = re.compile(r"/issues/(\d+)$")
+COMMENT_URL_RE = re.compile(r"/issues/\d+#issuecomment-\d+$")
+# How many open issues scan lists for each TODO, as the owner set in #313.
+SIMILAR_LIMIT = 5
+# The GraphQL error a lookup of a missing issue gives, and an open issue's state.
+NOT_FOUND = "NOT_FOUND"
+OPEN_STATE = "OPEN"
 GH_MISSING = (
     "gh, GitHub's command-line tool, is not installed or not on PATH. Install it from"
     " https://cli.github.com, run `gh auth login`, then run again."
 )
 
 ROUTE_ISSUE = "issue"
+ROUTE_COMMENT = "comment"
 # The keys a draft holds, by route.
-DRAFT_KEYS = {ROUTE_ISSUE: ("file", "line", "text", "route", "title", "body", "labels")}
+DRAFT_KEYS = {
+    ROUTE_ISSUE: ("file", "line", "text", "route", "title", "body", "labels"),
+    ROUTE_COMMENT: ("file", "line", "text", "route", "issue", "body"),
+}
 # Only the owner adds it, so no draft may carry it, in any case.
 APPROVED_LABEL = "approved"
 DRAFTS_HELP = """\
 A draft is one JSON object, and --drafts names a file holding an array of them.
 file, line and text name the TODO as scan gave it: its path, its first line's
 number, and that line's text. route is "issue", which takes title, body and
-labels. Every label must be one scan lists.
+labels, or "comment", which takes issue, the number of an open issue, and body.
+Every label must be one scan lists.
 
 example:
   [{"file": "src/run.py", "line": 12, "text": "# TODO(bug): run() waits forever",
     "route": "issue", "title": "run() waits forever on a stalled gh",
-    "body": "subprocess.run has no timeout.", "labels": ["bug"]}]
+    "body": "subprocess.run has no timeout.", "labels": ["bug"]},
+   {"file": "src/run.py", "line": 30, "text": "# TODO: retry on 502",
+    "route": "comment", "issue": 7, "body": "run() gives up on a 502 too."}]
 """
 
 TOKEN_LENGTH = 16
 TOKEN_LABEL = "approval token: "
 TOKEN_STALE = (
     "the token does not match the drafts, the files they name, the last commit or the"
-    " repository as they are now, so nothing was filed or written. Run report again, show"
-    " it to the author, and file with its token"
+    " repository as they are now, so nothing was filed, posted or written. Run report again,"
+    " show it to the author, and file with its token"
 )
 
 
@@ -216,7 +243,11 @@ class Fatal(Exception):
 
 
 class GhFailed(Exception):
-    """A gh call that ran and failed."""
+    """A gh call that ran and failed, with what it printed on stdout."""
+
+    def __init__(self, message, stdout=""):
+        super().__init__(message)
+        self.stdout = stdout
 
 
 class GhTimedOut(GhFailed):
@@ -381,12 +412,17 @@ def gh(root, *args, stdin=None):
             "`gh %s` did not finish within %s seconds" % (" ".join(args[:2]), GH_TIMEOUT)
         ) from exc
     if proc.returncode != 0:
-        raise GhFailed("`gh %s` failed: %s" % (" ".join(args[:2]), proc.stderr.strip()))
+        raise GhFailed(
+            "`gh %s` failed: %s" % (" ".join(args[:2]), proc.stderr.strip()), proc.stdout
+        )
     return proc.stdout
 
 
 def gh_json(root, *args):
-    out = gh(root, *args)
+    return parse_json(gh(root, *args), args)
+
+
+def parse_json(out, args):
     try:
         return json.loads(out)
     except ValueError as exc:
@@ -394,6 +430,16 @@ def gh_json(root, *args):
             "`gh %s` did not print JSON: %s. Run it yourself to see what it prints."
             % (" ".join(args[:2]), exc)
         ) from exc
+
+
+def search_query(repository, title):
+    """GitHub's search for the open issues of a repository like a title.
+
+    A word holding a colon is quoted, so it is searched for rather than read
+    as a qualifier, and a double quote is dropped, so it cannot open a phrase.
+    """
+    words = ['"%s"' % w if ":" in w else w for w in title.replace('"', " ").split()]
+    return " ".join(["repo:" + repository, "is:issue", "is:open", *words])
 
 
 class GitHub:
@@ -438,6 +484,78 @@ class GitHub:
         except GhFailed as exc:
             raise Fatal("%s. Run it yourself to see what gh reports." % exc) from exc
         return [{"name": g["name"], "description": g["description"]} for g in got]
+
+    def graphql(self, query, missing_ok=False):
+        """The data of a GraphQL query. With missing_ok, a query whose only
+        errors are lookups of things that do not exist gives its data, with
+        null in their place, although gh exits 1 for it."""
+        args = ("api", "graphql", "--input", "-")
+        try:
+            out = gh(self.root, *args, stdin=json.dumps({"query": query}))
+        except GhFailed as exc:
+            got = parse_json(exc.stdout, args) if missing_ok and exc.stdout.strip() else {}
+            errors = got.get("errors") or [{}]
+            if got.get("data") is None or any(e.get("type") != NOT_FOUND for e in errors):
+                raise
+            return got["data"]
+        return parse_json(out, args)["data"]
+
+    def similar(self, titles):
+        """For each title, the first SIMILAR_LIMIT open issues GitHub's search
+        returns for it, as {number, title, url}, all in one query."""
+        if not titles:
+            return []
+        searches = " ".join(
+            "s%d: search(query: %s, type: ISSUE, first: %d) { nodes { ... on Issue"
+            " { number title url } } }" % (i, json.dumps(search_query(self.name, t)), SIMILAR_LIMIT)
+            for i, t in enumerate(titles)
+        )
+        try:
+            data = self.graphql("query { %s }" % searches)
+        except GhFailed as exc:
+            raise Fatal("%s. Run it yourself to see what gh reports." % exc) from exc
+        return [
+            [
+                {"number": n["number"], "title": n["title"], "url": n["url"]}
+                for n in data["s%d" % i]["nodes"]
+                if n
+            ]
+            for i in range(len(titles))
+        ]
+
+    def issues(self, numbers):
+        """{number: {number, title, state, url}, or None when the repository
+        does not have that issue}, all in one query."""
+        if not numbers:
+            return {}
+        owner, _, name = self.name.partition("/")
+        aliases = " ".join(
+            "i%d: issue(number: %d) { number title state url }" % (n, n) for n in numbers
+        )
+        query = "query { repository(owner: %s, name: %s) { %s } }" % (
+            json.dumps(owner),
+            json.dumps(name),
+            aliases,
+        )
+        try:
+            data = self.graphql(query, missing_ok=True)
+        except GhFailed as exc:
+            raise Fatal("%s. Run it yourself to see what gh reports." % exc) from exc
+        repo = data.get("repository") or {}
+        return dict((n, repo.get("i%d" % n)) for n in numbers)
+
+    def comment(self, number, body):
+        """The address of a new comment on an issue. GhFailed when it was not
+        posted."""
+        args = ["issue", "comment", str(number), "--repo", self.name, "--body-file", "-"]
+        out = gh(self.root, *args, stdin=body).strip()
+        url = out.splitlines()[-1] if out else ""
+        if not COMMENT_URL_RE.search(url):
+            raise GhFailed(
+                "`gh issue comment` did not print a comment's address, but printed %r. Look"
+                " on %s/issues/%d for the comment before posting again" % (out, self.url, number)
+            )
+        return url
 
     def create(self, title, body, labels):
         """(number, address) of a new issue. GhFailed when it was not filed."""
@@ -785,6 +903,8 @@ def cmd_scan(args):
     todos = found.todos
     github = GitHub(repo)
     labels = github.labels()
+    for todo, similar in zip(todos, github.similar([t["title"] for t in todos])):
+        todo["similar"] = similar
     commit = {"hash": repo.head, "on_remote": repo.on_remote()}
 
     def human():
@@ -806,6 +926,10 @@ def cmd_scan(args):
             if above:
                 was = "line %d at %s" % (above["base_line"], short) if above["base_line"] else "new"
                 print("    above line %d (%s): %s" % (above["line"], was, above["text"].strip()))
+            if t["similar"]:
+                print("    open issues like it:")
+                for issue in t["similar"]:
+                    print("      #%d  %s" % (issue["number"], issue["title"]))
         print(
             "Last commit %s, %s."
             % (short, "on a remote branch" if commit["on_remote"] else "not on any remote branch")
@@ -874,24 +998,36 @@ def is_text(value):
     return isinstance(value, str)
 
 
+def is_number(value):
+    return isinstance(value, int) and not isinstance(value, bool) and value >= 1
+
+
 def draft_problems(draft, github, label_names):
     """What is wrong with one draft's own fields, as a list of reasons."""
     if not isinstance(draft, dict):
         return ["is not a JSON object"]
     route = draft.get("route")
     if route not in DRAFT_KEYS:
-        return ["has route %s, and the only route is `%s`" % (json.dumps(route), ROUTE_ISSUE)]
+        return [
+            "has route %s, and the routes are `%s` and `%s`"
+            % (json.dumps(route), ROUTE_ISSUE, ROUTE_COMMENT)
+        ]
     keys = DRAFT_KEYS[route]
     out = ["lacks `%s`" % k for k in keys if k not in draft]
     out += ["has `%s`, which a draft does not take" % k for k in sorted(draft) if k not in keys]
     if out:
         return out
-    line = draft["line"]
-    if not isinstance(line, int) or isinstance(line, bool) or line < 1:
+    if not is_number(draft["line"]):
         out.append("has a `line` that is not a line number")
     for key in ("file", "text", "body"):
         if not is_text(draft[key]):
             out.append("has a `%s` that is not a string" % key)
+    if route == ROUTE_COMMENT:
+        if not is_number(draft["issue"]):
+            out.append("has an `issue` that is not an issue number")
+        if is_text(draft["body"]) and not draft["body"].strip():
+            out.append("has a `body` with no words in it, which a comment needs")
+        return out
     if not is_text(draft["title"]) or not draft["title"].strip():
         out.append("has a `title` that is not a string with words in it")
     labels = draft["labels"]
@@ -909,14 +1045,38 @@ def draft_problems(draft, github, label_names):
     return out
 
 
+def target_problems(draft, targets, github):
+    """Why a comment draft's issue cannot take it, as a list of reasons."""
+    if draft["route"] != ROUTE_COMMENT:
+        return []
+    number = draft["issue"]
+    target = targets[number]
+    if target is None:
+        return [
+            "names issue #%d, which %s does not have. Name an open issue scan lists, or route"
+            " the draft to `%s`" % (number, github.name, ROUTE_ISSUE)
+        ]
+    if target["state"] != OPEN_STATE:
+        return [
+            "names issue #%d, which is closed. Name an open issue scan lists, or route the"
+            " draft to `%s`" % (number, ROUTE_ISSUE)
+        ]
+    return []
+
+
 def check_drafts(drafts, found, github, labels):
     """(rows, refused): a row for each draft that names a pending TODO and
     passes every check, and a reason for each that does not."""
     todos = dict(((t["file"], t["first"]), t) for t in found.todos)
     label_names = set(label["name"] for label in labels)
+    checked = [(n, d, draft_problems(d, github, label_names)) for n, d in enumerate(drafts, 1)]
+    numbers = sorted(
+        set(d["issue"] for _, d, p in checked if not p and d["route"] == ROUTE_COMMENT)
+    )
+    targets = github.issues(numbers)
     rows, refused, claims = [], [], {}
-    for n, draft in enumerate(drafts, 1):
-        problems = draft_problems(draft, github, label_names)
+    for n, draft, problems in checked:
+        problems = problems or target_problems(draft, targets, github)
         if problems:
             refused.extend("draft %d %s" % (n, p) for p in problems)
             continue
@@ -929,18 +1089,20 @@ def check_drafts(drafts, found, github, labels):
             )
             continue
         claims.setdefault(place, []).append(n)
-        rows.append(
-            {
-                "draft": n,
-                "file": todo["file"],
-                "first": todo["first"],
-                "last": todo["last"],
-                "route": draft["route"],
-                "title": draft["title"],
-                "body": draft["body"],
-                "labels": draft["labels"],
-            }
-        )
+        row = {
+            "draft": n,
+            "file": todo["file"],
+            "first": todo["first"],
+            "last": todo["last"],
+            "route": draft["route"],
+            "body": draft["body"],
+        }
+        if draft["route"] == ROUTE_COMMENT:
+            target = targets[draft["issue"]]
+            row["issue"] = dict((k, target[k]) for k in ("number", "title", "url"))
+        else:
+            row.update(title=draft["title"], labels=draft["labels"])
+        rows.append(row)
     for place, numbers in sorted(claims.items()):
         if len(numbers) > 1:
             refused.append(
@@ -1005,8 +1167,11 @@ def approval_token(repo, github, raw, drafts):
 
 def print_draft(row):
     print("draft %d  %s  %s" % (row["draft"], where(row), row["route"]))
-    print("  title   %s" % row["title"])
-    print("  labels  %s" % (", ".join(row["labels"]) or "(none)"))
+    if row["route"] == ROUTE_COMMENT:
+        print("  on      #%d  %s" % (row["issue"]["number"], row["issue"]["title"]))
+    else:
+        print("  title   %s" % row["title"])
+        print("  labels  %s" % (", ".join(row["labels"]) or "(none)"))
     print("  body")
     for line in row["body"].split("\n"):
         print(("    | %s" % line).rstrip())
@@ -1128,7 +1293,7 @@ def writable(repo, rel):
     except OSError as exc:
         raise Fatal(
             "cannot open %s for writing: %s. Make it writable, then run file again; nothing"
-            " was filed" % (rel, exc.strerror)
+            " was filed or posted" % (rel, exc.strerror)
         ) from exc
 
 
@@ -1142,7 +1307,7 @@ def cmd_file(args):
     found = Scan(repo)
     rows, refused = check_drafts(drafts, found, github, github.labels())
     if refused:
-        refused.append("nothing was filed or written")
+        refused.append("nothing was filed, posted or written")
         return emit(args, "file", data, errors=refused)
 
     rows.sort(key=lambda r: (r["file"], -r["first"]))
@@ -1157,11 +1322,15 @@ def cmd_file(args):
             data["filed"].append(dict(row, number=None, url=None))
             continue
         try:
-            number, url = github.create(row["title"], row["body"], row["labels"])
+            if row["route"] == ROUTE_COMMENT:
+                number = row["issue"]["number"]
+                url = github.comment(number, row["body"])
+            else:
+                number, url = github.create(row["title"], row["body"], row["labels"])
         except GhFailed as exc:
             errors.append(
                 "draft %d (%s): %s. Filing stopped there, and the TODOs of the drafts not"
-                " filed are still in their files" % (row["draft"], where(row), exc)
+                " filed or posted are still in their files" % (row["draft"], where(row), exc)
             )
             data["left"] = rows[i:]
             break
@@ -1172,15 +1341,21 @@ def cmd_file(args):
 
     def human():
         for r in data["filed"]:
-            if args.dry_run:
+            comment = r["route"] == ROUTE_COMMENT
+            if args.dry_run and comment:
+                print(
+                    "would comment on %s#%d: %s"
+                    % (github.name, r["issue"]["number"], r["issue"]["title"])
+                )
+            elif args.dry_run:
                 print(
                     "would file in %s: %s  [%s]"
                     % (github.name, r["title"], ", ".join(r["labels"]) or "no labels")
                 )
-                print("  and remove %s" % where(r))
             else:
-                print("filed #%d %s" % (r["number"], r["url"]))
-                print("  and removed %s" % where(r))
+                verb = "commented on" if comment else "filed"
+                print("%s #%d %s" % (verb, r["number"], r["url"]))
+            print("  and %s %s" % ("remove" if args.dry_run else "removed", where(r)))
         for r in data["left"]:
             print("not filed: draft %d, %s, left in place" % (r["draft"], where(r)))
 
@@ -1221,7 +1396,10 @@ def build_parser():
     p = sub.add_parser(
         "scan",
         parents=[common],
-        help="list the TODOs in the changes since the last commit, and the repository's labels",
+        help=(
+            "list the TODOs in the changes since the last commit, the open issues like each,"
+            " and the repository's labels"
+        ),
     )
     p.set_defaults(func=cmd_scan)
 
@@ -1237,7 +1415,7 @@ def build_parser():
     p = sub.add_parser(
         "file",
         parents=[common, drafts, dry_run],
-        help="file each draft report showed, and remove its TODO",
+        help="file or post each draft report showed, and remove its TODO",
         epilog=DRAFTS_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )

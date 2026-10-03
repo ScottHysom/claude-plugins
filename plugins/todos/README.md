@@ -59,20 +59,23 @@ Ask Claude to file your TODOs. Claude:
 
 1. Finds every TODO in your uncommitted changes, and warns about any line
    that looks like one but cannot be read.
-2. Asks you, in one round, about every TODO that says too little, or whose
-   kind is unclear.
+2. Asks you, in one round, about every TODO that says too little, whose
+   kind is unclear, or that may repeat an issue already open.
 3. Drafts an issue for each, following your project's own rules for issues
-   and using only labels your repository has.
+   and using only labels your repository has. When an open issue already
+   covers a TODO, Claude drafts a comment on that issue instead, so the
+   problem keeps one issue.
 4. Shows you the repository the issues will go to, every draft in full, and
    the TODOs that will stay. You approve all of them, some, or none.
-5. Files the ones you approved and removes each TODO once its issue exists.
+5. Files the issues and posts the comments you approved, and removes each
+   TODO once its issue or comment exists.
 
 Nothing reaches GitHub before you approve. If anything changes between the
 report and the filing, Claude shows you a fresh report first.
 
 ## What it changes
 
-Each TODO that is filed comes out of its file, with the blank lines you added
+Each TODO that is filed or posted comes out of its file, with the blank lines you added
 around it. A file whose only changes were TODOs goes back to exactly what it
 was at your last commit. Nothing else in your files changes.
 
