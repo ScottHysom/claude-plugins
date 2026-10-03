@@ -196,6 +196,7 @@ class FakeGitHub:
 
 
 REAL_GH = todos.gh
+GH_ON_PATH_TOOLS = ("git", "cat", "sleep")
 
 
 @pytest.fixture(autouse=True)
@@ -216,13 +217,13 @@ def gh_on_path(monkeypatch, tmp_path):
     monkeypatch.setattr(todos, "gh", REAL_GH)
     bin_dir = tmp_path / "gh-bin"
     bin_dir.mkdir()
-    git = shutil.which("git")
-    (bin_dir / "git").write_text('#!/bin/sh\nexec "%s" "$@"\n' % git)
-    (bin_dir / "git").chmod(0o755)
-    # /bin for the shell tools a gh script runs, and never gh itself.
-    path = os.pathsep.join([str(bin_dir), "/bin"])
-    assert shutil.which("gh", path="/bin") is None
-    monkeypatch.setenv("PATH", path)
+    # git for the script, and the tools a gh script runs, each by a wrapper,
+    # since the directory that holds them may hold gh too, as /usr/bin does
+    # on GitHub's runners.
+    for tool in GH_ON_PATH_TOOLS:
+        (bin_dir / tool).write_text('#!/bin/sh\nexec "%s" "$@"\n' % shutil.which(tool))
+        (bin_dir / tool).chmod(0o755)
+    monkeypatch.setenv("PATH", str(bin_dir))
 
     def install(body):
         if body is not None:
