@@ -12,6 +12,16 @@ import todos
 LONG = "".join("line %d\n" % n for n in range(1, 21))
 
 
+# What scan prints first, from the fake gh's labels.
+LABELS_TEXT = (
+    "Labels in owner/project:\n"
+    "  bug  Something is broken\n"
+    "  enhancement  New behavior\n"
+    "  plugin:todos\n"
+    "\n"
+)
+
+
 def titles(found):
     return [t["title"] for t in found]
 
@@ -144,7 +154,7 @@ class DescribeNothingPending:
     def it_says_so_and_exits_ok(self, repo):
         code, out, err = repo.human("scan")
         assert code == todos.OK
-        assert out == "No pending TODOs in the changes since %s.\n" % repo.head()[:7]
+        assert out == LABELS_TEXT + "No pending TODOs in the changes since %s.\n" % repo.head()[:7]
         assert err == ""
 
     def it_gives_an_empty_list_in_json(self, repo):
@@ -211,7 +221,7 @@ class DescribeLocation:
         code, out, err = repo.human("scan")
         short = repo.head()[:7]
         assert code == todos.OK
-        assert out == (
+        assert out == LABELS_TEXT + (
             "run.py:1-4: (bug) hangs\n"
             "    no timeout\n"
             "\n"
