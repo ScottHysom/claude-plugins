@@ -11,6 +11,7 @@ the plugin's scripts directory on sys.path.
 
 import json
 import os
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -99,6 +100,137 @@ class TodoRepo:
         code, env = self.run("scan")
         assert code == todos.OK, self.err
         return env["data"]["todos"], env["warnings"]
+
+    @staticmethod
+    def draft(todo, **fields):
+        """A draft routing a TODO, as scan gave it, to an issue."""
+        out = {
+            "file": todo["file"],
+            "line": todo["first"],
+            "text": todo["text"],
+            "route": "issue",
+            "title": todo["title"],
+            "body": todo["detail"],
+            "labels": [],
+        }
+        out.update(fields)
+        return out
+
+    def drafts(self, drafts):
+        """Write drafts to a file outside the clone, and return its path."""
+        path = self.root.parent / "drafts.json"
+        path.write_text(json.dumps(drafts))
+        return str(path)
+
+    def draft_all(self):
+        """A drafts file holding one draft for every pending TODO."""
+        return self.drafts([self.draft(t) for t in self.scan()[0]])
+
+    def token(self, drafts):
+        """The token report prints for a drafts file, which must pass."""
+        code, env = self.run("report", "--drafts", drafts)
+        assert code == todos.OK, self.err
+        return env["data"]["token"]
+
+    def file(self, drafts, *extra):
+        """Run file with the token report prints. Returns (exit code, envelope)."""
+        return self.run("file", "--drafts", drafts, "--token", self.token(drafts), *extra)
+
+    def read(self, rel):
+        return (self.root / rel).read_bytes()
+
+
+REPOSITORY = "owner/project"
+REPOSITORY_URL = "https://github.com/" + REPOSITORY
+LABELS = [
+    {"name": "bug", "description": "Something is broken"},
+    {"name": "enhancement", "description": "New behavior"},
+    {"name": "plugin:todos", "description": ""},
+]
+
+
+class FakeGitHub:
+    """gh, answering for one repository. Records every call.
+
+    `fail` names the issue create calls that fail, counting from 1, and
+    `printed` replaces what a successful issue create prints.
+    """
+
+    def __init__(self):
+        self.repository = REPOSITORY
+        self.labels = [dict(label) for label in LABELS]
+        self.fail = ()
+        self.printed = None
+        self.calls = []
+        self.issues = []
+
+    def __call__(self, root, *args, stdin=None):
+        self.calls.append(args)
+        if args[:2] == ("repo", "view"):
+            url = "https://github.com/" + self.repository
+            return json.dumps({"nameWithOwner": self.repository, "url": url})
+        if args[:2] == ("label", "list"):
+            return json.dumps(self.labels)
+        if args[:2] == ("issue", "create"):
+            creates = sum(1 for c in self.calls if c[:2] == ("issue", "create"))
+            if creates in self.fail:
+                raise todos.GhFailed("`gh issue create` failed: HTTP 502")
+            number = len(self.issues) + 1
+            labels = [args[i + 1] for i, a in enumerate(args) if a == "--label"]
+            self.issues.append(
+                {
+                    "title": args[args.index("--title") + 1],
+                    "body": stdin,
+                    "labels": labels,
+                    "repo": args[args.index("--repo") + 1],
+                }
+            )
+            if self.printed is not None:
+                return self.printed
+            return "Creating issue in %s\n\n%s/issues/%d\n" % (
+                self.repository,
+                "https://github.com/" + self.repository,
+                number,
+            )
+        raise AssertionError("the fake gh does not answer %r" % (args,))
+
+
+REAL_GH = todos.gh
+GH_ON_PATH_TOOLS = ("git", "cat", "sleep")
+
+
+@pytest.fixture(autouse=True)
+def github(monkeypatch):
+    """Every test talks to a fake gh, so none reaches GitHub."""
+    fake = FakeGitHub()
+    monkeypatch.setattr(todos, "gh", fake)
+    return fake
+
+
+@pytest.fixture
+def gh_on_path(monkeypatch, tmp_path):
+    """The script's own gh(), and a PATH holding git and a gh script.
+
+    Call it with the body of a POSIX shell script, or None for a PATH with
+    no gh on it.
+    """
+    monkeypatch.setattr(todos, "gh", REAL_GH)
+    bin_dir = tmp_path / "gh-bin"
+    bin_dir.mkdir()
+    # git for the script, and the tools a gh script runs, each by a wrapper,
+    # since the directory that holds them may hold gh too, as /usr/bin does
+    # on GitHub's runners.
+    for tool in GH_ON_PATH_TOOLS:
+        (bin_dir / tool).write_text('#!/bin/sh\nexec "%s" "$@"\n' % shutil.which(tool))
+        (bin_dir / tool).chmod(0o755)
+    monkeypatch.setenv("PATH", str(bin_dir))
+
+    def install(body):
+        if body is not None:
+            (bin_dir / "gh").write_text("#!/bin/sh\n" + body)
+            (bin_dir / "gh").chmod(0o755)
+
+    return install
 
 
 def init(root):

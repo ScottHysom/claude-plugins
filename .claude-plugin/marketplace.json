@@ -44,6 +44,25 @@
       },
       "homepage": "https://github.com/ScottHysom/claude-plugins/tree/main/plugins/prose-tuning",
       "license": "MIT"
+    },
+    {
+      "name": "todos",
+      "source": "./plugins/todos",
+      "displayName": "TODOs",
+      "description": "Claude Code only. Files the TODO comments left in a project's uncommitted changes as GitHub issues, after the author approves every draft, and takes each one out of its file.",
+      "version": "0.1.0",
+      "category": "productivity",
+      "tags": [
+        "todo",
+        "issues",
+        "github",
+        "review"
+      ],
+      "author": {
+        "name": "Scott Hysom"
+      },
+      "homepage": "https://github.com/ScottHysom/claude-plugins/tree/main/plugins/todos",
+      "license": "MIT"
     }
   ]
 }

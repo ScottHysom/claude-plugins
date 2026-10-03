@@ -13,6 +13,7 @@ body:
       options:
         - gitify-cowork-project
         - prose-tuning
+        - todos
         - repo (CI, tooling, catalog, root docs)
     validations:
       required: true
