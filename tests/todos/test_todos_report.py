@@ -250,7 +250,7 @@ class DescribeRefusals:
     def it_refuses_a_draft_that_is_not_an_object(self, two):
         assert self.refused(two, ["run.py:1"]) == ["draft 1 is not a JSON object"]
 
-    @pytest.mark.parametrize("route", [None, "comment", 3])
+    @pytest.mark.parametrize("route", [None, "Comment", 3])
     def it_refuses_a_route_it_does_not_know(self, two, route):
         found, _ = two.scan()
         draft = two.draft(found[0], route=route)
@@ -258,7 +258,7 @@ class DescribeRefusals:
             del draft["route"]
         (error,) = self.refused(two, [draft])
         assert error.startswith("draft 1 has route ")
-        assert error.endswith("and the only route is `issue`")
+        assert error.endswith("and the routes are `issue` and `comment`")
 
     def it_names_each_missing_and_unknown_key(self, two):
         found, _ = two.scan()

@@ -11,6 +11,7 @@ the plugin's scripts directory on sys.path.
 
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -116,6 +117,20 @@ class TodoRepo:
         out.update(fields)
         return out
 
+    @staticmethod
+    def comment(todo, issue, body="More detail.", **fields):
+        """A draft routing a TODO, as scan gave it, to a comment on an issue."""
+        out = {
+            "file": todo["file"],
+            "line": todo["first"],
+            "text": todo["text"],
+            "route": "comment",
+            "issue": issue,
+            "body": body,
+        }
+        out.update(fields)
+        return out
+
     def drafts(self, drafts):
         """Write drafts to a file outside the clone, and return its path."""
         path = self.root.parent / "drafts.json"
@@ -152,8 +167,10 @@ LABELS = [
 class FakeGitHub:
     """gh, answering for one repository. Records every call.
 
-    `fail` names the issue create calls that fail, counting from 1, and
-    `printed` replaces what a successful issue create prints.
+    `fail` names the issue create and issue comment calls that fail, counting
+    both from 1, and `printed` replaces what a successful one prints.
+    `searches` maps a search's query to the issues it returns, and `existing`
+    maps a number to the issue a lookup finds, as {number, title, state, url}.
     """
 
     def __init__(self):
@@ -161,8 +178,15 @@ class FakeGitHub:
         self.labels = [dict(label) for label in LABELS]
         self.fail = ()
         self.printed = None
+        self.searches = {}
+        self.existing = {}
         self.calls = []
+        self.queries = []
         self.issues = []
+        self.comments = []
+
+    def posts(self):
+        return sum(1 for c in self.calls if c[:2] in (("issue", "create"), ("issue", "comment")))
 
     def __call__(self, root, *args, stdin=None):
         self.calls.append(args)
@@ -171,9 +195,10 @@ class FakeGitHub:
             return json.dumps({"nameWithOwner": self.repository, "url": url})
         if args[:2] == ("label", "list"):
             return json.dumps(self.labels)
+        if args[:2] == ("api", "graphql"):
+            return self.graphql(json.loads(stdin)["query"])
         if args[:2] == ("issue", "create"):
-            creates = sum(1 for c in self.calls if c[:2] == ("issue", "create"))
-            if creates in self.fail:
+            if self.posts() in self.fail:
                 raise todos.GhFailed("`gh issue create` failed: HTTP 502")
             number = len(self.issues) + 1
             labels = [args[i + 1] for i, a in enumerate(args) if a == "--label"]
@@ -192,7 +217,51 @@ class FakeGitHub:
                 "https://github.com/" + self.repository,
                 number,
             )
+        if args[:2] == ("issue", "comment"):
+            if self.posts() in self.fail:
+                raise todos.GhFailed("`gh issue comment` failed: HTTP 502")
+            number = int(args[2])
+            self.comments.append(
+                {"issue": number, "body": stdin, "repo": args[args.index("--repo") + 1]}
+            )
+            if self.printed is not None:
+                return self.printed
+            return "%s/issues/%d#issuecomment-%d\n" % (
+                "https://github.com/" + self.repository,
+                number,
+                100 + len(self.comments),
+            )
         raise AssertionError("the fake gh does not answer %r" % (args,))
+
+    def graphql(self, query):
+        """Answer searches and issue lookups as GitHub does, with gh's exit 1
+        and the data on stdout when an issue is not found."""
+        self.queries.append(query)
+        searches = re.findall(r'(s\d+): search\(query: ("(?:[^"\\]|\\.)*")', query)
+        if searches:
+            data = dict(
+                (alias, {"nodes": self.searches.get(json.loads(q), [])}) for alias, q in searches
+            )
+            return json.dumps({"data": data})
+        found, errors = {}, []
+        for alias, number in re.findall(r"(i\d+): issue\(number: (\d+)\)", query):
+            found[alias] = self.existing.get(int(number))
+            if found[alias] is None:
+                errors.append({"type": "NOT_FOUND", "path": ["repository", alias]})
+        out = json.dumps(
+            {"data": {"repository": found}, "errors": errors}
+            if errors
+            else {"data": {"repository": found}}
+        )
+        if errors:
+            raise todos.GhFailed("`gh api graphql` failed: Could not resolve", out)
+        return out
+
+    def add_issue(self, number, title, state="OPEN"):
+        """An issue a lookup finds."""
+        url = "https://github.com/%s/issues/%d" % (self.repository, number)
+        self.existing[number] = {"number": number, "title": title, "state": state, "url": url}
+        return self.existing[number]
 
 
 REAL_GH = todos.gh
