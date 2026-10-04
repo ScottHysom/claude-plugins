@@ -2361,13 +2361,19 @@ def inferred_hunks(repo, rel, text, neutral, ref, ignore):
 
     Lines are cut as Text cuts them, so a hunk's index at ref addresses the
     same line in the Text returned.
+
+    A hunk that changed only HTML comments is left out. A comment is a note
+    for people, such as a FILL marker or a skill's spec marker, and not the
+    document's prose, so it is not an edit to learn a rule from.
     """
     base = repo.show(ref, rel)
     if base is None:
         return None, None
     base_text = Text(base)
+    neutral_text = Text(neutral)
+    base_blocks, neutral_blocks = Blocks(base_text), Blocks(neutral_text)
     base_lines = bare_lines(base_text)
-    neutral_lines = bare_lines(Text(neutral))
+    neutral_lines = bare_lines(neutral_text)
     to_work = line_map(neutral_lines, bare_lines(text))
     out = []
     sm = difflib.SequenceMatcher(None, base_lines, neutral_lines, autojunk=False)
@@ -2378,6 +2384,10 @@ def inferred_hunks(repo, rel, text, neutral, ref, ignore):
         new = neutral_lines[j1:j2]
         line = nearest(to_work, j1, j1) + 1
         if "%s:%d" % (rel, line) in ignore:
+            continue
+        before = prose_outside_comments(base_text, base_blocks, i1, i2)
+        after = prose_outside_comments(neutral_text, neutral_blocks, j1, j2)
+        if before[0] == after[0] and (before[1] or after[1]):
             continue
         rec = {
             "file": rel,
@@ -2390,6 +2400,21 @@ def inferred_hunks(repo, rel, text, neutral, ref, ignore):
         }
         out.append((rec, i1))
     return out, base_text
+
+
+def prose_outside_comments(text, blocks, first, stop):
+    """(the words of lines [first, stop) outside every HTML comment, whether
+    those lines touch a comment). Lines are 0-indexed, as a diff opcode has
+    them. The words are joined by single spaces, so the space either side of
+    a comment taken out of a line does not count as a change.
+    """
+
+    def at(i):
+        return text.starts[i] if i < text.line_count() else text.end
+
+    a, b = at(first), at(stop)
+    words = "".join(text.s[x:y] for x, y in blocks.uncovered(a, b)).split()
+    return " ".join(words), blocks.comment_overlaps(a, b)
 
 
 def inferred_records(repo, rel, text, neutral, ref, ignore):
