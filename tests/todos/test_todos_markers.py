@@ -183,8 +183,8 @@ class DescribeWarnings:
     @pytest.mark.parametrize(
         ("line", "reason"),
         [
-            ("x = 1  # TODO: later", "a TODO is read only at the start of its line"),
-            ("call(TODO(x))", "a TODO is read only at the start of its line"),
+            ("x = 1  # TODO: later", "a TODO is read at the start of its line"),
+            ("call(TODO(x))", "a TODO is read at the start of its line"),
             ("# TODO(bug) no colon", "the line opens with TODO but not with"),
             ("# TODO fix this", "the line opens with TODO but not with"),
             ("TODOs pile up", "the line opens with TODO but not with"),

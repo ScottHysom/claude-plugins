@@ -102,7 +102,7 @@ class DescribeScanWarnings:
     def it_lists_each_warning_with_its_file_and_line(self, two):
         code, out, err = two.human("report", "--drafts", two.draft_all())
         assert code == todos.OK
-        assert "\nWarnings from scan:\n  run.py:6: a TODO is read only at the start" in out
+        assert "\nWarnings from scan:\n  run.py:6: a TODO is read at the start" in out
         assert err == ""
 
     def it_leaves_the_heading_out_when_scan_gives_none(self, repo):

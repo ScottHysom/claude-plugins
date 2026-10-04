@@ -75,10 +75,7 @@ class DescribeOutput:
         assert set(env) == ENVELOPE_KEYS
         assert (env["version"], env["command"], env["ok"]) == (todos.ENVELOPE_VERSION, "scan", True)
         assert env["errors"] == []
-        assert env["warnings"] == [
-            "a.py:2: a TODO is read only at the start of its line, after its indent and comment"
-            " marker"
-        ]
+        assert env["warnings"] == ["a.py:2: " + todos.UNREAD_PART_WAY]
         assert repo.err == ""
 
     @pytest.mark.spec("repo:script-ignores-closed-pipe")
