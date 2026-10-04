@@ -48,8 +48,9 @@ Source: #311, which quotes the owner's request.
   command of its own.
 - `report-cmd-shows-each-draft` (test): When `report` runs, it prints each
   draft whole, with its TODO's file and lines and its route, for a draft
-  routed to `issue` its title, labels and body, and for a draft routed to
-  `comment` the number and title of its issue and its body.
+  routed to `issue` its title, labels and body, for a draft routed to
+  `comment` the number and title of its issue and its body, and for a draft
+  routed to `skill` the skill's name and the TODO's title and detail.
 - `report-cmd-lists-undrafted-todos` (test): When a pending TODO has no draft,
   `report` lists it as left in place.
 - `report-cmd-lists-scan-warnings` (test): When `report` runs, it lists every
@@ -238,8 +239,37 @@ Source: #312, and prose-tuning's DESIGN.md, under "Why no skill commits".
   script, a `.gitignore` of `*` beside it keeps the copy out of the project's
   commits.
 - `dotodos-never-commits` (step): When `file` has run, do-todos lists the
-  issues filed, the comments posted, the files changed and the TODOs left in
-  place, and commits nothing.
+  issues filed, the comments posted, each note it will hand off with the skill
+  it goes to, the files changed and the TODOs left in place, and commits
+  nothing.
+
+## need user-sends-todos-to-skills: Hand a TODO to the skill made for it
+
+When a TODO asks for work an installed skill exists to do, such as a change to
+how a passage reads, which prose-tuning's update-prose-config learns rules
+from, the user wants Claude to hand it to that skill rather than improvise,
+and never to hand a change to what a document says to a prose skill, so the
+work follows that skill's rules.
+
+Source: #319, which quotes the owner's first use case, and CLAUDE.md, under
+"A plugin knows only itself", for the hand-off convention.
+
+- `file-cmd-prints-handoffs` (test): When a draft is routed to `skill`, `file`
+  prints the skill's name, the TODO's title and detail, and the passage it sat
+  above, with its file, its lines once the TODO is gone, and which of them
+  changed since the last commit.
+- `dotodos-passes-todos-to-skills` (step): When an installed skill's
+  description covers the work a TODO asks for, such as a `prose` TODO and a
+  skill that learns prose rules, do-todos routes it to that skill, and
+  otherwise drafts an issue.
+- `dotodos-withholds-facts-from-prose` (step): When a TODO asks to change what
+  a document says, do-todos drafts an issue, and never routes it to a prose
+  skill.
+- `dotodos-reports-before-handoffs` (step): When `file` prints hand-offs,
+  do-todos gives its report, with each note, before it invokes any
+  skill.
+- `dotodos-invokes-each-skill-once` (step): When `file` prints hand-offs,
+  do-todos invokes each skill named once, with every TODO routed to it.
 
 ## need owner-keeps-approval-label: Keep approved for the owner
 

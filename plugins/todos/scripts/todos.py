@@ -18,7 +18,8 @@ Commands:
             repository they would be filed in
     report  check the model's drafts against the files as they are now, and
             print them whole, ending with an approval token
-    file    file or post each draft that report showed, and remove its TODO
+    file    file or post each draft that report showed, remove its TODO, and
+            print the hand-off for each draft routed to a skill
 
 scan, report and file take --from with another worktree of the repository,
 and read that worktree's TODOs instead of this tree's. file then removes them
@@ -33,8 +34,20 @@ file. `file`, `line` and `text` name the TODO: its path, its first line's
 number and that line's text, all as `scan` gave them. `route` says where it
 goes. The route `issue` takes `title`, `body` and `labels`, for a new issue.
 The route `comment` takes `issue` and `body`, for a comment on an open issue
-that already covers the TODO. `python3 todos.py report --help` shows an
-example.
+that already covers the TODO. The route `skill` takes `skill`, the name the
+Skill tool takes, for an installed skill made for the work the TODO asks for.
+`python3 todos.py report --help` shows an example.
+
+Hand-offs. A draft routed to `skill` does not reach GitHub. `file` removes its
+TODO like any other, then prints a hand-off for each skill, holding every TODO
+routed to it: the TODO's title and detail, and the passage it sat above. The
+passage is the run of lines that are neither blank nor another TODO's, around
+the line `scan` gave as `above`, read once every TODO `file` finished is gone
+from the file. So its line numbers are the ones the receiving skill sees, and
+`changed` lists those added since the last commit. A TODO at the end of the
+file does not sit above anything, and its passage is null. The script cannot
+see which skills are installed, so it does not check the name; the model
+takes it from the skills the session lists.
 
 Open issues like a TODO. `scan` lists, for each TODO, the first SIMILAR_LIMIT
 open issues GitHub's search returns for its title. GitHub's REST search allows
@@ -239,10 +252,12 @@ GH_MISSING = (
 
 ROUTE_ISSUE = "issue"
 ROUTE_COMMENT = "comment"
+ROUTE_SKILL = "skill"
 # The keys a draft holds, by route.
 DRAFT_KEYS = {
     ROUTE_ISSUE: ("file", "line", "text", "route", "title", "body", "labels"),
     ROUTE_COMMENT: ("file", "line", "text", "route", "issue", "body"),
+    ROUTE_SKILL: ("file", "line", "text", "route", "skill"),
 }
 # Only the owner adds it, so no draft may carry it, in any case.
 APPROVED_LABEL = "approved"
@@ -250,15 +265,18 @@ DRAFTS_HELP = """\
 A draft is one JSON object, and --drafts names a file holding an array of them.
 file, line and text name the TODO as scan gave it: its path, its first line's
 number, and that line's text. route is "issue", which takes title, body and
-labels, or "comment", which takes issue, the number of an open issue, and body.
-Every label must be one scan lists.
+labels, "comment", which takes issue, the number of an open issue, and body, or
+"skill", which takes skill, the name of an installed skill as the Skill tool
+takes it. Every label must be one scan lists.
 
 example:
   [{"file": "src/run.py", "line": 12, "text": "# TODO(bug): run() waits forever",
     "route": "issue", "title": "run() waits forever on a stalled gh",
     "body": "subprocess.run has no timeout.", "labels": ["bug"]},
    {"file": "src/run.py", "line": 30, "text": "# TODO: retry on 502",
-    "route": "comment", "issue": 7, "body": "run() gives up on a 502 too."}]
+    "route": "comment", "issue": 7, "body": "run() gives up on a 502 too."},
+   {"file": "README.md", "line": 4, "text": "<!-- TODO(prose): too long -->",
+    "route": "skill", "skill": "example:learn-prose-rules"}]
 """
 
 TOKEN_LENGTH = 16
@@ -1165,8 +1183,8 @@ def draft_problems(draft, github, label_names):
     route = draft.get("route")
     if route not in DRAFT_KEYS:
         return [
-            "has route %s, and the routes are `%s` and `%s`"
-            % (json.dumps(route), ROUTE_ISSUE, ROUTE_COMMENT)
+            "has route %s, and the routes are `%s`, `%s` and `%s`"
+            % (json.dumps(route), ROUTE_ISSUE, ROUTE_COMMENT, ROUTE_SKILL)
         ]
     keys = DRAFT_KEYS[route]
     out = ["lacks `%s`" % k for k in keys if k not in draft]
@@ -1176,8 +1194,12 @@ def draft_problems(draft, github, label_names):
     if not is_number(draft["line"]):
         out.append("has a `line` that is not a line number")
     for key in ("file", "text", "body"):
-        if not is_text(draft[key]):
+        if key in keys and not is_text(draft[key]):
             out.append("has a `%s` that is not a string" % key)
+    if route == ROUTE_SKILL:
+        if not is_text(draft["skill"]) or not draft["skill"].strip():
+            out.append("has a `skill` that is not a string with words in it")
+        return out
     if route == ROUTE_COMMENT:
         if not is_number(draft["issue"]):
             out.append("has an `issue` that is not an issue number")
@@ -1251,13 +1273,16 @@ def check_drafts(drafts, found, github, labels):
             "first": todo["first"],
             "last": todo["last"],
             "route": draft["route"],
-            "body": draft["body"],
         }
         if draft["route"] == ROUTE_COMMENT:
             target = targets[draft["issue"]]
             row["issue"] = dict((k, target[k]) for k in ("number", "title", "url"))
+            row["body"] = draft["body"]
+        elif draft["route"] == ROUTE_SKILL:
+            row.update(skill=draft["skill"], title=todo["title"], detail=todo["detail"])
+            row["above"] = todo["above"]["line"] if todo["above"] else None
         else:
-            row.update(title=draft["title"], labels=draft["labels"])
+            row.update(title=draft["title"], body=draft["body"], labels=draft["labels"])
         rows.append(row)
     for place, numbers in sorted(claims.items()):
         if len(numbers) > 1:
@@ -1321,16 +1346,27 @@ def approval_token(repo, github, raw, drafts):
     return digest.token()
 
 
+def print_block(heading, text):
+    print("  %s" % heading)
+    for line in text.split("\n"):
+        print(("    | %s" % line).rstrip())
+
+
 def print_draft(row):
     print("draft %d  %s  %s" % (row["draft"], where(row), row["route"]))
+    if row["route"] == ROUTE_SKILL:
+        print("  to      %s" % row["skill"])
+        print("  title   %s" % row["title"])
+        if row["detail"]:
+            print_block("detail", row["detail"])
+        print()
+        return
     if row["route"] == ROUTE_COMMENT:
         print("  on      #%d  %s" % (row["issue"]["number"], row["issue"]["title"]))
     else:
         print("  title   %s" % row["title"])
         print("  labels  %s" % (", ".join(row["labels"]) or "(none)"))
-    print("  body")
-    for line in row["body"].split("\n"):
-        print(("    | %s" % line).rstrip())
+    print_block("body", row["body"])
     print()
 
 
@@ -1383,10 +1419,12 @@ def cmd_report(args):
 class Entry:
     """One line of a file being edited, with its ending."""
 
-    def __init__(self, text, added, base_line):
+    def __init__(self, text, added, base_line, todo):
         self.text = text
         self.added = added
         self.base_line = base_line
+        # Whether the line belongs to a TODO on lines of its own.
+        self.todo = todo
 
     def blank(self):
         return not self.text.strip()
@@ -1403,9 +1441,12 @@ class Removal:
         self.path = path
         self.pending = pending
         self.entries = [
-            Entry(text, i in pending.added, pending.base_of.get(i))
+            Entry(text, i in pending.added, pending.base_of.get(i), i in pending.found.spans)
             for i, text in enumerate(LINE_RE.findall(pending.raw))
         ]
+        # The entries as scan numbered them, for finding a line once the
+        # lines above it have moved.
+        self.original = list(self.entries)
 
     def remove(self, first, last):
         """Take out lines first to last, 1-based, and tidy the blank lines
@@ -1434,6 +1475,23 @@ class Removal:
         p = self.pending
         if at_end and e and p.base_open_end and e[-1].base_line == p.base_count:
             e[-1].text = ENDING_RE.sub(b"", e[-1].text)
+
+    def passage(self, line):
+        """The passage around scan's 1-based line, as the file now reads, as
+        {first, last, changed, text}."""
+        e = self.entries
+        lo = hi = e.index(self.original[line - 1])
+        while lo > 0 and not e[lo - 1].blank() and not e[lo - 1].todo:
+            lo -= 1
+        while hi + 1 < len(e) and not e[hi + 1].blank() and not e[hi + 1].todo:
+            hi += 1
+        lines = e[lo : hi + 1]
+        return {
+            "first": lo + 1,
+            "last": hi + 1,
+            "changed": [lo + 1 + k for k, x in enumerate(lines) if x.added],
+            "text": "\n".join(decode(ENDING_RE.sub(b"", x.text)) for x in lines),
+        }
 
     def content(self):
         return (BOM if self.pending.bom else b"") + b"".join(x.text for x in self.entries)
@@ -1464,7 +1522,13 @@ def cmd_file(args):
     repo = open_tree(args)
     raw, drafts = read_drafts(args.drafts)
     github = GitHub(repo)
-    data = {"repository": github.name, "filed": [], "left": [], "dry_run": args.dry_run}
+    data = {
+        "repository": github.name,
+        "filed": [],
+        "left": [],
+        "handoffs": [],
+        "dry_run": args.dry_run,
+    }
     if args.token != approval_token(repo, github, raw, drafts):
         return emit(args, "file", data, errors=[TOKEN_STALE])
     found = Scan(repo)
@@ -1481,7 +1545,15 @@ def cmd_file(args):
 
     errors = []
     for i, row in enumerate(rows):
+        removal = removals[row["file"]]
+        if row["route"] == ROUTE_SKILL:
+            removal.remove(row["first"], row["last"])
+            if not args.dry_run:
+                removal.write()
+            data["filed"].append(row)
+            continue
         if args.dry_run:
+            removal.remove(row["first"], row["last"])
             data["filed"].append(dict(row, number=None, url=None))
             continue
         try:
@@ -1497,15 +1569,17 @@ def cmd_file(args):
             )
             data["left"] = rows[i:]
             break
-        removal = removals[row["file"]]
         removal.remove(row["first"], row["last"])
         removal.write()
         data["filed"].append(dict(row, number=number, url=url))
+    data["handoffs"] = handoffs(data["filed"], removals)
 
     def human():
         for r in data["filed"]:
             comment = r["route"] == ROUTE_COMMENT
-            if args.dry_run and comment:
+            if r["route"] == ROUTE_SKILL:
+                print("%s %s" % ("would hand to" if args.dry_run else "handing to", r["skill"]))
+            elif args.dry_run and comment:
                 print(
                     "would comment on %s#%d: %s"
                     % (github.name, r["issue"]["number"], r["issue"]["title"])
@@ -1521,8 +1595,43 @@ def cmd_file(args):
             print("  and %s %s" % ("remove" if args.dry_run else "removed", where(r)))
         for r in data["left"]:
             print("not filed: draft %d, %s, left in place" % (r["draft"], where(r)))
+        for handoff in data["handoffs"]:
+            print_handoff(handoff)
 
     return emit(args, "file", data, errors=errors, human=human)
+
+
+def handoffs(finished, removals):
+    """One hand-off per skill, holding every finished TODO routed to it, in
+    file and line order, with its passage as the files now read."""
+    out = {}
+    for row in sorted(finished, key=lambda r: (r["file"], r["first"])):
+        if row["route"] != ROUTE_SKILL:
+            continue
+        passage = None
+        if row["above"] is not None:
+            passage = dict(removals[row["file"]].passage(row["above"]), file=row["file"])
+        todo = {"draft": row["draft"], "title": row["title"], "detail": row["detail"]}
+        todo["passage"] = passage
+        out.setdefault(row["skill"], []).append(todo)
+    return [{"skill": skill, "todos": items} for skill, items in sorted(out.items())]
+
+
+def print_handoff(handoff):
+    print("\nhand-off to %s" % handoff["skill"])
+    for todo in handoff["todos"]:
+        print("\ndraft %d" % todo["draft"])
+        print("  title   %s" % todo["title"])
+        if todo["detail"]:
+            print_block("detail", todo["detail"])
+        passage = todo["passage"]
+        if passage is None:
+            print("  passage (none: the TODO was at the end of its file)")
+            continue
+        span = where(passage)
+        changed = ", ".join(str(n) for n in passage["changed"]) or "none"
+        print("  passage %s, changed since the last commit: %s" % (span, changed))
+        print_block("text", passage["text"])
 
 
 # --------------------------------------------------------------------------
@@ -1585,7 +1694,10 @@ def build_parser():
     p = sub.add_parser(
         "file",
         parents=[common, drafts, dry_run, source],
-        help="file or post each draft report showed, and remove its TODO",
+        help=(
+            "file or post each draft report showed, remove its TODO, and print the hand-offs"
+            " to skills"
+        ),
         epilog=DRAFTS_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )

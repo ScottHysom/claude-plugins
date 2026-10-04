@@ -137,6 +137,26 @@ does not see a script that runs `gh`, and CI does not catch an issue labeled
 when it is created. `report` and `file` therefore refuse a draft carrying the
 label, in any case.
 
+## Handing a TODO to another skill
+
+The owner asked in #319 for a `prose` TODO to reach the skill that learns
+prose rules, rather than become an issue, and for a TODO about what a document
+says never to reach it. A draft can take the route `skill`, which names a
+skill as the Skill tool takes it. The model picks the skill from the skills
+the session lists, by their descriptions, so `report` cannot check the name,
+and the token is what holds the author's approval of it.
+
+`file` removes a routed TODO like any other, with no call to GitHub, and then
+prints one hand-off per skill. Each holds the TODO's title and detail and the
+passage it sat above, read once every finished TODO is gone, so its line
+numbers are the ones the receiving skill sees. The passage runs from the line
+`scan` gave as `above` to the nearest blank line or TODO on either side. The
+convention in CLAUDE.md, under "A skill hands work to another plugin's skill
+by convention", says what a hand-off carries.
+
+The receiving skill may end the session's work when it stops, so do-todos
+gives its report first and invokes the skills as its last act.
+
 ## Why no skill commits
 
 How a project commits is settled wherever that project settles it, such as
