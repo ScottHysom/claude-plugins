@@ -37,8 +37,9 @@ Source: #311, which quotes the owner's request.
 - `scan-cmd-reports-nothing-pending` (test): When `scan` does not find a
   pending TODO, and does not name another worktree, it says so and exits 0.
 - `scan-cmd-locates-each-todo` (test): When `scan` reports a TODO, it gives
-  its file, its first and last line, the line it sits above with that line's
-  text and its number at the last commit when it has one, and the last
+  its file, its first and last line, the line it sits above, or for a TODO at
+  the end of a line that line, with that line's text as the last commit has
+  it and its number at the last commit when it has one, and the last
   commit's hash with whether a remote branch holds it.
 - `scan-cmd-lists-labels` (test): When `scan` runs, it lists every label of
   the repository with its description.
@@ -134,6 +135,13 @@ recorded there.
   not read a TODO, it warns with the file, the line and the reason.
 - `scan-cmd-skips-its-copy` (test): When `scan` lists files, it leaves out
   `.todos/`, whatever git ignores.
+- `scan-cmd-reads-trailing-todos` (test): When a line differs from the last
+  commit only by text at its end that opens with a TODO after any comment
+  marker, `scan` reads that text as a TODO that has a title and no
+  detail.
+- `file-cmd-removes-trailing-todos` (test): When `file` has finished a TODO
+  at the end of a line, it takes the TODO's text off that line, leaving the
+  line as the last commit has it.
 
 ## need user-says-what-kind: Say what kind of work a TODO is
 

@@ -75,7 +75,8 @@ from every TODO is the author's, and stays. A byte-order mark is kept, and a
 file left empty is not deleted.
 
 What a TODO is. A line of a text file that opens, after its indent and an
-optional comment marker, with `TODO:` or `TODO(<kind>):`. The rest of the line
+optional comment marker, with `TODO:` or `TODO(<kind>):`, or the end of a
+line, in the trailing form below. The rest of the line
 is the title. The comment marker is the run of characters before `TODO` that
 are not letters, digits or spaces, such as `#`, `//`, `<!--`, or nothing. It
 is read off the TODO's own line, so there is no table of comment syntax by
@@ -90,6 +91,12 @@ the claude-plugins repo, has the full rules. Two forms:
   and the rest of the comment is the detail. Every line up to the closer has
   to be new since the last commit, so filing the TODO never removes a
   committed line.
+- Trailing form. Text at the end of a line, from the space before its marker,
+  where the line without it is a line of the last commit, such as
+  `x = 3  # TODO: allow 5`. It has a title only. A block comment's closer has
+  to end the line, and is not part of the title. The file is compared with
+  the last commit as if the text were already gone, so the line counts as
+  committed, and its `above` is the line itself as committed.
 
 Only lines added since the last commit count. git decides what changed, what
 is binary and what is ignored. The last commit's side of a file is read with
@@ -98,9 +105,11 @@ line look changed. Lines are compared without their line endings.
 
 Things that look like bugs and are not:
 
-1. A `TODO:` part way along a line draws a warning and is not read. A TODO
-   at the end of a line of code is a later addition (issue #314), and until
-   then the warning is what keeps it from going unnoticed.
+1. A `TODO:` part way along a line is read only when it and the text after it
+   are all that sets the line apart from a line of the last commit, and
+   otherwise draws a warning. Filing takes that text off and leaves the
+   committed line, so a line whose code changed too would lose the change,
+   and a new line would be left behind.
 
 2. In a markdown file (MARKDOWN_SUFFIXES), a TODO in a code fence or a code
    span is ignored without a warning, so a document can show the syntax. As a
@@ -175,6 +184,14 @@ TODO_RE = re.compile(rb"^([ \t]*)([^A-Za-z0-9\s]*)[ \t]*TODO(?:\(([^()]*)\))?:")
 OPENS_RE = re.compile(rb"^[ \t]*[^A-Za-z0-9\s]*[ \t]*TODO")
 # A line that holds the start of a TODO anywhere along it.
 HOLDS_RE = re.compile(rb"TODO[:(]")
+# A TODO part way along a line: the space and marker before it, then `TODO:`
+# or `TODO(<kind>):`.
+TRAILING_RE = re.compile(rb"[ \t]*([^A-Za-z0-9\s]*)[ \t]*(TODO)(?:\(([^()]*)\))?:")
+# The warning for a TODO part way along a line that is not read.
+UNREAD_PART_WAY = (
+    "a TODO is read at the start of its line, after its indent and comment marker, or at"
+    " its end when the line without it is as the last commit has it"
+)
 # The indent and marker of any line.
 MARKER_RE = re.compile(rb"^([ \t]*)([^A-Za-z0-9\s]*)")
 
@@ -747,29 +764,71 @@ def mask_code_spans(line):
 
 
 class FileScan:
-    """The TODOs and warnings in one file's added lines."""
+    """The TODOs and warnings in one file's added lines.
 
-    def __init__(self, path, lines, added, base_of):
+    `added` and `base_of` are as compare() gives them for the file with each
+    trailing TODO taken off, and `cuts` maps the index of each such line to
+    where its TODO starts.
+    """
+
+    def __init__(self, path, lines, base_lines):
         self.path = path
         self.lines = lines
-        self.added = added
-        self.base_of = base_of
         markdown = path.lower().endswith(MARKDOWN_SUFFIXES)
         self.skip = fenced(lines) if markdown else set()
         self.masked = [mask_code_spans(ln) for ln in lines] if markdown else lines
         self.todos = []
         self.warnings = []
         self.spans = set()
+        self.added, self.base_of = compare(base_lines, lines)
+        self.cuts = {}
+        # Why a line holding a TODO part way along was not read, where the
+        # general reason would not say.
+        self.unread = {}
+        self._trailing(base_lines)
         self._scan()
         for todo in self.todos:
-            todo["above"] = self._above(todo["last"])
+            if todo["first"] - 1 in self.cuts:
+                todo["above"] = self._own(todo["first"] - 1)
+            else:
+                todo["above"] = self._above(todo["last"])
 
     def warn(self, i, reason):
         self.warnings.append("%s:%d: %s" % (self.path, i + 1, reason))
 
+    def _trailing(self, base_lines):
+        """Find the trailing TODOs, and compare the file with the last commit
+        as if they were gone."""
+        committed = set(base_lines)
+        cuts = {}
+        for i in sorted(self.added - self.skip):
+            line = self.masked[i]
+            m = TRAILING_RE.search(line)
+            if OPENS_RE.match(line) or not m:
+                continue
+            closer = next((c for o, c in BLOCK_COMMENTS if o in m.group(1)), None)
+            if closer is not None and not line.rstrip().endswith(closer):
+                self.unread[i] = "a comment holding a TODO at the end of a line has to end it"
+                continue
+            cut = next(
+                (k for k in range(m.start(2), m.start() - 1, -1) if self.lines[i][:k] in committed),
+                None,
+            )
+            if cut is not None:
+                cuts[i] = cut
+        if not cuts:
+            return
+        bare = [ln[: cuts[i]] if i in cuts else ln for i, ln in enumerate(self.lines)]
+        self.added, self.base_of = compare(base_lines, bare)
+        self.cuts = dict((i, cut) for i, cut in cuts.items() if i not in self.added)
+
     def _scan(self):
         i = 0
         while i < len(self.lines):
+            if i in self.cuts:
+                self._read_trailing(i)
+                i += 1
+                continue
             if i not in self.added or i in self.skip:
                 i += 1
                 continue
@@ -784,11 +843,7 @@ class FileScan:
             elif OPENS_RE.match(line):
                 self.warn(i, "the line opens with TODO but not with `TODO:` or `TODO(<kind>):`")
             elif HOLDS_RE.search(line):
-                self.warn(
-                    i,
-                    "a TODO is read only at the start of its line, after its indent and"
-                    " comment marker",
-                )
+                self.warn(i, self.unread.get(i, UNREAD_PART_WAY))
             i += 1
 
     def _read(self, i, m):
@@ -818,6 +873,21 @@ class FileScan:
                 j += 1
         else:
             title, detail, last = rest, [], i
+        self._add(i, last, marker, word, title, detail)
+        return last
+
+    def _read_trailing(self, i):
+        """Read the TODO at the end of line i, whose closer, if it has one,
+        _trailing found ending the line."""
+        m = TRAILING_RE.match(self.masked[i], self.cuts[i])
+        marker, word, rest = m.group(1), m.group(3), self.lines[i][m.end() :]
+        closer = next((c for o, c in BLOCK_COMMENTS if o in marker), None)
+        if closer is not None:
+            rest = rest.rstrip()[: -len(closer)]
+        self._add(i, i, marker, word, rest, [])
+
+    def _add(self, i, last, marker, word, title, detail):
+        """Record the TODO opening line i."""
         kind = None
         if word is not None:
             if decode(word) in KINDS:
@@ -840,7 +910,6 @@ class FileScan:
                 "detail": decode(b"\n".join(d.strip() for d in detail).strip()),
             }
         )
-        return last
 
     def _block(self, i, rest, closer):
         """(title, detail lines, last index) for a block comment, or None."""
@@ -873,13 +942,18 @@ class FileScan:
             return None
         return title, detail, last
 
+    def _own(self, i):
+        """A line, with any trailing TODO taken off, as {line, text, base_line}."""
+        text = decode(self.lines[i][: self.cuts.get(i)])
+        return {"line": i + 1, "text": text, "base_line": self.base_of.get(i)}
+
     def _above(self, last):
         """The line below a TODO's 1-based last line, past blank lines and
         other TODOs, or None at the end of the file."""
         for k in range(last, len(self.lines)):
             if k in self.spans or not self.lines[k].strip():
                 continue
-            return {"line": k + 1, "text": decode(self.lines[k]), "base_line": self.base_of.get(k)}
+            return self._own(k)
         return None
 
 
@@ -910,11 +984,9 @@ class Pending:
         self.base_count = len(base_lines)
         # Whether the last commit's last line had no ending.
         self.base_open_end = bool(base) and not base.endswith(b"\n")
-        lines = split_lines(self.raw)
-        added, base_of = compare(base_lines, lines)
-        self.added = added
-        self.base_of = base_of
-        self.found = FileScan(path, lines, added, base_of)
+        self.found = FileScan(path, split_lines(self.raw), base_lines)
+        self.added = self.found.added
+        self.base_of = self.found.base_of
 
 
 class Scan:
@@ -1000,7 +1072,10 @@ def cmd_scan(args):
             above = t["above"]
             if above:
                 was = "line %d at %s" % (above["base_line"], short) if above["base_line"] else "new"
-                print("    above line %d (%s): %s" % (above["line"], was, above["text"].strip()))
+                place = "at the end of" if above["line"] == t["first"] else "above"
+                print(
+                    "    %s line %d (%s): %s" % (place, above["line"], was, above["text"].strip())
+                )
             if t["similar"]:
                 print("    open issues like it:")
                 for issue in t["similar"]:
@@ -1334,8 +1409,15 @@ class Removal:
 
     def remove(self, first, last):
         """Take out lines first to last, 1-based, and tidy the blank lines
-        around them, as the module docstring says."""
+        around them, as the module docstring says. A trailing TODO's text
+        comes off its line, and the line stays."""
         e = self.entries
+        cut = self.pending.found.cuts.get(first - 1)
+        if cut is not None:
+            text = e[first - 1].text
+            ending = ENDING_RE.search(text)
+            e[first - 1].text = text[:cut] + (ending.group() if ending else b"")
+            return
         del e[first - 1 : last]
         lo = hi = first - 1
         while lo > 0 and e[lo - 1].blank():

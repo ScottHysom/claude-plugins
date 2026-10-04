@@ -45,6 +45,17 @@ A block comment holds its detail inside it:
 and the two JSON lists beside it -->
 ```
 
+A TODO can also go at the end of the line it is about, after the file's
+comment marker. It has a title and no detail:
+
+```python
+retries = 3  # TODO(fix): the vendor allows 5 retries
+```
+
+Claude reads it only when the TODO is all you changed on that line. When it
+is filed, the line goes back to what you last committed. If you changed the
+code on the line too, Claude warns about the TODO and leaves it in place.
+
 Any text file works, whatever its language, because the TODO uses the file's
 own comment syntax, so the file still runs, compiles and renders as before.
 In a markdown file, a TODO inside a code block or a code span is left alone,
