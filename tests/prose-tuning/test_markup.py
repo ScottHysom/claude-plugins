@@ -33,6 +33,20 @@ class DescribeTagScanner:
         assert scanner.errors == []
         assert [n.kind for n in scanner.roots] == ["del"]
 
+    @pytest.mark.spec("scanner-ignores-tags-in-comments")
+    @pytest.mark.parametrize(
+        "comment",
+        [
+            pytest.param("<!-- an unclosed <del> -->", id="block"),
+            pytest.param("<!--\nTODO: explain <del>\n-->", id="multi-line-block"),
+            pytest.param("Prose <!-- a <q>why</q> --> goes on.", id="inline"),
+        ],
+    )
+    def it_leaves_markup_inside_an_html_comment_as_text(self, comment):
+        scanner = scan(comment + "\n\n<del>this one is real</del>\n")
+        assert scanner.errors == []
+        assert [n.kind for n in scanner.all] == ["del"]
+
     @pytest.mark.spec("scanner-pairs-del-and-ins")
     def it_reads_a_bare_del_ins_pair_as_one_replacement(self):
         pairs, _ = scan("<del>a</del><ins>b</ins>\n").pairs()
