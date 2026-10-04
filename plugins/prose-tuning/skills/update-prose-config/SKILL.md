@@ -1,6 +1,6 @@
 ---
 name: update-prose-config
-description: Infer prose and style rules from the uncommitted markdown edits in a project repo and write them into that project's prose-style.md with stable rule ids. Reads explicit ins, del and repl markup and untagged diff hunks through scripts/prose.py, asks the author about anything ambiguous in one batch, then resolves the markup so the working tree is committable. Use when asked to learn the house style from edits just made, to update or set up prose-style.md, to tag passages for a style pass, to turn an editing pass into rules, or to record why a passage was cut. Never commits and never writes outside the project repo.
+description: Infer prose and style rules from the uncommitted markdown edits in a project repo and write them into that project's prose-style.md with stable rule ids. Reads explicit ins, del and repl markup and untagged diff hunks through scripts/prose.py, asks the author about anything ambiguous in one batch, then resolves the markup so the working tree is committable. Use when asked to learn the house style from edits just made, to update or set up prose-style.md, to tag passages for a style pass, to turn an editing pass into rules, to record why a passage was cut, or to take a note on how a passage reads, handed over by the author or another skill. Never commits and never writes outside the project repo.
 ---
 
 # Learn the house prose style from edits already made
@@ -61,7 +61,7 @@ and neither can then be pointed at. Every candidate below is checked against
 this list.
 
 ## Step 3: gather the evidence
-<!-- spec: updateproseconfig-asks-about-signals, updateproseconfig-asks-which-checkout -->
+<!-- spec: updateproseconfig-asks-about-signals, updateproseconfig-asks-which-checkout, updateproseconfig-takes-handed-notes, updateproseconfig-reads-notes-as-whys, updateproseconfig-runs-on-notes-alone -->
 <!-- seam: judgment: the author picks which checkout to carry edits from, or none -->
 
 ```sh
@@ -83,7 +83,8 @@ python3 "$PROSE" carry --from "<root>" --json
 python3 "$PROSE" evidence --json
 ```
 
-If the author picks none, stop. This tree has nothing to learn from.
+If the author picks none and the run was not handed any notes, stop. This
+tree has nothing to learn from.
 
 **`explicit`** is markup the author wrote: an `<ins>`, `<del>` or `<repl>` with
 its `why` and its `<alt>` proposals. The author has already said what they mean.
@@ -94,6 +95,24 @@ prose, not a factual correction. That is the working assumption of this whole
 skill. The escape hatch is the `signal` field: a hunk marked `numeric-only`,
 `link-only` or `whitespace-only` may be a fact that got fixed in passing. Those
 go into the interview, never straight into a rule.
+
+**A note handed to the run** comes from the author, or from another skill
+through the Skill tool. Each one gives the note, and the passage it sat above:
+its file, its lines, its text, and which of those lines changed since the last
+commit. A note that does not say which lines changed takes them from the
+`inferred` records whose `file`, `start` and `end` cover the passage.
+
+- **On a passage that has not changed**, take the note as an `<alt>` on that
+  passage: a proposed rule, with the passage as its evidence. Do not write it
+  into the document as markup, and do not rewrite the passage. `apply-prose`
+  rewrites it once the rule is written.
+- **On a passage that has changed**, take the note as the `why` of the
+  `inferred` records in its lines. The rule comes from what the diff changed,
+  with the note as its commentary.
+
+When `evidence` does not find any pending edit, markup or question, and the run
+was handed notes, carry on with the notes alone. Steps 5 and 8 then have
+nothing to do.
 
 **`evidence` computes a tag-neutral diff**, which is why it can tell the two
 apart at all. A plain `git diff` on a tagged tree reports this skill's own
@@ -115,7 +134,8 @@ or `prose-style.md` changed. If something must be edited first, re-run
 A candidate becomes a rule when one of these holds:
 
 - it occurs **two or more times** independently, or
-- the author attached a `why` or an `<alt>` to it, or
+- the author attached a `why` or an `<alt>` to it, which a note handed to the
+  run counts as when it states a rule, or
 - an answered `<q>` settles it.
 
 Anything else becomes a question, not a rule. A rule inferred from one sentence
@@ -164,7 +184,7 @@ argue with a refusal; give it whole lines instead. Question ids are assigned by
 the script, never by hand.
 
 ## Step 6: the interview, once
-<!-- spec: updateproseconfig-asks-in-one-batch -->
+<!-- spec: updateproseconfig-asks-in-one-batch, updateproseconfig-asks-about-vague-notes -->
 
 <!-- no-command: judgment. The author answers one batch of questions. -->
 
@@ -176,13 +196,15 @@ What always belongs in the batch:
 - every hunk with a `signal`, asked as one question, not one question each
 - every single-occurrence candidate with no commentary
 - every candidate that touches a subject an existing rule already covers
+- every note on an unchanged passage that does not state a rule, such as one
+  that says the passage reads badly without saying what makes it so
 
 The in-file route is for an author working asynchronously: this skill writes
 `<q>` into the documents, the author answers with `<a>`, and `evidence` reports
 answers from either channel. Prefer the batch when the author is present.
 
 ## Step 7: write the rules
-<!-- spec: updateproseconfig-writes-through-cmd -->
+<!-- spec: updateproseconfig-writes-through-cmd, updateproseconfig-writes-note-examples -->
 
 Name each rule. The name is one to four words saying what the rule means, and
 there is nothing to allocate. A name that reads as a near-duplicate of one
@@ -190,7 +212,10 @@ already in the file usually is one, and the fix is to rewrite that rule rather
 than add a second under a name split finely enough to be free.
 
 Every rule carries a worked before-and-after taken from the actual edit,
-because that example is the rule's provenance as well as its explanation.
+because that example is the rule's provenance as well as its explanation. A
+rule from a note on an unchanged passage has no edit to take it from. Its
+Before is a line of that passage as it stands, and its After is that line
+rewritten to follow the rule, which the author approves with the rule.
 
 **Decide whether the rule gets a pattern.** "When a rule gets a pattern", in
 `$ROOT/reference/prose-style-format.md`, says which rules do. For each one
