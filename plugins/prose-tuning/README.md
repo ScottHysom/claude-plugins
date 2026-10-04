@@ -98,6 +98,13 @@ worktree, Claude finds your edits there. It asks before copying them into its
 own copy and writes the rules beside them. Your original edits stay where you
 made them, for you to discard once the rules are committed.
 
+You can also hand Claude a note on how a passage reads, yourself or through
+another skill that collects such notes. A note on a passage you have not
+changed becomes a proposed rule for it, and Claude asks about it if the note
+does not say what the rule is. The passage itself is rewritten later, when you
+check your documents. A note on a passage you rewrote is taken as the reason
+for your edit, and the rule comes from what you changed.
+
 Where an edit needs explaining, say so in the document itself:
 
 ```

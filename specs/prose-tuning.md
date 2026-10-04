@@ -594,6 +594,33 @@ together.
   edits, update-prose-config's hand-off names the checkout and branch that
   still hold the original edits, and leaves discarding them to the user.
 
+## need user-teaches-by-noting: Teach the style by noting a passage
+
+When the author, or a skill acting for them, hands update-prose-config a note
+on a passage, they want the note taken as a proposed rule for the passage, or,
+when the author has rewritten the passage in place, as the reason for that
+edit, so a style point noted during a review reaches prose-style.md.
+
+Source: #316, which records the owner's rulings, and CLAUDE.md, under "A
+plugin knows only itself", for the hand-off convention.
+
+- `updateproseconfig-takes-handed-notes` (step): When update-prose-config is
+  handed a note on a passage that has not changed since the last commit, it
+  takes the note as it takes an `<alt>` on that passage, without writing
+  markup into the document.
+- `updateproseconfig-reads-notes-as-whys` (step): When update-prose-config is
+  handed a note on a passage that has changed since the last commit, it takes
+  the note as the `why` of those changes.
+- `updateproseconfig-asks-about-vague-notes` (step): When a note on an
+  unchanged passage does not state a rule, update-prose-config asks about it
+  in the interview.
+- `updateproseconfig-runs-on-notes-alone` (step): When update-prose-config is
+  handed notes and `evidence` does not find a pending edit, it writes the
+  rules the notes settle rather than stopping.
+- `updateproseconfig-writes-note-examples` (step): When a rule comes from a
+  note on an unchanged passage, update-prose-config writes its worked example
+  from that passage.
+
 ## constraint shell-starts-fresh: Each shell call starts without the last one's variables
 
 Each Bash call in Claude Code, and each `device_bash` call on Cowork, starts a
