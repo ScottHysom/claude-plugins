@@ -64,6 +64,12 @@ so a document can show the syntax.
 Only TODOs you have added since your last commit count. A TODO already
 committed stays where it is.
 
+Claude may work in a separate copy of your project, which the Claude desktop
+app makes for each session. When that copy does not hold any TODOs and the
+folder you review in does, Claude names the folder, with its branch and files,
+and asks whether to collect them from there. Their issues are filed the same
+way, and the TODOs come out of the files in that folder.
+
 ## Filing them
 
 Ask Claude to file your TODOs. Claude:

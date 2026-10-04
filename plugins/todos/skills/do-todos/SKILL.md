@@ -34,7 +34,8 @@ TODOS=.todos/todos.py && python3 "$TODOS" scan --json
 ```
 
 ## Step 1: gather the TODOs
-<!-- spec: dotodos-reads-todos-from-scan -->
+<!-- spec: dotodos-reads-todos-from-scan, dotodos-asks-which-checkout -->
+<!-- seam: judgment: the author picks which checkout to collect TODOs from, or none -->
 
 ```sh
 TODOS=.todos/todos.py && python3 "$TODOS" scan --json
@@ -48,7 +49,22 @@ title, each with its `number`, `title` and `url`. `data.labels` lists the
 labels of `data.repository`, the repository the issues would go to. Each warning names a line that looks like a
 TODO and was not read, and why.
 
-When `data.todos` is empty, tell the author, with any warnings, and stop.
+**When `data.other_worktrees` is not empty,** this tree does not hold any
+TODO and another checkout of the repo does. Put one `AskUserQuestion` to the
+author, with an option for each entry giving its `root`, `branch` and
+`files`, and an option to collect none. Ask even when there is only one
+entry, because filing removes the TODOs from that checkout. On a pick, scan
+that one:
+
+```sh
+TODOS=.todos/todos.py && python3 "$TODOS" scan --from "<root>" --json
+```
+
+Pass the same `--from "<root>"` to `report` and `file` in step 4. If the
+author picks none, stop.
+
+When `data.todos` is empty and `data.other_worktrees` is too, tell the author,
+with any warnings, and stop.
 
 **Never search the files for TODOs with a command of your own,** such as
 `grep`. `scan` reads only the lines added since the last commit, and skips
@@ -135,6 +151,9 @@ author wants left in place does not get a draft.
 TODOS=.todos/todos.py && python3 "$TODOS" report --drafts "${TMPDIR:-/tmp}/todo-drafts.json"
 ```
 
+Add `--from "<root>"` to `report` and `file` when step 1 collected from
+another checkout.
+
 `report` names the repository the issues go to, then prints each draft whole,
 the TODOs left in place, and `scan`'s warnings. Show the author that output as
 it stands. Never retype it into a table of your own, because the author then
@@ -167,7 +186,8 @@ Tell the author:
 
 - each issue filed, with its number and address, from `file`'s output;
 - each comment posted, with its issue's number and the comment's address;
-- each file changed, which is each file a filed or posted TODO came from;
+- each file changed, which is each file a filed or posted TODO came from,
+  and the checkout it is in when step 1 collected from another;
 - each TODO left in place: the ones without a draft in step 4's report, and
   any `file` lists as not filed.
 
