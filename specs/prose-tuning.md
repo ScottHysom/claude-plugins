@@ -137,6 +137,8 @@ description.
   file and line.
 - `scanner-ignores-tags-in-code` (test): When a tag sits inside a code fence
   or a code span, the scanner reads it as prose.
+- `scanner-ignores-tags-in-comments` (test): When a tag sits inside an HTML
+  comment, the scanner does not read it as markup.
 - `scanner-pairs-del-and-ins` (test): When a `<del>` is followed directly by an
   `<ins>`, the scanner and `evidence` read the pair as one replacement.
 - `resolve-cmd-accepts-edits` (test): When `tags resolve` runs, `<ins>`
