@@ -131,6 +131,19 @@ class TodoRepo:
         out.update(fields)
         return out
 
+    @staticmethod
+    def skill(todo, skill="example:learn-prose-rules", **fields):
+        """A draft routing a TODO, as scan gave it, to a skill."""
+        out = {
+            "file": todo["file"],
+            "line": todo["first"],
+            "text": todo["text"],
+            "route": "skill",
+            "skill": skill,
+        }
+        out.update(fields)
+        return out
+
     def drafts(self, drafts):
         """Write drafts to a file outside the clone, and return its path."""
         path = self.root.parent / "drafts.json"

@@ -258,7 +258,7 @@ class DescribeRefusals:
             del draft["route"]
         (error,) = self.refused(two, [draft])
         assert error.startswith("draft 1 has route ")
-        assert error.endswith("and the routes are `issue` and `comment`")
+        assert error.endswith("and the routes are `issue`, `comment` and `skill`")
 
     def it_names_each_missing_and_unknown_key(self, two):
         found, _ = two.scan()

@@ -81,18 +81,27 @@ Ask Claude to file your TODOs. Claude:
 3. Drafts an issue for each, following your project's own rules for issues
    and using only labels your repository has. When an open issue already
    covers a TODO, Claude drafts a comment on that issue instead, so the
-   problem keeps one issue.
-4. Shows you the repository the issues will go to, every draft in full, and
-   the TODOs that will stay. You approve all of them, some, or none.
+   problem keeps one issue. When a skill you have installed is made for the
+   work a TODO asks for, Claude routes the TODO to that skill instead.
+4. Shows you the repository the issues will go to, every draft in full, with
+   where each goes, and the TODOs that will stay. You approve all of them,
+   some, or none.
 5. Files the issues and posts the comments you approved, and removes each
    TODO once its issue or comment exists.
+6. Tells you what it filed and what it will hand on, then hands each TODO
+   routed to a skill to that skill, with the passage the TODO sat above.
+
+A `TODO(prose):` in a markdown file goes to an installed skill that learns
+prose rules, when you have one, so the note becomes a rule for how your
+documents read. A `TODO(docs):` is a change to what a document says, and
+always becomes an issue.
 
 Nothing reaches GitHub before you approve. If anything changes between the
 report and the filing, Claude shows you a fresh report first.
 
 ## What it changes
 
-Each TODO that is filed or posted comes out of its file, with the blank lines you added
+Each TODO that is filed, posted or handed on comes out of its file, with the blank lines you added
 around it. A file whose only changes were TODOs goes back to exactly what it
 was at your last commit. Nothing else in your files changes.
 

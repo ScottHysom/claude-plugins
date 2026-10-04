@@ -1,6 +1,6 @@
 ---
 name: do-todos
-description: File the TODO comments left in a project's uncommitted changes as GitHub issues, or as comments on open issues that already cover them, and take each one out of its file. Claude Code only. Uses scripts/todos.py to find every TODO added since the last commit, in any text file and any comment syntax, with the open issues like each, to check the drafts against the files, the issues and the repository's labels, and to file them through gh once the author approves the report. Asks about every TODO that says too little in one round, before drafting. Use when asked to file the TODOs, turn TODO comments into issues, collect the notes left during a review, or clear the TODOs out of a change. Never commits.
+description: File the TODO comments left in a project's uncommitted changes as GitHub issues, or as comments on open issues that already cover them, or hand each to an installed skill made for its work, and take each one out of its file. Claude Code only. Uses scripts/todos.py to find every TODO added since the last commit, in any text file and any comment syntax, with the open issues like each, to check the drafts against the files, the issues and the repository's labels, and to file them through gh once the author approves the report. Asks about every TODO that says too little in one round, before drafting. Use when asked to file the TODOs, turn TODO comments into issues, collect the notes left during a review, or clear the TODOs out of a change. Never commits.
 ---
 
 # File the TODOs as issues
@@ -8,9 +8,10 @@ description: File the TODO comments left in a project's uncommitted changes as G
 A TODO is a note the author left in a file while reviewing it: a line that
 opens, after its indent and the file's comment marker, with `TODO:` or with a
 kind word, as in `TODO(bug):`. This skill drafts an issue for each, or a
-comment on an open issue that already covers it, shows the author every draft,
-files the ones approved, and removes each TODO from its file once its issue or
-comment exists.
+comment on an open issue that already covers it, or routes it to an installed
+skill made for its work. It shows the author every draft, files the ones
+approved, removes each TODO from its file once its issue or comment exists or
+its route is settled, and hands the routed ones on last.
 
 ## Locate the script
 
@@ -95,7 +96,7 @@ Ask nothing when every TODO is clear. Never ask one TODO at a time, and never
 ask again after drafting starts.
 
 ## Step 3: route and draft
-<!-- spec: dotodos-follows-project-rules, dotodos-follows-todo-kind, dotodos-reuses-open-issues -->
+<!-- spec: dotodos-follows-project-rules, dotodos-follows-todo-kind, dotodos-reuses-open-issues, dotodos-passes-todos-to-skills, dotodos-withholds-facts-from-prose -->
 
 <!-- no-command: judgment. The model writes each draft, and step 4's report checks them. -->
 
@@ -119,6 +120,22 @@ Title the problem, not the fix, unless the project's rules say otherwise. Put
 the TODO's detail and the author's answers in the body, with the file and line
 it was left at.
 
+Route a TODO to an installed skill, rather than drafting an issue, when the
+skill exists to do the work it asks for. The installed skills are the ones
+this session lists, and a skill's description says what it is for:
+
+- A `prose` TODO in a markdown file goes to a skill that learns prose rules
+  from edits and notes, when one is installed.
+- Any other TODO goes to a skill only when that skill's description covers
+  the work the TODO asks for.
+- A `docs` TODO, or any TODO that asks to change what a document says, such
+  as a wrong fact, a stale name or a missing step, becomes an issue. Never
+  route it to a prose skill, even when it sits in markdown.
+- Everything else becomes an issue.
+
+A routed TODO takes the route `skill`, with `skill`, the skill's name as the
+Skill tool takes it, and nothing else.
+
 When an open issue already covers a TODO, from its `similar` or the author's
 answer in step 2, route the TODO to `comment` on that issue rather than
 drafting a new one. Write the comment's body as what the TODO adds to the
@@ -133,13 +150,16 @@ cat > "${TMPDIR:-/tmp}/todo-drafts.json" <<'END'
   "route": "issue", "title": "<the title>", "body": "<the body>",
   "labels": ["bug"]},
  {"file": "src/run.py", "line": 30, "text": "# TODO: retry on 502",
-  "route": "comment", "issue": 7, "body": "<the comment>"}]
+  "route": "comment", "issue": 7, "body": "<the comment>"},
+ {"file": "README.md", "line": 4, "text": "<!-- TODO(prose): too long -->",
+  "route": "skill", "skill": "<the skill's name>"}]
 END
 ```
 
 `file`, `line` and `text` are the TODO's `file`, `first` and `text` from
 step 1, copied exactly. `route` is `issue`, with `title`, `body` and `labels`,
-or `comment`, with `issue`, the open issue's number, and `body`. A TODO the
+`comment`, with `issue`, the open issue's number, and `body`, or `skill`, with
+`skill`. A TODO the
 author wants left in place does not get a draft.
 
 ## Step 4: report, approve, file
@@ -154,8 +174,9 @@ TODOS=.todos/todos.py && python3 "$TODOS" report --drafts "${TMPDIR:-/tmp}/todo-
 Add `--from "<root>"` to `report` and `file` when step 1 collected from
 another checkout.
 
-`report` names the repository the issues go to, then prints each draft whole,
-the TODOs left in place, and `scan`'s warnings. Show the author that output as
+`report` names the repository the issues go to, then prints each draft whole
+with its route, the skill each routed TODO goes to, the TODOs left in place,
+and `scan`'s warnings. Show the author that output as
 it stands. Never retype it into a table of your own, because the author then
 approves a text that `file` never sees. Its last line, printed only when it
 exits 0, is the approval token, such as `approval token: 3f9a1c0e7b2d4a68`.
@@ -177,8 +198,8 @@ issue or comment is one call to GitHub. `file` refuses a token when the drafts, 
 they name, the last commit or the repository has changed since that report,
 and then files nothing. Run `report` again and show it to the author.
 
-## Step 5: report and stop
-<!-- spec: dotodos-never-commits -->
+## Step 5: report
+<!-- spec: dotodos-never-commits, dotodos-reports-before-handoffs -->
 
 <!-- no-command: hand-off to the author. The output of file in step 4 is the report. -->
 
@@ -186,6 +207,8 @@ Tell the author:
 
 - each issue filed, with its number and address, from `file`'s output;
 - each comment posted, with its issue's number and the comment's address;
+- each note to be handed off, from `data.handoffs`: its title and the skill
+  it goes to;
 - each file changed, which is each file a filed or posted TODO came from,
   and the checkout it is in when step 1 collected from another;
 - each TODO left in place: the ones without a draft in step 4's report, and
@@ -197,3 +220,27 @@ there.
 
 Leave the working tree as it is. **Never commit.** The author reviews the
 changes and commits them the project's usual way.
+
+Give this report before step 6, since the skill it hands to may end the
+session's work when it stops. When `data.handoffs` is empty, stop here.
+
+## Step 6: hand off
+<!-- spec: dotodos-invokes-each-skill-once -->
+
+<!-- no-command: platform. The model invokes each skill through the Skill tool. -->
+
+As the last act of the run, invoke each skill in `data.handoffs` once, through
+the Skill tool, with every TODO routed to it. For each TODO, the arguments
+give:
+
+- the note: its `title` and `detail`;
+- the passage it sat above, from its `passage`: the `file`, the lines `first`
+  to `last`, the `text`, and the lines in `changed`, which changed since the
+  last commit, or that none did.
+
+A TODO whose `passage` is null sat at the end of its file. Hand it on with
+the file alone, and say that it did not sit above a passage.
+
+When step 1 collected from another checkout, say in the arguments that each
+passage was read there, and give its text, so the skill works in this
+session's tree.
