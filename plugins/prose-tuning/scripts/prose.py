@@ -1334,9 +1334,11 @@ class Blocks:
         return out
 
     def shielded_offsets(self):
-        """Everything the tag scanner must ignore: fences, front matter, spans."""
+        """Everything the tag scanner must ignore: fences, front matter, code
+        spans and HTML comments. A comment is where an author writes about the
+        markup, so a `<del>` there is a mention, not an edit."""
         fences = self.protected_offsets()
-        return fences + self.code_span_offsets(fences)
+        return fences + self.code_span_offsets(fences) + self.comments
 
     def protected_offsets(self):
         """[(start, end)] absolute ranges of front matter and fenced blocks."""
