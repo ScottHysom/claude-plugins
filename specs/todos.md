@@ -17,6 +17,8 @@ requirements.
   remote.
 - Writing another plugin's files or markup. A TODO reaches another plugin only
   through that plugin's skill.
+- TODOs in a separate clone of the repo. Git lists only the worktrees of the
+  repository it is run in.
 
 ## need user-leaves-todos-for-filing: Leave a TODO where the work is found
 
@@ -33,7 +35,7 @@ Source: #311, which quotes the owner's request.
   renames, and every line of a regular file git neither tracks nor ignores,
   and nothing else.
 - `scan-cmd-reports-nothing-pending` (test): When `scan` does not find a
-  pending TODO, it says so and exits 0.
+  pending TODO, and does not name another worktree, it says so and exits 0.
 - `scan-cmd-locates-each-todo` (test): When `scan` reports a TODO, it gives
   its file, its first and last line, the line it sits above with that line's
   text and its number at the last commit when it has one, and the last
@@ -76,6 +78,30 @@ Source: #311, which quotes the owner's request.
 - `dotodos-follows-project-rules` (step): When do-todos drafts an issue, it
   follows the project's own rules for issues, from its CLAUDE.md and its
   issue templates, and takes labels only from the list `scan` gives.
+
+## need user-collects-from-other-checkout: Collect TODOs left in another checkout
+
+When the user has left TODOs in one checkout of the repo and runs the skill
+from a session in another, such as a worktree the desktop app made, they want
+the skill to find those TODOs, file them and take them out where they are, so
+they can review wherever they review.
+
+Source: #315, and #301, which found the same split for update-prose-config.
+
+- `scan-cmd-names-other-worktrees` (test): When this tree does not hold any
+  pending TODO and another worktree of the repo does, `scan` names each such
+  worktree with its branch and files, and exits 1 naming `scan --from` with
+  its path.
+- `command-reads-other-worktree` (test): When `scan`, `report` or `file` is
+  given `--from` with another worktree of this repo, it reads that worktree's
+  TODOs.
+- `file-cmd-removes-from-other-worktree` (test): When `file` is given
+  `--from`, it removes the finished TODOs from that worktree's files.
+- `command-refuses-unknown-worktree` (test): When `--from` is not another
+  worktree of this repo, the command names it and exits 2.
+- `dotodos-asks-which-checkout` (step): When `scan` names other worktrees,
+  do-todos asks the author in one `AskUserQuestion` which to collect from, if
+  any, and runs `scan --from` with the one picked.
 
 ## need user-keeps-files-working: Keep a file with TODOs working
 
@@ -254,6 +280,24 @@ Source: CLAUDE.md, under "A shell variable lasts one command".
 - `setup-cmd-copies-locally` (test): When `setup` runs, it copies the script
   byte for byte into `.todos/`, and gives the prefix `TODOS=.todos/todos.py`,
   which reaches the copy from the project root.
+
+## constraint bash-writes-other-checkout: A script run through Bash can write another checkout
+
+A script that a session in a worktree the desktop app made runs through Bash
+can open a tracked file in the repo's main checkout, outside `.claude/`, for
+writing. So `file --from` removes the TODOs in the checkout where they were
+left.
+
+The probe ran Bash without Claude Code's sandbox. It did not test a session
+with the sandbox turned on, which limits writes to the working directory. If
+the sandbox refuses the open, `file-cmd-checks-writes-first` stops `file`
+before it files anything.
+
+Source: #315. The probe ran on 2026-10-03 from
+`.claude/worktrees/issue-143-86e92f`, with the main checkout on
+`scott/prose-changes`. It opened the main checkout's `README.md` with
+`open(path, "r+b")` and closed it, writing nothing. The session's shell ran as
+a child of `claude` itself, without `sandbox-exec`.
 
 ## constraint github-keeps-filed-issues: A filed issue cannot be counted on to come back
 

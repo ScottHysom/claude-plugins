@@ -20,6 +20,12 @@ Commands:
             print them whole, ending with an approval token
     file    file or post each draft that report showed, and remove its TODO
 
+scan, report and file take --from with another worktree of the repository,
+and read that worktree's TODOs instead of this tree's. file then removes them
+there. When this tree does not hold a pending TODO and another worktree does,
+scan names each such worktree and exits 1, so a session opened in a fresh
+worktree still finds the TODOs left in the checkout where the author reviews.
+
 Exit codes: 0 clean, 1 ran and found problems, 2 could not run.
 
 Drafts. `--drafts` names a file holding a JSON array, one object per TODO to
@@ -114,8 +120,9 @@ Things that look like bugs and are not:
 6. A byte-order mark at the start of a file is not part of its first line,
    so it is not read as a comment marker.
 
-Only `setup` and `file` write, and only in the working tree: `setup` its copy
-in .todos/, and `file` the files whose TODOs it removes. Nothing writes to
+Only `setup` and `file` write, and only in a working tree: `setup` its copy
+in .todos/, and `file` the files whose TODOs it removes, in the worktree
+--from names when it is given. Nothing writes to
 git, and every git call passes --no-optional-locks so that even git's own
 index refresh is skipped.
 
@@ -128,6 +135,7 @@ import hashlib
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 
@@ -153,6 +161,13 @@ BLOCK_COMMENTS = ((b"<!--", b"-->"), (b"/*", b"*/"))
 BINARY_NUMSTAT = b"-\t-\t"
 
 NULL_PATH = "/dev/null"
+
+# The lines of `git worktree list --porcelain` that the script reads.
+WORKTREE_LINE = "worktree "
+BRANCH_LINE = "branch refs/heads/"
+BARE_LINE = "bare"
+# The command scan names when another worktree holds the pending TODOs.
+FROM_COMMAND = "scan --from %s"
 
 # A TODO: indent, marker, then `TODO:` or `TODO(<kind>):`.
 TODO_RE = re.compile(rb"^([ \t]*)([^A-Za-z0-9\s]*)[ \t]*TODO(?:\(([^()]*)\))?:")
@@ -384,6 +399,42 @@ class Repo:
         """Whether git reads an untracked file as binary."""
         out = self.git("diff", "--no-index", "-z", "--numstat", "--", NULL_PATH, path, codes=(0, 1))
         return out.startswith(BINARY_NUMSTAT)
+
+    def worktrees(self):
+        """[(root, branch)] for every other worktree of this repository.
+
+        branch is None for a detached HEAD. A bare repository has no tree,
+        and a worktree whose folder is gone has nothing to read, so neither
+        is listed.
+        """
+        trees = []
+        for line in os.fsdecode(self.git("worktree", "list", "--porcelain")).splitlines():
+            if line.startswith(WORKTREE_LINE):
+                trees.append({"root": line[len(WORKTREE_LINE) :], "branch": None, "bare": False})
+            elif trees and line.startswith(BRANCH_LINE):
+                trees[-1]["branch"] = line[len(BRANCH_LINE) :]
+            elif trees and line == BARE_LINE:
+                trees[-1]["bare"] = True
+        here = os.path.realpath(self.root)
+        return [
+            (t["root"], t["branch"])
+            for t in trees
+            if not t["bare"] and os.path.realpath(t["root"]) != here and os.path.isdir(t["root"])
+        ]
+
+
+def open_tree(args):
+    """The tree a command reads: this one, or the worktree --from names."""
+    repo = Repo(args.repo)
+    if args.source is None:
+        return repo
+    source = os.path.realpath(args.source)
+    if source not in set(os.path.realpath(root) for root, _ in repo.worktrees()):
+        raise Fatal(
+            "%s is not another worktree of this repository. `git worktree list` names them"
+            % args.source
+        )
+    return Repo(source)
 
 
 # --------------------------------------------------------------------------
@@ -897,10 +948,34 @@ def print_labels(github, labels):
         print(("  %s  %s" % (label["name"], label["description"])).rstrip())
 
 
+def other_pending(repo):
+    """[{root, branch, files}] for each other worktree holding pending TODOs."""
+    out = []
+    for root, branch in repo.worktrees():
+        files = sorted(set(t["file"] for t in Scan(Repo(root)).todos))
+        if files:
+            out.append({"root": root, "branch": branch, "files": files})
+    return out
+
+
 def cmd_scan(args):
-    repo = Repo(args.repo)
+    repo = open_tree(args)
     found = Scan(repo)
     todos = found.todos
+    # A tree without a TODO may be a fresh worktree, opened while the
+    # author's TODOs sit in another checkout of the same repository.
+    elsewhere = other_pending(repo) if not todos and args.source is None else []
+    errors = [
+        "this tree does not hold any pending TODO, and %s%s holds TODOs in %s. Ask the author"
+        " whether to collect them, then run `%s`, and pass the same --from to report and file"
+        % (
+            tree["root"],
+            ", on %s," % tree["branch"] if tree["branch"] else "",
+            ", ".join(tree["files"]),
+            FROM_COMMAND % shlex.quote(tree["root"]),
+        )
+        for tree in elsewhere
+    ]
     github = GitHub(repo)
     labels = github.labels()
     for todo, similar in zip(todos, github.similar([t["title"] for t in todos])):
@@ -935,8 +1010,14 @@ def cmd_scan(args):
             % (short, "on a remote branch" if commit["on_remote"] else "not on any remote branch")
         )
 
-    data = {"commit": commit, "repository": github.name, "labels": labels, "todos": todos}
-    return emit(args, "scan", data, warnings=found.warnings, human=human)
+    data = {
+        "commit": commit,
+        "repository": github.name,
+        "labels": labels,
+        "todos": todos,
+        "other_worktrees": elsewhere,
+    }
+    return emit(args, "scan", data, errors=errors, warnings=found.warnings, human=human)
 
 
 # --------------------------------------------------------------------------
@@ -1180,7 +1261,7 @@ def print_draft(row):
 
 def cmd_report(args):
     """The drafts as the author approves them, read against the files now."""
-    repo = Repo(args.repo)
+    repo = open_tree(args)
     raw, drafts = read_drafts(args.drafts)
     github = GitHub(repo)
     labels = github.labels()
@@ -1298,7 +1379,7 @@ def writable(repo, rel):
 
 
 def cmd_file(args):
-    repo = Repo(args.repo)
+    repo = open_tree(args)
     raw, drafts = read_drafts(args.drafts)
     github = GitHub(repo)
     data = {"repository": github.name, "filed": [], "left": [], "dry_run": args.dry_run}
@@ -1385,6 +1466,13 @@ def build_parser():
     drafts.add_argument(
         "--drafts", required=True, metavar="FILE", help="the JSON file of drafts to check"
     )
+    source = argparse.ArgumentParser(add_help=False)
+    source.add_argument(
+        "--from",
+        dest="source",
+        metavar="PATH",
+        help="read the TODOs of another worktree of this repository instead",
+    )
 
     p = sub.add_parser(
         "setup",
@@ -1395,7 +1483,7 @@ def build_parser():
 
     p = sub.add_parser(
         "scan",
-        parents=[common],
+        parents=[common, source],
         help=(
             "list the TODOs in the changes since the last commit, the open issues like each,"
             " and the repository's labels"
@@ -1405,7 +1493,7 @@ def build_parser():
 
     p = sub.add_parser(
         "report",
-        parents=[common, drafts],
+        parents=[common, drafts, source],
         help="check the drafts against the files now, and print them with an approval token",
         epilog=DRAFTS_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -1414,7 +1502,7 @@ def build_parser():
 
     p = sub.add_parser(
         "file",
-        parents=[common, drafts, dry_run],
+        parents=[common, drafts, dry_run, source],
         help="file or post each draft report showed, and remove its TODO",
         epilog=DRAFTS_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,

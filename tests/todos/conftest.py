@@ -327,6 +327,24 @@ def bare_repo(tmp_path, capsys):
     return TodoRepo(root, capsys)
 
 
+# The branch the worktree fixture checks out.
+WORKTREE_BRANCH = "review"
+
+
+@pytest.fixture
+def worktree(repo, tmp_path, capsys):
+    """A second worktree of the repo, on WORKTREE_BRANCH, with nothing pending."""
+    root = tmp_path / "other"
+    repo.git("worktree", "add", "-q", "-b", WORKTREE_BRANCH, str(root))
+    return TodoRepo(root, capsys)
+
+
+@pytest.fixture
+def todo_repo(capsys):
+    """A TodoRepo for a working tree a test made some other way."""
+    return lambda root: TodoRepo(root, capsys)
+
+
 @pytest.fixture
 def git_init():
     """`git init` at a path, for a test that needs a second repository."""

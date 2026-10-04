@@ -31,6 +31,22 @@ added and removed that turn one into the other. A committed line then never
 reads as added, even where the file repeats it, which Python's difflib does
 not promise.
 
+## TODOs in another checkout
+
+The owner reviews in the main checkout, on a branch of their own, while the
+desktop app opens each Claude Code session in a worktree of its own. #301
+found the same split for prose-tuning's update-prose-config. When this tree
+does not hold a TODO, `scan` scans every other worktree that `git worktree
+list` names, and exits 1 naming each one that holds TODOs. `--from` then
+points `scan`, `report` and `file` at that worktree, so the TODOs are filed
+and removed where the author left them.
+
+prose-tuning's `carry` copies the edits into the session's tree, because
+Claude Code refuses a worktree session's edits to the main checkout's
+`.claude/`. A TODO can sit in any file, and the probe recorded under
+`constraint bash-writes-other-checkout` in `specs/todos.md` found that a
+script run through Bash can open one there for writing. So nothing is carried.
+
 ## Why a script
 
 The model drafts each issue and decides what to ask the author. The script
