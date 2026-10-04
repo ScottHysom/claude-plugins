@@ -55,6 +55,8 @@ rule are the owner's figure, in the ruling on #132.
 - `evidence-cmd-marks-hunk-signals` (test): When an inferred hunk changed
   only numbers, only link targets or only whitespace, `evidence` marks it
   `numeric-only`, `link-only` or `whitespace-only`.
+- `evidence-cmd-skips-comment-hunks` (test): When an inferred hunk changed
+  only HTML comments, `evidence` leaves it out.
 - `updateproseconfig-asks-about-signals` (step): When a hunk carries a signal,
   update-prose-config takes it to the interview and never straight into a
   rule.
@@ -66,6 +68,8 @@ rule are the owner's figure, in the ruling on #132.
   reports each edit since the last commit as reproduced when a rule's pattern,
   run over the file as it was at the last commit, matches text the edit
   changed. A pure insertion is never reproduced.
+- `reproduce-cmd-skips-comment-edits` (test): When an edit changed only HTML
+  comments, `reproduce` leaves it out.
 - `reproduce-cmd-lists-unpatterned-rules` (test): When `reproduce` runs,
   it lists by id every rule with no pattern.
 - `reproduce-cmd-refuses-unlinted-rules` (test): When `prose-style.md`

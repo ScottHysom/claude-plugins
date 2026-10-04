@@ -130,6 +130,36 @@ class DescribeInferredEdits:
         )
         assert [h["start"] for h in self.inferred(prose_repo)] == [21]
 
+    @pytest.mark.spec("evidence-cmd-skips-comment-hunks")
+    @pytest.mark.parametrize(
+        ("index", "line"),
+        [
+            pytest.param(None, "<!-- spec: some-requirement -->", id="own-line"),
+            pytest.param(19, "Final <!-- FILL: say more --> paragraph.", id="inline"),
+            pytest.param(None, "<!-- a note\n     over two lines -->", id="multi-line"),
+            pytest.param(22, "A different note for the next editor.", id="inside-comment"),
+        ],
+    )
+    def it_leaves_out_a_hunk_that_changed_only_comments(self, prose_repo, target, index, line):
+        """The edit to line 8 stays, so a hunk that went missing for some
+        other reason does not pass for one left out.
+        """
+        prose_repo.commit()
+        changes = {7: "used for something real."}
+        if index is None:
+            self.edit(prose_repo, target, changes, insert_at=12, inserted="\n" + line)
+        else:
+            self.edit(prose_repo, target, {**changes, index: line})
+        assert [h["start"] for h in self.inferred(prose_repo)] == [8]
+
+    @pytest.mark.spec("evidence-cmd-skips-comment-hunks")
+    def it_reports_a_hunk_that_changed_prose_beside_a_comment(self, prose_repo, target):
+        prose_repo.commit()
+        self.edit(prose_repo, target, {19: "Final <!-- FILL: say more --> words."})
+        assert [h["new_lines"] for h in self.inferred(prose_repo)] == [
+            ["Final <!-- FILL: say more --> words."]
+        ]
+
 
 def evidence(prose_repo, body):
     """Commit the conftest's target, write body in its place, and run evidence."""

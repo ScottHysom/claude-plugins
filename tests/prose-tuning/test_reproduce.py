@@ -93,6 +93,12 @@ class DescribeReproduce:
         [edit] = data["edits"]
         assert (edit["change"], edit["reproduced"]) == ("insert", False)
 
+    @pytest.mark.spec("reproduce-cmd-skips-comment-edits")
+    def it_leaves_out_an_edit_that_changed_only_comments(self, prose_repo):
+        after = BEFORE.replace("It keeps", "The rule keeps") + "\n<!-- spec: a-requirement -->\n"
+        data = reproduce(prose_repo, after.replace("check the", "check <!-- why? --> the"))
+        assert [e["start"] for e in data["edits"]] == [5]
+
     @pytest.mark.spec("reproduce-cmd-lists-unpatterned-rules")
     def it_lists_the_rules_with_no_pattern_by_id(self, prose_repo):
         data = reproduce(prose_repo, BEFORE.replace("It keeps", "The rule keeps"))
