@@ -37,13 +37,28 @@ def todo_form(n):
 
 FORMS = len(todo_form(0))
 
+
+def trailing_form(n):
+    """Every form scan reads at the end of a line, as (name, text)."""
+    return [
+        ("trailing line", b"  # TODO: t%d" % n),
+        ("trailing kind", b" // TODO(fix): t%d" % n),
+        ("trailing bare", b" TODO: t%d" % n),
+        ("trailing block", b" <!-- TODO(docs): t%d -->" % n),
+        ("trailing c block", b" /* TODO: t%d */" % n),
+    ]
+
+
+TRAILING_FORMS = len(trailing_form(0))
+
 blanks = st.lists(st.sampled_from([b"", b"  "]), max_size=2)
 
 
 @st.composite
 def todo_only_files(draw):
     """(base, now, how many TODOs): a committed file, and the same file
-    with TODOs and blank lines added."""
+    with TODOs and blank lines added, and TODOs at the end of some of its
+    lines that hold text."""
     base_lines = draw(st.lists(st.sampled_from(BASE_LINES), max_size=6))
     ending = draw(st.sampled_from(ENDINGS))
     final = draw(st.booleans())
@@ -55,12 +70,21 @@ def todo_only_files(draw):
         name, lines = todo_form(n)[draw(st.integers(min_value=0, max_value=FORMS - 1))]
         event(name)
         inserts.setdefault(at, []).append(draw(blanks) + lines + draw(blanks))
+    ends = {}
+    for i, line in enumerate(base_lines):
+        if line.strip() and draw(st.booleans()):
+            name, text = trailing_form(count)[
+                draw(st.integers(min_value=0, max_value=TRAILING_FORMS - 1))
+            ]
+            event(name)
+            ends[i] = text
+            count += 1
     now_lines = []
     for i in range(len(base_lines) + 1):
         for block in inserts.get(i, []):
             now_lines.extend(block)
         if i < len(base_lines):
-            now_lines.append(base_lines[i])
+            now_lines.append(base_lines[i] + ends.get(i, b""))
 
     def render(lines):
         out = b"".join(line + ending for line in lines)
@@ -121,12 +145,17 @@ class DescribeComparingWithTheLastCommit:
         assert base_of == {1: 1, 3: 3}
 
 
-@pytest.mark.spec("file-cmd-restores-todo-only-files", "file-cmd-tidies-blank-lines")
+@pytest.mark.spec(
+    "file-cmd-restores-todo-only-files",
+    "file-cmd-tidies-blank-lines",
+    "file-cmd-removes-trailing-todos",
+)
 class DescribeRemovingEveryTodo:
     @given(todo_only_files())
     @example((b"a\nb", b"a\nb\n# TODO: t0", 1))
     @example((b"a\r\n\r\nb", b"a\r\n\r\n\r\n# TODO: t0\r\n  \r\nb", 1))
     @example((todos.BOM + b"a\n", todos.BOM + b"<!-- TODO: t0\nmore\n-->\na\n", 1))
+    @example((b"a\na", b"# TODO: t0\na # TODO: t1\na // TODO: t2", 3))
     @settings(max_examples=300)
     def it_gives_back_the_last_commit_byte_for_byte(self, case):
         base, now, count = case

@@ -43,7 +43,7 @@ TODOS=.todos/todos.py && python3 "$TODOS" scan --json
 `data.todos` lists every TODO added since the last commit. Each has its
 `file`, its `first` and `last` lines, its `text` (the first line as it
 stands), its `kind` or null, its `title`, its `detail`, `above`, the line
-it sits above, and `similar`, the open issues GitHub's search returns for its
+it sits above, or for a TODO at the end of a line that line, and `similar`, the open issues GitHub's search returns for its
 title, each with its `number`, `title` and `url`. `data.labels` lists the
 labels of `data.repository`, the repository the issues would go to. Each warning names a line that looks like a
 TODO and was not read, and why.

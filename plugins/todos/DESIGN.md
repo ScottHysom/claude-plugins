@@ -31,6 +31,22 @@ added and removed that turn one into the other. A committed line then never
 reads as added, even where the file repeats it, which Python's difflib does
 not promise.
 
+## A TODO at the end of a line
+
+The owner ruled in #311 that a TODO may sit at the end of the line it is
+about, after the code. Filing it cannot remove its line, so `file` takes the
+TODO's text off and leaves the rest. That is only safe when the rest is a
+line of the last commit. On a new line it would leave the author's new code
+with no TODO, and on a line whose code changed too it could not tell the
+TODO from the change. So `scan` reads such a TODO only when the line without
+it is a committed line, and warns otherwise.
+
+`scan` finds that out by comparing the file with the last commit as if every
+candidate TODO were already gone. A candidate whose line then matches a
+committed one is read, and the line counts as committed for the blank-line
+tidying too. Where several cuts would leave a committed line, the longest
+wins, so a committed trailing space stays.
+
 ## Why a script
 
 The model drafts each issue and decides what to ask the author. The script
