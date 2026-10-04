@@ -180,6 +180,14 @@ requirement is admitted.
   never relies on another plugin's files, because each installs on its own. When
   two plugins meet in a project, they follow a shared convention instead.
   COWORK.md has the one for files a plugin leaves in a project.
+- **A skill hands work to another plugin's skill by convention.** When one
+  plugin's skill passes work to a skill of another plugin:
+  - it does so only through the Skill tool.
+  - the arguments carry the note and the passage it sat above: its file, its
+    lines, its text, and which of those lines changed since the last commit.
+  - the receiving skill's description names the trigger, so the sender finds
+    it by what it does.
+  - neither `SKILL.md` names the other plugin.
 - **Read COWORK.md before designing anything that runs in Cowork.** It holds
   what live sessions have shown the platform allows. When a probe settles
   something new, add it there, not only to a docstring or a pull request.
