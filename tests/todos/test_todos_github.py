@@ -13,10 +13,19 @@ import todos
 VIEW = '{"nameWithOwner": "owner/project", "url": "https://github.com/owner/project"}'
 
 
-def gh_script(view=None, labels="[]", auth=0, create=None):
-    """A gh that answers repo view, label list, auth status and issue create.
+SEARCHED = '{"data": {"s0": {"nodes": []}}}'
 
-    A value of None makes that call fail, as gh does, on stderr.
+
+def gh_script(
+    view=None, labels="[]", auth=0, create=None, graphql=SEARCHED, graphql_exit=0, comment=None
+):
+    """A gh that answers repo view, label list, auth status, api graphql,
+    issue create and issue comment.
+
+    A value of None makes that call fail, as gh does, on stderr. api graphql
+    prints its value and then exits with graphql_exit, as gh prints the data
+    of a query some of whose lookups failed. What a call reads on stdin goes
+    to a file beside the script.
     """
 
     def answer(value):
@@ -29,8 +38,21 @@ def gh_script(view=None, labels="[]", auth=0, create=None):
         '"repo view")\n%s;;\n'
         '"label list")\n%s;;\n'
         '"auth status") echo "not logged in" >&2; exit %d ;;\n'
+        '"api graphql") cat > "$0.query"\n%s'
+        "[ %d = 0 ] || { echo 'gh: Could not resolve' >&2; exit %d; } ;;\n"
         '"issue create") cat > "$0.body"\n%s;;\n'
-        "esac\n" % (answer(view), answer(labels), auth, answer(create))
+        '"issue comment") cat > "$0.body"\n%s;;\n'
+        "esac\n"
+        % (
+            answer(view),
+            answer(labels),
+            auth,
+            answer(graphql),
+            graphql_exit,
+            graphql_exit,
+            answer(create),
+            answer(comment),
+        )
     )
 
 

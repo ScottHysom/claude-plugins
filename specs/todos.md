@@ -44,8 +44,9 @@ Source: #311, which quotes the owner's request.
   takes them from `scan`'s output, and never searches the files with a
   command of its own.
 - `report-cmd-shows-each-draft` (test): When `report` runs, it prints each
-  draft whole, with its TODO's file and lines and its route, and for a draft
-  routed to `issue` its title, labels and body.
+  draft whole, with its TODO's file and lines and its route, for a draft
+  routed to `issue` its title, labels and body, and for a draft routed to
+  `comment` the number and title of its issue and its body.
 - `report-cmd-lists-undrafted-todos` (test): When a pending TODO has no draft,
   `report` lists it as left in place.
 - `report-cmd-lists-scan-warnings` (test): When `report` runs, it lists every
@@ -141,6 +142,27 @@ TODO's detail is missing or too sparse.
   kind, route or duplicate is unclear, do-todos asks the author about all of
   them in one round, before writing any draft.
 
+## need user-avoids-duplicate-issues: Keep one issue per problem
+
+When a TODO repeats an open issue, the user wants its detail added to that
+issue as a comment rather than a second issue opened, so the tracker holds one
+issue per problem.
+
+Source: #313, which records the owner's ruling and the owner's figure of
+five, and CLAUDE.md, under "Issues": search first, and comment on a match
+rather than opening a second.
+
+- `scan-cmd-lists-similar-issues` (test): When `scan` reports a TODO, it lists
+  the first five open issues GitHub's search returns for its title, with their
+  numbers and titles.
+- `report-cmd-checks-comment-targets` (test): When a draft routed to
+  `comment` names an issue, `report` and `file` refuse it unless the issue
+  exists and is open.
+- `file-cmd-posts-comments` (test): When a draft is routed to `comment`,
+  `file` posts its body on that issue and prints the comment's address.
+- `dotodos-reuses-open-issues` (step): When an open issue already covers a
+  TODO, do-todos drafts a comment on that issue rather than a new one.
+
 ## need user-approves-each-issue: Approve every issue before it is filed
 
 When Claude has drafted the issues, the user wants to see every draft whole,
@@ -182,8 +204,8 @@ Source: #312, and prose-tuning's DESIGN.md, under "Why no skill commits".
   script, a `.gitignore` of `*` beside it keeps the copy out of the project's
   commits.
 - `dotodos-never-commits` (step): When `file` has run, do-todos lists the
-  issues filed, the files changed and the TODOs left in place, and commits
-  nothing.
+  issues filed, the comments posted, the files changed and the TODOs left in
+  place, and commits nothing.
 
 ## need owner-keeps-approval-label: Keep approved for the owner
 
@@ -249,3 +271,14 @@ Source: GitHub's documentation, "Deleting an issue".
 - `file-cmd-stops-at-failed-call` (test): When a GitHub call fails, `file`
   stops calling GitHub, leaves the TODOs of the drafts it has not finished,
   lists them and exits 1.
+
+## constraint github-limits-search-rate: GitHub limits how often a client may search
+
+GitHub's REST search allows a signed-in client 30 requests a minute, so one
+search per TODO stops working on a long list.
+
+Source: GitHub's REST API documentation, "REST API endpoints for search",
+under "Rate limit", checked when #313 was built.
+
+- `scan-cmd-searches-in-one-query` (test): When `scan` looks for similar
+  issues, it sends one GraphQL query for every title.

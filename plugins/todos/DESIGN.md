@@ -56,6 +56,23 @@ that repository as `--repo`.
 A partial approval runs `report` again on the trimmed drafts, so `file` has no
 `--partial`.
 
+## Open issues like a TODO
+
+The owner ruled in #313 that a TODO repeating an open issue becomes a comment
+on that issue. `scan` lists, beside each TODO, the first five open issues
+GitHub's search returns for its title, and the model judges whether one
+covers it. GitHub's REST search allows a signed-in client 30 requests a
+minute, so `scan` sends every title in one GraphQL query, with an aliased
+`search` per title, as `.github/scripts/check-specs.py` does for issue
+lookups.
+
+A comment draft names its issue by number. `report` and `file` each look the
+issues up, in one query, and refuse a draft whose issue does not exist or is
+closed. The token covers the drafts and not the issue, so `file` checks again
+rather than trusting the report. `gh api graphql` exits 1 when a lookup finds
+nothing, and still prints the data, so the script reads a missing issue from
+that output, and stops on any other error.
+
 ## Filing cannot be undone
 
 Deleting an issue takes admin rights on the repository, which the user may not

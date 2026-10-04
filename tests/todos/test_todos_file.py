@@ -87,10 +87,13 @@ class DescribeTheRepository:
     def it_passes_the_reported_repository_to_every_later_call(self, three, github):
         github.repository = "someone/fork"
         three.file(three.draft_all())
-        later = [c for c in github.calls if c[:2] != ("repo", "view")]
+        later = [c for c in github.calls if c[:2] not in (("repo", "view"), ("api", "graphql"))]
         assert later
         for call in later:
             assert call[call.index("--repo") + 1] == "someone/fork"
+        assert github.queries
+        for query in github.queries:
+            assert "repo:someone/fork " in query
 
     @pytest.mark.spec("file-cmd-requires-token")
     def it_refuses_once_the_repository_changes(self, three, github):
@@ -152,7 +155,7 @@ class DescribeCheckingFirst:
         assert code == todos.PROBLEMS
         assert env["errors"] == [
             "draft 2 names the label `bug`, which owner/project does not have. Use one scan lists",
-            "nothing was filed or written",
+            "nothing was filed, posted or written",
         ]
         assert creates(github) == []
         assert three.read("a.py") == before
@@ -202,7 +205,7 @@ class DescribeWritableFiles:
         assert (code, env) == (todos.CANNOT_RUN, None)
         assert three.err == (
             "todos.py: cannot open b.sh for writing: Permission denied. Make it writable, then"
-            " run file again; nothing was filed\n"
+            " run file again; nothing was filed or posted\n"
         )
         assert creates(github) == []
 
@@ -223,7 +226,7 @@ class DescribeAFailedCall:
         ]
         assert env["errors"] == [
             "draft 1 (a.py:1-2): `gh issue create` failed: HTTP 502. Filing stopped there, and"
-            " the TODOs of the drafts not filed are still in their files"
+            " the TODOs of the drafts not filed or posted are still in their files"
         ]
 
     def it_lists_the_todos_left_in_text(self, three, github):
