@@ -14,10 +14,11 @@ has no place in the code, however useful it seems.
 
 An agent building software fills gaps with guesses. It completes patterns, adds
 options a person would have stopped to ask about, and guards against inputs
-nothing produces. Martin Fowler and Kent Beck's catalog of code smells calls
+produced by nothing. Martin Fowler and Kent Beck's catalog of code smells calls
 this speculative generality: machinery built for a need that nobody has. Without a
-written record of what the code is for, nothing can show that a behavior was
-never asked for, and each later change treats the code as the spec.
+written record of what the code is for, no one can know whether a behavior was
+ever asked for. Each later change treats the code as the spec, so one made-up
+behavior is built on another.
 
 claude-plugins found this in its issue #114. An agent had given every rule in a
 rules file a `source` key with four allowed values. The key passed through each
@@ -31,13 +32,13 @@ of these steps unquestioned:
 - Asked why the key existed, an agent defended it by its symmetry: one value
   for each route a rule could take into the file.
 
-Nothing decided anything from the key, and nothing ever wrote two of its
+The key was not read by any code, and nothing ever wrote two of its
 values. An audit of the repository then found about one behavior in six with
 no written need.
 
 Tests did not catch any of it. A test shows that a behavior works, and says
 nothing about whether anyone needs it. Several of the unneeded behaviors had
-tests, and the lint code that held `source` to its values had none.
+tests, and the lint code that held `source` to its values had no tests.
 
 ## The model
 
@@ -61,19 +62,19 @@ The method names these roles:
 
 ### Needs and constraints
 
-A need says who wants what outcome, and why. It takes the situation-first form
+A **need** says who wants what outcome, and why. It takes the situation-first form
 of a job story: "When <situation>, <role> wants <outcome>, so <reason>." The
 role can open the situation instead, as in "When a renter returns a car, they
 want ...". A need comes from a source outside the code, such as the owner's
 words, a README, a ticket or a commit message, and cites it.
 
-A constraint is a fact about the platform that forces a design, such as "the
+A **constraint** is a fact about the platform that forces a design, such as "the
 fleet vendor's API allows 60 calls a minute". A constraint cites where the fact
 is recorded.
 
 ### Requirements
 
-A requirement is one sentence stating one behavior. EARS, the Easy Approach to
+A **requirement** is one sentence stating one behavior. EARS, the Easy Approach to
 Requirements Syntax from Alistair Mavin and colleagues at Rolls-Royce, opens a
 requirement with its trigger: "When <trigger>, <component> <response>." A
 requirement here keeps that order whenever the behavior has a trigger. Every
