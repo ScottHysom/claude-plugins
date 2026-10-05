@@ -16,7 +16,9 @@ An agent building software fills gaps with guesses. It completes patterns, adds
 options a person would have stopped to ask about, and guards against inputs
 produced by nothing. Martin Fowler and Kent Beck's catalog of code smells calls
 this speculative generality: machinery built for a need that nobody has. Without a
-written record of what the code is for, no one can know whether a behavior was ever asked for, and each later change treats the code as the spec so one made-up behavior is built on another.
+written record of what the code is for, no one can know whether a behavior was
+ever asked for. Each later change treats the code as the spec, so one made-up
+behavior is built on another.
 
 claude-plugins found this in its issue #114. An agent had given every rule in a
 rules file a `source` key with four allowed values. The key passed through each
