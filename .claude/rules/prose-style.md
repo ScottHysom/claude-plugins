@@ -42,6 +42,12 @@ this repo.
 First use is per document, not per project. A pointer to a glossary is not a
 definition. One clause is enough.
 
+A term the document gives its own meaning is bolded in the sentence that
+defines it, and only there.
+
+> **Before.** A need says who wants what outcome, and why.
+> **After.** A **need** says who wants what outcome, and why.
+
 ### standing-no-assumed-familiarity: Do not assume familiarity with a named tool or technique
 
 "Already known" means the owner's own career, not the field at large.
@@ -173,8 +179,10 @@ it into the preceding sentence rather than appending it as its own.
 "Cites no requirement" makes the reader find the negation on the object.
 "Does not cite a requirement" puts it on the verb, where the reader looks for
 it. The same holds for a subject: "No script can decide" becomes "A script
-cannot decide", and "tools that no script can reach" becomes "tools that a
-script cannot reach". "Has no", as in "a behavior has no test", stays.
+cannot decide", "tools that no script can reach" becomes "tools that a
+script cannot reach", and "Nothing decided anything from the key" becomes
+"The key was not read by any code". "Has no", as in "a behavior has no test",
+stays.
 
 A negation that covers a list goes on the verb once, and the list follows it.
 "Does not find any spec, test or skill step" still fails on each item alone.
@@ -189,6 +197,7 @@ any test or does not find any skill step", adds words and no meaning.
 **Pattern.** `\b(?:by|in|to) no (?!(?:longer|one|matter|more)\b)[a-z]+`
 **Pattern.** `\b(?:give|given|put|run|show|shown|take|taken|write|written) no\b`
 **Pattern.** `(?i)\b((?:do|does|did|can|could|will|would|is|are|was|were)(?: not|n't) [a-z]+)\b[^.;:]*?\b\1\b`
+**Pattern.** `(?:^|[.!?]\s+)Nothing [a-z]+ed\b`
 
 > **Before.** The spec pull request changes no behavior.
 > **After.** The spec pull request does not change any behavior.
@@ -201,6 +210,7 @@ Either form is fine.
 
 **Pattern.** `(?i)\b(?!(?:that|which|with|and|or|of|is|has|by|to|in|for|as|under|was|does|are|when|where|why|so|because|if|since|once|until|while|but)\b)(?![a-z]+(?:s|ed)\b)[a-z]+ no (?!(?:longer|matter)\b)[a-z]+ (?:[a-z]+ ){0,4}(?:[a-z]+s|[a-z]+ed|can|has|have|will)\b`
 **Pattern.** `(?i)\b(?:a|an|the|every|each|any) [a-z]+ (?:nobody|nothing) (?!else\b)[a-z]+`
+**Pattern.** `(?i)\b(?!(?:is|was|has|does|says|means)\b)[a-z]+s (?:nobody|nothing) (?!else\b)[a-z]+s\b`
 
 > **Before.** Read those by hand for behavior no test runs.
 > **After.** Read those by hand for behavior that no test runs.
@@ -274,6 +284,34 @@ main clause.
 
 > **Before.** A heading that is not a need or a constraint, a misspelled one included, opens no section.
 > **After.** A heading that is not a need or a constraint (including a misspelled one) does not open a section.
+
+### sentences-one-negation: A sentence carries one negation
+
+Two negations in one sentence make the reader undo both. Turn one of them
+positive.
+
+**Pattern.** `(?i)\b(?:nothing|nobody|no one|not)\b[^.;:]*\bnever\b`
+
+> **Before.** Nothing can show that a behavior was never asked for.
+> **After.** No one can know whether a behavior was ever asked for.
+
+### sentences-none-names-noun: "None" gives way to the noun it stands for
+
+"Had none" sends the reader back to the sentence before to learn what there
+is none of. Name the noun.
+
+**Pattern.** `(?i)\b(?:has|had|have) none\b`
+
+> **Before.** The lint code that held `source` to its values had none.
+> **After.** The lint code that held `source` to its values had no tests.
+
+### sentences-one-meaning-per-term: A term keeps one meaning in a document
+
+A word the document defines, such as a role, is not reused for anything
+else, including in a heading.
+
+> **Before.** ## The model
+> **After.** ## The method
 
 ## Headings
 
