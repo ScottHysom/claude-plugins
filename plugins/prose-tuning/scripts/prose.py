@@ -23,10 +23,9 @@ Commands:
     reproduce   whether the rules' patterns reproduce the edits since HEAD
     config      list | lint | check-id | similar | classify | adopt | write |
                 init | move
-    tags        list | resolve | strip
+    tags        list | resolve
     report      the findings for approval, and which of them overlap
     apply       apply approved rewrites
-    restore     put a file back to its committed state
     setup       which surface this is running on, local or cowork, and
                 locally, copy this script into the project
     stage       copy this script and the shipped rules into Cowork's outputs
@@ -85,7 +84,7 @@ Some things in here look like bugs and are not:
    so when a whole block that sat between two blank lines is cut, by findings
    or by a block-form <del>, so that one blank line is left between its
    neighbors rather than two. plan_findings has the rule, and resolve_scanned
-   says why tags strip never does this.
+   says why neutralizing a file for evidence never does this.
 
 Python 3.9 is the floor. No match statements, no X | Y unions.
 """
@@ -670,13 +669,15 @@ def parse_pattern(rest):
 
     rest is the line after the lead word. CommonMark strips one space from
     each end of a code span that has one at both, so a pattern that starts or
-    ends with a backtick can be written `` `x` ``; this does the same.
+    ends with a backtick can be written `` `x` ``; this does the same. Like
+    CommonMark, it leaves a span of nothing but spaces whole, and a tab counts
+    as something other than a space.
     """
     m = PATTERN_SPAN.match(rest)
     if not m:
         return None, "a **Pattern.** line holds one code span and nothing else"
     source = m.group(2)
-    if len(source) > 2 and source[0] == " " and source[-1] == " " and source.strip():
+    if len(source) > 2 and source[0] == " " and source[-1] == " " and source.strip(" "):
         source = source[1:-1]
     late = LATE_FLAGS.search(source, 1)
     if late:
@@ -1560,12 +1561,12 @@ class TagScanner:
 # --------------------------------------------------------------------------
 # resolving markup
 #
-# One implementation, two names. "accept" is tags resolve: the edits the markup
-# proposes are taken, and the file becomes committable prose. "reject" is tags
-# strip: the markup is abandoned and the underlying text comes back unchanged.
+# One implementation, two modes. "accept" is tags resolve: the edits the markup
+# proposes are taken, and the file becomes committable prose. "reject" drops
+# the markup and its edits, and the underlying text comes back unchanged.
 #
-# "reject" is also what evidence uses to neutralize a file before diffing it,
-# so an edit the author tagged is reported once, as an explicit record, and not
+# "reject" is what evidence uses to neutralize a file before diffing it, so an
+# edit the author tagged is reported once, as an explicit record, and not
 # again as an inferred hunk. A plain git diff cannot tell the two apart.
 # --------------------------------------------------------------------------
 
@@ -1678,9 +1679,9 @@ def resolve_scanned(text, scanner, mode):
     stood between two blank lines left the two touching. A blank line inside a
     tag that is kept is never taken.
 
-    Reject leaves every blank line where it was. Strip has to return the file
-    byte for byte as it was before the author tagged it, and evidence diffs
-    against it.
+    Reject leaves every blank line where it was. It has to return the file
+    byte for byte as it was before the author tagged it, because evidence
+    diffs against it.
     """
     engine = EditEngine(text)
     cut, touched = set(), set()
@@ -1708,7 +1709,7 @@ def resolve_warnings(scanner, text):
     """Block-form tags inside a list are the one case worth eyeballing.
 
     A tag placed between two list items ends the list and starts a new one,
-    and the damage outlives the strip. The inline path cannot cause this
+    and the damage outlives the resolve. The inline path cannot cause this
     because it never splits a line, so only block form is reported.
     """
     out = []
@@ -2981,11 +2982,13 @@ def pattern_line(source):
 
     The code span is fenced by one more backtick than the longest run inside
     it, and padded with a space at each end when source starts or ends with a
-    backtick or a space, which parse_pattern strips again.
+    backtick or a space, which parse_pattern strips again. A source of nothing
+    but spaces goes unpadded, because parse_pattern leaves such a span whole.
     """
     runs = [len(r) for r in re.findall(r"`+", source)]
     fence = "`" * (max([*runs, 0]) + 1)
-    pad = " " if source[:1] in "` " or source[-1:] in "` " else ""
+    edge = source[:1] in "` " or source[-1:] in "` "
+    pad = " " if edge and source.strip(" ") else ""
     return "**Pattern.** %s%s%s%s%s\n" % (fence, pad, source, pad, fence)
 
 
@@ -3446,7 +3449,7 @@ def cmd_tags(args):
     which = args.tags_cmd
     targets = args.paths or scope.files()
 
-    if which not in ("resolve", "strip"):
+    if which == "list":
         errors, warnings, data = [], [], {}
         for rel in targets:
             path = repo.abspath(rel)
@@ -3491,8 +3494,6 @@ def cmd_tags(args):
             args, "tags " + which, repo.root, data, errors=errors, warnings=warnings, human=human
         )
 
-    # resolve or strip
-    mode = ACCEPT if which == "resolve" else REJECT
     errors, warnings, data = [], [], {}
     pending = []
     for rel in targets:
@@ -3507,7 +3508,7 @@ def cmd_tags(args):
             continue
         if not scanner.all:
             continue
-        pending.append((path, rel, resolve_scanned(text, scanner, mode), len(scanner.all)))
+        pending.append((path, rel, resolve_scanned(text, scanner, ACCEPT), len(scanner.all)))
         warnings += resolve_warnings(scanner, text)
     if errors:
         errors.append("nothing was written; fix the markup and re-run")
@@ -3521,7 +3522,7 @@ def cmd_tags(args):
         for rel in sorted(data):
             print(
                 "%s  %d tag(s) %s"
-                % (rel, data[rel]["tags"], "would be " + which if args.dry_run else which + "d")
+                % (rel, data[rel]["tags"], "would be resolved" if args.dry_run else "resolved")
             )
         if not data:
             print("no markup found")
@@ -4251,24 +4252,6 @@ def cmd_apply(args):
     return emit(args, "apply", repo.root, data, errors=rejected, human=human)
 
 
-def cmd_restore(args):
-    repo, _, _ = load(args)
-    rel = os.path.relpath(os.path.abspath(args.target), repo.root)
-    content = repo.show(args.ref, rel)
-    if content is None:
-        raise Fatal("%s is not in %s" % (rel, args.ref))
-    # git show into the file, rather than git checkout, because the bridge
-    # cannot unlink and checkout fails there.
-    Text(content).write(repo.abspath(rel))
-    return emit(
-        args,
-        "restore",
-        repo.root,
-        {"path": rel, "ref": args.ref},
-        human=lambda: print("restored %s from %s" % (rel, args.ref)),
-    )
-
-
 def cmd_carry(args):
     """Copy another worktree's pending files into this one, all or nothing.
 
@@ -4620,11 +4603,10 @@ def build_parser():
     for name, helptext in [
         ("list", "report"),
         ("resolve", "accept the edits and remove markup"),
-        ("strip", "abandon the edits and remove markup"),
     ]:
         t = tsub.add_parser(name, parents=[common], help=helptext)
         t.add_argument("paths", nargs="*")
-        if name in ("resolve", "strip"):
+        if name == "resolve":
             t.add_argument("--dry-run", action="store_true")
     p.set_defaults(func=cmd_tags)
 
@@ -4677,11 +4659,6 @@ def build_parser():
     )
     p.add_argument("--dry-run", action="store_true", help="report without writing")
     p.set_defaults(func=cmd_apply)
-
-    p = sub.add_parser("restore", parents=[common], help="put a file back to its committed state")
-    p.add_argument("--file", dest="target", required=True, metavar="PATH")
-    p.add_argument("--ref", default=BASE_REF)
-    p.set_defaults(func=cmd_restore)
 
     # -C is used only locally: in Cowork's container, setup has no repo to find.
     p = sub.add_parser(

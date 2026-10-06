@@ -10,7 +10,7 @@ import json
 import re
 
 import pytest
-from hypothesis import given
+from hypothesis import example, given
 from hypothesis import strategies as st
 
 import prose
@@ -402,6 +402,8 @@ class DescribePatternLine:
         assert prose.pattern_line("a`b") == "**Pattern.** ``a`b``\n"
 
     @given(st.text(min_size=1, max_size=12))
+    @example(" ")
+    @example("\t ")
     @pytest.mark.spec("write-cmd-writes-from-data")
     def it_writes_a_pattern_that_lint_reads_back_unchanged(self, source):
         line = prose.pattern_line(source)
