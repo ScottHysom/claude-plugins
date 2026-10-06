@@ -30,7 +30,7 @@ python3 "$PROSE" preflight --for config
 python3 "$PROSE" status
 ```
 
-`preflight` exits 1 on a blocker: unbalanced markup left by an abandoned run, or
+`preflight` exits 1 on a blocker: unbalanced markup, or
 a `prose-style.md` that does not parse. `status` is the progress view, and it
 exits 0 even with markup present, because the author's markup is what this
 skill reads.
@@ -254,17 +254,6 @@ the rules are learned. If step 3 carried edits, name the checkout and branch tha
 `data.from` and `data.branch`, and leave discarding them to the author.
 **Never commit.** The project's own maintenance skill owns commit types,
 message format, and the bridge's lock-file workaround.
-
-## Abandoning a run
-
-```sh
-python3 "$PROSE" tags strip                    # markup goes, edits revert
-python3 "$PROSE" restore --file <path>         # a mangled file goes back to HEAD
-```
-
-Do not use `sed -i ''`, which is BSD syntax and fails on the Linux bridge. Do not use
-`git checkout`, which fails on the bridge because it cannot unlink. `restore`
-does `git show HEAD:<file>` into the file, which works on both.
 
 ## Scope
 
