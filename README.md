@@ -52,6 +52,7 @@ To start a Cowork project with git history from day one:
 .claude/
   hooks/                   the repo's own Claude Code hooks
     tests/                 their pytest suite
+  skills/                  the repo's own skills, which no plugin ships
 .claude-plugin/
   marketplace.json         the catalog. One entry per plugin
 .github/
@@ -424,6 +425,25 @@ and for update-prose-config. A tracking issue:
 - is never claimed, and no pull request closes it.
 
 The owner closes it when its last sub-issue closes.
+
+An agent files a plan through the file-plan skill, at
+`.claude/skills/file-plan/SKILL.md`, which runs two commands of
+`.github/scripts/issues.py`:
+
+```sh
+python3 .github/scripts/issues.py plan report --drafts plan.json   # check the plan, and show it as it will be filed
+python3 .github/scripts/issues.py plan file --drafts plan.json --token 3f9a1c0e7b2d4a68  # file what the report showed
+```
+
+`plan report` refuses a plan whose issues break CLAUDE.md's rules for
+issues, or whose links name nothing or form a cycle. It orders the issues so
+each comes after the issues that block it, and writes the plan as it will be
+filed to `.issues-plan/report.md`, ending with an approval token. The owner approves
+that report, and `plan file` takes its token. `plan file` files the issues in
+that order, links them, files the tracking issue, adds the sub-issues in
+order, and reads all of it back. A run that a failed call cut short can be
+run again, and files only what is missing. The script's docstring has the
+details.
 
 ### Claiming an issue
 

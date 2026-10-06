@@ -85,6 +85,13 @@ What counts as a block: a paragraph, a table, a fenced code block (blank lines
 and all), or a single list item without its bullet or number. Whitespace is
 collapsed before comparing, so rewrapping a copied paragraph does not hide it.
 
+A project skill, at .claude/skills/<skill>/SKILL.md, is one this repo's own
+Claude Code sessions load, and no plugin ships it. `commands`, `steps` and
+`fences` read it as they read a plugin's skill. `repeats` and `descriptions`
+do not: a project skill has no reference/ to move a shared block to, and is
+never uploaded to Cowork. check-specs.py reads its steps against
+specs/repo.md, which is why its group is named PROJECT.
+
 Things that look like bugs and are not, in `repeats`:
 
 - The "Locate the script" section is skipped entirely. Every SKILL.md must carry
@@ -217,6 +224,10 @@ OK, PROBLEMS, CANNOT_RUN = 0, 1, 2
 PROG = "check-skills.py"
 PLUGINS = "plugins"
 SKILLS = "skills"
+# A project skill: one this repo's own sessions load, which no plugin ships.
+# Its steps cite specs/repo.md, so it is grouped under that spec's name.
+PROJECT_SKILLS = ".claude/skills"
+PROJECT = "repo"
 SKILL_FILE = "SKILL.md"
 REFERENCE = "reference"
 LOCATE_SECTION = "Locate the script"
@@ -450,14 +461,29 @@ def repo_files(root):
 
 
 def skill_files(files):
-    """plugins/<plugin>/skills/<skill>/SKILL.md, as {plugin: [path, ...]}."""
+    """plugins/<plugin>/skills/<skill>/SKILL.md, as {plugin: [path, ...]}, and
+    .claude/skills/<skill>/SKILL.md under PROJECT."""
     found = {}
     for path in files:
         parts = path.split("/")
         if len(parts) == 5 and parts[0] == PLUGINS and parts[2] == SKILLS:
             if parts[4] == SKILL_FILE:
                 found.setdefault(parts[1], []).append(path)
+        elif project_skill(path):
+            found.setdefault(PROJECT, []).append(path)
     return found
+
+
+def project_skill(path):
+    """Whether path is .claude/skills/<skill>/SKILL.md."""
+    head, _, rest = path.partition(PROJECT_SKILLS + "/")
+    parts = rest.split("/")
+    return head == "" and len(parts) == 2 and parts[1] == SKILL_FILE
+
+
+def home(plugin):
+    """The folder a group of skills lives under, for an error to name."""
+    return PROJECT_SKILLS if plugin == PROJECT else "%s/%s" % (PLUGINS, plugin)
 
 
 # --------------------------------------------------------------------------
@@ -574,6 +600,7 @@ def skill_name(path):
 
 def cmd_repeats(args, root):
     found = skill_files(repo_files(root))
+    found.pop(PROJECT, None)
     scanned, repeats, errors = [], [], []
 
     if not found:
@@ -696,10 +723,14 @@ def cmd_descriptions(args, root):
 def instruction_files(files):
     """Every file a skill's instructions live in, as {plugin: [path, ...]}.
 
-    plugins/<plugin>/skills/<skill>/SKILL.md, and plugins/<plugin>/reference/*.md.
+    plugins/<plugin>/skills/<skill>/SKILL.md, and plugins/<plugin>/reference/*.md,
+    and .claude/skills/<skill>/SKILL.md under PROJECT.
     """
     found = {}
     for path in files:
+        if project_skill(path):
+            found.setdefault(PROJECT, []).append(path)
+            continue
         parts = path.split("/")
         if not parts[0] == PLUGINS or len(parts) < 3:
             continue
@@ -786,10 +817,13 @@ def script_of(value, plugin):
 
     Only the file name counts: `$ROOT/scripts/prose.py`, `.prose-tuning/prose.py`
     and `/tmp/gitify/plugin/scripts/gitify.py` are all the plugin's own
-    scripts/ file of that name, wherever the skill has put it.
+    scripts/ file of that name, wherever the skill has put it. A project
+    skill's path is read from the root of the clone.
     """
     if not value.endswith(SCRIPT_SUFFIX):
         return None
+    if plugin == PROJECT:
+        return os.path.normpath(value)
     return "/".join((PLUGINS, plugin, SCRIPTS, value.rsplit("/", 1)[-1]))
 
 
@@ -905,8 +939,8 @@ def find_invocations(root, found):
                 script = table.get(name)
                 if script is None:
                     errors.append(
-                        "%s:%d: no assignment in %s/%s/ names a script for $%s"
-                        % (c["path"], c["line"], PLUGINS, plugin, name)
+                        "%s:%d: no assignment in %s/ names a script for $%s"
+                        % (c["path"], c["line"], home(plugin), name)
                     )
                     continue
             else:
