@@ -19,6 +19,7 @@ when a Claude Code session starts.
 Run from anywhere in a clone, with git and an authenticated gh on PATH:
 
     python3 .github/scripts/issues.py next
+    python3 .github/scripts/issues.py next --tracking 347
     python3 .github/scripts/issues.py claim 12
     python3 .github/scripts/issues.py release 12 --reason "blocked on #9"
     python3 .github/scripts/issues.py stale
@@ -27,7 +28,9 @@ Run from anywhere in a clone, with git and an authenticated gh on PATH:
 
 Commands:
     next        the oldest open approved issue nobody holds and no open issue
-                blocks. Changes nothing.
+                blocks, or an approved tracking issue that comes first.
+                With --tracking N, the next issue in tracking issue N's
+                order instead. Changes nothing.
     claim N     take issue N: push issue/N, switch to it, label and comment.
     release N   give issue N up: delete issue/N if it holds no work, remove the
                 label, comment.
@@ -51,6 +54,11 @@ Things that look like bugs and are not:
 - `next` exits 0 when nothing is free, or when every free issue is blocked. An
   empty queue is not a problem. `claim` ignores blockers, so the owner can
   still name a blocked issue.
+- `next` never offers a sub-issue of an approved tracking issue, even the
+  lowest-numbered free one. The plan's issues are taken in the plan's order,
+  through `next --tracking N`, so `next` names the plan in their place.
+- `next --tracking N` exits 1 on an unapproved sub-issue instead of skipping
+  to a later approved one. Skipping would work the plan out of its order.
 - `claim` exits 0 when the push succeeded but labeling or commenting failed.
   The branch is the claim; those failures are warnings to fix by hand.
 - `release` refuses to delete a branch with commits not on main, and `clear`
@@ -109,7 +117,10 @@ STALE_DAYS = 7
 LIST_LIMIT = 1000
 CLAIM_MARK = "Claimed on branch"
 MERGED_FIELDS = "number,headRefName,headRefOid"
+TRACKING = "tracking"
 BLOCKED_BY_PATH = "repos/{owner}/{repo}/issues/%d/dependencies/blocked_by"
+# GitHub caps a parent at 100 sub-issues, so one page holds them all.
+SUB_ISSUES_PATH = "repos/{owner}/{repo}/issues/%d/sub_issues?per_page=100"
 
 
 class Fatal(Exception):
@@ -226,6 +237,20 @@ def blockers(repo, number):
     return sorted(b["number"] for b in listed if b.get("state") == "open")
 
 
+def sub_issues(repo, number):
+    """Issue `number`'s sub-issues, in the order the issue lists them."""
+    return gh_json(repo, "api", SUB_ISSUES_PATH % number)
+
+
+def is_open(item):
+    # gh issue list says "OPEN"; the REST API says "open".
+    return item.get("state", "").lower() == "open"
+
+
+def summary(item):
+    return {"number": item["number"], "title": item["title"]}
+
+
 def now():
     """The current time. Tests replace this."""
     return datetime.datetime.now(datetime.timezone.utc)
@@ -237,6 +262,8 @@ def now():
 
 
 def cmd_next(args, repo):
+    if args.tracking is not None:
+        return next_in_plan(args, repo, args.tracking)
     approved = gh_json(
         repo,
         "issue",
@@ -251,39 +278,105 @@ def cmd_next(args, repo):
         "number,title,labels",
     )
     held = claims(repo)
-    free = sorted(
-        (i for i in approved if IN_PROGRESS not in labels(i) and i["number"] not in held),
-        key=lambda i: i["number"],
-    )
-    found = None
-    blocked = []
-    for item in free:
+    # An approved plan's issues are taken only in the plan's order. The plan
+    # takes its place at its lowest open number, which is never after any of
+    # its sub-issues, and wins a tie, so it is named before one is offered.
+    queue = []
+    for item in approved:
+        if TRACKING in labels(item):
+            subs = [s["number"] for s in sub_issues(repo, item["number"]) if is_open(s)]
+            queue.append((min([item["number"], *subs]), item, True))
+        elif IN_PROGRESS not in labels(item) and item["number"] not in held:
+            queue.append((item["number"], item, False))
+    queue.sort(key=lambda entry: (entry[0], not entry[2]))
+
+    found, plan, blocked = None, None, []
+    for _, item, is_plan in queue:
+        if is_plan:
+            plan = summary(item)
+            break
         open_blockers = blockers(repo, item["number"])
         if not open_blockers:
-            found = {"number": item["number"], "title": item["title"]}
+            found = summary(item)
             break
-        blocked.append(
-            {"number": item["number"], "title": item["title"], "blocked_by": open_blockers}
-        )
+        blocked.append(dict(summary(item), blocked_by=open_blockers))
 
     def human():
         if found:
             print("#%d %s" % (found["number"], found["title"]))
+        elif plan:
+            print("#%d %s is an approved tracking issue." % (plan["number"], plan["title"]))
+            print("To take its next sub-issue, run: %s next --tracking %d" % (PROG, plan["number"]))
         elif blocked:
             print("Every free approved issue is blocked by an open issue:")
-            for item in blocked:
-                print(
-                    "#%d %s, blocked by %s"
-                    % (
-                        item["number"],
-                        item["title"],
-                        ", ".join("#%d" % n for n in item["blocked_by"]),
-                    )
-                )
+            print_blocked(blocked)
         else:
             print("No approved issue is free.")
 
-    return emit(args, "next", {"issue": found, "blocked": blocked}, human=human)
+    data = {"issue": found, "blocked": blocked, "tracking": plan}
+    return emit(args, "next", data, human=human)
+
+
+def next_in_plan(args, repo, number):
+    """`next --tracking N`: the first sub-issue of #N, in #N's order, to work."""
+    item = issue(repo, number)
+    data = {"issue": None, "blocked": [], "tracking": summary(item)}
+    problems = []
+    if not is_open(item):
+        problems.append("#%d is closed; its plan is finished" % number)
+    if TRACKING not in labels(item):
+        problems.append(
+            "#%d is not labeled %s; run %s next without --tracking" % (number, TRACKING, PROG)
+        )
+    if APPROVED not in labels(item):
+        problems.append(
+            "#%d is not labeled %s; ask the owner to approve the plan" % (number, APPROVED)
+        )
+    if problems:
+        return emit(args, "next", data, problems)
+
+    held = claims(repo)
+    blocked = data["blocked"]
+    for sub in sub_issues(repo, number):
+        n = sub["number"]
+        if not is_open(sub) or n in held or IN_PROGRESS in labels(sub):
+            continue
+        open_blockers = blockers(repo, n)
+        if open_blockers:
+            blocked.append(dict(summary(sub), blocked_by=open_blockers))
+            continue
+        if APPROVED not in labels(sub):
+            return emit(
+                args,
+                "next",
+                data,
+                [
+                    "#%d %s is next in #%d's order and is not labeled %s; "
+                    "ask the owner to approve it" % (n, sub["title"], number, APPROVED)
+                ],
+            )
+        data["issue"] = summary(sub)
+        break
+
+    def human():
+        found = data["issue"]
+        if found:
+            print("#%d %s" % (found["number"], found["title"]))
+        elif blocked:
+            print("Every free sub-issue of #%d is blocked by an open issue:" % number)
+            print_blocked(blocked)
+        else:
+            print("No sub-issue of #%d is free." % number)
+
+    return emit(args, "next", data, human=human)
+
+
+def print_blocked(blocked):
+    for item in blocked:
+        print(
+            "#%d %s, blocked by %s"
+            % (item["number"], item["title"], ", ".join("#%d" % n for n in item["blocked_by"]))
+        )
 
 
 def cmd_claim(args, repo):
@@ -660,6 +753,9 @@ def build_parser():
     sub = ap.add_subparsers(dest="command", required=True)
 
     p = sub.add_parser("next", parents=[common], help="the oldest approved issue nobody holds")
+    p.add_argument(
+        "--tracking", type=int, metavar="N", help="take the next sub-issue of tracking issue N"
+    )
     p.set_defaults(func=cmd_next)
 
     p = sub.add_parser("claim", parents=[common], help="take an issue")

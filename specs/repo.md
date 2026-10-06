@@ -184,7 +184,9 @@ Source: README.md, under "Claiming an issue".
 
 - `next-cmd-offers-free-issue` (test): When `issues.py next` runs, it
   names the lowest-numbered open issue labeled `approved` that no `issue/N`
-  branch holds and no open issue blocks, and exits 0 when none is free.
+  branch holds and no open issue blocks, and exits 0 when none is free. It
+  does not offer an issue labeled `tracking`, or a sub-issue of an open
+  tracking issue labeled `approved`.
 - `claim-cmd-picks-one-winner` (test): When two agents claim the same
   issue at once, `issues.py claim` lets exactly one create `issue/N`, and the
   other exits 1, names the holder and writes nothing.
@@ -212,6 +214,25 @@ Source: the owner's request on 2026-10-04, recorded in #345.
   blocking an issue, `issues.py next` does not offer it. When every free issue
   is blocked, `next` names each with its open blockers and exits 0, and `claim`
   still takes a blocked issue the owner names.
+
+## need owner-works-one-plan: Work one approved plan in its order
+
+When the owner has grouped one plan's issues under a tracking issue and
+approved the plan, the owner wants to tell an agent to take the plan's next
+issue, so agents work the plan in its listed order without picking issues
+from outside it.
+
+Source: the owner's request on 2026-10-05, recorded in #350.
+
+- `next-cmd-follows-tracking-issue` (test): When `issues.py next --tracking N`
+  runs, it offers the first sub-issue in #N's listed order that is open,
+  unheld and unblocked. It exits 1 when that sub-issue is not labeled
+  `approved`, or when #N is not an open issue labeled both `tracking` and
+  `approved`.
+- `next-cmd-names-tracking-issue` (test): When an open tracking issue labeled
+  `approved` takes its place in the queue, at the lowest number among itself
+  and its open sub-issues, before the issue `issues.py next` would offer,
+  `next` names the tracking issue and the command to follow it, and exits 0.
 
 ## need owner-sees-held-issues: See from the issue list which issues are held
 
