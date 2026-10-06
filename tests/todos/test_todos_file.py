@@ -1,4 +1,4 @@
-"""What `todos.py file` files on GitHub, what it removes, and when it refuses."""
+"""What `todos.py file` files on GitHub, what it marks, and when it refuses."""
 
 import os
 
@@ -61,11 +61,11 @@ class DescribeFiling:
         assert code == todos.OK, err
         assert out == (
             "filed #1 https://github.com/owner/project/issues/1\n"
-            "  and removed a.py:4\n"
+            "  and marked a.py:4 as TODO-HANDLED(#1)\n"
             "filed #2 https://github.com/owner/project/issues/2\n"
-            "  and removed a.py:1-2\n"
+            "  and marked a.py:1-2 as TODO-HANDLED(#2)\n"
             "filed #3 https://github.com/owner/project/issues/3\n"
-            "  and removed b.sh:2\n"
+            "  and marked b.sh:2 as TODO-HANDLED(#3)\n"
         )
 
     def it_gives_each_number_and_address_in_json(self, three):
@@ -218,7 +218,9 @@ class DescribeAFailedCall:
         assert code == todos.PROBLEMS
         assert len(creates(github)) == 2
         assert [i["title"] for i in github.issues] == ["two"]
-        assert three.read("a.py") == b"# TODO(bug): one\n# detail\nx = 1\ny = 2\n"
+        assert three.read("a.py") == (
+            b"# TODO(bug): one\n# detail\nx = 1\n# TODO-HANDLED(#1): two\ny = 2\n"
+        )
         assert three.read("b.sh") == b"echo hi\n# TODO: three\n"
         assert [(r["file"], r["first"]) for r in env["data"]["left"]] == [
             ("a.py", 1),
@@ -251,7 +253,7 @@ class DescribeAFailedCall:
             "draft 2 (a.py:4): `gh issue create` did not print an issue's address, but printed"
             " 'Creating issue'. Look in https://github.com/owner/project for the issue"
         )
-        assert three.read("a.py").count(b"TODO") == 2
+        assert three.read("a.py").count(b"TODO-HANDLED") == 0
 
     def it_stops_when_gh_prints_nothing(self, three, github):
         github.printed = ""
@@ -262,7 +264,7 @@ class DescribeAFailedCall:
 
 @pytest.mark.spec("file-cmd-never-posts-in-preview", "repo:command-never-writes-in-preview")
 class DescribeDryRun:
-    def it_says_what_it_would_file_and_remove(self, three, github):
+    def it_says_what_it_would_file_and_mark(self, three, github):
         found, _ = three.scan()
         drafts = three.drafts(
             [three.draft(found[0], labels=["bug", "plugin:todos"]), three.draft(found[2])]
@@ -273,9 +275,9 @@ class DescribeDryRun:
         assert code == todos.OK
         assert out == (
             "would file in owner/project: one  [bug, plugin:todos]\n"
-            "  and remove a.py:1-2\n"
+            "  and mark a.py:1-2 with the new issue's number\n"
             "would file in owner/project: three  [no labels]\n"
-            "  and remove b.sh:2\n"
+            "  and mark b.sh:2 with the new issue's number\n"
         )
         assert creates(github) == []
         assert (three.read("a.py"), three.read("b.sh")) == before
@@ -284,5 +286,7 @@ class DescribeDryRun:
         code, env = three.file(three.draft_all(), "--dry-run")
         assert code == todos.OK
         assert env["data"]["dry_run"] is True
-        assert [(f["number"], f["url"]) for f in env["data"]["filed"]] == [(None, None)] * 3
+        assert [(f["number"], f["url"], f["handled"]) for f in env["data"]["filed"]] == [
+            (None, None, None)
+        ] * 3
         assert creates(github) == []

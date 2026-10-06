@@ -18,14 +18,13 @@ design, and #312 the half that reaches GitHub.
 A TODO's comment marker is whatever comes before `TODO` on its own line, so
 the script does not keep a table of comment syntax by file type. The
 only syntax it knows is the two block comments, `/* */` and `<!-- -->`. A
-marker that is wrong for its file shows up when the file runs, and filing
-removes it anyway.
+marker that is wrong for its file shows up when the file runs.
 
 ## Why only uncommitted lines
 
 The script reads the lines added since the last commit and nothing else. A
 `TODO:` in a committed test fixture, or in a document that quotes the syntax,
-is never collected, and filing never removes a committed line. `scan` compares
+is never collected, and filing never marks a committed line. `scan` compares
 each file with the last commit by a shortest edit script: the fewest lines
 added and removed that turn one into the other. A committed line then never
 reads as added, even where the file repeats it, which Python's difflib does
@@ -34,17 +33,14 @@ not promise.
 ## A TODO at the end of a line
 
 The owner ruled in #311 that a TODO may sit at the end of the line it is
-about, after the code. Filing it cannot remove its line, so `file` takes the
-TODO's text off and leaves the rest. That is only safe when the rest is a
-line of the last commit. On a new line it would leave the author's new code
-with no TODO, and on a line whose code changed too it could not tell the
-TODO from the change. So `scan` reads such a TODO only when the line without
-it is a committed line, and warns otherwise.
+about, after the code. `scan` reads such a TODO only when the line without it
+is a committed line, and warns otherwise. On a line whose code changed too, it
+could not tell the TODO from the change.
 
 `scan` finds that out by comparing the file with the last commit as if every
 candidate TODO were already gone. A candidate whose line then matches a
-committed one is read, and the line counts as committed for the blank-line
-tidying too. Where several cuts would leave a committed line, the longest
+committed one is read, and the line counts as committed in a hand-off's
+list of changed lines too. Where several cuts would leave a committed line, the longest
 wins, so a committed trailing space stays.
 
 ## TODOs in another checkout
@@ -55,7 +51,7 @@ found the same split for prose-tuning's update-prose-config. When this tree
 does not hold a TODO, `scan` scans every other worktree that `git worktree
 list` names, and exits 1 naming each one that holds TODOs. `--from` then
 points `scan`, `report` and `file` at that worktree, so the TODOs are filed
-and removed where the author left them.
+and marked where the author left them.
 
 prose-tuning's `carry` copies the edits into the session's tree, because
 Claude Code refuses a worktree session's edits to the main checkout's
@@ -71,9 +67,9 @@ does the rest:
 - finding the TODOs
 - checking each draft against the file as it is now
 - calling `gh`
-- removing the lines
+- marking each TODO handled
 
-The removal has to give back the committed file byte for byte. A model
+Marking has to change a TODO's word and its wrap, and no other byte. A model
 editing by hand gets that wrong eventually, and nothing would notice.
 
 ## The report and the token
@@ -110,24 +106,33 @@ that output, and stops on any other error.
 Deleting an issue takes admin rights on the repository, which the user may not
 hold, so a batch cannot be filed all or nothing. `file` checks everything it
 can before its first call to GitHub: the token, every draft, and that it can
-open every file it will change for writing. It then removes each TODO as soon
+open every file it will change for writing. It then marks each TODO as soon
 as its issue exists, and stops at the first call that fails, so a run cut
-short leaves exactly the TODOs whose issues do not exist.
+short leaves unmarked exactly the TODOs whose issues do not exist.
 
-It works from the last TODO in each file to the first, so removing one never
-moves the lines of a TODO still to come.
+## Marking a handled TODO
 
-## Blank lines
+`file` once deleted each TODO it finished. After a run the author could not
+tell from the file which TODOs were handled and which were missed, and the
+only record was the chat. The owner ruled while planning #333 that `file`
+marks a TODO instead. Its word, `TODO` or `TODO(<kind>)`, becomes
+`TODO-HANDLED(<target>)`, and the TODO's text and comment syntax stay. A
+hand-off's target is the skill's name, because no pull request exists yet
+when `file` runs. Marking never adds or removes a line, so the line numbers
+`scan` gave stay right while `file` works through a file.
 
-A TODO usually sits in blank lines the author added with it. `file` removes
-those, keeps every committed blank line, and keeps one added blank line where
-it separates new code from the lines around it. When the removal reaches the
-end of the file, the line left last gets back the ending it had at the last
-commit. The script's docstring has the exact rule. Together these give back
-the committed file, byte for byte, when the only changes were TODOs and the
-blank lines around them, and
-`tests/todos/test_properties_todos_removal.py` checks that for every file
-Hypothesis builds.
+In markdown, `file` wraps a marked TODO in an HTML comment unless it already
+sits in one, so it does not render. prose-tuning's `evidence` then skips it as
+a comment-only hunk (#327), rather than reading the marker as a prose edit.
+The wrap runs to the end of the TODO's last line, because a list item, a quote
+or a trailing TODO would render too.
+
+`scan` reads a marked TODO, with its detail, so that a second run neither
+reports it nor warns, and does not read it as the detail of a new TODO
+written above it. `tests/todos/test_properties_todos_marking.py` checks, for
+every file Hypothesis builds, that a file with every TODO marked holds nothing
+for `scan`, that no byte changed outside each word and wrap, and that nothing
+of a marked TODO renders in markdown.
 
 ## `approved`
 
@@ -146,11 +151,10 @@ skill as the Skill tool takes it. The model picks the skill from the skills
 the session lists, by their descriptions, so `report` cannot check the name,
 and the token is what holds the author's approval of it.
 
-`file` removes a routed TODO like any other, with no call to GitHub, and then
+`file` marks a routed TODO like any other, with no call to GitHub, and then
 prints one hand-off per skill. Each holds the TODO's title and detail and the
-passage it sat above, read once every finished TODO is gone, so its line
-numbers are the ones the receiving skill sees. The passage runs from the line
-`scan` gave as `above` to the nearest blank line or TODO on either side. The
+passage it sat above. The passage runs from the line `scan` gave as `above` to
+the nearest blank line or TODO, marked or not, on either side. The
 convention in CLAUDE.md, under "A skill hands work to another plugin's skill
 by convention", says what a hand-off carries.
 

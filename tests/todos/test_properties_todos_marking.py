@@ -1,12 +1,13 @@
-"""Removing every TODO from a file whose only changes were TODOs, with blank
-lines around them, gives back its last commit byte for byte.
+"""Marking every TODO in a file handled leaves nothing for `scan` to find,
+and changes no byte outside each TODO's word and its wrap.
 
-The examples in test_todos_removal.py run `file` itself; this drives the same
-Pending and Removal that `file` uses, without git, so that each example is
+The examples in test_todos_marking.py run `file` itself; this drives the same
+Pending and Marking that `file` uses, without git, so that each example is
 cheap enough for Hypothesis to try many.
 """
 
 import os
+import re
 
 import pytest
 from hypothesis import event, example, given, settings
@@ -97,15 +98,31 @@ def todo_only_files(draw):
     return render(base_lines), render(now_lines), count
 
 
-def remove_all(base, now):
-    """The file once every TODO scan finds is removed, bottom up, and how
-    many it found."""
-    pending = todos.Pending("notes.txt", now, base)
+def mark_all(path, base, now):
+    """The file once every TODO scan finds is marked, bottom up, each with a
+    target of its own, and how many it found."""
+    pending = todos.Pending(path, now, base)
     found = pending.found.todos
-    removal = todos.Removal(os.devnull, pending)
-    for todo in sorted(found, key=lambda t: -t["first"]):
-        removal.remove(todo["first"], todo["last"])
-    return removal.content(), len(found)
+    marking = todos.Marking(os.devnull, pending)
+    for n, todo in enumerate(sorted(found, key=lambda t: -t["first"])):
+        marking.mark(todo["first"], todo["last"], "#%d" % n)
+    return marking.content(), len(found)
+
+
+# A TODO's word, marked or not, and the wrap marking adds in markdown.
+WORD_RE = re.compile(rb"TODO-HANDLED\([^()]*\)|TODO(?:\([^()]*\))?")
+WRAP_RE = re.compile(re.escape(todos.WRAP_OPEN) + b"|" + re.escape(todos.WRAP_CLOSE))
+# What renders of a markdown file: everything outside its HTML comments.
+COMMENT_RE = re.compile(rb"<!--.*?-->", re.S)
+# The text of a TODO, its title or detail, as todo_form and trailing_form
+# write it.
+TODO_TEXT_RE = re.compile(rb"TODO|\bt\d|(?:why|and|detail|more) \d")
+
+
+def plain(raw):
+    """The bytes with every TODO's word, marked or not, as `TODO`, and no
+    wrap."""
+    return WRAP_RE.sub(b"", WORD_RE.sub(b"TODO", raw))
 
 
 def longest_common(a, b):
@@ -146,19 +163,25 @@ class DescribeComparingWithTheLastCommit:
 
 
 @pytest.mark.spec(
-    "file-cmd-restores-todo-only-files",
-    "file-cmd-tidies-blank-lines",
-    "file-cmd-removes-trailing-todos",
+    "file-cmd-marks-handled-todos",
+    "file-cmd-marks-trailing-todos",
+    "file-cmd-wraps-markdown-todos",
+    "scan-cmd-skips-handled-todos",
 )
-class DescribeRemovingEveryTodo:
-    @given(todo_only_files())
-    @example((b"a\nb", b"a\nb\n# TODO: t0", 1))
-    @example((b"a\r\n\r\nb", b"a\r\n\r\n\r\n# TODO: t0\r\n  \r\nb", 1))
-    @example((todos.BOM + b"a\n", todos.BOM + b"<!-- TODO: t0\nmore\n-->\na\n", 1))
-    @example((b"a\na", b"# TODO: t0\na # TODO: t1\na // TODO: t2", 3))
+class DescribeMarkingEveryTodo:
+    @given(todo_only_files(), st.sampled_from(["notes.txt", "notes.md"]))
+    @example((b"a\nb", b"a\nb\n# TODO: t0", 1), "notes.md")
+    @example((b"a\r\n\r\nb", b"a\r\n\r\n\r\n# TODO: t0\r\n  \r\nb", 1), "notes.md")
+    @example((todos.BOM + b"a\n", todos.BOM + b"<!-- TODO: t0\nmore\n-->\na\n", 1), "notes.md")
+    @example((b"a\na", b"# TODO: t0\na # TODO: t1\na // TODO: t2", 3), "notes.md")
     @settings(max_examples=300)
-    def it_gives_back_the_last_commit_byte_for_byte(self, case):
+    def it_leaves_nothing_to_find_and_changes_nothing_else(self, case, path):
         base, now, count = case
-        got, found = remove_all(base, now)
+        event(path)
+        got, found = mark_all(path, base, now)
         assert found == count
-        assert got == base
+        rescan = todos.Pending(path, got, base).found
+        assert (rescan.todos, rescan.warnings) == ([], [])
+        assert plain(got) == plain(now)
+        if path.endswith(todos.MARKDOWN_SUFFIXES):
+            assert TODO_TEXT_RE.search(COMMENT_RE.sub(b"", got)) is None

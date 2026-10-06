@@ -3,7 +3,7 @@
 TODOs turns the notes you leave in your files while reviewing them into
 GitHub issues. You write a short TODO comment where you find the work, and
 Claude drafts an issue for each one, shows you every draft, files the ones you
-approve, and takes each TODO back out of its file.
+approve, and marks each TODO in its file with the issue it became.
 
 **Claude Code only.** The plugin needs a git clone with a GitHub remote, and
 GitHub's command-line tool, `gh`, installed and signed in (`gh auth login`).
@@ -52,9 +52,9 @@ comment marker. It has a title and no detail:
 retries = 3  # TODO(fix): the vendor allows 5 retries
 ```
 
-Claude reads it only when the TODO is all you changed on that line. When it
-is filed, the line goes back to what you last committed. If you changed the
-code on the line too, Claude warns about the TODO and leaves it in place.
+Claude reads it only when the TODO is all you changed on that line. If you
+changed the code on the line too, Claude warns about the TODO and leaves it in
+place.
 
 Any text file works, whatever its language, because the TODO uses the file's
 own comment syntax, so the file still runs, compiles and renders as before.
@@ -68,7 +68,7 @@ Claude may work in a separate copy of your project, which the Claude desktop
 app makes for each session. When that copy does not hold any TODOs and the
 folder you review in does, Claude names the folder, with its branch and files,
 and asks whether to collect them from there. Their issues are filed the same
-way, and the TODOs come out of the files in that folder.
+way, and the TODOs are marked in the files in that folder.
 
 ## Filing them
 
@@ -86,8 +86,8 @@ Ask Claude to file your TODOs. Claude:
 4. Shows you the repository the issues will go to, every draft in full, with
    where each goes, and the TODOs that will stay. You approve all of them,
    some, or none.
-5. Files the issues and posts the comments you approved, and removes each
-   TODO once its issue or comment exists.
+5. Files the issues and posts the comments you approved, and marks each TODO
+   once its issue or comment exists.
 6. Tells you what it filed and what it will hand on, then hands each TODO
    routed to a skill to that skill, with the passage the TODO sat above.
 
@@ -101,9 +101,37 @@ report and the filing, Claude shows you a fresh report first.
 
 ## What it changes
 
-Each TODO that is filed, posted or handed on comes out of its file, with the blank lines you added
-around it. A file whose only changes were TODOs goes back to exactly what it
-was at your last commit. Nothing else in your files changes.
+Each TODO that is filed, posted or handed on is marked where you left it. Its
+opening `TODO` or `TODO(<kind>)` becomes `TODO-HANDLED`, with where it went in
+brackets:
+
+```python
+# TODO-HANDLED(#42): run() waits forever when gh stalls
+def run(repo, cmd):
+```
+
+Where it went is one of these:
+
+- `#42` for the new issue 42;
+- `#42 comment` for a comment on issue 42;
+- the skill's name, for a TODO handed on to a skill.
+
+The TODO's text and comment syntax stay as you wrote them. A TODO that still
+reads `TODO:` after a run is one that was not handled, and a search for `TODO`
+finds both kinds. Claude does not collect a marked TODO again.
+
+In a markdown file, a marked TODO that is not already inside an HTML comment
+is wrapped in one, from `<!--` to `-->`, so it does not show when the document
+renders:
+
+```markdown
+<!-- - TODO-HANDLED(#42): say which folders the layout leaves out -->
+```
+
+Nothing else in your files changes. Delete the markers when you commit, or
+keep them as pointers to where each TODO went. While a markdown file holds a
+marker you have not committed, prose-tuning's apply-prose waits, because the
+file has uncommitted changes. Commit the file and it runs.
 
 The plugin keeps a copy of its script in `.todos/` in your project, with its
 own `.gitignore`, so it never shows up in a commit. Claude never commits. You

@@ -1,5 +1,5 @@
 """What `todos.py` does with a draft routed to a skill: how report shows it,
-and the hand-off file prints once its TODO is gone."""
+and the hand-off file prints once its TODO is marked."""
 
 import pytest
 
@@ -99,8 +99,8 @@ class DescribeTheHandoff:
                         "detail": "split it",
                         "passage": {
                             "file": "README.md",
-                            "first": 3,
-                            "last": 4,
+                            "first": 5,
+                            "last": 6,
                             "changed": [],
                             "text": "First line.\nSecond line.",
                         },
@@ -109,12 +109,14 @@ class DescribeTheHandoff:
             }
         ]
 
-    @pytest.mark.spec("file-cmd-removes-handled-todos")
-    def it_removes_the_todo_without_calling_github(self, doc, github):
+    @pytest.mark.spec("file-cmd-marks-handled-todos")
+    def it_marks_the_todo_with_the_skill_without_calling_github(self, doc, github):
         doc.write("README.md", BASE.replace("First", "<!-- TODO(prose): too long -->\nFirst"))
         found, _ = doc.scan()
         handoffs(doc, [doc.skill(found[0])])
-        assert doc.read("README.md") == BASE.encode()
+        assert doc.read("README.md") == BASE.replace(
+            "First", "<!-- TODO-HANDLED(%s): too long -->\nFirst" % PROSE
+        ).encode("utf-8")
         assert github.posts() == 0
 
     def it_lists_the_lines_changed_since_the_last_commit(self, doc):
@@ -125,10 +127,10 @@ class DescribeTheHandoff:
         found, _ = doc.scan()
         (handoff,) = handoffs(doc, [doc.skill(found[0])])
         passage = handoff["todos"][0]["passage"]
-        assert (passage["first"], passage["last"], passage["changed"]) == (3, 4, [3])
+        assert (passage["first"], passage["last"], passage["changed"]) == (4, 5, [4])
         assert passage["text"] == "First line, rewritten.\nSecond line."
 
-    def it_numbers_the_passage_once_every_finished_todo_is_gone(self, doc):
+    def it_numbers_the_passage_as_the_marked_file_reads(self, doc):
         doc.write(
             "README.md",
             "<!-- TODO: an issue -->\n\n"
@@ -139,24 +141,33 @@ class DescribeTheHandoff:
         (handoff,) = handoffs(doc, drafts)
         assert [t["title"] for t in handoff["todos"]] == ["one", "two"]
         for todo in handoff["todos"]:
-            assert (todo["passage"]["first"], todo["passage"]["last"]) == (3, 4)
-        assert doc.read("README.md") == BASE.encode()
+            assert (todo["passage"]["first"], todo["passage"]["last"]) == (7, 8)
+        assert doc.read("README.md").count(b"TODO-HANDLED") == 3
 
     def it_stops_the_passage_at_a_todo_left_in_place(self, doc):
         doc.write(
             "README.md",
-            BASE.replace(
-                "First line.", "<!-- TODO: stays -->\nFirst line.\n<!-- TODO(prose): go -->"
+            BASE.replace("First line.", "<!-- TODO(prose): go -->\nFirst line.").replace(
+                "Second", "<!-- TODO: stays -->\nSecond"
             ),
         )
         found, _ = doc.scan()
-        (handoff,) = handoffs(doc, [doc.skill(found[1])])
+        (handoff,) = handoffs(doc, [doc.skill(found[0])])
         passage = handoff["todos"][0]["passage"]
-        assert (passage["first"], passage["last"], passage["text"]) == (
-            4,
-            5,
-            "First line.\nSecond line.",
+        assert (passage["first"], passage["last"], passage["text"]) == (4, 4, "First line.")
+
+    @pytest.mark.spec("scan-cmd-skips-handled-todos")
+    def it_stops_the_passage_at_a_marked_todo(self, doc):
+        doc.write(
+            "README.md",
+            BASE.replace(
+                "Second", "<!-- TODO-HANDLED(#3): old -->\n<!-- TODO(prose): go -->\nSecond"
+            ),
         )
+        found, _ = doc.scan()
+        (handoff,) = handoffs(doc, [doc.skill(found[0])])
+        passage = handoff["todos"][0]["passage"]
+        assert (passage["first"], passage["last"], passage["text"]) == (6, 6, "Second line.")
 
     def it_takes_a_trailing_todos_own_line_into_the_passage(self, doc):
         doc.write("README.md", BASE.replace("Second line.", "Second line. <!-- TODO(prose): x -->"))
@@ -200,7 +211,7 @@ class DescribeTheHandoff:
         assert code == todos.OK, err
         assert out == (
             "handing to example:learn-prose-rules\n"
-            "  and removed README.md:3-4\n"
+            "  and marked README.md:3-4 as TODO-HANDLED(example:learn-prose-rules)\n"
             "\n"
             "hand-off to example:learn-prose-rules\n"
             "\n"
@@ -208,7 +219,7 @@ class DescribeTheHandoff:
             "  title   too long\n"
             "  detail\n"
             "    | split it\n"
-            "  passage README.md:3-4, changed since the last commit: 3\n"
+            "  passage README.md:5-6, changed since the last commit: 5\n"
             "  text\n"
             "    | First line!\n"
             "    | Second line.\n"
@@ -263,9 +274,9 @@ class DescribeTheDryRun:
         assert code == todos.OK
         assert out.startswith(
             "would hand to example:learn-prose-rules\n"
-            "  and remove README.md:5\n"
+            "  and mark README.md:5 as TODO-HANDLED(example:learn-prose-rules)\n"
             "would file in owner/project: an issue  [no labels]\n"
-            "  and remove README.md:1\n"
+            "  and mark README.md:1 with the new issue's number\n"
         )
-        assert "  passage README.md:3-4, changed since the last commit: none\n" in out
+        assert "  passage README.md:6-7, changed since the last commit: none\n" in out
         assert doc.read("README.md") == before

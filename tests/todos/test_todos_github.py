@@ -139,7 +139,7 @@ class DescribeTheRealGh:
         assert code == todos.OK, repo.err
         assert [(f["number"], f["url"]) for f in env["data"]["filed"]] == [(42, url)]
         assert (tmp_path / "gh-bin" / "gh.body").read_text() == "Body, with 'quotes'.\n"
-        assert repo.read("a.py") == b"x = 1\n"
+        assert repo.read("a.py") == b"# TODO-HANDLED(#42): one\nx = 1\n"
 
 
 @pytest.mark.spec("scan-cmd-lists-labels")
