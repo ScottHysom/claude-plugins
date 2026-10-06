@@ -1023,6 +1023,83 @@ class DescribeFences:
         assert fence.body == [(4, "a"), (5, "b")]
 
 
+PROJECT_SKILL = ".claude/skills/plan/SKILL.md"
+REPO_SCRIPT = ".github/scripts/foo.py"
+
+
+def project(*bodies):
+    """A plugin skill that passes every check, and a project skill with these
+    steps, whose script is a repo script named by its path."""
+    text = ""
+    for n, body in enumerate(bodies, start=1):
+        text += "## Step %d: s%d\n\n%s\n" % (n, n, body)
+    files = steps(RUNS)
+    files.update({PROJECT_SKILL: skill("plan", text), REPO_SCRIPT: FOO_PY})
+    return files
+
+
+class DescribeProjectSkills:
+    @pytest.mark.spec("checkskills-cmd-reads-project-skills")
+    def it_checks_a_project_skills_steps_and_commands_as_a_plugins(self, make_repo, run):
+        root = make_repo(project(sh("python3 %s lint --json" % REPO_SCRIPT), marker("judgment")))
+        for command in ("commands", "steps", "fences"):
+            code, out, err = run(command, "-C", str(root), "--json")
+            assert code == cs.OK, err
+            assert PROJECT_SKILL in json.loads(out)["data"]["scanned"]
+
+    @pytest.mark.parametrize(
+        ("command", "body", "says"),
+        [
+            ("commands", sh("python3 %s lint --nope" % REPO_SCRIPT), "unrecognized arguments"),
+            ("steps", "Think hard about it.\n", "names no command"),
+            ("fences", sh("grep -r TODO ."), "`grep` in a shell fence"),
+        ],
+    )
+    @pytest.mark.spec("checkskills-cmd-reads-project-skills")
+    def it_fails_a_project_skill_that_breaks_a_rule(self, make_repo, run, command, body, says):
+        root = make_repo(project(body))
+        code, _, err = run(command, "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert PROJECT_SKILL in err
+        assert says in err
+
+    @pytest.mark.spec("checkskills-cmd-reads-project-skills")
+    def it_resolves_a_project_skills_variable_from_the_clones_root(self, make_repo, run):
+        body = sh('PLAN=%s && python3 "$PLAN" config list --json' % REPO_SCRIPT)
+        root = make_repo(project(body))
+        code, out, err = run("commands", "-C", str(root), "--json")
+        assert code == cs.OK, err
+        scripts = [i["script"] for i in json.loads(out)["data"]["invocations"]]
+        assert REPO_SCRIPT in scripts
+
+    @pytest.mark.spec("checkskills-cmd-reads-project-skills")
+    def it_names_the_project_skills_folder_for_an_unassigned_variable(self, make_repo, run):
+        root = make_repo(project(sh('python3 "$NOPE" lint')))
+        code, _, err = run("commands", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "no assignment in .claude/skills/ names a script for $NOPE" in err
+
+    @pytest.mark.spec("checkskills-cmd-reads-project-skills")
+    def it_leaves_a_project_skill_out_of_repeats(self, make_repo, run):
+        files = project(SHARED, RUNS)
+        files["plugins/foo/skills/b/SKILL.md"] = skill("b", SHARED)
+        code, out, err = run("repeats", "-C", str(make_repo(files)), "--json")
+        assert code == cs.OK, err
+        assert PROJECT_SKILL not in json.loads(out)["data"]["scanned"]
+
+    @pytest.mark.parametrize(
+        "path",
+        [".claude/skills/SKILL.md", ".claude/skills/a/b/SKILL.md", "x/.claude/skills/a/SKILL.md"],
+    )
+    @pytest.mark.spec("checkskills-cmd-reads-project-skills")
+    def it_reads_only_a_skill_folder_directly_under_claude_skills(self, make_repo, run, path):
+        files = steps(RUNS)
+        files[path] = skill("x", "## Step 1: s1\n\nThink hard about it.\n")
+        code, out, err = run("steps", "-C", str(make_repo(files)), "--json")
+        assert code == cs.OK, err
+        assert path not in json.loads(out)["data"]["scanned"]
+
+
 class DescribeMain:
     @pytest.mark.parametrize("command", ["repeats", "descriptions", "commands", "steps", "fences"])
     @pytest.mark.spec("command-prints-json-envelope")

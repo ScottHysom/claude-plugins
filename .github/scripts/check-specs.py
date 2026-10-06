@@ -21,8 +21,9 @@ verifies each:
          comment lines directly above its `- name:`
 
 A plugin's test, under tests/<plugin>/, and a plugin's skill step cite that
-plugin's specs/<plugin>.md. Every other test, and every workflow step, cites
-specs/repo.md. Any of them can name a repo requirement as `repo:<id>`.
+plugin's specs/<plugin>.md. Every other test, every workflow step, and every
+step of a project skill under .claude/skills/, cites specs/repo.md. Any of
+them can name a repo requirement as `repo:<id>`.
 
 The items still waiting on a ruling are listed in .github/untraced.json, each
 keyed to the open issue that will settle it:

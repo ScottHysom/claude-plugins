@@ -28,3 +28,7 @@ coverage.json
 htmlcov/
 .venv/
 venv/
+
+# What issues.py plan report writes for the owner to read, and plan file
+# records what it filed in. issues.py's docstring has the rest.
+.issues-plan/

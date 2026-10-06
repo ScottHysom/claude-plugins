@@ -608,6 +608,44 @@ class DescribeTrace:
         assert code == cp.OK, err
 
 
+PROJECT_SKILL = ".claude/skills/plan/SKILL.md"
+
+
+def project_skill(marker):
+    return (
+        "---\nname: plan\ndescription: the plan skill\n---\n\n# plan\n\n"
+        "## Step 1: decide\n" + marker + "\nDecide.\n"
+    )
+
+
+class DescribeTraceProjectSkills:
+    @pytest.mark.spec("trace-cmd-reads-project-skills")
+    def it_verifies_a_repo_step_requirement_from_a_project_skill(self, make_repo, run):
+        spec = REPO_SPEC + "- `plan-decides-once` (step): When planning, the skill decides once.\n"
+        root = make_repo(
+            {
+                "specs/repo.md": spec,
+                PROJECT_SKILL: project_skill("<!-- spec: plan-decides-once -->\n"),
+            }
+        )
+        code, out, err = run("trace", "-C", str(root))
+        assert code == cp.OK, err
+        assert "5 requirement(s) verified" in out
+
+        root = make_repo({"specs/repo.md": spec}, name="without")
+        code, _, err = run("trace", "-C", str(root))
+        assert code == cp.PROBLEMS
+        assert "`plan-decides-once`" in err
+
+    @pytest.mark.spec("trace-cmd-reads-project-skills")
+    def it_reads_a_project_skills_citations_against_the_repo_spec(self, make_repo, run):
+        root = make_repo({PROJECT_SKILL: project_skill("<!-- spec: foo-does-x -->\n")})
+        code, _, err = run("trace", "-C", str(root))
+        assert code == cp.PROBLEMS
+        assert "%s:" % PROJECT_SKILL in err
+        assert "cites `foo-does-x`, which specs/repo.md does not hold" in err
+
+
 def coverage_report(contexts=True):
     ran = {
         "3": [""],
