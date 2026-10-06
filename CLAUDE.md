@@ -37,6 +37,11 @@ back them. What agents do:
     or the id a bug breaks.
 - **Label it** with one of `bug`, `enhancement` or `docs`, and one area:
   `plugin:<name>` or `repo`. Never `approved`.
+- **File a tracking issue only when the owner asks for one.** It groups one
+  plan's issues as sub-issues and carries the `tracking` label alone. Its body
+  gives the plan and the order to work the sub-issues in, instead of the four
+  headings. Never claim or work a tracking issue. README.md, under "Tracking
+  issues", has the convention.
 - **Work only on issues labeled `approved`.** The owner may also ask for work
   directly, without an issue; that does not need a label.
 - **Claim an issue before any work on it**, whether the owner named it or you

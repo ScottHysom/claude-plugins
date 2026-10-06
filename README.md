@@ -403,10 +403,24 @@ requests, decides what gets worked on. The process:
 | `repo` | CI, tooling, the marketplace catalog or root docs |
 | `approved` | the owner agrees it should be done. Only the owner adds this |
 | `in-progress` | someone has claimed it; see below |
+| `tracking` | a parent issue that groups one plan's issues; see below |
 
 A new plugin adds its `plugin:<name>` label when it is added. An issue that is a
 duplicate, or will not be done, is closed with a comment saying why rather than
 kept open under a label.
+
+### Tracking issues
+
+A **tracking issue** is a parent that groups the issues of one plan as GitHub
+sub-issues. For example, one tracking issue can group the issues for do-todos
+and for update-prose-config. A tracking issue:
+
+- carries `tracking` and no kind or area label, since its sub-issues can span
+  several plugins.
+- holds the order to work its sub-issues in as "blocked by" links between them.
+- is never approved or claimed, and no pull request closes it.
+
+The owner closes it when its last sub-issue closes.
 
 ### Claiming an issue
 
