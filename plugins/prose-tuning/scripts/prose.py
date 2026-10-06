@@ -25,6 +25,8 @@ Commands:
     tags        list | resolve
     report      the findings for approval, and which of them overlap
     apply       apply approved rewrites
+    questions   write update-prose-config's interview to .prose-tuning/
+                questions.md, for the author to answer on a page
     setup       which surface this is running on, local or cowork, and
                 locally, copy this script into the project
     stage       copy this script and the shipped rules into Cowork's outputs
@@ -95,6 +97,10 @@ Some things in here look like bugs and are not:
    neighbors rather than two. plan_findings has the rule, and resolve_scanned
    says why neutralizing a file for evidence never does this.
 
+5. questions writes .prose-tuning/questions.md and does not take --dry-run.
+   The file is git-ignored scratch that its next run replaces, which is the
+   case the owner ruled on in #334 for todos.py's report file.
+
 Python 3.9 is the floor. No match statements, no X | Y unions.
 """
 
@@ -150,6 +156,10 @@ GIT_DIR_NAME = ".git"
 # never has to know this plugin exists.
 COPY_IGNORE = COPY_DIR + "/.gitignore"
 COPY_IGNORE_TEXT = b"*\n"
+# Where questions writes the interview, for the author to answer on a page,
+# and the info string of the fence that holds each piece of evidence.
+QUESTIONS_FILE = COPY_DIR + "/questions.md"
+QUESTIONS_FENCE_INFO = "text"
 DEVICE_MOUNT_ROOT = "$HOME/mnt"
 
 # What evidence, reproduce and restore compare the working tree against.
@@ -4331,6 +4341,92 @@ def cmd_apply(args):
     return emit(args, "apply", repo.root, data, errors=rejected, human=human)
 
 
+def fenced(text):
+    """text in a code fence longer than any run of backticks inside it, so a
+    diff or a markdown passage shows as it stands."""
+    longest = max([len(run) for run in re.findall(r"`+", text)] + [2])
+    fence = "`" * (longest + 1)
+    return "%s%s\n%s\n%s" % (fence, QUESTIONS_FENCE_INFO, text.rstrip("\n"), fence)
+
+
+def question_refusals(n, q):
+    """Why question n cannot go on the page, as a list of reasons."""
+    if not isinstance(q, dict):
+        return ["question %d is not a JSON object" % n]
+    reasons = []
+    if not isinstance(q.get("question"), str) or not q["question"].strip():
+        reasons.append("question %d has no question text" % n)
+    options = q.get("options")
+    if not isinstance(options, list) or not options:
+        reasons.append("question %d has no options" % n)
+    else:
+        for i, o in enumerate(options, 1):
+            if not isinstance(o, dict) or not isinstance(o.get("label"), str) or not o["label"]:
+                reasons.append("question %d, option %d has no label" % (n, i))
+            elif not isinstance(o.get("description", ""), str):
+                reasons.append("question %d, option %d has a description that is not text" % (n, i))
+    evidence = q.get("evidence")
+    if not isinstance(evidence, list) or not evidence:
+        reasons.append("question %d has no evidence" % n)
+    elif not all(isinstance(e, str) and e.strip() for e in evidence):
+        reasons.append("question %d has evidence that is not text" % n)
+    return reasons
+
+
+def questions_markdown(questions, refused):
+    """The interview as the author reads it whole, or the refusals instead."""
+    out = ["# Questions from update-prose-config", ""]
+    if refused:
+        out += ["Fix these questions and run questions again:", ""]
+        out += ["- %s" % r for r in refused]
+        return "\n".join(out) + "\n"
+    out.append(
+        "Answer each question by commenting on it and sending the comment to Claude. "
+        "Pick an option, or say what you mean in your own words."
+    )
+    for n, q in enumerate(questions, 1):
+        out += ["", "## Question %d" % n, "", q["question"].strip(), "", "Options:", ""]
+        for o in q["options"]:
+            line = "- **%s**" % o["label"]
+            if o.get("description"):
+                line += ": %s" % o["description"]
+            out.append(line)
+        out += ["", "Evidence:"]
+        for e in q["evidence"]:
+            out += ["", fenced(e)]
+    return "\n".join(out) + "\n"
+
+
+def cmd_questions(args):
+    """Write the interview to .prose-tuning/questions.md, for the author to
+    answer on a page when one dialog cannot hold it.
+
+    The file is scratch that the next run replaces, and the folder's
+    .gitignore keeps it out of the project's commits. A batch with a refused
+    question writes the refusals and no question, so a page from an earlier
+    run is never published as this one.
+    """
+    repo = Repo(args.repo)
+    questions = read_json(args.batch, "the questions")
+    if not isinstance(questions, list) or not questions:
+        raise Fatal("the questions are not a JSON list of at least one question")
+    refused = []
+    for n, q in enumerate(questions, 1):
+        refused += question_refusals(n, q)
+    ignore = repo.abspath(COPY_IGNORE)
+    os.makedirs(os.path.dirname(ignore), exist_ok=True)
+    if not os.path.isfile(ignore):
+        # In place, on purpose. See the module docstring.
+        with open(ignore, "wb") as fh:
+            fh.write(COPY_IGNORE_TEXT)
+    path = repo.abspath(QUESTIONS_FILE)
+    Text(questions_markdown(questions, refused)).write(path)
+    data = {"page": path, "questions": 0 if refused else len(questions)}
+    return emit(
+        args, "questions", repo.root, data, errors=refused, human=lambda: print("wrote %s" % path)
+    )
+
+
 def copy_sources():
     """(path in the project, bytes) for each file the copy in .prose-tuning/ holds."""
     with open(SCRIPT_PATH, "rb") as fh:
@@ -4674,6 +4770,20 @@ def build_parser():
     )
     p.add_argument("--dry-run", action="store_true", help="report without writing")
     p.set_defaults(func=cmd_apply)
+
+    p = sub.add_parser(
+        "questions",
+        parents=[common],
+        help="write the interview to %s, for the author to answer on a page" % QUESTIONS_FILE,
+    )
+    p.add_argument(
+        "--batch",
+        required=True,
+        metavar="PATH",
+        help="the questions as a JSON list, or - for stdin; each has question, "
+        "options (label, description) and evidence (a list of text)",
+    )
+    p.set_defaults(func=cmd_questions)
 
     # -C is used only locally: in Cowork's container, setup has no repo to find.
     p = sub.add_parser(

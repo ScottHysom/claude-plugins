@@ -81,6 +81,16 @@ How a project commits is settled wherever that project settles it, such as its
 `CLAUDE.md` or a commit script. A second set of commit instructions inside
 this plugin would drift from the project's own.
 
+## The interview page
+
+update-prose-config asks every open question in one round. One
+`AskUserQuestion` call holds at most four questions, and a later dialog covers
+the one before it, so an interview of five or more questions goes on a page
+instead. `prose.py questions` writes the questions, each with its options and
+evidence, to `.prose-tuning/questions.md`. The skill publishes that file as a
+private artifact, and the author answers each question in a comment sent to
+Claude. Where the skill cannot publish, it falls back to dialogs of four.
+
 ## Why a script
 
 `scripts/prose.py` does everything deterministic:
