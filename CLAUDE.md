@@ -51,6 +51,12 @@ back them. What agents do:
   and tell the owner, and do not work on it anyway. If you stop without
   opening a pull request, run `issues.py release N`. README.md, under
   "Claiming an issue", explains the lock.
+- **Take a plan's issues through its tracking issue.** Asked for "the next
+  issue tracked by #N", run `python3 .github/scripts/issues.py next --tracking N`
+  and claim the issue it names. When plain `next` names a tracking issue
+  instead of an issue to work, ask the owner whether to start on that plan,
+  and on a yes do the same. If `next --tracking N` exits 1, relay its message
+  and do not pick another sub-issue yourself.
 - **Clear the claim once its pull request merges.** When the owner says a
   pull request from `issue/N` has merged, run
   `python3 .github/scripts/issues.py clear N` from the main checkout. If it

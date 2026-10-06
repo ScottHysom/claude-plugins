@@ -70,9 +70,10 @@ def remote_branches(remote):
 class FakeGitHub:
     """gh, answering from a dict of issues. Records every call."""
 
-    def __init__(self, issues=None, pulls=None, merged=(), fail=(), blockers=None):
+    def __init__(self, issues=None, pulls=None, merged=(), fail=(), blockers=None, subs=None):
         self.issues = issues or {}
         self.blockers = blockers or {}
+        self.subs = subs or {}
         self.pulls = pulls or []
         self.merged = merged
         self.fail = fail
@@ -83,6 +84,15 @@ class FakeGitHub:
         if any(word in args for word in self.fail):
             raise cli.Fatal("gh %s failed" % args[1])
         kind, verb = args[0], args[1]
+        if kind == "api" and "/sub_issues" in args[1]:
+            # The REST API spells state in lower case, unlike gh issue list.
+            number = int(args[1].split("/")[-2])
+            return json.dumps(
+                [
+                    dict(self.issues[n], state=self.issues[n]["state"].lower())
+                    for n in self.subs[number]
+                ]
+            )
         if kind == "api":
             number = int(args[1].split("/")[-3])
             return json.dumps(
@@ -346,6 +356,158 @@ class DescribeNextBlockers:
         code, _ = run(capsys, clone("a"), "claim", "10")
         assert code == cli.OK
         assert not any(c[0] == "api" for c in gh.calls)
+
+
+class DescribeNextTracking:
+    @pytest.mark.spec("next-cmd-follows-tracking-issue")
+    def it_offers_sub_issues_in_the_order_the_tracking_issue_lists_them(
+        self, capsys, clone, github
+    ):
+        github(
+            make_issue(20, "approved", "tracking"),
+            make_issue(11, "approved"),
+            make_issue(12, "approved"),
+            subs={20: [12, 11]},
+        )
+        code, data = run_json(capsys, clone("a"), "next", "--tracking", "20")
+        assert code == cli.OK
+        assert data["data"]["issue"] == {"number": 12, "title": "issue 12"}
+        assert data["data"]["tracking"] == {"number": 20, "title": "issue 20"}
+
+    @pytest.mark.spec("next-cmd-follows-tracking-issue")
+    def it_passes_over_closed_held_and_blocked_sub_issues(self, capsys, remote, clone, github):
+        a = clone("a")
+        github(make_issue(13, "approved"))
+        run(capsys, a, "claim", "13")
+        github(
+            make_issue(20, "approved", "tracking"),
+            make_issue(10, "approved", state="CLOSED"),
+            make_issue(11, "approved", "in-progress"),
+            make_issue(13, "approved"),
+            make_issue(14, "approved"),
+            make_issue(15, "approved"),
+            make_issue(16, "approved"),
+            subs={20: [10, 11, 13, 14, 16, 15]},
+            blockers={14: [(99, "open")]},
+        )
+        code, data = run_json(capsys, a, "next", "--tracking", "20")
+        assert code == cli.OK
+        assert data["data"]["issue"] == {"number": 16, "title": "issue 16"}
+        assert data["data"]["blocked"] == [{"number": 14, "title": "issue 14", "blocked_by": [99]}]
+
+    @pytest.mark.spec("next-cmd-follows-tracking-issue", "command-splits-output-streams")
+    def it_fails_on_an_unapproved_sub_issue_rather_than_skip_it(self, capsys, clone, github):
+        github(
+            make_issue(20, "approved", "tracking"),
+            make_issue(11),
+            make_issue(12, "approved"),
+            subs={20: [11, 12]},
+        )
+        code, out = run(capsys, clone("a"), "next", "--tracking", "20")
+        assert code == cli.PROBLEMS
+        assert out.out == ""
+        assert "#11 issue 11 is next in #20's order" in out.err
+
+    @pytest.mark.spec("next-cmd-follows-tracking-issue")
+    @pytest.mark.parametrize(
+        ("labels", "state", "says"),
+        [
+            (("tracking",), "OPEN", "not labeled approved"),
+            (("approved",), "OPEN", "not labeled tracking"),
+            (("approved", "tracking"), "CLOSED", "is closed"),
+        ],
+    )
+    def it_refuses_an_issue_that_is_not_an_open_approved_plan(
+        self, capsys, clone, github, labels, state, says
+    ):
+        gh = github(make_issue(20, *labels, state=state), subs={20: []})
+        code, out = run(capsys, clone("a"), "next", "--tracking", "20")
+        assert code == cli.PROBLEMS
+        assert says in out.err
+        assert not any(c[0] == "api" for c in gh.calls)
+
+    @pytest.mark.spec("next-cmd-follows-tracking-issue")
+    def it_names_each_blocked_sub_issue_when_all_are_blocked(self, capsys, clone, github):
+        github(
+            make_issue(20, "approved", "tracking"),
+            make_issue(11, "approved"),
+            make_issue(12),
+            subs={20: [11, 12]},
+            blockers={11: [(9, "open")], 12: [(11, "open")]},
+        )
+        code, out = run(capsys, clone("a"), "next", "--tracking", "20")
+        assert code == cli.OK
+        assert out.out == (
+            "Every free sub-issue of #20 is blocked by an open issue:\n"
+            "#11 issue 11, blocked by #9\n"
+            "#12 issue 12, blocked by #11\n"
+        )
+
+    @pytest.mark.spec("next-cmd-follows-tracking-issue")
+    def it_is_not_a_problem_when_the_plan_has_nothing_left(self, capsys, clone, github):
+        github(
+            make_issue(20, "approved", "tracking"),
+            make_issue(11, "approved", state="CLOSED"),
+            subs={20: [11]},
+        )
+        code, out = run(capsys, clone("a"), "next", "--tracking", "20")
+        assert code == cli.OK
+        assert out.out == "No sub-issue of #20 is free.\n"
+
+
+class DescribeNextPlans:
+    @pytest.mark.spec("next-cmd-names-tracking-issue", "command-splits-output-streams")
+    def it_names_an_approved_plan_at_its_lowest_open_sub_issue(self, capsys, clone, github):
+        github(
+            make_issue(20, "approved", "tracking"),
+            make_issue(9, "approved", state="CLOSED"),
+            make_issue(11, "approved"),
+            make_issue(12, "approved"),
+            subs={20: [9, 12]},
+        )
+        code, out = run(capsys, clone("a"), "next")
+        assert code == cli.OK
+        assert (out.out, out.err) == ("#11 issue 11\n", "")
+
+        github(
+            make_issue(20, "approved", "tracking"),
+            make_issue(10, "approved"),
+            make_issue(11, "approved"),
+            subs={20: [10]},
+        )
+        code, out = run(capsys, clone("b"), "next")
+        assert code == cli.OK
+        assert out.out == (
+            "#20 issue 20 is an approved tracking issue.\n"
+            "To take its next sub-issue, run: issues.py next --tracking 20\n"
+        )
+
+    @pytest.mark.spec("next-cmd-names-tracking-issue")
+    def it_names_the_plan_apart_from_the_issue_to_work(self, capsys, clone, github):
+        github(make_issue(20, "approved", "tracking"), make_issue(21, "approved"), subs={20: []})
+        code, data = run_json(capsys, clone("a"), "next")
+        assert code == cli.OK
+        assert data["data"]["issue"] is None
+        assert data["data"]["tracking"] == {"number": 20, "title": "issue 20"}
+
+    @pytest.mark.spec("next-cmd-offers-free-issue")
+    def it_never_offers_a_plan_or_an_approved_plans_sub_issue_as_work(self, capsys, clone, github):
+        github(
+            make_issue(20, "tracking"),
+            make_issue(30, "approved", "tracking"),
+            make_issue(10, "approved"),
+            make_issue(31, "approved"),
+            make_issue(32, "approved"),
+            subs={20: [10], 30: [31]},
+            blockers={10: [(1, "open")]},
+        )
+        code, data = run_json(capsys, clone("a"), "next")
+        assert code == cli.OK
+        # 10 belongs to a plan nobody approved, so it is offered on its own,
+        # and blocked; 30 takes its place before 32.
+        assert data["data"]["issue"] is None
+        assert data["data"]["tracking"] == {"number": 30, "title": "issue 30"}
+        assert [b["number"] for b in data["data"]["blocked"]] == [10]
 
 
 class DescribeRelease:

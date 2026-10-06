@@ -417,8 +417,11 @@ and for update-prose-config. A tracking issue:
 
 - carries `tracking` and no kind or area label, since its sub-issues can span
   several plugins.
-- holds the order to work its sub-issues in as "blocked by" links between them.
-- is never approved or claimed, and no pull request closes it.
+- lists its sub-issues in the order to work them, and holds what waits on what
+  as "blocked by" links between them.
+- carries `approved` once the owner approves the plan. Each sub-issue still
+  needs its own `approved` before an agent works it.
+- is never claimed, and no pull request closes it.
 
 The owner closes it when its last sub-issue closes.
 
@@ -429,6 +432,7 @@ what stops them picking the same one, and `.github/scripts/issues.py` does it:
 
 ```sh
 python3 .github/scripts/issues.py next         # the oldest approved, unblocked issue nobody holds
+python3 .github/scripts/issues.py next --tracking 347  # the next issue in #347's plan
 python3 .github/scripts/issues.py claim 12     # take it, and switch to branch issue/12
 python3 .github/scripts/issues.py release 12   # give it up without a pull request
 python3 .github/scripts/issues.py stale        # claims nobody seems to be working on
@@ -439,6 +443,14 @@ python3 .github/scripts/issues.py sweep        # delete every local branch whose
 `next` skips an issue that GitHub shows as blocked by an open issue, and says so
 when every free issue is blocked. `claim` does not check, so the owner can still
 name a blocked issue.
+
+`next` never offers a tracking issue, or a sub-issue of an approved tracking
+issue. An approved tracking issue takes its place in the queue at the lowest
+number among itself and its open sub-issues, and when that place comes first,
+`next` names the tracking issue instead of an issue to work. `next --tracking N`
+then walks #N's sub-issues in the order #N lists them. It passes over each one
+that is closed, held or blocked, and offers the first one left. When that one
+is not approved, it exits 1 and names it, rather than skip ahead in the plan.
 
 The claim is the branch `issue/N` on GitHub. `claim` pushes it in a way only one
 agent can win, then adds the `in-progress` label and a comment so the claim
