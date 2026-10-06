@@ -89,8 +89,8 @@ you to delete.
 2. Ask Claude to update the prose config.
 3. Claude asks about any edit whose reason it cannot tell, all in one round of
    questions.
-4. Claude writes the rules and leaves the changes for you to review and
-   commit.
+4. Claude writes the rules into `prose-style.md`, and leaves your documents
+   as you edited them, for you to review and commit.
 
 If you edit in one copy of the project and Claude's session opens in another,
 as the Claude Code desktop app does when it starts each session in a fresh
@@ -121,14 +121,21 @@ Where an edit needs explaining, say so in the document itself:
 `<del>` marks text to cut and `<ins>` text to add. Both are real HTML
 elements, so a markdown preview shows them as an edit while you write. `<repl>`
 swaps one for the other, `why` says why, and `<alt>` offers a rule or another
-way to write it. Claude removes all of this markup once the rules are written,
-so none of it reaches a commit. The
+way to write it. Claude leaves this markup in place while it learns the
+rules. When you next check your documents, Claude asks whether the rules are
+learned, and on your yes removes the markup, keeping the edits it marks, so
+none of it reaches a commit. The
 [full list of tags](https://github.com/ScottHysom/claude-plugins/blob/main/plugins/prose-tuning/reference/tag-vocabulary.md)
 has every form they take.
 
 ## Checking your documents
 
-Ask Claude to apply the house style. Claude lists each passage that breaks a
+Ask Claude to apply the house style. If your documents still hold markup,
+Claude first asks whether the rules have been learned from it. On your yes it
+removes the markup, keeping the edits, and stops so you can commit before it
+checks anything. Run it again after the commit.
+
+Claude then lists each passage that breaks a
 rule, with the file, the line, the rule's id and a proposed rewrite. Nothing
 changes until you approve. You can approve the whole list, or only some rules,
 or only some files. If a document, the list or the rules change after you

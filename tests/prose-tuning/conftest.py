@@ -40,7 +40,7 @@ import pytest  # noqa: E402
 from hypothesis import settings  # noqa: E402
 
 import prose  # noqa: E402  - must follow the sys.path insert above
-from prose_samples import SAMPLE  # noqa: E402  - pytest puts this directory on sys.path
+from prose_samples import SAMPLE, tagged  # noqa: E402  - pytest puts this directory on sys.path
 
 # Property tests explore a different set of inputs on every run, which is the
 # point of them locally and a liability in CI: a seed that happens to find an
@@ -62,26 +62,21 @@ def sample():
 
 @pytest.fixture
 def round_trip():
-    """Insert tags, parse the result, strip them, demand the original back.
+    """Tag a document as the author would, parse it, neutralize it, and
+    demand the untagged text back.
 
-    Returns a callable so a test can round-trip several record sets and report
-    which one broke. Raises AssertionError at the first step that fails, which
-    is where the failure actually is - a refusal, a parse error and a corrupted
-    strip are three different bugs.
+    Returns a callable so a test can round-trip several sets of marks and
+    report which one broke. Raises AssertionError at the step that fails, since
+    a parse error and a corrupted neutralize are two different bugs.
     """
 
-    def run(records, source=SAMPLE):
-        text = prose.Text(source)
-        blocks = prose.Blocks(text)
-        engine, refusals, _ = prose.apply_inserts(text, blocks, records, "sample.md", 1)
-        assert not refusals, "insert refused: %s" % (refusals[0],)
-
-        tagged = prose.Text(engine.result())
-        scanner = prose.TagScanner(tagged, None, "sample.md")
+    def run(marks, source=SAMPLE):
+        text = prose.Text(tagged(source, marks))
+        scanner = prose.TagScanner(text, None, "sample.md")
         assert not scanner.errors, "tagged text does not parse: %s" % (scanner.errors[0],)
-
-        back, _ = prose.resolve_text(tagged, prose.REJECT, None, "sample.md")
-        assert back == source, "strip did not restore the original"
+        assert prose.neutralize(text, None, "sample.md") == source, (
+            "neutralize did not return the untagged text"
+        )
 
     return run
 
@@ -224,16 +219,6 @@ class ProseRepo:
         repo = prose.Repo(str(self.root))
         config = prose.Config(prose.config_path(repo))
         return prose.approval_token(repo, config, raw, json.loads(raw))
-
-    def evidence_token(self):
-        """The token evidence would print for the tree as it is now.
-
-        Computed rather than read from an evidence run, because evidence needs
-        a commit to diff against and most tests here have none.
-        """
-        repo = prose.Repo(str(self.root))
-        config = prose.Config(prose.config_path(repo))
-        return prose.evidence_token(repo, config, prose.Scope(repo, config))
 
     def report(self, findings, *flags):
         """Run `prose.py report` on these findings. Returns what run() does."""

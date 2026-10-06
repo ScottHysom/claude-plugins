@@ -73,6 +73,21 @@ class DescribeReproduce:
         assert (edit["start"], edit["reproduced"], edit["matches"]) == (5, False, [])
 
     @pytest.mark.spec("reproduce-cmd-matches-changed-text")
+    def it_reads_the_authors_markup_as_resolved(self, prose_repo):
+        """update-prose-config leaves the author's markup in place, so a tagged
+        edit is read as apply-prose will resolve it: the <del> text gone and
+        the <ins> text kept.
+        """
+        after = BEFORE.replace("in order to", "<del>in order </del>to").replace(
+            "It keeps", "It <ins>still </ins>keeps"
+        )
+        data = reproduce(prose_repo, after)
+        assert [(e["start"], e["reproduced"]) for e in data["edits"]] == [(3, True), (5, False)]
+        assert data["edits"][1]["new_lines"] == [
+            "It still keeps the notes short, and the lists shorter."
+        ]
+
+    @pytest.mark.spec("reproduce-cmd-matches-changed-text")
     def it_does_not_credit_a_match_on_a_line_the_edit_changed_elsewhere(self, prose_repo):
         """The pattern matches the line, but not the words the edit changed,
         so the rule did not make this edit.

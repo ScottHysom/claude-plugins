@@ -6,9 +6,8 @@ finding computed against a stale report and a corrupted document. The guards
 were asserted by nothing until these tests: `is_protected` could be replaced
 with `return False` and the whole suite stayed green.
 
-The refusals in test_inserts.py are the mirror of these at insertion time.
-Both exist because a refusal the author can read beats a rewrite they have to
-find later.
+Each guard refuses rather than writes, because a refusal the author can read
+beats a rewrite they have to find later.
 """
 
 import io
