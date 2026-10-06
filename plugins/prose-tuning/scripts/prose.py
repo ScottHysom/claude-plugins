@@ -670,13 +670,15 @@ def parse_pattern(rest):
 
     rest is the line after the lead word. CommonMark strips one space from
     each end of a code span that has one at both, so a pattern that starts or
-    ends with a backtick can be written `` `x` ``; this does the same.
+    ends with a backtick can be written `` `x` ``; this does the same. Like
+    CommonMark, it leaves a span of nothing but spaces whole, and a tab counts
+    as something other than a space.
     """
     m = PATTERN_SPAN.match(rest)
     if not m:
         return None, "a **Pattern.** line holds one code span and nothing else"
     source = m.group(2)
-    if len(source) > 2 and source[0] == " " and source[-1] == " " and source.strip():
+    if len(source) > 2 and source[0] == " " and source[-1] == " " and source.strip(" "):
         source = source[1:-1]
     late = LATE_FLAGS.search(source, 1)
     if late:
@@ -2981,11 +2983,13 @@ def pattern_line(source):
 
     The code span is fenced by one more backtick than the longest run inside
     it, and padded with a space at each end when source starts or ends with a
-    backtick or a space, which parse_pattern strips again.
+    backtick or a space, which parse_pattern strips again. A source of nothing
+    but spaces goes unpadded, because parse_pattern leaves such a span whole.
     """
     runs = [len(r) for r in re.findall(r"`+", source)]
     fence = "`" * (max([*runs, 0]) + 1)
-    pad = " " if source[:1] in "` " or source[-1:] in "` " else ""
+    edge = source[:1] in "` " or source[-1:] in "` "
+    pad = " " if edge and source.strip(" ") else ""
     return "**Pattern.** %s%s%s%s%s\n" % (fence, pad, source, pad, fence)
 
 
