@@ -92,6 +92,7 @@ class DescribeTheHandoff:
         assert handoffs(doc, [doc.skill(found[0])]) == [
             {
                 "skill": PROSE,
+                "checkout": None,
                 "todos": [
                     {
                         "draft": 1,

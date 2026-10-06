@@ -105,15 +105,22 @@ Source: #315, and #301, which found the same split for update-prose-config.
   worktree with its branch and files, and exits 1 naming `scan --from` with
   its path.
 - `command-reads-other-worktree` (test): When `scan`, `report` or `file` is
-  given `--from` with another worktree of this repo, it reads that worktree's
-  TODOs.
+  given `--from` with a worktree of this repo, named by its folder or by the
+  branch it has checked out, it reads that worktree's TODOs. Given this tree,
+  it behaves as with no `--from`.
 - `file-cmd-marks-in-other-worktree` (test): When `file` is given `--from`, it
   marks the finished TODOs in that worktree's files.
-- `command-refuses-unknown-worktree` (test): When `--from` is not another
-  worktree of this repo, the command names it and exits 2.
-- `dotodos-asks-which-checkout` (step): When `scan` names other worktrees,
-  do-todos asks the author in one `AskUserQuestion` which to collect from, if
-  any, and runs `scan --from` with the one picked.
+- `command-refuses-unknown-worktree` (test): When `--from` names neither a
+  worktree of this repo nor a branch one has checked out, the command names
+  it, lists every worktree with its branch, and exits 2.
+- `dotodos-takes-named-checkout` (step): When the author names a checkout in
+  the skill's arguments, by its folder or its branch, do-todos passes it to
+  `scan --from` as given, and to `report` and `file`, and does not ask which
+  checkout to collect from.
+- `dotodos-asks-which-checkout` (step): When the author has not named a
+  checkout and `scan` names other worktrees, do-todos asks the author in one
+  `AskUserQuestion` which to collect from, if any, and runs `scan --from`
+  with the one picked.
 
 ## need user-keeps-files-working: Keep a file with TODOs working
 
@@ -283,7 +290,8 @@ Source: #319, which quotes the owner's first use case, and CLAUDE.md, under
   prints the skill's name, the TODO's title and detail, and the passage it sat
   above, with its file and lines and which of them changed since the last
   commit. The passage runs to the nearest blank line or TODO, marked or not,
-  and leaves out the text of a trailing TODO.
+  and leaves out the text of a trailing TODO. When `--from` names another
+  worktree, each hand-off also names that worktree's root and branch.
 - `dotodos-passes-todos-to-skills` (step): When an installed skill's
   description covers the work a TODO asks for, such as a `prose` TODO and a
   skill that learns prose rules, do-todos routes it to that skill, and
@@ -295,7 +303,8 @@ Source: #319, which quotes the owner's first use case, and CLAUDE.md, under
   do-todos gives its report, with each note, before it invokes any
   skill.
 - `dotodos-invokes-each-skill-once` (step): When `file` prints hand-offs,
-  do-todos invokes each skill named once, with every TODO routed to it.
+  do-todos invokes each skill named once, with every TODO routed to it, and
+  with the root and branch of the checkout the hand-off names.
 
 ## need owner-keeps-approval-label: Keep approved for the owner
 

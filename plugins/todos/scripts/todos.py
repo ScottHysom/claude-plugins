@@ -23,10 +23,13 @@ Commands:
             handled, and print the hand-off for each draft routed to a skill
 
 scan, report and file take --from with another worktree of the repository,
-and read that worktree's TODOs instead of this tree's. file then marks them
-there. When this tree does not hold a pending TODO and another worktree does,
-scan names each such worktree and exits 1, so a session opened in a fresh
-worktree still finds the TODOs left in the checkout where the author reviews.
+named by its folder or by the branch it has checked out, and read that
+worktree's TODOs instead of this tree's. file then marks them there, and each
+hand-off names that worktree's root and branch. --from naming this tree reads
+as no --from, so the skill can pass on whichever checkout the author named.
+When this tree does not hold a pending TODO and another worktree does, scan
+names each such worktree and exits 1, so a session opened in a fresh worktree
+still finds the TODOs left in the checkout where the author reviews.
 
 Exit codes: 0 clean, 1 ran and found problems, 2 could not run.
 
@@ -468,8 +471,8 @@ class Repo:
         out = self.git("diff", "--no-index", "-z", "--numstat", "--", NULL_PATH, path, codes=(0, 1))
         return out.startswith(BINARY_NUMSTAT)
 
-    def worktrees(self):
-        """[(root, branch)] for every other worktree of this repository.
+    def trees(self):
+        """[(root, branch)] for every worktree of this repository, this one too.
 
         branch is None for a detached HEAD. A bare repository has no tree,
         and a worktree whose folder is gone has nothing to read, so neither
@@ -483,29 +486,51 @@ class Repo:
                 trees[-1]["branch"] = line[len(BRANCH_LINE) :]
             elif trees and line == BARE_LINE:
                 trees[-1]["bare"] = True
-        here = os.path.realpath(self.root)
         return [
-            (t["root"], t["branch"])
-            for t in trees
-            if not t["bare"] and os.path.realpath(t["root"]) != here and os.path.isdir(t["root"])
+            (t["root"], t["branch"]) for t in trees if not t["bare"] and os.path.isdir(t["root"])
         ]
+
+    def worktrees(self):
+        """[(root, branch)] for every other worktree of this repository."""
+        here = os.path.realpath(self.root)
+        return [(root, branch) for root, branch in self.trees() if os.path.realpath(root) != here]
 
 
 def open_tree(args, repo=None):
-    """The tree a command reads: this one, or the worktree --from names.
+    """(the tree a command reads, its checkout): this tree, or the one --from names.
 
-    repo is this tree, when the caller has opened it already.
+    --from names a worktree by its folder, or by the branch it has checked
+    out, tried in that order. The checkout is None when the tree read is this
+    one, so --from naming this tree reads as no --from, and is otherwise
+    {root, branch} for the hand-offs to carry. repo is this tree, when the
+    caller has opened it already.
     """
     repo = repo or Repo(args.repo)
     if args.source is None:
-        return repo
+        return repo, None
+    here = os.path.realpath(repo.root)
+    trees = repo.trees()
     source = os.path.realpath(args.source)
-    if source not in set(os.path.realpath(root) for root, _ in repo.worktrees()):
-        raise Fatal(
-            "%s is not another worktree of this repository. `git worktree list` names them"
-            % args.source
+    named = [t for t in trees if os.path.realpath(t[0]) == source]
+    named = named or [t for t in trees if t[1] == args.source]
+    if not named:
+        listed = "; ".join(
+            "%s %s%s"
+            % (
+                root,
+                "on %s" % branch if branch else "(detached)",
+                " (this tree)" if os.path.realpath(root) == here else "",
+            )
+            for root, branch in trees
         )
-    return Repo(source)
+        raise Fatal(
+            "%s is neither a worktree of this repository nor a branch one has checked out."
+            " Pass --from one of these worktrees, or its branch: %s" % (args.source, listed)
+        )
+    root, branch = named[0]
+    if os.path.realpath(root) == here:
+        return repo, None
+    return Repo(root), {"root": root, "branch": branch}
 
 
 # --------------------------------------------------------------------------
@@ -1165,12 +1190,12 @@ def other_pending(repo):
 
 
 def cmd_scan(args):
-    repo = open_tree(args)
+    repo, checkout = open_tree(args)
     found = Scan(repo)
     todos = found.todos
     # A tree without a TODO may be a fresh worktree, opened while the
     # author's TODOs sit in another checkout of the same repository.
-    elsewhere = other_pending(repo) if not todos and args.source is None else []
+    elsewhere = other_pending(repo) if not todos and checkout is None else []
     errors = [
         "this tree does not hold any pending TODO, and %s%s holds TODOs in %s. Ask the author"
         " whether to collect them, then run `%s`, and pass the same --from to report and file"
@@ -1541,7 +1566,7 @@ def write_report(repo, data, refused):
 def cmd_report(args):
     """The drafts as the author approves them, read against the files now."""
     here = Repo(args.repo)
-    repo = open_tree(args, here)
+    repo, _ = open_tree(args, here)
     raw, drafts = read_drafts(args.drafts)
     github = GitHub(repo)
     labels = github.labels()
@@ -1641,7 +1666,7 @@ def writable(repo, rel):
 
 
 def cmd_file(args):
-    repo = open_tree(args)
+    repo, checkout = open_tree(args)
     raw, drafts = read_drafts(args.drafts)
     github = GitHub(repo)
     data = {
@@ -1699,7 +1724,7 @@ def cmd_file(args):
             break
         target = (COMMENT_TARGET if row["route"] == ROUTE_COMMENT else ISSUE_TARGET) % number
         finish(row, target, number=number, url=url)
-    data["handoffs"] = handoffs(data["filed"], found)
+    data["handoffs"] = handoffs(data["filed"], found, checkout)
 
     def human():
         for r in data["filed"]:
@@ -1732,9 +1757,10 @@ def cmd_file(args):
     return emit(args, "file", data, errors=errors, human=human)
 
 
-def handoffs(finished, found):
+def handoffs(finished, found, checkout):
     """One hand-off per skill, holding every finished TODO routed to it, in
-    file and line order, with its passage."""
+    file and line order, with its passage, and the checkout the passages were
+    read in, or None for this tree."""
     out = {}
     for row in sorted(finished, key=lambda r: (r["file"], r["first"])):
         if row["route"] != ROUTE_SKILL:
@@ -1745,11 +1771,18 @@ def handoffs(finished, found):
         todo = {"draft": row["draft"], "title": row["title"], "detail": row["detail"]}
         todo["passage"] = passage
         out.setdefault(row["skill"], []).append(todo)
-    return [{"skill": skill, "todos": items} for skill, items in sorted(out.items())]
+    return [
+        {"skill": skill, "checkout": checkout, "todos": items}
+        for skill, items in sorted(out.items())
+    ]
 
 
 def print_handoff(handoff):
     print("\nhand-off to %s" % handoff["skill"])
+    checkout = handoff["checkout"]
+    if checkout is not None:
+        branch = checkout["branch"]
+        print("  read in %s%s" % (checkout["root"], ", on %s" % branch if branch else ""))
     for todo in handoff["todos"]:
         print("\ndraft %d" % todo["draft"])
         print("  title   %s" % todo["title"])
@@ -1792,8 +1825,11 @@ def build_parser():
     source.add_argument(
         "--from",
         dest="source",
-        metavar="PATH",
-        help="read the TODOs of another worktree of this repository instead",
+        metavar="TREE",
+        help=(
+            "read the TODOs of another worktree of this repository instead, named by its"
+            " folder or by the branch it has checked out"
+        ),
     )
 
     p = sub.add_parser(
