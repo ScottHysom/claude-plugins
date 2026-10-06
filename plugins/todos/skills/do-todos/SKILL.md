@@ -138,12 +138,16 @@ skill exists to do the work it asks for. The installed skills are the ones
 this session lists, and a skill's description says what it is for:
 
 - A `prose` TODO in a markdown file goes to a skill that learns prose rules
-  from edits and notes, when one is installed.
+  from edits and notes, when one is installed. A term changed for how the
+  passage reads is `prose`, such as renaming a heading's "model" to "method"
+  so that "model" keeps one meaning in the document.
 - Any other TODO goes to a skill only when that skill's description covers
   the work the TODO asks for.
 - A `docs` TODO, or any TODO that asks to change what a document says, such
-  as a wrong fact, a stale name or a missing step, becomes an issue. Never
-  route it to a prose skill, even when it sits in markdown.
+  as a wrong fact, a missing step or a name that is wrong or out of date,
+  becomes an issue. A command renamed in the code but still under its old
+  name in the README is one. Never route it to a prose skill, even when it
+  sits in markdown.
 - Everything else becomes an issue.
 
 A routed TODO takes the route `skill`, with `skill`, the skill's name as the

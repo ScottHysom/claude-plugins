@@ -180,7 +180,9 @@ design changes, bugs and bug fixes, and the ruling on `TODO(kind):`.
   `fix` as the defect it fixes with the fix as what done means, a `change` as
   an improvement to the code, a `design` as a change to what the project does
   or how it is built, a `docs` as a change to what a document says, and a
-  `prose` as a change to how a passage reads.
+  `prose` as a change to how a passage reads. A name that is wrong or out of
+  date is something a document says, so its TODO is `docs`. A term chosen for
+  how the passage reads, such as one word kept to one meaning, is `prose`.
 
 ## need user-answers-in-one-round: Answer every open question at once
 
@@ -297,8 +299,9 @@ Source: #319, which quotes the owner's first use case, and CLAUDE.md, under
   skill that learns prose rules, do-todos routes it to that skill, and
   otherwise drafts an issue.
 - `dotodos-withholds-facts-from-prose` (step): When a TODO asks to change what
-  a document says, do-todos drafts an issue, and never routes it to a prose
-  skill.
+  a document says, including a name that is wrong or out of date, do-todos
+  drafts an issue, and never routes it to a prose skill. A term changed only
+  for how the passage reads is not one of these, and may go to a prose skill.
 - `dotodos-reports-before-handoffs` (step): When `file` prints hand-offs,
   do-todos gives its report, with each note, before it invokes any
   skill.
