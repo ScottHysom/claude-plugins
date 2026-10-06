@@ -151,10 +151,6 @@ names, dates and claims stay as they are.
 The `scope:` list at the top of `prose-style.md` decides which files are
 checked. If a file you expected was skipped, ask Claude why.
 
-`apply-prose` will not start while you are partway through teaching it your
-style, because rewriting documents you are still editing would tangle the two
-sets of changes. Finish that run, or ask Claude to abandon it, first.
-
 ## Sharing rules between projects
 
 Ask Claude to adopt the prose rules from another project. Rules this project

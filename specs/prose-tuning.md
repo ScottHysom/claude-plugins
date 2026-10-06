@@ -160,23 +160,7 @@ description.
   learned from it. It runs `tags resolve` only on a yes, and then stops, so
   the resolved files are committed before it conforms them.
 - `resolve-cmd-refuses-bad-markup` (test): When a file's markup does not
-  parse, `tags resolve` and `tags strip` do not write a file, and name the fault.
-
-## need user-abandons-a-run: Give up a run and get the documents back
-
-When the author gives up a run partway, they want every tag removed and the
-tagged edits reverted in one command, so the documents are as they were before
-the run.
-
-Source: update-prose-config's "Abandoning a run", and DESIGN.md, under "The
-round trip". The owner confirmed the need in the ruling on #132.
-
-- `strip-cmd-reverts-tagged-edits` (test): When `tags strip` runs, every
-  tag is removed, `<del>` text stays, `<ins>` text goes, and every blank line
-  is kept.
-- `restore-cmd-writes-last-commit` (test): When `restore --file` runs, it
-  writes the file as it is at the last commit, and names a file the last
-  commit does not hold.
+  parse, `tags resolve` does not write a file, and names the fault.
 
 ## need user-checks-reports: Check a report against the rule it names
 
