@@ -1,5 +1,5 @@
 """TODOs left in another worktree of the repository: how `scan` names the
-worktree, and how `--from` reads it and removes the TODOs there."""
+worktree, and how `--from` reads it and marks the TODOs there."""
 
 import os
 import shlex
@@ -133,9 +133,9 @@ class DescribeFrom:
         assert "here.py:1 does not hold a pending TODO" in env["errors"][0]
 
 
-@pytest.mark.spec("file-cmd-removes-from-other-worktree")
+@pytest.mark.spec("file-cmd-marks-in-other-worktree")
 class DescribeFileFrom:
-    def it_removes_the_todo_from_the_worktree_named(self, repo, worktree, github):
+    def it_marks_the_todo_in_the_worktree_named(self, repo, worktree, github):
         worktree.write("a.py", "x = 1\n")
         worktree.commit()
         worktree.write("a.py", "# TODO: there\nx = 1\n")
@@ -147,8 +147,7 @@ class DescribeFileFrom:
         code, env = repo.run("file", "--drafts", drafts, "--token", env["data"]["token"], *source)
         assert code == todos.OK, repo.err
         assert [i["title"] for i in github.issues] == ["there"]
-        assert worktree.read("a.py") == b"x = 1\n"
-        assert worktree.git("status", "--porcelain") == b""
+        assert worktree.read("a.py") == b"# TODO-HANDLED(#1): there\nx = 1\n"
         assert repo.git("status", "--porcelain") == b""
 
 

@@ -224,12 +224,15 @@ class DescribePosting:
             "-",
         )
 
-    @pytest.mark.spec("file-cmd-removes-handled-todos")
-    def it_removes_the_todo_once_the_comment_exists(self, two):
+    @pytest.mark.spec("file-cmd-marks-handled-todos")
+    def it_marks_the_todo_once_the_comment_exists(self, two):
         found, _ = two.scan()
         code, _ = two.file(two.drafts([two.comment(found[0], 7)]))
         assert code == todos.OK
-        assert two.read("run.py") == b"def run():\n    pass\n# TODO: tidy up\n"
+        assert two.read("run.py") == (
+            b"# TODO-HANDLED(#7 comment): run hangs\n# no timeout\ndef run():\n    pass\n"
+            b"# TODO: tidy up\n"
+        )
 
     def it_prints_the_comments_address(self, two):
         found, _ = two.scan()
@@ -239,9 +242,9 @@ class DescribePosting:
         assert code == todos.OK, err
         assert out == (
             "filed #1 https://github.com/owner/project/issues/1\n"
-            "  and removed run.py:5\n"
+            "  and marked run.py:5 as TODO-HANDLED(#1)\n"
             "commented on #7 %s#issuecomment-101\n"
-            "  and removed run.py:1-2\n" % ISSUE_URL
+            "  and marked run.py:1-2 as TODO-HANDLED(#7 comment)\n" % ISSUE_URL
         )
 
     def it_gives_the_address_in_json(self, two):
@@ -276,7 +279,9 @@ class DescribePosting:
         assert code == todos.PROBLEMS
         assert [i["title"] for i in github.issues] == ["tidy up"]
         assert github.comments == []
-        assert two.read("run.py") == b"# TODO(bug): run hangs\n# no timeout\ndef run():\n    pass\n"
+        assert two.read("run.py") == (
+            b"# TODO(bug): run hangs\n# no timeout\ndef run():\n    pass\n# TODO-HANDLED(#1): tidy up\n"
+        )
         assert env["errors"][0].startswith("draft 1 (run.py:1-2): `gh issue comment` failed")
 
     def it_posts_through_gh_with_the_body_on_stdin(self, repo, gh_on_path, tmp_path):
@@ -297,12 +302,12 @@ class DescribePosting:
         assert code == todos.OK, repo.err
         assert env["data"]["filed"][0]["url"] == ISSUE_URL + "#issuecomment-55"
         assert (tmp_path / "gh-bin" / "gh.body").read_text() == "It's 'quoted'.\n"
-        assert repo.read("a.py") == b"x = 1\n"
+        assert repo.read("a.py") == b"# TODO-HANDLED(#7 comment): one\nx = 1\n"
 
 
 @pytest.mark.spec("file-cmd-never-posts-in-preview", "repo:command-never-writes-in-preview")
 class DescribeDryRun:
-    def it_says_what_it_would_post_and_remove(self, two, github):
+    def it_says_what_it_would_post_and_mark(self, two, github):
         found, _ = two.scan()
         drafts = two.drafts([two.comment(found[0], 7)])
         before = two.read("run.py")
@@ -311,7 +316,7 @@ class DescribeDryRun:
         assert code == todos.OK
         assert out == (
             "would comment on owner/project#7: run() hangs on a stalled gh\n"
-            "  and remove run.py:1-2\n"
+            "  and mark run.py:1-2 as TODO-HANDLED(#7 comment)\n"
         )
         assert comments(github) == []
         assert two.read("run.py") == before

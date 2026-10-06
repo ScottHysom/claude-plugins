@@ -1,5 +1,5 @@
-"""How `todos.py` reads a TODO at the end of a line of code, and what `file`
-leaves of the line once it is filed."""
+"""How `todos.py` reads a TODO at the end of a line of code, and how `file`
+marks it once it is filed."""
 
 import pytest
 
@@ -105,24 +105,25 @@ class DescribeWarningsOnATrailingTodo:
         assert changed(repo, "a.md", base, "```\nx = 3  # TODO: one\n```\n") == ([], [])
 
 
-@pytest.mark.spec("file-cmd-removes-trailing-todos")
-class DescribeRemovingATrailingTodo:
-    def it_leaves_the_line_as_the_last_commit_has_it(self, repo):
+@pytest.mark.spec("file-cmd-marks-trailing-todos")
+class DescribeMarkingATrailingTodo:
+    def it_marks_the_todo_and_leaves_the_code_before_it(self, repo):
         base = "a = 1\nx = 3\nb = 2\n"
         now = "a = 1\nx = 3  # TODO(fix): the vendor allows 5 retries\nb = 2\n"
-        assert file_all(repo, "a.py", base, now) == base.encode()
+        assert file_all(repo, "a.py", base, now) == (
+            b"a = 1\nx = 3  # TODO-HANDLED(#1): the vendor allows 5 retries\nb = 2\n"
+        )
 
     def it_keeps_the_line_ending(self, repo):
         base = b"a\r\nx = 3\r\nb"
         now = b"a\r\nx = 3  # TODO: one\r\nb  # TODO: two"
-        assert file_all(repo, "a.py", base, now) == base
+        assert file_all(repo, "a.py", base, now) == (
+            b"a\r\nx = 3  # TODO-HANDLED(#2): one\r\nb  # TODO-HANDLED(#1): two"
+        )
 
-    def it_keeps_the_blank_lines_around_the_line(self, repo):
-        base = "a = 1\n\nx = 3\n"
-        now = "a = 1\n\n\nx = 3  # TODO: one\n\n"
-        assert file_all(repo, "a.py", base, now) == b"a = 1\n\n\nx = 3\n\n"
-
-    def it_removes_a_todo_above_the_line_too(self, repo):
+    def it_marks_a_todo_above_the_line_too(self, repo):
         base = "x = 3\n"
         now = "# TODO: one\n# more\nx = 3  /* TODO: two */\n"
-        assert file_all(repo, "a.c", base, now) == base.encode()
+        assert file_all(repo, "a.c", base, now) == (
+            b"# TODO-HANDLED(#2): one\n# more\nx = 3  /* TODO-HANDLED(#1): two */\n"
+        )

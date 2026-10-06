@@ -24,9 +24,8 @@ requirements.
 
 When the user reviews a file and finds work for later, such as a bug, a fix,
 or a change to the code, the design or a document, they want to leave a short
-TODO on the spot and have Claude file each as an issue and take it out of the
-file, so the review is not broken off to write issues and leaves nothing to
-clean up.
+TODO on the spot and have Claude file each as an issue, so the review is not
+broken off to write issues.
 
 Source: #311, which quotes the owner's request.
 
@@ -65,27 +64,38 @@ Source: #311, which quotes the owner's request.
 - `file-cmd-creates-issues` (test): When `file` runs with a current token, it
   creates one issue for each draft routed to `issue`, with its title, body
   and labels, and prints each issue's number and address.
-- `file-cmd-removes-handled-todos` (test): When `file` has finished a draft,
-  it removes that TODO's lines before it starts the next draft, and does not
-  change any other byte but the blank lines around them.
-- `file-cmd-tidies-blank-lines` (test): When removing a TODO leaves a run of
-  blank lines, `file` removes the ones added since the last commit, but keeps
-  one where the run does not hold a committed blank line, does not reach
-  either end of the file, and borders a line added since the last
-  commit.
-- `file-cmd-restores-todo-only-files` (test): When `file` has finished every
-  TODO in a tracked file whose only changes since the last commit are TODOs
-  and blank lines, the file's bytes match what the last commit checks
-  out.
 - `dotodos-follows-project-rules` (step): When do-todos drafts an issue, it
   follows the project's own rules for issues, from its CLAUDE.md and its
   issue templates, and takes labels only from the list `scan` gives.
+
+## need user-sees-handled-todos: See which TODOs were handled
+
+When do-todos has run, the user wants each TODO it handled marked where it was
+left, naming the issue, comment or skill it went to. A plain TODO left in a
+file is then one it missed, and a search for TODO finds both.
+
+Source: the owner's ruling while planning, 2026-10-04, recorded in #333.
+
+- `file-cmd-marks-handled-todos` (test): When `file` has finished a draft, it
+  puts `TODO-HANDLED(<target>)` in place of that TODO's `TODO` or
+  `TODO(<kind>)` before it starts the next draft, and does not change any
+  other byte but a comment wrap. The target is `#<n>` for an issue, `#<n>
+  comment` for a comment on issue `<n>`, and the skill's name for a
+  hand-off.
+- `file-cmd-wraps-markdown-todos` (test): When `file` marks a TODO in a file
+  ending `.md` or `.markdown`, and the TODO is not already in an HTML comment,
+  it wraps the TODO, with its detail lines, in `<!--` and `-->`.
+- `scan-cmd-skips-handled-todos` (test): When an added line opens with
+  `TODO-HANDLED(<target>):`, after its indent and any characters that are not
+  letters or digits, `scan` neither reports it nor warns, and does not read
+  it or its detail as another TODO's detail or as the line a TODO sits
+  above.
 
 ## need user-collects-from-other-checkout: Collect TODOs left in another checkout
 
 When the user has left TODOs in one checkout of the repo and runs the skill
 from a session in another, such as a worktree the desktop app made, they want
-the skill to find those TODOs, file them and take them out where they are, so
+the skill to find those TODOs, file them and mark them where they are, so
 they can review wherever they review.
 
 Source: #315, and #301, which found the same split for update-prose-config.
@@ -97,8 +107,8 @@ Source: #315, and #301, which found the same split for update-prose-config.
 - `command-reads-other-worktree` (test): When `scan`, `report` or `file` is
   given `--from` with another worktree of this repo, it reads that worktree's
   TODOs.
-- `file-cmd-removes-from-other-worktree` (test): When `file` is given
-  `--from`, it removes the finished TODOs from that worktree's files.
+- `file-cmd-marks-in-other-worktree` (test): When `file` is given `--from`, it
+  marks the finished TODOs in that worktree's files.
 - `command-refuses-unknown-worktree` (test): When `--from` is not another
   worktree of this repo, the command names it and exits 2.
 - `dotodos-asks-which-checkout` (step): When `scan` names other worktrees,
@@ -121,7 +131,7 @@ recorded there.
 - `scan-cmd-reads-line-detail` (test): When a TODO's marker is not empty and
   is not `-`, `*`, `+`, `>` or `|`, `scan` gives as its detail the added lines
   directly below it that open with the same marker at the same indent, up to
-  a blank line or the next TODO.
+  a blank line or the next TODO, marked handled or not.
 - `scan-cmd-reads-block-comments` (test): When a TODO's marker contains `/*`
   or `<!--`, and every line to the comment's `*/` or `-->` was added since
   the last commit, `scan` runs the TODO to there and gives the rest of the
@@ -132,17 +142,18 @@ recorded there.
 - `scan-cmd-skips-binary-files` (test): When git reads a file as binary,
   `scan` skips it.
 - `scan-cmd-warns-on-unread-todos` (test): When an added line holds `TODO:` or
-  `TODO(`, or opens with `TODO` after its indent and marker, where `scan` does
-  not read a TODO, it warns with the file, the line and the reason.
+  `TODO(`, or opens with `TODO` other than `TODO-HANDLED(` after its indent
+  and marker, where `scan` does not read a TODO, it warns with the file, the
+  line and the reason.
 - `scan-cmd-skips-its-copy` (test): When `scan` lists files, it leaves out
   `.todos/`, whatever git ignores.
 - `scan-cmd-reads-trailing-todos` (test): When a line differs from the last
   commit only by text at its end that opens with a TODO after any comment
   marker, `scan` reads that text as a TODO that has a title and no
   detail.
-- `file-cmd-removes-trailing-todos` (test): When `file` has finished a TODO
-  at the end of a line, it takes the TODO's text off that line, leaving the
-  line as the last commit has it.
+- `file-cmd-marks-trailing-todos` (test): When `file` has finished a TODO at
+  the end of a line, it marks the TODO there, and leaves the text before it
+  as the last commit has it.
 
 ## need user-says-what-kind: Say what kind of work a TODO is
 
@@ -221,7 +232,7 @@ Source: #312, which records the design the owner approved.
 - `file-cmd-files-in-reported-repo` (test): When `file` calls `gh`, it passes
   the repository `report` named as `--repo`.
 - `file-cmd-never-posts-in-preview` (test): When `file` is given `--dry-run`,
-  it prints what it would file, post and remove, and does not file or post
+  it prints what it would file, post and mark, and does not file or post
   anything.
 - `dotodos-shows-report-whole` (step): When `report` exits 0, do-todos shows
   its output as it stands, and takes one decision over the whole set before
@@ -240,7 +251,7 @@ Source: #312, and prose-tuning's DESIGN.md, under "Why no skill commits".
   commits.
 - `dotodos-never-commits` (step): When `file` has run, do-todos lists the
   issues filed, the comments posted, each note it will hand off with the skill
-  it goes to, the files changed and the TODOs left in place, and commits
+  it goes to, the files marked and the TODOs left in place, and commits
   nothing.
 
 ## need user-sends-todos-to-skills: Hand a TODO to the skill made for it
@@ -256,8 +267,9 @@ Source: #319, which quotes the owner's first use case, and CLAUDE.md, under
 
 - `file-cmd-prints-handoffs` (test): When a draft is routed to `skill`, `file`
   prints the skill's name, the TODO's title and detail, and the passage it sat
-  above, with its file, its lines once the TODO is gone, and which of them
-  changed since the last commit.
+  above, with its file and lines and which of them changed since the last
+  commit. The passage runs to the nearest blank line or TODO, marked or not,
+  and leaves out the text of a trailing TODO.
 - `dotodos-passes-todos-to-skills` (step): When an installed skill's
   description covers the work a TODO asks for, such as a `prose` TODO and a
   skill that learns prose rules, do-todos routes it to that skill, and
@@ -323,7 +335,7 @@ Source: CLAUDE.md, under "A shell variable lasts one command".
 
 A script that a session in a worktree the desktop app made runs through Bash
 can open a tracked file in the repo's main checkout, outside `.claude/`, for
-writing. So `file --from` removes the TODOs in the checkout where they were
+writing. So `file --from` marks the TODOs in the checkout where they were
 left.
 
 The probe ran Bash without Claude Code's sandbox. It did not test a session

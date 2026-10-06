@@ -3,8 +3,8 @@
 
 A TODO is a note the user leaves in a file while reviewing it, for the skill
 to file as an issue. This script finds them, checks the model's drafts, files
-them through GitHub's command-line tool, gh, and takes each TODO out of its
-file. The model does what needs judgment: drafting each issue, and asking the
+them through GitHub's command-line tool, gh, and marks each TODO handled where
+it was left. The model does what needs judgment: drafting each issue, and asking the
 user when a TODO says too little.
 
 Usage:
@@ -18,11 +18,11 @@ Commands:
             repository they would be filed in
     report  check the model's drafts against the files as they are now, and
             print them whole, ending with an approval token
-    file    file or post each draft that report showed, remove its TODO, and
-            print the hand-off for each draft routed to a skill
+    file    file or post each draft that report showed, mark its TODO
+            handled, and print the hand-off for each draft routed to a skill
 
 scan, report and file take --from with another worktree of the repository,
-and read that worktree's TODOs instead of this tree's. file then removes them
+and read that worktree's TODOs instead of this tree's. file then marks them
 there. When this tree does not hold a pending TODO and another worktree does,
 scan names each such worktree and exits 1, so a session opened in a fresh
 worktree still finds the TODOs left in the checkout where the author reviews.
@@ -38,13 +38,13 @@ that already covers the TODO. The route `skill` takes `skill`, the name the
 Skill tool takes, for an installed skill made for the work the TODO asks for.
 `python3 todos.py report --help` shows an example.
 
-Hand-offs. A draft routed to `skill` does not reach GitHub. `file` removes its
+Hand-offs. A draft routed to `skill` does not reach GitHub. `file` marks its
 TODO like any other, then prints a hand-off for each skill, holding every TODO
 routed to it: the TODO's title and detail, and the passage it sat above. The
-passage is the run of lines that are neither blank nor another TODO's, around
-the line `scan` gave as `above`, read once every TODO `file` finished is gone
-from the file. So its line numbers are the ones the receiving skill sees, and
-`changed` lists those added since the last commit. A TODO at the end of the
+passage is the run of lines that are neither blank nor a TODO's, marked or
+not, around the line `scan` gave as `above`, with any trailing TODO taken off.
+Marking never moves a line, so its line numbers are the ones the receiving
+skill sees, and `changed` lists those added since the last commit. A TODO at the end of the
 file does not sit above anything, and its passage is null. The script cannot
 see which skills are installed, so it does not check the name; the model
 takes it from the skills the session lists.
@@ -67,25 +67,25 @@ Filing. A filed issue cannot be counted on to come back, since deleting one
 takes admin rights, so `file` checks everything it can before its first gh
 call: the token, every draft, and that it can open each file it would change
 for writing. It then files the drafts file by file, from the last TODO in each
-to the first, and removes each TODO as soon as its issue or comment exists. A
-run cut short leaves every TODO whose issue or comment does not exist, and
-none whose does. It stops at the first gh call that fails.
+to the first, and marks each TODO as soon as its issue or comment exists. A
+run cut short leaves unmarked every TODO whose issue or comment does not
+exist, and none whose does. It stops at the first gh call that fails.
 
 A comment draft is checked against its issue twice, by `report` and again by
 `file`, since the token covers the drafts and not the issue, which may close
 in between.
 
-Removing a TODO takes its lines and tidies the blank lines around it:
-- Added blank lines go, and committed ones stay.
-- One added blank line stays where the run holds no committed one, reaches
-  neither end of the file, and borders a line added since the last commit,
-  so new code keeps its spacing.
-- When the removal reaches the end of the file, the line left last gets back
-  the ending it had at the last commit, if it was the last line then too.
-So a tracked file whose only changes were TODOs, with blank lines around
-them, goes back to its last commit byte for byte. A blank line added away
-from every TODO is the author's, and stays. A byte-order mark is kept, and a
-file left empty is not deleted.
+Marking a TODO handled puts `TODO-HANDLED(<target>)` in place of its word,
+`TODO` or `TODO(<kind>)`, and keeps its text and comment syntax. The target is
+`#<n>` for an issue, `#<n> comment` for a comment on one, and the skill's name
+for a hand-off. A search for TODO then finds the handled TODOs and the missed
+ones alike, and the author deletes the markers when committing, or keeps them.
+In a markdown file, a TODO that is not already in an HTML comment is wrapped
+in one, from after its indent, or for a trailing TODO from its marker, to the
+end of its last line, so it does not render. No other byte changes, and no
+line is added or removed. `scan` reads a marked TODO, with its detail, only
+so that it neither reports it, nor warns about it, nor reads it as another
+TODO's detail or as the line a TODO sits above.
 
 What a TODO is. A line of a text file that opens, after its indent and an
 optional comment marker, with `TODO:` or `TODO(<kind>):`, or the end of a
@@ -102,8 +102,8 @@ the claude-plugins repo, has the full rules. Two forms:
   next TODO.
 - Block form. A marker holding an opener in BLOCK_COMMENTS runs to its closer,
   and the rest of the comment is the detail. Every line up to the closer has
-  to be new since the last commit, so filing the TODO never removes a
-  committed line.
+  to be new since the last commit, so a TODO never takes in a committed
+  line.
 - Trailing form. Text at the end of a line, from the space before its marker,
   where the line without it is a line of the last commit, such as
   `x = 3  # TODO: allow 5`. It has a title only. A block comment's closer has
@@ -120,9 +120,10 @@ Things that look like bugs and are not:
 
 1. A `TODO:` part way along a line is read only when it and the text after it
    are all that sets the line apart from a line of the last commit, and
-   otherwise draws a warning. Filing takes that text off and leaves the
-   committed line, so a line whose code changed too would lose the change,
-   and a new line would be left behind.
+   otherwise draws a warning. scan compares the line without the TODO with
+   the last commit, so on a line whose code changed too it could not tell
+   the TODO from the change, and the hand-off's passage would not show which
+   lines changed.
 
 2. In a markdown file (MARKDOWN_SUFFIXES), a TODO in a code fence or a code
    span is ignored without a warning, so a document can show the syntax. As a
@@ -142,8 +143,14 @@ Things that look like bugs and are not:
 6. A byte-order mark at the start of a file is not part of its first line,
    so it is not read as a comment marker.
 
+7. In markdown, a marked TODO whose text holds `-->` ends its wrapping
+   comment early, and what follows renders. As a simplification, the wrap
+   does not escape it, and the HTML comment a TODO already sits in is found
+   by pairing each `<!--` with the next `-->`, outside the fences and code
+   spans of item 2, with no other markdown rule applied.
+
 Only `setup` and `file` write, and only in a working tree: `setup` its copy
-in .todos/, and `file` the files whose TODOs it removes, in the worktree
+in .todos/, and `file` the files whose TODOs it marks, in the worktree
 --from names when it is given. Nothing writes to
 git, and every git call passes --no-optional-locks so that even git's own
 index refresh is skipped.
@@ -191,15 +198,24 @@ BARE_LINE = "bare"
 # The command scan names when another worktree holds the pending TODOs.
 FROM_COMMAND = "scan --from %s"
 
-# A TODO: indent, marker, then `TODO:` or `TODO(<kind>):`.
-TODO_RE = re.compile(rb"^([ \t]*)([^A-Za-z0-9\s]*)[ \t]*TODO(?:\(([^()]*)\))?:")
+# A TODO: indent, marker, then `TODO:` or `TODO(<kind>):`. The third group
+# is the word `file` replaces when it marks the TODO handled.
+TODO_RE = re.compile(rb"^([ \t]*)([^A-Za-z0-9\s]*)[ \t]*(TODO(?:\(([^()]*)\))?):")
 # A line that opens with TODO, after its indent and marker, read or not.
 OPENS_RE = re.compile(rb"^[ \t]*[^A-Za-z0-9\s]*[ \t]*TODO")
+# A TODO that `file` marked handled: indent, then everything before the word,
+# such as the marker and the comment that wraps it in markdown.
+HANDLED_RE = re.compile(rb"^([ \t]*)([^A-Za-z0-9]*?)TODO-HANDLED\([^()]*\):")
+# What `file` puts in place of a finished TODO's word, around its target.
+HANDLED = b"TODO-HANDLED(%s)"
+# The HTML comment that keeps a marked TODO in markdown from rendering.
+HTML_OPEN, HTML_CLOSE = b"<!--", b"-->"
+WRAP_OPEN, WRAP_CLOSE = HTML_OPEN + b" ", b" " + HTML_CLOSE
 # A line that holds the start of a TODO anywhere along it.
 HOLDS_RE = re.compile(rb"TODO[:(]")
 # A TODO part way along a line: the space and marker before it, then `TODO:`
 # or `TODO(<kind>):`.
-TRAILING_RE = re.compile(rb"[ \t]*([^A-Za-z0-9\s]*)[ \t]*(TODO)(?:\(([^()]*)\))?:")
+TRAILING_RE = re.compile(rb"[ \t]*([^A-Za-z0-9\s]*)[ \t]*(TODO(?:\(([^()]*)\))?):")
 # The warning for a TODO part way along a line that is not read.
 UNREAD_PART_WAY = (
     "a TODO is read at the start of its line, after its indent and comment marker, or at"
@@ -253,6 +269,10 @@ GH_MISSING = (
 ROUTE_ISSUE = "issue"
 ROUTE_COMMENT = "comment"
 ROUTE_SKILL = "skill"
+# The target a marked TODO names, for an issue and for a comment on one. A
+# hand-off names its skill.
+ISSUE_TARGET = "#%d"
+COMMENT_TARGET = "#%d comment"
 # The keys a draft holds, by route.
 DRAFT_KEYS = {
     ROUTE_ISSUE: ("file", "line", "text", "route", "title", "body", "labels"),
@@ -776,6 +796,29 @@ def mask_code_spans(line):
         pos = close.end()
 
 
+def html_comment_open(is_open, text):
+    """Whether an HTML comment is open after text, given whether one was
+    open before it."""
+    pos = 0
+    while True:
+        at = text.find(HTML_CLOSE if is_open else HTML_OPEN, pos)
+        if at < 0:
+            return is_open
+        pos = at + len(HTML_CLOSE if is_open else HTML_OPEN)
+        is_open = not is_open
+
+
+def commented(lines, skip):
+    """For each line, whether an HTML comment is open where it starts. The
+    lines in skip, which are in a code fence, do not open or close one."""
+    out, is_open = [], False
+    for i, line in enumerate(lines):
+        out.append(is_open)
+        if i not in skip:
+            is_open = html_comment_open(is_open, line)
+    return out
+
+
 # --------------------------------------------------------------------------
 # scan
 # --------------------------------------------------------------------------
@@ -786,18 +829,23 @@ class FileScan:
 
     `added` and `base_of` are as compare() gives them for the file with each
     trailing TODO taken off, and `cuts` maps the index of each such line to
-    where its TODO starts.
+    where its TODO starts. `spans` holds the index of every line of a TODO,
+    and of a TODO marked handled. `marks` maps the index of each TODO's first
+    line to (start, end, wrap): where its word is, and where the HTML comment
+    that keeps it from rendering opens, or None when it needs none.
     """
 
     def __init__(self, path, lines, base_lines):
         self.path = path
         self.lines = lines
-        markdown = path.lower().endswith(MARKDOWN_SUFFIXES)
-        self.skip = fenced(lines) if markdown else set()
-        self.masked = [mask_code_spans(ln) for ln in lines] if markdown else lines
+        self.markdown = path.lower().endswith(MARKDOWN_SUFFIXES)
+        self.skip = fenced(lines) if self.markdown else set()
+        self.masked = [mask_code_spans(ln) for ln in lines] if self.markdown else lines
+        self.open = commented(self.masked, self.skip) if self.markdown else None
         self.todos = []
         self.warnings = []
         self.spans = set()
+        self.marks = {}
         self.added, self.base_of = compare(base_lines, lines)
         self.cuts = {}
         # Why a line holding a TODO part way along was not read, where the
@@ -851,6 +899,12 @@ class FileScan:
                 i += 1
                 continue
             line = self.masked[i]
+            handled = HANDLED_RE.match(line)
+            if handled:
+                last = self._handled(i, handled)
+                self.spans.update(range(i, last + 1))
+                i = last + 1
+                continue
             m = TODO_RE.match(line)
             if m:
                 last = self._read(i, m)
@@ -867,7 +921,7 @@ class FileScan:
     def _read(self, i, m):
         """Read the TODO opening line i. Its last line's index, or None when
         it cannot be read, with a warning saying why."""
-        indent, marker, word = m.group(1), m.group(2), m.group(3)
+        indent, marker, word = m.group(1), m.group(2), m.group(4)
         rest = self.lines[i][m.end() :]
         closer = next((c for o, c in BLOCK_COMMENTS if o in marker), None)
         if closer is not None:
@@ -877,22 +931,47 @@ class FileScan:
             title, detail, last = got
             if marker.endswith(b"/*"):
                 detail = [d.strip().lstrip(b"*") for d in detail]
-        elif marker and marker not in TITLE_ONLY_MARKERS:
-            title, detail, last = rest, [], i
-            j = i + 1
-            while j in self.added and self.lines[j].strip():
-                if TODO_RE.match(self.masked[j]):
-                    break
-                lm = MARKER_RE.match(self.lines[j])
-                if lm.group(1) != indent or lm.group(2) != marker:
-                    break
-                detail.append(self.lines[j][lm.end() :])
-                last = j
-                j += 1
         else:
-            title, detail, last = rest, [], i
-        self._add(i, last, marker, word, title, detail)
+            last = self._detail_end(i, indent, marker)
+            title = rest
+            detail = [
+                self.lines[j][MARKER_RE.match(self.lines[j]).end() :]
+                for j in range(i + 1, last + 1)
+            ]
+        self._add(i, last, marker, word, title, detail, m.span(3), m.end(1))
         return last
+
+    def _detail_end(self, i, indent, marker):
+        """The index of the last detail line of a line-form TODO opening line
+        i: the added lines below it that open with its marker at its indent,
+        up to a blank line or the next TODO, marked handled or not."""
+        if not marker or marker in TITLE_ONLY_MARKERS:
+            return i
+        j = i
+        while j + 1 in self.added and self.lines[j + 1].strip():
+            line = self.masked[j + 1]
+            if TODO_RE.match(line) or HANDLED_RE.match(line):
+                break
+            lm = MARKER_RE.match(self.lines[j + 1])
+            if lm.group(1) != indent or lm.group(2) != marker:
+                break
+            j += 1
+        return j
+
+    def _handled(self, i, m):
+        """The index of the last line of the TODO marked handled on line i.
+        It is read as `_read` reads a TODO, without a title or a warning."""
+        indent, before = m.group(1), m.group(2)
+        closer = next((c for o, c in BLOCK_COMMENTS if o in before), None)
+        if closer is None:
+            return self._detail_end(i, indent, before.rstrip())
+        j, text = i, self.masked[i][m.end() :]
+        while closer not in text:
+            j += 1
+            if j not in self.added:
+                return i
+            text = self.masked[j]
+        return j
 
     def _read_trailing(self, i):
         """Read the TODO at the end of line i, whose closer, if it has one,
@@ -902,10 +981,17 @@ class FileScan:
         closer = next((c for o, c in BLOCK_COMMENTS if o in marker), None)
         if closer is not None:
             rest = rest.rstrip()[: -len(closer)]
-        self._add(i, i, marker, word, rest, [])
+        self._add(i, i, marker, word, rest, [], m.span(2), m.start(1))
 
-    def _add(self, i, last, marker, word, title, detail):
-        """Record the TODO opening line i."""
+    def _add(self, i, last, marker, word, title, detail, span, wrap):
+        """Record the TODO opening line i, whose word is at span. In markdown,
+        an HTML comment opening at wrap keeps it from rendering once marked,
+        unless it is in one already."""
+        if not self.markdown or HTML_OPEN in marker:
+            wrap = None
+        elif html_comment_open(self.open[i], self.masked[i][:wrap]):
+            wrap = None
+        self.marks[i] = (span[0], span[1], wrap)
         kind = None
         if word is not None:
             if decode(word) in KINDS:
@@ -965,6 +1051,25 @@ class FileScan:
         text = decode(self.lines[i][: self.cuts.get(i)])
         return {"line": i + 1, "text": text, "base_line": self.base_of.get(i)}
 
+    def passage(self, line):
+        """The passage around a 1-based line, as {first, last, changed, text}:
+        the lines that are neither blank nor a TODO's, with any trailing TODO
+        taken off."""
+        lo = hi = line - 1
+        while lo > 0 and self._in_passage(lo - 1):
+            lo -= 1
+        while hi + 1 < len(self.lines) and self._in_passage(hi + 1):
+            hi += 1
+        return {
+            "first": lo + 1,
+            "last": hi + 1,
+            "changed": [k + 1 for k in range(lo, hi + 1) if k in self.added],
+            "text": "\n".join(self._own(k)["text"] for k in range(lo, hi + 1)),
+        }
+
+    def _in_passage(self, k):
+        return bool(self.lines[k].strip()) and k not in self.spans
+
     def _above(self, last):
         """The line below a TODO's 1-based last line, past blank lines and
         other TODOs, or None at the end of the file."""
@@ -999,12 +1104,7 @@ class Pending:
         if base is not None and base.startswith(BOM):
             base = base[len(BOM) :]
         base_lines = split_lines(base) if base is not None else []
-        self.base_count = len(base_lines)
-        # Whether the last commit's last line had no ending.
-        self.base_open_end = bool(base) and not base.endswith(b"\n")
         self.found = FileScan(path, split_lines(self.raw), base_lines)
-        self.added = self.found.added
-        self.base_of = self.found.base_of
 
 
 class Scan:
@@ -1412,89 +1512,39 @@ def cmd_report(args):
 
 
 # --------------------------------------------------------------------------
-# removing a TODO
+# marking a TODO handled
 # --------------------------------------------------------------------------
 
 
-class Entry:
-    """One line of a file being edited, with its ending."""
+class Marking:
+    """A file's lines, in which finished TODOs are marked handled.
 
-    def __init__(self, text, added, base_line, todo):
-        self.text = text
-        self.added = added
-        self.base_line = base_line
-        # Whether the line belongs to a TODO on lines of its own.
-        self.todo = todo
-
-    def blank(self):
-        return not self.text.strip()
-
-
-class Removal:
-    """A file's lines, from which TODOs are removed from the bottom up.
-
-    Each removal leaves the lines above it where they were, so the line
-    numbers scan gave for the TODOs above stay right.
+    Marking changes bytes inside a TODO's first and last lines and never adds
+    or removes a line, so the line numbers scan gave stay right.
     """
 
     def __init__(self, path, pending):
         self.path = path
         self.pending = pending
-        self.entries = [
-            Entry(text, i in pending.added, pending.base_of.get(i), i in pending.found.spans)
-            for i, text in enumerate(LINE_RE.findall(pending.raw))
-        ]
-        # The entries as scan numbered them, for finding a line once the
-        # lines above it have moved.
-        self.original = list(self.entries)
+        self.lines = LINE_RE.findall(pending.raw)
 
-    def remove(self, first, last):
-        """Take out lines first to last, 1-based, and tidy the blank lines
-        around them, as the module docstring says. A trailing TODO's text
-        comes off its line, and the line stays."""
-        e = self.entries
-        cut = self.pending.found.cuts.get(first - 1)
-        if cut is not None:
-            text = e[first - 1].text
-            ending = ENDING_RE.search(text)
-            e[first - 1].text = text[:cut] + (ending.group() if ending else b"")
-            return
-        del e[first - 1 : last]
-        lo = hi = first - 1
-        while lo > 0 and e[lo - 1].blank():
-            lo -= 1
-        while hi < len(e) and e[hi].blank():
-            hi += 1
-        run = e[lo:hi]
-        committed = [x for x in run if not x.added]
-        inside = lo > 0 and hi < len(e)
-        borders_added = inside and (e[lo - 1].added or e[hi].added)
-        keep = committed or (run[:1] if inside and borders_added else [])
-        e[lo:hi] = keep
-        at_end = lo + len(keep) == len(e)
-        p = self.pending
-        if at_end and e and p.base_open_end and e[-1].base_line == p.base_count:
-            e[-1].text = ENDING_RE.sub(b"", e[-1].text)
-
-    def passage(self, line):
-        """The passage around scan's 1-based line, as the file now reads, as
-        {first, last, changed, text}."""
-        e = self.entries
-        lo = hi = e.index(self.original[line - 1])
-        while lo > 0 and not e[lo - 1].blank() and not e[lo - 1].todo:
-            lo -= 1
-        while hi + 1 < len(e) and not e[hi + 1].blank() and not e[hi + 1].todo:
-            hi += 1
-        lines = e[lo : hi + 1]
-        return {
-            "first": lo + 1,
-            "last": hi + 1,
-            "changed": [lo + 1 + k for k, x in enumerate(lines) if x.added],
-            "text": "\n".join(decode(ENDING_RE.sub(b"", x.text)) for x in lines),
-        }
+    def mark(self, first, last, target):
+        """Put `TODO-HANDLED(<target>)` in place of the word of the TODO on
+        lines first to last, 1-based, and wrap it in an HTML comment where
+        scan found it needs one."""
+        start, end, wrap = self.pending.found.marks[first - 1]
+        line = self.lines[first - 1]
+        line = line[:start] + HANDLED % target.encode("utf-8") + line[end:]
+        if wrap is not None:
+            line = line[:wrap] + WRAP_OPEN + line[wrap:]
+        self.lines[first - 1] = line
+        if wrap is not None:
+            text = self.lines[last - 1]
+            body = ENDING_RE.sub(b"", text)
+            self.lines[last - 1] = body + WRAP_CLOSE + text[len(body) :]
 
     def content(self):
-        return (BOM if self.pending.bom else b"") + b"".join(x.text for x in self.entries)
+        return (BOM if self.pending.bom else b"") + b"".join(self.lines)
 
     def write(self):
         with open(self.path, "wb") as fh:
@@ -1538,23 +1588,29 @@ def cmd_file(args):
         return emit(args, "file", data, errors=refused)
 
     rows.sort(key=lambda r: (r["file"], -r["first"]))
-    removals = {}
+    markings = {}
     for rel in sorted(set(r["file"] for r in rows)):
         writable(repo, rel)
-        removals[rel] = Removal(os.path.join(repo.root, rel), found.files[rel])
+        markings[rel] = Marking(os.path.join(repo.root, rel), found.files[rel])
+
+    def finish(row, target, **fields):
+        """Mark the row's TODO handled, unless this is a dry run."""
+        if not args.dry_run:
+            marking = markings[row["file"]]
+            marking.mark(row["first"], row["last"], target)
+            marking.write()
+        handled = None if target is None else decode(HANDLED % target.encode("utf-8"))
+        data["filed"].append(dict(row, handled=handled, **fields))
 
     errors = []
     for i, row in enumerate(rows):
-        removal = removals[row["file"]]
         if row["route"] == ROUTE_SKILL:
-            removal.remove(row["first"], row["last"])
-            if not args.dry_run:
-                removal.write()
-            data["filed"].append(row)
+            finish(row, row["skill"])
             continue
         if args.dry_run:
-            removal.remove(row["first"], row["last"])
-            data["filed"].append(dict(row, number=None, url=None))
+            comment = row["route"] == ROUTE_COMMENT
+            target = COMMENT_TARGET % row["issue"]["number"] if comment else None
+            finish(row, target, number=None, url=None)
             continue
         try:
             if row["route"] == ROUTE_COMMENT:
@@ -1569,10 +1625,9 @@ def cmd_file(args):
             )
             data["left"] = rows[i:]
             break
-        removal.remove(row["first"], row["last"])
-        removal.write()
-        data["filed"].append(dict(row, number=number, url=url))
-    data["handoffs"] = handoffs(data["filed"], removals)
+        target = (COMMENT_TARGET if row["route"] == ROUTE_COMMENT else ISSUE_TARGET) % number
+        finish(row, target, number=number, url=url)
+    data["handoffs"] = handoffs(data["filed"], found)
 
     def human():
         for r in data["filed"]:
@@ -1592,7 +1647,11 @@ def cmd_file(args):
             else:
                 verb = "commented on" if comment else "filed"
                 print("%s #%d %s" % (verb, r["number"], r["url"]))
-            print("  and %s %s" % ("remove" if args.dry_run else "removed", where(r)))
+            verb = "mark" if args.dry_run else "marked"
+            if r["handled"] is None:
+                print("  and %s %s with the new issue's number" % (verb, where(r)))
+            else:
+                print("  and %s %s as %s" % (verb, where(r), r["handled"]))
         for r in data["left"]:
             print("not filed: draft %d, %s, left in place" % (r["draft"], where(r)))
         for handoff in data["handoffs"]:
@@ -1601,16 +1660,16 @@ def cmd_file(args):
     return emit(args, "file", data, errors=errors, human=human)
 
 
-def handoffs(finished, removals):
+def handoffs(finished, found):
     """One hand-off per skill, holding every finished TODO routed to it, in
-    file and line order, with its passage as the files now read."""
+    file and line order, with its passage."""
     out = {}
     for row in sorted(finished, key=lambda r: (r["file"], r["first"])):
         if row["route"] != ROUTE_SKILL:
             continue
         passage = None
         if row["above"] is not None:
-            passage = dict(removals[row["file"]].passage(row["above"]), file=row["file"])
+            passage = dict(found.files[row["file"]].found.passage(row["above"]), file=row["file"])
         todo = {"draft": row["draft"], "title": row["title"], "detail": row["detail"]}
         todo["passage"] = passage
         out.setdefault(row["skill"], []).append(todo)
@@ -1695,8 +1754,8 @@ def build_parser():
         "file",
         parents=[common, drafts, dry_run, source],
         help=(
-            "file or post each draft report showed, remove its TODO, and print the hand-offs"
-            " to skills"
+            "file or post each draft report showed, mark its TODO handled, and print the"
+            " hand-offs to skills"
         ),
         epilog=DRAFTS_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,

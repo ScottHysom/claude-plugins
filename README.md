@@ -32,7 +32,7 @@ Custom marketplaces do not auto-update. To pick up new versions:
 |---|---|---|
 | [gitify-cowork-project](plugins/gitify-cowork-project) | Cowork | Puts an existing Cowork Project folder under git without touching its documents, and moves the Project Instructions into a versioned `CLAUDE.md` that also tells Claude how to commit and read the history |
 | [prose-tuning](plugins/prose-tuning) | Claude Code, Cowork | Learns a project's house prose style from edits already made, records it as `prose-style.md` with stable rule ids, and conforms the rest of the documents to it |
-| [todos](plugins/todos) | Claude Code | Files the TODO comments left in a project's uncommitted changes as GitHub issues, after the author approves every draft, and takes each one out of its file |
+| [todos](plugins/todos) | Claude Code | Files the TODO comments left in a project's uncommitted changes as GitHub issues, after the author approves every draft, and marks each one in its file with where it went |
 
 ## Starting a new Cowork project
 

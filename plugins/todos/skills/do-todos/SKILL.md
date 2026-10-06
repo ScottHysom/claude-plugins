@@ -1,6 +1,6 @@
 ---
 name: do-todos
-description: File the TODO comments left in a project's uncommitted changes as GitHub issues, or as comments on open issues that already cover them, or hand each to an installed skill made for its work, and take each one out of its file. Claude Code only. Uses scripts/todos.py to find every TODO added since the last commit, in any text file and any comment syntax, with the open issues like each, to check the drafts against the files, the issues and the repository's labels, and to file them through gh once the author approves the report. Asks about every TODO that says too little in one round, before drafting. Use when asked to file the TODOs, turn TODO comments into issues, collect the notes left during a review, or clear the TODOs out of a change. Never commits.
+description: File the TODO comments left in a project's uncommitted changes as GitHub issues, or as comments on open issues that already cover them, or hand each to an installed skill made for its work, and mark each one in its file with where it went. Claude Code only. Uses scripts/todos.py to find every TODO added since the last commit, in any text file and any comment syntax, with the open issues like each, to check the drafts against the files, the issues and the repository's labels, and to file them through gh once the author approves the report. Asks about every TODO that says too little in one round, before drafting. Use when asked to file the TODOs, turn TODO comments into issues, collect the notes left during a review, or clear the TODOs out of a change. Never commits.
 ---
 
 # File the TODOs as issues
@@ -10,8 +10,8 @@ opens, after its indent and the file's comment marker, with `TODO:` or with a
 kind word, as in `TODO(bug):`. This skill drafts an issue for each, or a
 comment on an open issue that already covers it, or routes it to an installed
 skill made for its work. It shows the author every draft, files the ones
-approved, removes each TODO from its file once its issue or comment exists or
-its route is settled, and hands the routed ones on last.
+approved, marks each TODO handled in its file once its issue or comment exists
+or its route is settled, and hands the routed ones on last.
 
 ## Locate the script
 
@@ -54,7 +54,7 @@ TODO and was not read, and why.
 TODO and another checkout of the repo does. Put one `AskUserQuestion` to the
 author, with an option for each entry giving its `root`, `branch` and
 `files`, and an option to collect none. Ask even when there is only one
-entry, because filing removes the TODOs from that checkout. On a pick, scan
+entry, because filing marks the TODOs in that checkout. On a pick, scan
 that one:
 
 ```sh
@@ -211,14 +211,14 @@ Tell the author:
   with its `issue`'s `number` and the comment's `url`;
 - each note to be handed off: a `title` under `todos` in `data.handoffs`, and
   the `skill` it goes to;
-- each file changed, which is the `file` of each entry in `data.filed`, and
+- each file marked, which is the `file` of each entry in `data.filed`, and
   the checkout it is in when step 1 collected from another;
 - each TODO left in place: the ones without a draft in step 4's report, and
   each entry of `data.left`.
 
 When `file` exits 1, say which call failed, from `errors`. Every TODO whose
-issue or comment exists is gone from its file, and every other one is still
-there.
+issue or comment exists is marked in its file, as its entry's `handled` says,
+and every other one is as the author left it.
 
 Leave the working tree as it is. **Never commit.** The author reviews the
 changes and commits them the project's usual way.
