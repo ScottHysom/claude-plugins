@@ -175,3 +175,16 @@ class DescribeUnknownWorktree:
         code, _ = repo.run("scan", "--from", str(repo.root))
         assert code == todos.CANNOT_RUN
         assert "is not another worktree" in repo.err
+
+
+@pytest.mark.spec("report-cmd-writes-report-file")
+class DescribeTheReportFileUnderFrom:
+    def it_writes_the_report_in_this_tree(self, repo, worktree):
+        worktree.write("a.py", "# TODO: there\n")
+        [todo] = worktree.scan()[0]
+        drafts = repo.drafts([repo.draft(todo)])
+        code, env = repo.run("report", "--drafts", drafts, "--from", str(worktree.root))
+        assert code == todos.OK, repo.err
+        assert env["data"]["report"] == str(repo.root / todos.REPORT_FILE)
+        assert "`a.py:1`" in (repo.root / todos.REPORT_FILE).read_text(encoding="utf-8")
+        assert not (worktree.root / todos.REPORT_FILE).exists()

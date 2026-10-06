@@ -293,3 +293,79 @@ class DescribeRefusals:
         found, _ = two.scan()
         errors = self.refused(two, [two.draft(found[0], title=""), two.draft(found[1], line=2)])
         assert [e.split(" ")[1] for e in errors] == ["1", "2:"]
+
+
+@pytest.mark.spec("report-cmd-writes-report-file")
+class DescribeTheReportFile:
+    def report(self, repo, drafts, *extra):
+        code, env = repo.run("report", "--drafts", drafts, *extra)
+        path = repo.root / todos.REPORT_FILE
+        assert env["data"]["report"] == str(path)
+        return code, env, path.read_text(encoding="utf-8")
+
+    def it_writes_each_draft_and_ends_with_the_token(self, two):
+        found, _ = two.scan()
+        drafts = two.drafts(
+            [
+                two.draft(found[0], title="run() hangs", body="No timeout.", labels=["bug"]),
+                two.skill(found[1]),
+            ]
+        )
+        code, env, text = self.report(two, drafts)
+        assert code == todos.OK
+        assert text.startswith(
+            "# TODO report\n\nFiling in [owner/project](https://github.com/owner/project).\n"
+        )
+        assert (
+            "## Draft 1: `run.py:1-2`, issue\n\n"
+            "- **Title:** run() hangs\n"
+            "- **Labels:** bug\n\n"
+            "> No timeout.\n"
+        ) in text
+        assert (
+            "## Draft 2: `run.py:5`, skill\n\n"
+            "- **To:** `example:learn-prose-rules`\n"
+            "- **Title:** tidy up\n"
+        ) in text
+        assert text.endswith("Approval token: `%s`\n" % env["data"]["token"])
+
+    def it_keeps_a_body_inside_its_quote(self, two):
+        found, _ = two.scan()
+        drafts = two.drafts([two.draft(found[0], body="## What's wrong\n\nIt hangs.")])
+        _, _, text = self.report(two, drafts)
+        assert "> ## What's wrong\n>\n> It hangs.\n" in text
+
+    def it_names_the_issue_a_comment_goes_on(self, two, github):
+        github.existing[7] = {"number": 7, "title": "run() hangs", "state": "OPEN", "url": "u"}
+        found, _ = two.scan()
+        drafts = two.drafts([two.comment(found[0], 7, body="And on 502.")])
+        code, _, text = self.report(two, drafts)
+        assert code == todos.OK, two.err
+        assert "- **On:** #7 run() hangs\n\n> And on 502.\n" in text
+
+    def it_lists_the_todos_left_and_the_warnings(self, two):
+        found, _ = two.scan()
+        _, env, text = self.report(two, two.drafts([two.draft(found[0])]))
+        assert "## Left in place\n\n- `run.py:5` tidy up\n" in text
+        assert "## Warnings from scan\n\n- %s\n" % env["data"]["scan_warnings"][0] in text
+
+    def it_writes_the_refusals_and_no_token(self, two):
+        found, _ = two.scan()
+        drafts = two.drafts([two.draft(found[0], labels=["nonsense"])])
+        code, env, text = self.report(two, drafts)
+        assert code == todos.PROBLEMS
+        assert "## Refused\n" in text
+        assert "- %s\n" % env["errors"][0] in text
+        assert "token" not in text
+
+    def it_replaces_a_token_from_an_earlier_run(self, two):
+        found, _ = two.scan()
+        self.report(two, two.draft_all())
+        drafts = two.drafts([two.draft(found[0], labels=["nonsense"])])
+        _, _, text = self.report(two, drafts)
+        assert "token" not in text
+
+    def it_keeps_the_file_out_of_the_projects_commits(self, two):
+        self.report(two, two.draft_all())
+        assert (two.root / todos.COPY_IGNORE).read_bytes() == todos.COPY_IGNORE_TEXT
+        assert todos.COPY_DIR not in two.git("status", "--porcelain").decode()

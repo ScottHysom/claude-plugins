@@ -17,7 +17,8 @@ Commands:
             commit, the open issues like each, and the labels of the
             repository they would be filed in
     report  check the model's drafts against the files as they are now, and
-            print them whole, ending with an approval token
+            print them whole, ending with an approval token, and write them
+            as markdown to .todos/report.md
     file    file or post each draft that report showed, mark its TODO
             handled, and print the hand-off for each draft routed to a skill
 
@@ -149,9 +150,19 @@ Things that look like bugs and are not:
    by pairing each `<!--` with the next `-->`, outside the fences and code
    spans of item 2, with no other markdown rule applied.
 
-Only `setup` and `file` write, and only in a working tree: `setup` its copy
-in .todos/, and `file` the files whose TODOs it marks, in the worktree
---from names when it is given. Nothing writes to
+The report file. Claude Code shows a command's output to the model, and not
+reliably to the author, so `report` also writes the report as markdown to
+.todos/report.md, for the skill to publish where the author reads it whole.
+It goes in the -C tree even under --from, since that is the tree the session
+can publish from. A report that refuses a draft writes the refusals and no
+token, so a stale token never reaches the author.
+
+Only `setup`, `report` and `file` write, and only in a working tree: `setup`
+its copy in .todos/, `report` .todos/report.md, and `file` the files whose
+TODOs it marks, in the worktree --from names when it is given. `setup` and
+`report` also write .todos/.gitignore, so git ignores what they leave there.
+`report` does not take --dry-run, since what it writes is scratch that its next
+run replaces, as the owner ruled in #334. Nothing writes to
 git, and every git call passes --no-optional-locks so that even git's own
 index refresh is skipped.
 
@@ -248,6 +259,8 @@ COPY_SCRIPT = COPY_DIR + "/todos.py"
 COPY_IGNORE = COPY_DIR + "/.gitignore"
 COPY_IGNORE_TEXT = b"*\n"
 COPY_PREFIX = "TODOS=" + COPY_SCRIPT
+# Where report writes the report as markdown, for the author to read whole.
+REPORT_FILE = COPY_DIR + "/report.md"
 
 # Every gh call times out, and none prompts or checks for gh's own updates.
 GH_TIMEOUT = 60
@@ -478,9 +491,12 @@ class Repo:
         ]
 
 
-def open_tree(args):
-    """The tree a command reads: this one, or the worktree --from names."""
-    repo = Repo(args.repo)
+def open_tree(args, repo=None):
+    """The tree a command reads: this one, or the worktree --from names.
+
+    repo is this tree, when the caller has opened it already.
+    """
+    repo = repo or Repo(args.repo)
     if args.source is None:
         return repo
     source = os.path.realpath(args.source)
@@ -1470,9 +1486,62 @@ def print_draft(row):
     print()
 
 
+def quoted(text):
+    """text as a markdown quote, so a body's own headings stay inside it."""
+    return "\n".join(("> " + line).rstrip() for line in text.split("\n"))
+
+
+def report_markdown(data, refused):
+    """The report as markdown: what the author reads whole, and approves."""
+    out = ["# TODO report", ""]
+    out.append("Filing in [%s](%s)." % (data["repository"], data["url"]))
+    if refused:
+        out += ["", "## Refused", "", "Fix these drafts and run report again:", ""]
+        out += ["- %s" % e for e in refused]
+    for row in data["drafts"]:
+        heading = "## Draft %d: `%s`, %s" % (row["draft"], where(row), row["route"])
+        out += ["", heading, ""]
+        if row["route"] == ROUTE_SKILL:
+            out += ["- **To:** `%s`" % row["skill"], "- **Title:** %s" % row["title"]]
+            if row["detail"]:
+                out += ["", quoted(row["detail"])]
+            continue
+        if row["route"] == ROUTE_COMMENT:
+            out.append("- **On:** #%d %s" % (row["issue"]["number"], row["issue"]["title"]))
+        else:
+            out.append("- **Title:** %s" % row["title"])
+            out.append("- **Labels:** %s" % (", ".join(row["labels"]) or "(none)"))
+        out += ["", quoted(row["body"])]
+    out += ["", "%d draft(s)." % len(data["drafts"])]
+    if data["left"]:
+        out += ["", "## Left in place", ""]
+        out += ["- `%s` %s" % (where(t), t["title"]) for t in data["left"]]
+    if data["scan_warnings"]:
+        out += ["", "## Warnings from scan", ""]
+        out += ["- %s" % w for w in data["scan_warnings"]]
+    if data["token"]:
+        out += ["", "%s`%s`" % (TOKEN_LABEL.capitalize(), data["token"])]
+    return "\n".join(out) + "\n"
+
+
+def write_report(repo, data, refused):
+    """Write the report into repo's .todos/, beside the ignore file, and
+    return its path."""
+    ignore = os.path.join(repo.root, COPY_IGNORE)
+    os.makedirs(os.path.dirname(ignore), exist_ok=True)
+    if not os.path.isfile(ignore):
+        with open(ignore, "wb") as fh:
+            fh.write(COPY_IGNORE_TEXT)
+    path = os.path.join(repo.root, REPORT_FILE)
+    with open(path, "w", encoding="utf-8") as fh:
+        fh.write(report_markdown(data, refused))
+    return path
+
+
 def cmd_report(args):
     """The drafts as the author approves them, read against the files now."""
-    repo = open_tree(args)
+    here = Repo(args.repo)
+    repo = open_tree(args, here)
     raw, drafts = read_drafts(args.drafts)
     github = GitHub(repo)
     labels = github.labels()
@@ -1491,6 +1560,9 @@ def cmd_report(args):
         "scan_warnings": found.warnings,
         "token": token,
     }
+    # In this session's tree even under --from, where the session can read
+    # and publish it.
+    data["report"] = write_report(here, data, refused)
 
     def human():
         print("Filing in %s (%s).\n" % (github.name, github.url))
