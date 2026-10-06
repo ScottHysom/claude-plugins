@@ -190,7 +190,7 @@ again. Its TODOs stay in their files. The token `file` takes is the one from
 the report the author approved as a whole.
 
 ```sh
-TODOS=.todos/todos.py && python3 "$TODOS" file --drafts "${TMPDIR:-/tmp}/todo-drafts.json" --token 3f9a1c0e7b2d4a68
+TODOS=.todos/todos.py && python3 "$TODOS" file --drafts "${TMPDIR:-/tmp}/todo-drafts.json" --token 3f9a1c0e7b2d4a68 --json
 ```
 
 Give the Bash call a timeout of at least a minute for each draft, since each
@@ -205,16 +205,18 @@ and then files nothing. Run `report` again and show it to the author.
 
 Tell the author:
 
-- each issue filed, with its number and address, from `file`'s output;
-- each comment posted, with its issue's number and the comment's address;
-- each note to be handed off, from `data.handoffs`: its title and the skill
-  it goes to;
-- each file changed, which is each file a filed or posted TODO came from,
-  and the checkout it is in when step 1 collected from another;
+- each issue filed: an entry of `data.filed` whose `route` is `issue`, with
+  its `number` and `url`;
+- each comment posted: an entry of `data.filed` whose `route` is `comment`,
+  with its `issue`'s `number` and the comment's `url`;
+- each note to be handed off: a `title` under `todos` in `data.handoffs`, and
+  the `skill` it goes to;
+- each file changed, which is the `file` of each entry in `data.filed`, and
+  the checkout it is in when step 1 collected from another;
 - each TODO left in place: the ones without a draft in step 4's report, and
-  any `file` lists as not filed.
+  each entry of `data.left`.
 
-When `file` exits 1, say which call failed, from its error. Every TODO whose
+When `file` exits 1, say which call failed, from `errors`. Every TODO whose
 issue or comment exists is gone from its file, and every other one is still
 there.
 
@@ -229,8 +231,8 @@ session's work when it stops. When `data.handoffs` is empty, stop here.
 
 <!-- no-command: platform. The model invokes each skill through the Skill tool. -->
 
-As the last act of the run, invoke each skill in `data.handoffs` once, through
-the Skill tool, with every TODO routed to it. For each TODO, the arguments
+As the last act of the run, invoke each `skill` in `data.handoffs` once, through
+the Skill tool, with every TODO in its `todos`. For each TODO, the arguments
 give:
 
 - the note: its `title` and `detail`;

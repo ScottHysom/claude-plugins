@@ -50,7 +50,7 @@
       "source": "./plugins/todos",
       "displayName": "TODOs",
       "description": "Claude Code only. Files the TODO comments left in a project's uncommitted changes as GitHub issues, or hands one to an installed skill made for its work, after the author approves every draft, and takes each one out of its file.",
-      "version": "0.5.0",
+      "version": "0.5.1",
       "category": "productivity",
       "tags": [
         "todo",
