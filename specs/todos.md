@@ -363,17 +363,16 @@ Source: Claude Code's Bash tool description, and the owner's report in #334.
 
 An artifact published from Claude Code is private by default. A comment its
 owner sends to Claude reaches the session that published it, which can reply
-in the thread.
-
-The probe did not show a comment starting a turn in an idle session. Its
-comments arrived while the session was busy, and the session read them from
-the thread.
+in the thread. A comment sent while the session is busy starts a turn once
+the session goes idle.
 
 Source: code.claude.com/docs/en/artifacts.md, under "Collect comments on an
 artifact", and the probe recorded in #334. The probe ran on 2026-10-06 from
 `.claude/worktrees/issue-347-f948c8`. The owner sent two comments to Claude
 on a private artifact the session published. `ArtifactComments` read both as
-sent to Claude, and the session's reply posted to the thread.
+sent to Claude, and the session's reply posted to the thread. The first
+comment, sent while the session was busy, started a turn when that turn
+ended.
 
 ## constraint bash-writes-other-checkout: A script run through Bash can write another checkout
 

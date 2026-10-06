@@ -197,10 +197,8 @@ and `data.token`, with these options:
 - comment first, on the drafts in the artifact;
 - file none.
 
-On "comment first", end the turn. A comment the author sends to Claude may
-start a new turn. When the author instead says in chat that they have
-commented, read the threads with `ArtifactComments`. For each thread sent to
-Claude, revise the drafts it names, run `report` again, publish the file
+On "comment first", end the turn. A comment the author sends to Claude starts
+a new turn. Revise the drafts it names, run `report` again, publish the file
 again, and answer in the comment's thread with `ArtifactComments`, saying
 what changed, then resolve the thread. Ask the one question again, with the
 new token, once the threads sent to Claude are answered.
