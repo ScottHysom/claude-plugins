@@ -145,8 +145,9 @@ document in the project forever.
 
 <!-- no-command: judgment. The author answers one batch of questions. -->
 
-**Budget: one `AskUserQuestion` batch of at most eight questions, plus one
-approval at the end.** A second round means the first asked the wrong things.
+**Budget: one `AskUserQuestion` call of at most four questions, plus one
+approval at the end.** `AskUserQuestion` rejects a fifth question. A second
+round means the first asked the wrong things.
 
 What always belongs in the batch:
 
