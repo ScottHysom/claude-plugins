@@ -357,6 +357,11 @@ Source: CLAUDE.md, under "Skills and scripts", and #98.
   on a step that runs a command, `steps` fails it.
 - `steps-cmd-scans-something` (test): When no SKILL.md has a step, `steps`
   fails.
+- `checkskills-cmd-reads-project-skills` (test): When a skill sits at
+  `.claude/skills/<skill>/SKILL.md`, `check-skills.py commands`, `steps` and
+  `fences` check it as they check a plugin's skill, and read a script path it
+  names from the root of the clone. `repeats` and `descriptions` leave it
+  out.
 - `ci-runs-steps` (check): When a pull request is opened or updated, CI runs
   `steps`.
 
@@ -606,6 +611,9 @@ Source: #114, #129, and SPEC-METHODOLOGY.md, under "The chain".
   it.
 - `trace-cmd-scans-something` (test): When `trace` does not find any spec,
   test or skill step, it fails.
+- `trace-cmd-reads-project-skills` (test): When a step of a skill under
+  `.claude/skills/` cites a requirement, `trace` reads the citation against
+  `specs/repo.md`.
 - `ci-runs-trace` (check): When a pull request is opened or updated, CI runs
   `trace`.
 - `inventory-cmd-lists-parser-surface` (test): When `check-specs.py
