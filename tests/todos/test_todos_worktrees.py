@@ -18,6 +18,10 @@ def real(path):
     return os.path.realpath(str(path))
 
 
+def branch_of(tree):
+    return tree.git("branch", "--show-current").decode().strip()
+
+
 @pytest.mark.spec("scan-cmd-names-other-worktrees")
 class DescribeOtherWorktrees:
     def it_names_a_worktree_holding_todos_and_exits_with_problems(self, repo, worktree):
@@ -116,6 +120,21 @@ class DescribeFrom:
         assert env["data"]["todos"] == []
         assert env["data"]["other_worktrees"] == []
 
+    def it_scans_the_worktree_whose_branch_is_named(self, repo, worktree):
+        worktree.write("a.py", "# TODO: there\n")
+        code, env = repo.run("scan", "--from", BRANCH)
+        assert code == todos.OK, repo.err
+        assert [t["title"] for t in env["data"]["todos"]] == ["there"]
+
+    @pytest.mark.parametrize("by", ["folder", "branch"])
+    def it_reads_this_tree_as_with_no_from_when_named(self, repo, worktree, by):
+        worktree.write("a.py", "# TODO: there\n")
+        name = str(repo.root) if by == "folder" else branch_of(repo)
+        code, env = repo.run("scan", "--from", name)
+        assert code == todos.PROBLEMS
+        assert env["data"]["todos"] == []
+        assert [real(t["root"]) for t in env["data"]["other_worktrees"]] == [real(worktree.root)]
+
     def it_reports_drafts_against_the_worktree_named(self, repo, worktree):
         worktree.write("a.py", "# TODO: there\n")
         [todo] = worktree.scan()[0]
@@ -168,13 +187,56 @@ class DescribeUnknownWorktree:
         assert code == todos.CANNOT_RUN
         assert env is None
         assert str(elsewhere) in repo.err
-        assert "is not another worktree of this repository" in repo.err
+        assert "is neither a worktree of this repository" in repo.err
         assert github.posts() == 0
 
-    def it_refuses_this_tree_itself(self, repo, worktree):
-        code, _ = repo.run("scan", "--from", str(repo.root))
+    def it_lists_the_worktrees_with_their_branches(self, repo, worktree):
+        code, _ = repo.run("scan", "--from", "reveiw")
         assert code == todos.CANNOT_RUN
-        assert "is not another worktree" in repo.err
+        assert "reveiw is neither" in repo.err
+        assert "%s on %s (this tree);" % (repo.root, branch_of(repo)) in repo.err
+        assert "%s on %s" % (worktree.root, BRANCH) in repo.err
+
+    def it_says_a_worktree_is_detached(self, repo, tmp_path):
+        root = tmp_path / "detached"
+        repo.git("worktree", "add", "-q", "--detach", str(root))
+        code, _ = repo.run("scan", "--from", "nowhere")
+        assert code == todos.CANNOT_RUN
+        assert "%s (detached)" % root in repo.err
+
+
+@pytest.mark.spec("file-cmd-prints-handoffs")
+class DescribeTheHandoffFrom:
+    @staticmethod
+    def approved(repo, tree, name):
+        """`file`'s arguments for a prose TODO in tree, routed to a skill and
+        read with --from name."""
+        tree.write("a.md", "<!-- TODO(prose): too long -->\nSome text.\n")
+        [todo] = tree.scan()[0]
+        drafts = repo.drafts([repo.skill(todo)])
+        code, env = repo.run("report", "--drafts", drafts, "--from", name)
+        assert code == todos.OK, repo.err
+        return ("file", "--drafts", drafts, "--token", env["data"]["token"], "--from", name)
+
+    def it_names_the_checkout_the_passage_was_read_in(self, repo, worktree):
+        code, env = repo.run(*self.approved(repo, worktree, BRANCH))
+        assert code == todos.OK, repo.err
+        [handoff] = env["data"]["handoffs"]
+        assert real(handoff["checkout"]["root"]) == real(worktree.root)
+        assert handoff["checkout"]["branch"] == BRANCH
+
+    def it_names_the_checkout_in_text(self, repo, worktree):
+        code, out, err = repo.human(*self.approved(repo, worktree, BRANCH))
+        assert code == todos.OK, err
+        expected = "hand-off to example:learn-prose-rules\n  read in %s, on %s\n"
+        assert expected % (worktree.root, BRANCH) in out
+
+    def it_names_a_detached_checkout_without_a_branch_in_text(self, repo, tmp_path, todo_repo):
+        root = tmp_path / "detached"
+        repo.git("worktree", "add", "-q", "--detach", str(root))
+        code, out, err = repo.human(*self.approved(repo, todo_repo(root), str(root)))
+        assert code == todos.OK, err
+        assert "  read in %s\n" % root in out
 
 
 @pytest.mark.spec("report-cmd-writes-report-file")

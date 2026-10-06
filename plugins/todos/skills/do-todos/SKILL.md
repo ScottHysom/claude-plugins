@@ -35,12 +35,24 @@ TODOS=.todos/todos.py && python3 "$TODOS" scan --json
 ```
 
 ## Step 1: gather the TODOs
-<!-- spec: dotodos-reads-todos-from-scan, dotodos-asks-which-checkout -->
+<!-- spec: dotodos-reads-todos-from-scan, dotodos-takes-named-checkout, dotodos-asks-which-checkout -->
 <!-- seam: judgment: the author picks which checkout to collect TODOs from, or none -->
 
 ```sh
 TODOS=.todos/todos.py && python3 "$TODOS" scan --json
 ```
+
+When the author named a checkout in the skill's arguments, by its folder or
+its branch, as in `in scott/prose-changes`, pass the name exactly as given,
+and never ask which checkout to collect from:
+
+```sh
+TODOS=.todos/todos.py && python3 "$TODOS" scan --from "<name>" --json
+```
+
+Pass the same `--from "<name>"` to `report` and `file` in step 4. When `scan`
+exits 2, tell the author what it says, with the worktrees it lists, and stop.
+Never guess which checkout a refused name meant.
 
 `data.todos` lists every TODO added since the last commit. Each has its
 `file`, its `first` and `last` lines, its `text` (the first line as it
@@ -51,9 +63,10 @@ labels of `data.repository`, the repository the issues would go to. Each warning
 TODO and was not read, and why.
 
 **When `data.other_worktrees` is not empty,** this tree does not hold any
-TODO and another checkout of the repo does. Put one `AskUserQuestion` to the
-author, with an option for each entry giving its `root`, `branch` and
-`files`, and an option to collect none. Ask even when there is only one
+TODO and another checkout of the repo does. When the author named this tree,
+tell them which checkouts hold TODOs, and stop. Otherwise put one
+`AskUserQuestion` to the author, with an option for each entry giving its
+`root`, `branch` and `files`, and an option to collect none. Ask even when there is only one
 entry, because filing marks the TODOs in that checkout. On a pick, scan
 that one:
 
@@ -171,8 +184,8 @@ author wants left in place does not get a draft.
 TODOS=.todos/todos.py && python3 "$TODOS" report --drafts "${TMPDIR:-/tmp}/todo-drafts.json" --json
 ```
 
-Add `--from "<root>"` to `report` and `file` when step 1 collected from
-another checkout.
+Add the `--from` that step 1's `scan` took to `report` and `file`, when it
+took one.
 
 `report` writes the report to the markdown file at `data.report`: the
 repository the issues go to, each draft whole with its route, the skill each
@@ -235,7 +248,7 @@ Tell the author:
 - each note to be handed off: a `title` under `todos` in `data.handoffs`, and
   the `skill` it goes to;
 - each file marked, which is the `file` of each entry in `data.filed`, and
-  the checkout it is in when step 1 collected from another;
+  the checkout it is in when step 1 passed `--from`;
 - each TODO left in place: the ones without a draft in step 4's report, and
   each entry of `data.left`.
 
@@ -266,6 +279,6 @@ give:
 A TODO whose `passage` is null sat at the end of its file. Hand it on with
 the file alone, and say that it did not sit above a passage.
 
-When step 1 collected from another checkout, say in the arguments that each
-passage was read there, and give its text, so the skill works in this
-session's tree.
+When the hand-off's `checkout` is not null, the passages were read in another
+checkout. Give its `root` and `branch` in the arguments, and say that each
+passage was read there.
