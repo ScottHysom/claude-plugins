@@ -70,8 +70,9 @@ def remote_branches(remote):
 class FakeGitHub:
     """gh, answering from a dict of issues. Records every call."""
 
-    def __init__(self, issues=None, pulls=None, merged=(), fail=()):
+    def __init__(self, issues=None, pulls=None, merged=(), fail=(), blockers=None):
         self.issues = issues or {}
+        self.blockers = blockers or {}
         self.pulls = pulls or []
         self.merged = merged
         self.fail = fail
@@ -82,6 +83,11 @@ class FakeGitHub:
         if any(word in args for word in self.fail):
             raise cli.Fatal("gh %s failed" % args[1])
         kind, verb = args[0], args[1]
+        if kind == "api":
+            number = int(args[1].split("/")[-3])
+            return json.dumps(
+                [{"number": n, "state": st} for n, st in self.blockers.get(number, [])]
+            )
         if kind == "pr" and "merged" in args:
             head = args[args.index("--head") + 1] if "--head" in args else None
             return json.dumps(
@@ -302,6 +308,44 @@ class DescribeNext:
         code, out = run(capsys, clone("a"), "next")
         assert code == cli.OK
         assert (out.out, out.err) == ("#13 issue 13\n", "")
+
+
+class DescribeNextBlockers:
+    @pytest.mark.spec("next-cmd-skips-blocked-issues")
+    def it_skips_an_issue_whose_blocker_is_open(self, capsys, clone, github):
+        github(
+            make_issue(10, "approved"),
+            make_issue(11, "approved"),
+            make_issue(12, "approved"),
+            blockers={10: [(9, "open")], 11: [(8, "closed")]},
+        )
+        code, data = run_json(capsys, clone("a"), "next")
+        assert code == cli.OK
+        assert data["data"]["issue"] == {"number": 11, "title": "issue 11"}
+
+    @pytest.mark.spec("next-cmd-skips-blocked-issues")
+    def it_names_each_blocked_issue_with_its_open_blockers_when_all_are_blocked(
+        self, capsys, clone, github
+    ):
+        github(
+            make_issue(10, "approved"),
+            make_issue(11, "approved"),
+            blockers={10: [(9, "open"), (8, "open"), (7, "closed")], 11: [(10, "open")]},
+        )
+        code, out = run(capsys, clone("a"), "next")
+        assert code == cli.OK
+        assert out.out == (
+            "Every free approved issue is blocked by an open issue:\n"
+            "#10 issue 10, blocked by #8, #9\n"
+            "#11 issue 11, blocked by #10\n"
+        )
+
+    @pytest.mark.spec("next-cmd-skips-blocked-issues")
+    def it_leaves_claim_unchanged_for_a_blocked_issue(self, capsys, remote, clone, github):
+        gh = github(make_issue(10, "approved"), blockers={10: [(9, "open")]})
+        code, _ = run(capsys, clone("a"), "claim", "10")
+        assert code == cli.OK
+        assert not any(c[0] == "api" for c in gh.calls)
 
 
 class DescribeRelease:

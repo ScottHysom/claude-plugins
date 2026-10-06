@@ -184,7 +184,7 @@ Source: README.md, under "Claiming an issue".
 
 - `next-cmd-offers-free-issue` (test): When `issues.py next` runs, it
   names the lowest-numbered open issue labeled `approved` that no `issue/N`
-  branch holds, and exits 0 when none is free.
+  branch holds and no open issue blocks, and exits 0 when none is free.
 - `claim-cmd-picks-one-winner` (test): When two agents claim the same
   issue at once, `issues.py claim` lets exactly one create `issue/N`, and the
   other exits 1, names the holder and writes nothing.
@@ -199,6 +199,19 @@ Source: README.md, under "Claiming an issue".
 - `checklinkedissues-cmd-fails-foreign-claims` (test): When a pull request
   also closes an issue that another `issue/M` branch holds,
   check-linked-issues.py fails it.
+
+## need owner-orders-dependent-issues: Leave an issue until its blocker closes
+
+When one issue waits on another, the owner wants agents told to take the next
+issue to leave it until its blocker closes, so no agent builds on work that has
+not landed.
+
+Source: the owner's request on 2026-10-04, recorded in #345.
+
+- `next-cmd-skips-blocked-issues` (test): When GitHub lists an open issue as
+  blocking an issue, `issues.py next` does not offer it. When every free issue
+  is blocked, `next` names each with its open blockers and exits 0, and `claim`
+  still takes a blocked issue the owner names.
 
 ## need owner-sees-held-issues: See from the issue list which issues are held
 
