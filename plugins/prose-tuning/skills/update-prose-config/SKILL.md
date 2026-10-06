@@ -60,8 +60,8 @@ and neither can then be pointed at. Every candidate below is checked against
 this list.
 
 ## Step 3: gather the evidence
-<!-- spec: updateproseconfig-asks-about-signals, updateproseconfig-asks-which-checkout, updateproseconfig-takes-handed-notes, updateproseconfig-reads-notes-as-whys, updateproseconfig-runs-on-notes-alone -->
-<!-- seam: judgment: the author picks which checkout to carry edits from, or none -->
+<!-- spec: updateproseconfig-asks-about-signals, updateproseconfig-reads-named-checkout, updateproseconfig-asks-which-checkout, updateproseconfig-takes-handed-notes, updateproseconfig-reads-notes-as-whys, updateproseconfig-runs-on-notes-alone -->
+<!-- seam: judgment: the author picks which checkout to learn from, when two or more hold edits -->
 
 ```sh
 python3 "$PROSE" evidence --json
@@ -70,17 +70,25 @@ python3 "$PROSE" evidence --json
 One command returns everything: explicit markup, untagged edits, and any open
 questions. The explicit and inferred halves matter differently.
 
+**When the author named a checkout,** by its folder or its branch, or the run
+was handed one with its notes, add `--from "<that checkout>"` to `evidence`
+here and to `reproduce` in step 7, and do not ask which checkout to read.
+
 **When `data.other_worktrees` is not empty,** this tree does not hold any
-edits and another checkout of the repo does. Put one `AskUserQuestion` to the
-author, with an option for each entry giving its `root`, `branch` and
-`files`, and an option to carry none. Ask even when there is only one entry, because carrying
-puts the edits on this branch as well as theirs. On a pick, carry that one and
-gather the evidence again:
+edits and another checkout of the repo does. With one entry, read that one.
+With two or more, put one `AskUserQuestion` to the author, with an option for
+each entry giving its `root`, `branch` and `files`, and an option to read
+none. Gather the evidence again from the one read, and pass the same `--from`
+to `reproduce` in step 7:
 
 ```sh
-python3 "$PROSE" carry --from "<root>" --json
-python3 "$PROSE" evidence --json
+python3 "$PROSE" evidence --from "<root>" --json
 ```
+
+Tell the author which checkout the run reads, from `data.checkout`. The rules
+still go into this tree's `prose-style.md`, and the other checkout is only
+read. A warning that its `prose-style.md` has changes means the author edited
+rules there that this run does not see. Say so.
 
 If the author picks none and the run was not handed any notes, stop. This
 tree has nothing to learn from.
@@ -225,7 +233,7 @@ batch again.
 python3 "$PROSE" reproduce --json
 ```
 
-`reproduce` runs every rule's pattern over each file as it was at HEAD. It
+Add the `--from` that step 3 used, if any. `reproduce` runs every rule's pattern over each file as it was at HEAD. It
 reads the author's markup as resolved, and reports each edit made since HEAD
 as one entry in `edits`:
 
@@ -242,22 +250,25 @@ the document: extend its pattern, or write the rule it is missing. Hand the fix
 to `config write` as step 6 does, then run `reproduce` again.
 
 ## Step 8: hand off
-<!-- spec: updateproseconfig-never-commits, updateproseconfig-names-original-checkout, updateproseconfig-never-writes-documents -->
+<!-- spec: updateproseconfig-never-commits, updateproseconfig-names-unreproduced-edits, updateproseconfig-never-writes-documents -->
 
 <!-- no-command: hand-off to the author. The run ends with the working tree dirty. -->
 
-Report what changed, which files are dirty, and stop. Apart from what step 3
-carries, the only file the run writes is `prose-style.md`. Never write markup into
-a document, and never run `tags resolve`. The author's markup and edits stay
-as they left them, and `apply-prose` resolves the markup once the author says
-the rules are learned. If step 3 carried edits, name the checkout and branch that still hold the originals, from `carry`'s
-`data.from` and `data.branch`, and leave discarding them to the author.
+Report what changed, which files are dirty, and stop. The only file the run
+writes is `prose-style.md`. Never write markup into a document, and never run
+`tags resolve`. The author's markup and edits stay as they left them, and
+`apply-prose` resolves the markup once the author says the rules are learned.
+
+List each edit that step 7 last reported with `reproduced: false`, by its
+`file` and `start`. If the author discards their edits and runs `apply-prose`
+instead, these are the edits it may not make again.
 **Never commit.** The project's own maintenance skill owns commit types,
 message format, and the bridge's lock-file workaround.
 
 ## Scope
 
 This skill writes inside the project repo it was invoked in, and nowhere else.
-`carry` reads another worktree of the same repo and writes only this tree.
+`--from` reads another worktree of the same repo, and the run writes only this
+tree.
 Carrying a rule upstream into the rules this plugin ships is `adopt-prose`'s
 job, and it is deliberate rather than automatic.
