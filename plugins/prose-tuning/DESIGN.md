@@ -48,12 +48,13 @@ without an error would be a scope override that appears to work.
 
 A session in a worktree the Claude Code desktop app made cannot edit the main
 checkout's `.claude/`, so a run started there cannot write the rules beside the
-author's edits. `carry` copies the edits into the session's tree instead, and
-the run finishes there. It reads the other checkout with plain file reads and
-`git show`, never writing to it, and refuses a file whose last commit differs
-between the two trees, since the same edit would then read as a different
-diff. `specs/prose-tuning.md`, under `constraint worktree-guards-shared-claude`,
-has the source.
+author's edits. `evidence` and `reproduce` take `--from` instead, and read the
+edits where they are: each file against that checkout's own last commit, in
+the scope of the session's `prose-style.md`. The rules go into the session's
+tree. The other checkout is read with plain file reads and `git show`, never
+written, so the author is not left with a second copy of their edits to
+discard. `specs/prose-tuning.md`, under `constraint
+worktree-guards-shared-claude`, has the source.
 
 ## Packaging
 

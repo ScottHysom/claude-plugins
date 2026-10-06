@@ -94,9 +94,12 @@ you to delete.
 
 If you edit in one copy of the project and Claude's session opens in another,
 as the Claude Code desktop app does when it starts each session in a fresh
-worktree, Claude finds your edits there. It asks before copying them into its
-own copy and writes the rules beside them. Your original edits stay where you
-made them, for you to discard once the rules are committed.
+worktree, Claude finds your edits there and reads them where they are. It
+asks which copy to read only when more than one holds edits, and you can name
+one yourself. The rules go into the copy Claude's session opened in, and your
+edits stay as you left them. Claude then lists any edit the new rules would not
+make again, so you can decide whether to commit your edits or discard them and
+have Claude make them again from the rules.
 
 You can also hand Claude a note on how a passage reads, yourself or through
 another skill that collects such notes. A note on a passage you have not

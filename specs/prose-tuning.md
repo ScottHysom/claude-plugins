@@ -88,8 +88,8 @@ rule are the owner's figure, in the ruling on #132.
   worked example or the id of another rule, `config lint` names it and exits
   1, and it warns on a rule with no example.
 - `updateproseconfig-never-writes-documents` (step): When
-  update-prose-config runs, the only file it writes is `prose-style.md`,
-  apart from the files `carry` copies. It does not write markup into a
+  update-prose-config runs, the only file it writes is `prose-style.md`. It
+  does not write markup into a
   document or run `tags resolve`, and leaves the author's markup and edits as
   they made them.
 - `updateproseconfig-writes-through-cmd` (step): When the author approves
@@ -518,51 +518,59 @@ Source: README.md, the opening section and "Setting up".
 
 When the user has edited on a branch of their own in one checkout of the repo,
 and runs update-prose-config from a session opened in another, they want the
-skill to find those edits and finish the run where the session is, so they can
-edit wherever they edit and run the skill wherever the session opens.
+skill to find those edits and learn from them where they are, so they can edit
+wherever they edit and run the skill wherever the session opens.
 
 Run in Claude Code from the checkout that holds the edits, the skill reads
 them and writes the rules there.
 
-Run in Claude Code from a worktree the desktop app made, whose tree does not hold
-any pending edits while another checkout does, the skill names that checkout. On
-the author's word it copies the edits into the session's tree and writes the
-rules there. The originals stay in the other checkout for the user to discard.
+Run in Claude Code from a worktree the desktop app made, the skill reads the
+edits in the checkout that holds them, and writes the rules in the session's
+tree. The edits stay where the user made them, and nothing is copied. The user
+then commits the edits, or discards them and has apply-prose make them again
+from the new rules.
 
 Run in Cowork, the skill reads the edits in the connected project folder on
-the device and writes the rules there. `evidence` and `carry` run on the
+the device and writes the rules there. `evidence` and `reproduce` run on the
 device too, and read git without writing to it, so another worktree on the
-device is found and copied the same way.
+device is read the same way.
 
-Source: #301, and the owner's rulings while planning it, that the run carries
-the edits into the session's tree and that the design and the build land
-together.
+Source: #301, and the owner's rulings on #339, which replaced copying the
+edits with reading them in place, and skip the question when only one other
+checkout holds edits.
 
 - `evidence-cmd-names-other-worktrees` (test): When this tree does not hold
-  any pending edit, markup or question in scope, and another worktree of the
-  repo holds pending edits, `evidence` names each such worktree with its
-  branch and files, and exits 1 naming `carry --from` with its path.
-- `carry-cmd-copies-pending-files` (test): When `carry --from` runs, it copies
-  byte for byte each file in that worktree's scope with a pending edit, and its
-  `prose-style.md` when that has one, to the same path here, and names a
-  worktree that does not hold any.
-- `carry-cmd-refuses-different-base` (test): When a file to be carried differs
-  between the last commits of the two trees, `carry` names it and writes
-  nothing.
-- `carry-cmd-refuses-dirty-target` (test): When a file `carry` would write has
-  uncommitted changes here, `carry` names it and writes nothing.
-- `carry-cmd-refuses-unknown-worktree` (test): When `--from` is not another
-  worktree of this repo, `carry` names it and exits 2.
-- `carry-cmd-honors-dry-run` (test): When `carry` is given `--dry-run`, it
-  lists the files it would copy and writes nothing.
-- `updateproseconfig-asks-which-checkout` (step): When `evidence` names
-  another worktree, update-prose-config asks the author in one
-  `AskUserQuestion` which worktree to carry from, if any, listing each one's
-  path, branch and files. It asks even when only one worktree is named, runs
-  `carry --from` with the one picked, and gathers the evidence again.
-- `updateproseconfig-names-original-checkout` (step): When a run carried
-  edits, update-prose-config's hand-off names the checkout and branch that
-  still hold the original edits, and leaves discarding them to the user.
+  any pending edit, markup or question in scope, `--from` is not given, and
+  another worktree of the repo holds pending edits, `evidence` names each such
+  worktree with its branch and files, and exits 1 naming `evidence --from`
+  with its path.
+- `evidence-cmd-reads-other-worktree` (test): When `evidence` is given
+  `--from` with a worktree of this repo, named by its folder or by the branch
+  it has checked out, it reads that worktree's edits and markup against its
+  last commit, with the scope of this tree's `prose-style.md`, and names a
+  pending `prose-style.md` there, which it does not read. Given this tree, it
+  behaves as with no `--from`.
+- `reproduce-cmd-reads-other-worktree` (test): When `reproduce` is given
+  `--from` with a worktree of this repo, it checks that worktree's edits
+  against the patterns in this tree's `prose-style.md`. Given this tree, it
+  behaves as with no `--from`.
+- `command-refuses-unknown-worktree` (test): When `--from` names neither a
+  worktree of this repo nor a branch one has checked out, the command names
+  it, lists every worktree with its branch, and exits 2.
+- `updateproseconfig-reads-named-checkout` (step): When the author names a
+  checkout, by its folder or its branch, or a hand-off carries one,
+  update-prose-config passes it to `evidence --from` and `reproduce --from`,
+  and does not ask which checkout to learn from.
+- `updateproseconfig-asks-which-checkout` (step): When no checkout was named
+  and `evidence` names two or more other worktrees, update-prose-config asks
+  the author in one `AskUserQuestion` which to learn from, if any, listing
+  each one's path, branch and files. When it names one, update-prose-config
+  reads that one without asking. Either way it gathers the evidence again
+  with `--from`.
+- `updateproseconfig-names-unreproduced-edits` (step): When
+  update-prose-config hands off, it lists each edit that `reproduce` did not
+  match, so the author knows which edits apply-prose may not make again if
+  they discard theirs.
 
 ## need user-teaches-by-noting: Teach the style by noting a passage
 
@@ -632,6 +640,6 @@ the checkout that holds the edits.
 Source: #301, which quotes the refusal. It comes from Claude Code itself, not
 from a hook in the repo or in the user's settings.
 
-- `carry-cmd-writes-only-this-tree` (test): When `carry` runs, the worktree it
-  copies from is left byte for byte as it was, and git reports the same
-  changes there.
+- `command-never-writes-other-worktree` (test): When `evidence` or
+  `reproduce` runs with `--from`, the worktree it reads is left byte for byte
+  as it was, and git reports the same changes there.
