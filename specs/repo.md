@@ -234,6 +234,47 @@ Source: the owner's request on 2026-10-05, recorded in #350.
   and its open sub-issues, before the issue `issues.py next` would offer,
   `next` names the tracking issue and the command to follow it, and exits 0.
 
+## need owner-approves-plan-once: Approve a plan's issues once
+
+When a plan yields several issues, the owner wants to approve the whole plan
+once, and have its issues filed, linked and grouped under a tracking issue
+exactly as approved, so the order GitHub holds is the order the owner
+approved.
+
+Source: the owner's request on 2026-10-05, after #347 and its sub-issues were
+filed by hand, recorded in #359.
+
+- `planreport-cmd-checks-each-draft` (test): When `issues.py plan report
+  --drafts <file>` reads a plan, it refuses each issue whose body does not
+  open with `**Claude:**` or lacks a heading CLAUDE.md asks for. It also
+  refuses each issue that does not carry exactly one kind label and one area
+  label, that carries `approved` or `tracking`, or that carries a label the
+  repository does not have. It names every fault in one run, and prints no
+  token.
+- `planreport-cmd-checks-plan-links` (test): When a key repeats, a `{KEY}` or
+  a `blocked_by` key does not name an issue in the plan, a body names an issue
+  filed after it, a blocker outside the plan is not an open issue, or the
+  links form a cycle, `plan report` refuses the plan and names each fault.
+- `planreport-cmd-orders-by-links` (test): When `plan report` accepts a plan,
+  it puts each issue after the issues that block it, with ties in the plan's
+  listed order. It shows each issue whole, and the tracking issue's body as
+  it will be filed, with an Order section written from the links.
+- `planfile-cmd-requires-token` (test): When `issues.py plan file --drafts
+  <file> --token <token>` is given a token that does not match the plan, the
+  repository and its labels as they are now, or the plan no longer passes the
+  checks `plan report` made, it files nothing and exits 1.
+- `planfile-cmd-files-in-order` (test): When `plan file` runs with a current
+  token, it files the issues in the report's order, each `{KEY}` replaced by
+  the number filed, and adds each "blocked by" link. It then files the
+  tracking issue labeled `tracking`, and adds the sub-issues in that order.
+- `planfile-cmd-verifies-links` (test): When `plan file` has filed a plan, it
+  reads every link and the sub-issues back from GitHub, and exits 1 naming
+  each that differs from the plan.
+- `fileplan-shows-report-whole` (step): When the file-plan skill asks the
+  owner to approve a plan, it shows the report file whole, as a private
+  artifact or, where it cannot publish one, in its reply, and never a summary
+  of its own.
+
 ## need owner-sees-held-issues: See from the issue list which issues are held
 
 When an agent or the owner looks at the issue list, they want a claimed issue
@@ -700,3 +741,45 @@ where it lands runs on 3.9.
 
 Source: README.md, under "Running the tests", and CLAUDE.md, under "Script
 conventions".
+
+## constraint github-keeps-filed-issues: A filed issue cannot be counted on to come back
+
+Deleting an issue takes admin rights on the repository, so a script cannot
+count on undoing an issue it filed, and a batch cannot be filed all or
+nothing. This is the repo's own copy of the constraint in `specs/todos.md`.
+
+Source: GitHub's documentation, "Deleting an issue".
+
+- `planfile-cmd-resumes-after-failure` (test): When a GitHub call fails, `plan
+  file` stops, lists what it filed and exits 1, and a later run of the same
+  plan files only what is missing. It refuses a plan it has finished filing.
+
+## constraint bash-hides-output: A command's output does not reliably reach the user
+
+Claude Code shows a Bash command's output to the model and not reliably to
+the user, and an `AskUserQuestion` dialog covers the text above it. So a
+report the owner must approve reaches them as a file or a page, not as a
+command's output. This is the repo's own copy of the constraint in
+`specs/todos.md`.
+
+Source: Claude Code's Bash tool description, and the owner's report in #334.
+
+- `planreport-cmd-writes-report-file` (test): When `plan report` runs, it
+  writes the report it prints as markdown to `.issues-plan/report.md`, which
+  git ignores. The file ends with the approval token, or holds the faults and
+  no token.
+
+## constraint artifact-sends-comments: A comment sent to Claude reaches the session
+
+An artifact published from Claude Code is private by default. A comment its
+owner sends to Claude reaches the session that published it, which can reply
+in the thread. This is the repo's own copy of the constraint in
+`specs/todos.md`, which records the probe.
+
+Source: code.claude.com/docs/en/artifacts.md, under "Collect comments on an
+artifact", and the probe recorded in #334.
+
+- `fileplan-revises-on-comment` (step): When the owner sends a comment on the
+  report's artifact to Claude, the file-plan skill revises the plan, runs
+  `plan report` again, publishes the new report at the same address, and
+  answers in the comment's thread.
