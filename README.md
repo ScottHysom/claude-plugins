@@ -428,13 +428,17 @@ Two agents can be told to "take the next issue" at the same time. Claiming is
 what stops them picking the same one, and `.github/scripts/issues.py` does it:
 
 ```sh
-python3 .github/scripts/issues.py next         # the oldest approved issue nobody holds
+python3 .github/scripts/issues.py next         # the oldest approved, unblocked issue nobody holds
 python3 .github/scripts/issues.py claim 12     # take it, and switch to branch issue/12
 python3 .github/scripts/issues.py release 12   # give it up without a pull request
 python3 .github/scripts/issues.py stale        # claims nobody seems to be working on
 python3 .github/scripts/issues.py clear 12     # delete the local issue/12 once its pull request merges
 python3 .github/scripts/issues.py sweep        # delete every local branch whose work is on main
 ```
+
+`next` skips an issue that GitHub shows as blocked by an open issue, and says so
+when every free issue is blocked. `claim` does not check, so the owner can still
+name a blocked issue.
 
 The claim is the branch `issue/N` on GitHub. `claim` pushes it in a way only one
 agent can win, then adds the `in-progress` label and a comment so the claim

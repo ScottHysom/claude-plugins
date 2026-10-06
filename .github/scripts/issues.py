@@ -26,7 +26,8 @@ Run from anywhere in a clone, with git and an authenticated gh on PATH:
     python3 .github/scripts/issues.py sweep --dry-run
 
 Commands:
-    next        the oldest open approved issue nobody holds. Changes nothing.
+    next        the oldest open approved issue nobody holds and no open issue
+                blocks. Changes nothing.
     claim N     take issue N: push issue/N, switch to it, label and comment.
     release N   give issue N up: delete issue/N if it holds no work, remove the
                 label, comment.
@@ -47,7 +48,9 @@ approved, or still open, the branch holds work, a claim is stale), 2 could not
 run.
 
 Things that look like bugs and are not:
-- `next` exits 0 when nothing is free. An empty queue is not a problem.
+- `next` exits 0 when nothing is free, or when every free issue is blocked. An
+  empty queue is not a problem. `claim` ignores blockers, so the owner can
+  still name a blocked issue.
 - `claim` exits 0 when the push succeeded but labeling or commenting failed.
   The branch is the claim; those failures are warnings to fix by hand.
 - `release` refuses to delete a branch with commits not on main, and `clear`
@@ -106,6 +109,7 @@ STALE_DAYS = 7
 LIST_LIMIT = 1000
 CLAIM_MARK = "Claimed on branch"
 MERGED_FIELDS = "number,headRefName,headRefOid"
+BLOCKED_BY_PATH = "repos/{owner}/{repo}/issues/%d/dependencies/blocked_by"
 
 
 class Fatal(Exception):
@@ -216,6 +220,12 @@ def parse_time(text):
     return datetime.datetime.fromisoformat(text.replace("Z", "+00:00"))
 
 
+def blockers(repo, number):
+    """The numbers of the open issues that block issue `number`."""
+    listed = gh_json(repo, "api", BLOCKED_BY_PATH % number)
+    return sorted(b["number"] for b in listed if b.get("state") == "open")
+
+
 def now():
     """The current time. Tests replace this."""
     return datetime.datetime.now(datetime.timezone.utc)
@@ -245,15 +255,35 @@ def cmd_next(args, repo):
         (i for i in approved if IN_PROGRESS not in labels(i) and i["number"] not in held),
         key=lambda i: i["number"],
     )
-    found = {"number": free[0]["number"], "title": free[0]["title"]} if free else None
+    found = None
+    blocked = []
+    for item in free:
+        open_blockers = blockers(repo, item["number"])
+        if not open_blockers:
+            found = {"number": item["number"], "title": item["title"]}
+            break
+        blocked.append(
+            {"number": item["number"], "title": item["title"], "blocked_by": open_blockers}
+        )
 
     def human():
         if found:
             print("#%d %s" % (found["number"], found["title"]))
+        elif blocked:
+            print("Every free approved issue is blocked by an open issue:")
+            for item in blocked:
+                print(
+                    "#%d %s, blocked by %s"
+                    % (
+                        item["number"],
+                        item["title"],
+                        ", ".join("#%d" % n for n in item["blocked_by"]),
+                    )
+                )
         else:
             print("No approved issue is free.")
 
-    return emit(args, "next", {"issue": found}, human=human)
+    return emit(args, "next", {"issue": found, "blocked": blocked}, human=human)
 
 
 def cmd_claim(args, repo):
