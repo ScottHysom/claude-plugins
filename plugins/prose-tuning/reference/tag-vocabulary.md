@@ -12,9 +12,9 @@ commit is a bug.
 
 | Tag | Means | Resolves to |
 |---|---|---|
-| `<ins>new text</ins>` | Add this. | the text, on accept; nothing, on strip |
-| `<del>old text</del>` | Cut this. | nothing, on accept; the text, on strip |
-| `<repl>…</repl>` | Swap one for the other. | the `<ins>`, on accept; the `<del>`, on strip |
+| `<ins>new text</ins>` | Add this. | the text |
+| `<del>old text</del>` | Cut this. | nothing |
+| `<repl>…</repl>` | Swap one for the other. | the `<ins>` |
 | `why` | Why the edit was made. | nothing |
 | `<alt>…</alt>` | A proposed rule, or an equivalent rewrite. | nothing |
 

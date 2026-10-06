@@ -21,7 +21,7 @@ class DescribeResolveText:
         assert scanner.errors == []
         assert got == "Keep keep this here.\nnew\n"
 
-    @pytest.mark.spec("strip-cmd-reverts-tagged-edits")
+    @pytest.mark.spec("evidence-cmd-diffs-without-markup")
     def it_restores_the_original_on_reject(self):
         got, scanner = prose.resolve_text(prose.Text(MARKED), prose.REJECT, None, "t.md")
         assert scanner.errors == []
@@ -74,8 +74,8 @@ class DescribeResolvingAWholeBlockCut:
     def it_keeps_the_blank_lines_around_an_inline_cut(self):
         assert accept("One <del>two</del>.\n\n\nThree.\n") == "One .\n\n\nThree.\n"
 
-    @pytest.mark.spec("strip-cmd-reverts-tagged-edits")
-    def it_keeps_every_blank_line_on_strip(self):
+    @pytest.mark.spec("evidence-cmd-diffs-without-markup")
+    def it_keeps_every_blank_line_on_reject(self):
         source = "One.\n\n<ins>\nTwo\n</ins>\n\nThree.\n"
         assert reject(source) == "One.\n\n\nThree.\n"
 
@@ -100,11 +100,10 @@ class DescribeTagsResolve:
         assert prose_repo.read() == "- one\n- two\n"
 
     @pytest.mark.spec("resolve-cmd-refuses-bad-markup")
-    @pytest.mark.parametrize("which", ["resolve", "strip"])
-    def it_writes_no_file_when_any_files_markup_does_not_parse(self, prose_repo, which):
+    def it_writes_no_file_when_any_files_markup_does_not_parse(self, prose_repo):
         (prose_repo.root / "good.md").write_text("Keep <del>this</del>.\n")
         (prose_repo.root / "target.md").write_text("<del>never closed\n")
-        code, envelope = prose_repo.run("tags", which)
+        code, envelope = prose_repo.run("tags", "resolve")
         assert code == prose.PROBLEMS
         assert any("never closed" in e for e in envelope["errors"])
         assert prose_repo.read("good.md") == "Keep <del>this</del>.\n"
