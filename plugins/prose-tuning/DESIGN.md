@@ -87,7 +87,7 @@ this plugin would drift from the project's own.
 - parsing the markup
 - selecting files
 - diffing
-- inserting and resolving tags
+- resolving tags
 - reading the config
 
 The model does only what needs judgment: inferring a rule, writing prose,
@@ -98,23 +98,17 @@ These parts of the script carry the design.
 
 ### The tag-neutral diff
 
-Once a question has been inserted into a document, the working tree differs
-from the last commit for two reasons at once. The author edited prose, and the
-tool added markup. A plain `git diff` would hand the tool its own tags back as
-the author's evidence. So `evidence` strips the markup in memory and diffs
-that instead.
-
-### Batch-only insertion
-
-Every insertion shifts the line numbers below it. Markup therefore goes in as
-one batch, applied bottom-up from a single snapshot of the file. Twenty
-separate calls cannot work, which the first run found out the hard way.
+When the author has tagged an edit, the working tree differs from the last
+commit in two ways at once: the edit, and the tags around it. A plain
+`git diff` would report the tags as edits too. So `evidence` takes the markup
+out in memory and diffs that instead, and reports each tagged edit once, as an
+explicit record.
 
 ### The round trip
 
-For any batch, inserting markup and then stripping it returns the file
-byte-identical. Every span shape the grammar allows holds to this, which is
-what makes a tagging pass safe to undo.
+Neutralizing text the author tagged returns the untagged text, byte for byte.
+Every shape the grammar allows holds to this. `evidence` diffs that text, so a
+byte lost or invented there is an edit the author never made.
 
 ## The markup
 

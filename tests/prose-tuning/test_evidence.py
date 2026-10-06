@@ -86,10 +86,10 @@ class DescribeInferredEdits:
 
     @pytest.mark.spec("evidence-cmd-diffs-without-markup")
     def it_numbers_lines_as_the_author_sees_the_file(self, prose_repo, target):
-        """Markup is taken out before the diff, so a question the author has
-        not answered is not reported as an edit. The line numbers still have
-        to be the working file's, with the question's line counted, or every
-        hunk below it is reported one line early.
+        """Markup is taken out before the diff, so an `<alt>` the author has
+        written on a line of its own is not reported as an edit. The line
+        numbers still have to be the working file's, with the `<alt>`'s line
+        counted, or every hunk below it is reported one line early.
         """
         prose_repo.commit()
         self.edit(
@@ -97,7 +97,7 @@ class DescribeInferredEdits:
             target,
             {19: "Final paragraph, now longer."},
             insert_at=7,
-            inserted='<q id="1">does this earn its place?</q>',
+            inserted="<alt>Cut a sentence that does not earn its place.</alt>",
         )
         hunks = self.inferred(prose_repo)
         assert [(h["start"], h["end"], h["new_lines"]) for h in hunks] == [
@@ -118,7 +118,7 @@ class DescribeInferredEdits:
     def it_places_a_hunk_on_a_line_that_also_holds_markup(self, prose_repo, target):
         """With the markup taken out, the edited line no longer matches its
         working-file line, so the hunk is placed from the nearest line that
-        does. The question above shifts every line below it by one.
+        does. The `<alt>` above shifts every line below it by one.
         """
         prose_repo.commit()
         self.edit(
@@ -126,7 +126,7 @@ class DescribeInferredEdits:
             target,
             {19: "Final <ins>short </ins>paragraph, now longer."},
             insert_at=7,
-            inserted='<q id="1">does this earn its place?</q>',
+            inserted="<alt>Cut a sentence that does not earn its place.</alt>",
         )
         assert [h["start"] for h in self.inferred(prose_repo)] == [21]
 
@@ -248,27 +248,6 @@ class DescribeExplicitRecords:
         ]
 
 
-class DescribeAnswers:
-    """An `<a>` the author writes in the document answers the `<q>` above it."""
-
-    @pytest.mark.spec("evidence-cmd-reads-answers")
-    def it_pairs_each_answer_with_the_question_above_it(self, prose_repo):
-        body = (
-            "One.\n\n"
-            '<q id="1">Fact or style?</q>\n'
-            "<a>Style.</a>\n\n"
-            '<q id="2">And this one?</q>\n\n'
-            '<q id="3">Last?</q>\n'
-            "<a>Yes.</a>\n"
-        )
-        questions = evidence(prose_repo, body)["questions"]
-        assert [(q["id"], q["line"], q["answer"]) for q in questions] == [
-            ("1", 3, "Style."),
-            ("2", 6, None),
-            ("3", 8, "Yes."),
-        ]
-
-
 class DescribePlainOutput:
     @pytest.mark.spec("repo:command-splits-output-streams")
     def it_prints_each_record_and_the_counts(self, prose_repo, target, capsys):
@@ -276,11 +255,10 @@ class DescribePlainOutput:
         body = target.replace("Final paragraph.", "Final paragraph, now longer.").replace(
             "Curated, not collected.", '<del why="restates">Curated, not collected.</del>'
         )
-        (prose_repo.root / "target.md").write_text(body + '<q id="1">why?</q>\n')
+        (prose_repo.root / "target.md").write_text(body)
         capsys.readouterr()
         assert prose.main(["evidence", "-C", str(prose_repo.root)]) == prose.OK
         out = capsys.readouterr().out
         assert "  explicit target.md:7 [del] restates\n" in out
         assert "  inferred target.md:20 [replace]\n" in out
-        assert "  question target.md:25 #1 OPEN\n" in out
-        assert "explicit: 1  inferred: 1  unanswered: 1\n" in out
+        assert "explicit: 1  inferred: 1\n" in out

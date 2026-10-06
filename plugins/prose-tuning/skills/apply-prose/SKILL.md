@@ -1,6 +1,6 @@
 ---
 name: apply-prose
-description: Conform a project's markdown to the rules in its prose-style.md. Reports findings first - file, line, rule id, proposed rewrite - and changes nothing until the author approves. Uses scripts/prose.py to resolve scope, to skip code fences, mermaid blocks, front matter, table structure and quoted material, to find the breaches a rule's pattern can, and to apply approved rewrites in place. Use when asked to apply the house style, conform documents to prose-style.md, run a style pass over the docs, check a document against the prose rules, or clean up the prose across a project. Refuses to run while a prose-tuning markup pass is in progress, and never commits.
+description: Conform a project's markdown to the rules in its prose-style.md. Reports findings first - file, line, rule id, proposed rewrite - and changes nothing until the author approves. Uses scripts/prose.py to resolve scope, to skip code fences, mermaid blocks, front matter, table structure and quoted material, to find the breaches a rule's pattern can, and to apply approved rewrites in place. Use when asked to apply the house style, conform documents to prose-style.md, run a style pass over the docs, check a document against the prose rules, or clean up the prose across a project. Resolves the author's own ins, del and repl markup first, once the author says update-prose-config has learned from it, then stops for the commit. Never commits.
 ---
 
 # Conform the documents to prose-style.md
@@ -27,22 +27,38 @@ Run the block as one command, because the next command's shell will not have
 runs.
 
 ## Step 1: refuse early
-<!-- spec: applyprose-waits-for-teaching -->
+<!-- spec: applyprose-waits-for-teaching, applyprose-resolves-author-markup -->
+<!-- seam: judgment: the author says whether update-prose-config has learned from the markup -->
 
 ```sh
 python3 "$PROSE" preflight --for apply
 ```
 
-`preflight` exits 1 on either of two states, both meaning an `update-prose-config` run is
-underway:
+`preflight` exits 1 on either of two states:
 
-- **markup present in any governed file.** Conforming a half-tagged tree
-  destroys the evidence that run was gathering.
+- **markup present in any governed file.** It is the author's own: `<ins>`,
+  `<del>` and `<repl>` marking edits, with `why` and `<alt>` saying why.
+  `update-prose-config` learns from it and leaves it in place.
 - **an uncommitted governed document.** The author is mid-edit, and a rewrite
   landing on top of that is unreviewable.
 
 An uncommitted `prose-style.md` is not a blocker. It is the expected output of
 the run whose rules this pass is about to check.
+
+When `preflight` names markup, ask the author in one `AskUserQuestion` whether
+`update-prose-config` has learned from it. On a no, stop and tell the author to
+run it first. Resolving drops every `why` and `<alt>`, so they would never be
+read. On a yes:
+
+```sh
+python3 "$PROSE" tags resolve
+```
+
+`resolve` keeps each `<ins>`, drops each `<del>`, keeps the replacement of
+each `<repl>`, and removes every tag. Read its warnings. A block-form tag
+resolved inside a list is the one case worth eyeballing, because a tag between
+two list items ends the list. Then stop. Tell the author to commit the
+resolved files and run this skill again to conform them.
 
 `--force` exists. Use it only when the author has asked for it by name.
 

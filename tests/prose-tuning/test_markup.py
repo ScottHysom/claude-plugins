@@ -39,7 +39,7 @@ class DescribeTagScanner:
         [
             pytest.param("<!-- an unclosed <del> -->", id="block"),
             pytest.param("<!--\nTODO: explain <del>\n-->", id="multi-line-block"),
-            pytest.param("Prose <!-- a <q>why</q> --> goes on.", id="inline"),
+            pytest.param("Prose <!-- a <ins>why</ins> --> goes on.", id="inline"),
         ],
     )
     def it_leaves_markup_inside_an_html_comment_as_text(self, comment):
@@ -81,15 +81,6 @@ class DescribeMalformedMarkup:
         assert any(expected in e for e in scan(src).errors), "errors were %s" % (scan(src).errors,)
 
     @pytest.mark.spec("scanner-names-markup-faults")
-    def it_warns_of_a_question_with_no_id_at_its_line(self):
-        """A hand-written <q> is legal markup, so this is a warning, not an
-        error: `tags insert` numbers every question it writes.
-        """
-        scanner = scan("One.\n\n<q>why?</q>\n")
-        assert scanner.errors == []
-        assert [w.split("  ")[0] for w in scanner.warnings] == ["t.md:3"]
-
-    @pytest.mark.spec("scanner-names-markup-faults")
     @pytest.mark.parametrize(
         "src",
         [
@@ -103,7 +94,6 @@ class DescribeMalformedMarkup:
             pytest.param(
                 "<repl><ins>new</ins><del>old</del></repl>\n", id="repl-children-out-of-order"
             ),
-            pytest.param('<q id="1">a</q>\n<q id="1">b</q>\n', id="duplicate-q-id"),
         ],
     )
     def it_reports_one_message_for_one_fault(self, src):

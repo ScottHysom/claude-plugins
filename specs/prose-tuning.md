@@ -34,8 +34,8 @@ Source: README.md, under "When to use it" and "What it adds to your project".
 
 When the user has edited documents the way they want them to read, they want
 Claude to work out the rules behind the uncommitted edits and write them into
-`prose-style.md`, so the user teaches the style by editing rather than by
-writing rules.
+`prose-style.md`, and the documents left as they edited them, so the user
+teaches the style by editing rather than by writing rules.
 
 Source: README.md, the opening section and "Teaching it your style", and the
 update-prose-config description. The two occurrences that make a candidate a
@@ -65,9 +65,9 @@ rule are the owner's figure, in the ruling on #132.
   settled by an answered question, update-prose-config makes it a rule, and
   anything else a question.
 - `reproduce-cmd-matches-changed-text` (test): When `reproduce` runs, it
-  reports each edit since the last commit as reproduced when a rule's pattern,
-  run over the file as it was at the last commit, matches text the edit
-  changed. A pure insertion is never reproduced.
+  reads the author's markup as resolved, and reports each edit since the last
+  commit as reproduced when a rule's pattern, run over the file as it was at
+  the last commit, matches text the edit changed. A pure insertion is never reproduced.
 - `reproduce-cmd-skips-comment-edits` (test): When an edit changed only HTML
   comments, `reproduce` leaves it out.
 - `reproduce-cmd-lists-unpatterned-rules` (test): When `reproduce` runs,
@@ -87,6 +87,11 @@ rule are the owner's figure, in the ruling on #132.
 - `lint-cmd-checks-rule-shape` (test): When a rule has no body, half a
   worked example or the id of another rule, `config lint` names it and exits
   1, and it warns on a rule with no example.
+- `updateproseconfig-never-writes-documents` (step): When
+  update-prose-config runs, the only file it writes is `prose-style.md`,
+  apart from the files `carry` copies. It does not write markup into a
+  document or run `tags resolve`, and leaves the author's markup and edits as
+  they made them.
 - `updateproseconfig-writes-through-cmd` (step): When the author approves
   rules, update-prose-config hands them to `config write` in one batch and does
   not edit `prose-style.md` itself.
@@ -126,8 +131,9 @@ update-prose-config description.
 ## need user-explains-edits-in-place: Say why an edit was made, in the document
 
 When an edit needs explaining, the user wants to mark it in the document
-itself, with markup a markdown preview shows as an edit, and wants Claude to
-remove the markup once the rules are written, so none of it reaches a commit.
+itself, with markup a markdown preview shows as an edit. They want the markup
+left in place until the rules are learned from it, and then removed with the
+edits it marks kept, so none of it reaches a commit.
 
 Source: README.md, under "Teaching it your style", and the update-prose-config
 description.
@@ -149,36 +155,12 @@ description.
   the file, and no newline is added to a file that had none.
 - `resolve-cmd-warns-in-lists` (test): When `tags resolve` removes a
   block-form tag inside a list, it warns with the tag's file and line.
+- `applyprose-resolves-author-markup` (step): When `preflight --for apply`
+  names markup, apply-prose asks the author whether update-prose-config has
+  learned from it. It runs `tags resolve` only on a yes, and then stops, so
+  the resolved files are committed before it conforms them.
 - `resolve-cmd-refuses-bad-markup` (test): When a file's markup does not
   parse, `tags resolve` and `tags strip` do not write a file, and name the fault.
-
-## need user-answers-in-document: Answer questions in the document
-
-When the author is not there to answer, they want Claude's questions written
-into the documents, and the answers they write there read on the next run, so
-a run can finish without them.
-
-Source: update-prose-config's step 6 and its description, "to tag passages
-for a style pass". The owner confirmed the need in the ruling on #132.
-
-- `insert-cmd-places-questions` (test): When update-prose-config inserts a
-  `<q>`, `tags insert` writes it on its own line before the line given,
-  numbered one past the highest question id in scope.
-- `insert-cmd-refuses-questions-in-structure` (test): When a `<q>` would
-  land inside a code fence, a table, front matter or a blockquote, `tags
-  insert` refuses it.
-- `evidence-cmd-reads-answers` (test): When an `<a>` follows a `<q>`
-  before any other `<q>`, `evidence` reports it as that question's answer, and
-  reports a `<q>` with none as open.
-- `evidence-cmd-prints-token` (test): When `evidence` does not find a fault in
-  the markup, it prints a token, as `data.token` and as its last line, and
-  otherwise prints none.
-- `insert-cmd-requires-token` (test): When the token passed to `tags
-  insert --token` is not the one `evidence` would print for the tree as it is
-  now, the command refuses the batch and writes nothing.
-- `updateproseconfig-inserts-in-one-batch` (step): When update-prose-config
-  inserts markup, it passes every tag of the run to one `tags insert --batch`
-  call, with the token `evidence` printed.
 
 ## need user-abandons-a-run: Give up a run and get the documents back
 
@@ -192,9 +174,6 @@ round trip". The owner confirmed the need in the ruling on #132.
 - `strip-cmd-reverts-tagged-edits` (test): When `tags strip` runs, every
   tag is removed, `<del>` text stays, `<ins>` text goes, and every blank line
   is kept.
-- `strip-cmd-undoes-insert` (test): When `tags strip` follows a `tags
-  insert` batch, every file is byte-identical to what it was before the
-  insert.
 - `restore-cmd-writes-last-commit` (test): When `restore --file` runs, it
   writes the file as it is at the last commit, and names a file the last
   commit does not hold.
@@ -365,11 +344,12 @@ Source: README.md, under "Checking your documents", and the apply-prose
 description.
 
 - `applyprose-waits-for-teaching` (step): When apply-prose starts, it runs
-  `preflight --for apply`, and stops on markup in a governed file or an
-  uncommitted governed document.
+  `preflight --for apply`, and does not conform any document while a governed
+  file holds markup or an uncommitted change.
 - `preflight-cmd-blocks-apply-mid-teaching` (test): When `preflight --for
-  apply` runs, it exits 1 on markup in a file in scope or an uncommitted file
-  in scope, and not on an uncommitted `prose-style.md`.
+  apply` runs, it exits 1 on markup in a file in scope, naming `tags resolve`
+  as the remedy, or on an uncommitted file in scope, and not on an uncommitted
+  `prose-style.md`.
 
 ## need user-chooses-checked-files: Decide which files are checked
 
@@ -612,8 +592,7 @@ plugin knows only itself", for the hand-off convention.
 
 - `updateproseconfig-takes-handed-notes` (step): When update-prose-config is
   handed a note on a passage that has not changed since the last commit, it
-  takes the note as it takes an `<alt>` on that passage, without writing
-  markup into the document.
+  takes the note as it takes an `<alt>` on that passage.
 - `updateproseconfig-reads-notes-as-whys` (step): When update-prose-config is
   handed a note on a passage that has changed since the last commit, it takes
   the note as the `why` of those changes.

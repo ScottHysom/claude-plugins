@@ -120,8 +120,8 @@ requirement is admitted.
   model:
   - **Judgment.** The model decides, or relays the author's decision, and the
     next command takes the decision as input. `report`'s approval token goes
-    to `apply`, and `evidence`'s token goes to `tags insert`. Each token proves
-    the judgment was made on the files as they are.
+    to `apply`, and the token proves the judgment was made on the files as
+    they are.
   - **Platform.** The model calls a tool that a script cannot, such as Cowork's
     `device_bash`, `device_commit_files` or `propose_skills`, or asks the user
     a question.
@@ -284,12 +284,13 @@ requirement is admitted.
   and not reported; `.github/scripts/check-tests.py naming` is what catches
   one. It fails when it has scanned nothing, because the grep it replaced did not match any files once
   its pathspec went stale, and still passed.
-- **prose.py's round trip is the property that must never regress.** For any
-  batch, insert then strip returns the file byte-identical; it is the only
-  thing between a tagging pass and a mangled document.
-  `tests/prose-tuning/test_properties_round_trip.py` asserts it for every batch
-  hypothesis can build, and `test_round_trip.py` pins particular span shapes by
-  example. The plugin's README states the guarantee without naming either file,
+- **prose.py's round trip is the property that must never regress.**
+  Neutralizing author-tagged text returns the untagged text, byte for byte.
+  `evidence` diffs that text against the last commit, so a byte it loses or
+  invents becomes an edit the author never made, and a rule learned from it.
+  `tests/prose-tuning/test_properties_round_trip.py` asserts it for every set
+  of marks hypothesis can build, and `test_round_trip.py` pins particular
+  shapes by example. The plugin's README states the guarantee without naming either file,
   since it ships.
 
 ## Comments and docs

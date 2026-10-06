@@ -4,7 +4,7 @@
 The three skills in this plugin use the model only for what genuinely needs
 judgment: inferring a rule from an edit, writing prose, deciding whether a
 passage conforms. Everything else - parsing markup, selecting files, diffing,
-inserting and resolving tags, reading the config - happens here, because the
+resolving tags, reading the config - happens here, because the
 first run of this workflow by hand produced five malformed tags that survived
 until a parser existed, and a parser that was rewritten three times.
 
@@ -18,12 +18,12 @@ Commands:
     scope       which files the prose rules govern
     segments    the prose-eligible spans of each file, one per line
     patterns    where each rule's pattern matches those spans
-    evidence    explicit tags + inferred edits + open questions
+    evidence    explicit tags + inferred edits
     carry       copy another worktree's pending edits into this one
     reproduce   whether the rules' patterns reproduce the edits since HEAD
     config      list | lint | check-id | similar | classify | adopt | write |
                 init | move
-    tags        check | list | insert | resolve | strip
+    tags        list | resolve | strip
     report      the findings for approval, and which of them overlap
     apply       apply approved rewrites
     restore     put a file back to its committed state
@@ -81,13 +81,7 @@ Some things in here look like bugs and are not:
    token on disk: apply recomputes it, because a state file on the Cowork
    bridge could never be deleted. approval_token has what it covers.
 
-4. evidence prints a token too, and tags insert refuses to run without the
-   same one. Every address in a batch is a line number read from evidence, so
-   a file in scope or prose-style.md that changed since is refused rather than
-   tagged at the wrong lines. It is recomputed, never stored, for the same
-   reason. evidence_token has what it covers.
-
-5. apply and tags resolve can delete a blank line that nothing names. They do
+4. apply and tags resolve can delete a blank line that nothing names. They do
    so when a whole block that sat between two blank lines is cut, by findings
    or by a block-form <del>, so that one blank line is left between its
    neighbors rather than two. plan_findings has the rule, and resolve_scanned
@@ -111,18 +105,12 @@ ENVELOPE_VERSION = 1
 
 OK, PROBLEMS, CANNOT_RUN = 0, 1, 2
 
-# How many hex digits of a token: the one report prints for apply, and the one
-# evidence prints for tags insert.
+# How many hex digits of the token report prints for apply.
 TOKEN_LENGTH = 16
 TOKEN_LABEL = "approval token: "
 TOKEN_STALE = (
     "the findings, a document they name or %s changed since report ran, "
     "or the token is not the one it printed; run report again and show it to the author"
-)
-EVIDENCE_TOKEN_LABEL = "evidence token: "
-EVIDENCE_STALE = (
-    "a file in scope or %s changed since evidence ran, or the token is not the one "
-    "it printed; run evidence again and build the batch from its output"
 )
 
 CONFIG_NAME = "prose-style.md"
@@ -337,8 +325,8 @@ class EditEngine:
 
     Bottom-up from a single snapshot is the only correct order: every edit
     shifts the offsets of everything after it, so a top-down pass would leave
-    every later edit pointing at the wrong place. This is why tags insert takes
-    a batch rather than being called once per tag.
+    every later edit pointing at the wrong place. This is why apply takes a
+    batch of findings rather than being called once per finding.
     """
 
     def __init__(self, text):
@@ -363,17 +351,13 @@ class EditEngine:
         The second clause - two edits beginning at the same offset - is where
         everything that shares a boundary lands. Such a pair overlaps by no
         definition, so the first clause passes it, and then the answer depends
-        on the order the records happened to arrive in. Two ordinary requests
-        hit this. A <q> on the first line of a block <del> puts a zero-width
-        insert at the offset the block replacement starts from, and the splice
-        discards whichever went first. Two neighboring inline <del> spans put
-        the first one's closing tag and the second one's opening tag on one
-        offset, and one of the two orders emits
-        `<del>Curated<del></del>, not</del>`, which does not even parse.
+        on the order the edits happened to arrive in. A finding that inserts
+        at the offset another finding's rewrite starts from is one: the splice
+        discards whichever went first.
 
-        There is no order this class can be resolved in that is right for both,
-        so it is refused. The author writes one span instead of two, and gets
-        told so rather than getting a mangled file half the time.
+        There is no order this class can be resolved in that is right, so it
+        is refused, and report names the pair for the author to choose between
+        rather than writing a mangled file half the time.
         """
         out = []
         ordered = sorted(self.edits, key=lambda e: (e[0], e[1]))
@@ -1312,7 +1296,7 @@ class Blocks:
         """Backtick code spans: `<del>` in prose is a quotation, not markup.
 
         Without this, any document that documents this vocabulary fails its own
-        tags check, and so does any project document quoting HTML.
+        markup check, and so does any project document quoting HTML.
         """
         out = []
         runs = [
@@ -1385,7 +1369,7 @@ class Blocks:
 # the markup
 # --------------------------------------------------------------------------
 
-TAG_KINDS = ("ins", "del", "repl", "why", "alt", "q", "a")
+TAG_KINDS = ("ins", "del", "repl", "why", "alt")
 TAG_RE = re.compile(r"</?(%s)(\s[^<>]*?)?\s*/?>" % "|".join(TAG_KINDS))
 ATTR_RE = re.compile(r"""([A-Za-z_][-A-Za-z0-9_]*)\s*=\s*("([^"]*)"|'([^']*)')""")
 
@@ -1395,8 +1379,6 @@ ALLOWED_ATTRS = {
     "ins": {"why"},
     "del": {"why"},
     "repl": {"why"},
-    "q": {"id"},
-    "a": set(),
     "why": set(),
     "alt": set(),
 }
@@ -1406,8 +1388,6 @@ ALLOWED_CHILDREN = {
     "repl": COMMENT_KINDS | {"del", "ins"},
     "why": set(),
     "alt": set(),
-    "q": set(),
-    "a": set(),
 }
 
 
@@ -1473,9 +1453,6 @@ class TagScanner:
     def _err(self, offset, msg):
         self.errors.append("%s:%d  %s" % (self.path, self.text.line_of(offset), msg))
 
-    def _warn(self, offset, msg):
-        self.warnings.append("%s:%d  %s" % (self.path, self.text.line_of(offset), msg))
-
     def _scan(self):
         protected = self.blocks.shielded_offsets()
 
@@ -1509,11 +1486,6 @@ class TagScanner:
             for am in ATTR_RE.finditer(raw_attrs):
                 attrs[am.group(1)] = am.group(3) if am.group(3) is not None else am.group(4)
             leftover = ATTR_RE.sub("", raw_attrs).strip()
-
-            # <a href="..."> is an HTML anchor, not an answer. Skipping it is
-            # deliberate; erroring would make ordinary markdown unparseable.
-            if kind == "a" and attrs:
-                continue
 
             allowed = ALLOWED_ATTRS[kind]
             for name in attrs:
@@ -1549,7 +1521,6 @@ class TagScanner:
         self._check()
 
     def _check(self):
-        qids = {}
         for node in self.all:
             if node.kind == "repl":
                 dels = [c for c in node.children if c.kind == "del"]
@@ -1564,17 +1535,6 @@ class TagScanner:
                     self._err(
                         node.open_start, "<repl> has <ins> before <del>; the old prose comes first"
                     )
-            if node.kind == "q":
-                qid = node.attrs.get("id")
-                if qid is None:
-                    self._warn(node.open_start, "<q> has no id; run tags insert to number it")
-                elif qid in qids:
-                    self._err(
-                        node.open_start,
-                        "duplicate question id %s; first at line %d" % (qid, qids[qid]),
-                    )
-                else:
-                    qids[qid] = node.line
 
     def counts(self):
         out = {}
@@ -1605,9 +1565,8 @@ class TagScanner:
 # strip: the markup is abandoned and the underlying text comes back unchanged.
 #
 # "reject" is also what evidence uses to neutralize a file before diffing it,
-# which is the only way to tell the author's own edits apart from the markup
-# this tool inserted. A plain git diff cannot: it reports our own tags back to
-# us as author evidence.
+# so an edit the author tagged is reported once, as an explicit record, and not
+# again as an inferred hunk. A plain git diff cannot tell the two apart.
 # --------------------------------------------------------------------------
 
 ACCEPT, REJECT = "accept", "reject"
@@ -1689,7 +1648,7 @@ def resolved_inner(node, text, mode):
 
 
 def resolved(node, text, mode):
-    if node.kind in ("why", "alt", "q", "a"):
+    if node.kind in COMMENT_KINDS:
         return ""
     if node.kind == "ins":
         return "" if mode == REJECT else resolved_inner(node, text, mode)
@@ -1720,7 +1679,8 @@ def resolve_scanned(text, scanner, mode):
     tag that is kept is never taken.
 
     Reject leaves every blank line where it was. Strip has to return the file
-    byte for byte as it was before insert, and evidence diffs against it.
+    byte for byte as it was before the author tagged it, and evidence diffs
+    against it.
     """
     engine = EditEngine(text)
     cut, touched = set(), set()
@@ -1761,256 +1721,6 @@ def resolve_warnings(scanner, text):
                 "the list still reads as one list" % (scanner.path, node.line, node.kind)
             )
     return out
-
-
-# --------------------------------------------------------------------------
-# inserting markup
-#
-# Addressed by line and the text a record names, or by line and column,
-# applied as one batch, bottom-up from a single snapshot. A loop of twenty single invocations cannot work: each insertion
-# shifts every line number below it, so anchors two onward are already stale.
-# The first run of this workflow used twenty exact-match anchor strings and
-# three of them failed. Batch is correctness here, not convenience.
-# --------------------------------------------------------------------------
-
-INSERTABLE = ("ins", "del", "repl", "q", "alt")
-# The field that names the text a record marks. `text` is the content an
-# <ins>, <q> or <alt> adds, so an <ins> names the text it follows instead.
-ANCHOR_KEY = "text"
-INS_ANCHOR_KEY = "after"
-# What to run again when a text is no longer where it was addressed.
-REPORT_RERUN = "Re-run the report."
-EVIDENCE_RERUN = "Re-run evidence."
-UNSAFE_SPAN_KINDS = ("frontmatter", "fence", "heading", "table")
-
-# <q> and <alt> go in as a whole new line above the one they ask about, so they
-# are governed by a different rule than a span is. Above a heading is fine:
-# the heading itself is untouched. Inside anything with structure is not: the
-# new line lands in the middle of it, and inside a fence it is worse than broken,
-# because the scanner then shields it as code and no later strip ever removes
-# it. That is a tag the author cannot get rid of, so refuse instead.
-UNSAFE_INSERT_KINDS = ("frontmatter", "fence", "blockquote", "table")
-
-
-def attr_text(why):
-    if not why:
-        return ""
-    return ' why="%s"' % why if '"' not in why else ""
-
-
-class InsertRefusal(Exception):
-    pass
-
-
-def plan_one_insert(text, blocks, rec, path, qid):
-    """Return a list of (start, end, replacement). Raises InsertRefusal."""
-    kind = rec.get("kind")
-    if kind not in INSERTABLE:
-        raise InsertRefusal("kind %r is not one of %s" % (kind, ", ".join(INSERTABLE)))
-    start_line = int(rec.get("start", 0))
-    if start_line < 1 or start_line > text.line_count():
-        raise InsertRefusal(
-            "line %d is outside the file (%d lines)" % (start_line, text.line_count())
-        )
-    end_line = int(rec.get("end", start_line))
-    if end_line < start_line or end_line > text.line_count():
-        raise InsertRefusal("end line %d is outside the span" % end_line)
-    why = rec.get("why", "")
-    body = rec.get("text", "")
-    indent = " " * blocks.continuation_indent(start_line)
-
-    if kind in ("q", "alt"):
-        if not body:
-            raise InsertRefusal("<%s> needs text" % kind)
-        if blocks.kind(start_line) in UNSAFE_INSERT_KINDS:
-            raise InsertRefusal(
-                "line %d is a %s; a new line there would land "
-                "inside it" % (start_line, blocks.kind(start_line))
-            )
-        ident = ' id="%s"' % qid if kind == "q" else ""
-        at = text.offset(start_line, 0)
-        return [(at, at, "%s<%s%s>%s</%s>\n" % (indent, kind, ident, body, kind))]
-
-    key = INS_ANCHOR_KEY if kind == "ins" else ANCHOR_KEY
-    if rec.get(key) is not None:
-        found, col_start, col_end = anchored_columns(text, rec, start_line, key)
-        if "end" in rec and end_line != found:
-            raise InsertRefusal(
-                "end is line %d, but the %s ends on line %d; leave end out" % (end_line, key, found)
-            )
-        end_line = found
-    else:
-        col_start = int(rec.get("col_start", 0))
-        col_end = int(rec.get("col_end", len(text.bare(end_line))))
-
-    for line in range(start_line, end_line + 1):
-        if blocks.kind(line) in UNSAFE_SPAN_KINDS:
-            raise InsertRefusal(
-                "line %d is a %s; markup there would break it" % (line, blocks.kind(line))
-            )
-
-    last = text.bare(end_line)
-
-    # Columns are bounds-checked here because Text.offset does not check them:
-    # it validates the line and then adds the column blind. A col_end past the
-    # end of its line resolves to an offset further down the file, so the
-    # closing tag of a one-line edit lands wherever that offset happens to be -
-    # for a large enough column, the end of the document.
-    first_bare = text.bare(start_line)
-    if not 0 <= col_start <= len(first_bare):
-        raise InsertRefusal(
-            "col_start %d is outside line %d (%d characters)"
-            % (col_start, start_line, len(first_bare))
-        )
-    if not 0 <= col_end <= len(last):
-        raise InsertRefusal(
-            "col_end %d is outside line %d (%d characters)" % (col_end, end_line, len(last))
-        )
-
-    whole_lines = col_start == 0 and col_end == len(last)
-    inline = start_line == end_line
-
-    if inline and col_end < col_start:
-        raise InsertRefusal("col_end %d is before col_start %d" % (col_end, col_start))
-
-    if not inline and not whole_lines:
-        raise InsertRefusal(
-            "a span that starts mid-line and ends on another "
-            "line straddles blocks; give whole lines, or keep "
-            "it inside one line"
-        )
-
-    a = text.offset(start_line, col_start)
-    b = text.offset(end_line, col_end)
-
-    if kind == "ins":
-        if not body:
-            raise InsertRefusal("<ins> needs text")
-        if inline:
-            # An inline tag that ends up alone on its line is indistinguishable
-            # from a block tag, and a block tag owns its whole line - so
-            # stripping it would take the author's blank line with it.
-            if not first_bare.strip():
-                raise InsertRefusal(
-                    "line %d is blank; an <ins> alone on a "
-                    "line reads as a block tag and would take "
-                    "the line with it" % start_line
-                )
-            return [(a, a, "<ins>%s</ins>" % body)]
-        raise InsertRefusal("<ins> inserts at a point; give one line")
-
-    if inline:
-        # A zero-width span has no text in it to mark up, and the two tags it
-        # would emit share an offset - which EditEngine now refuses outright.
-        # Note this also catches an inline record aimed at a blank line, where
-        # both columns default to 0.
-        if col_start == col_end:
-            raise InsertRefusal("the span is empty; give a span with text in it, or whole lines")
-        if why and '"' in why:
-            raise InsertRefusal(
-                "a why containing a double quote needs block form; give whole lines"
-            )
-        if kind == "del":
-            return [(a, a, "<del%s>" % attr_text(why)), (b, b, "</del>")]
-        new = rec.get("with")
-        if new is None:
-            raise InsertRefusal("<repl> needs a with value")
-        if why:
-            return [
-                (a, a, "<repl%s><del>" % attr_text(why)),
-                (b, b, "</del><ins>%s</ins></repl>" % new),
-            ]
-        return [(a, a, "<del>"), (b, b, "</del><ins>%s</ins>" % new)]
-
-    # Block form. The span is replaced wholesale so the opening and closing
-    # tags land on their own lines at the enclosing list item's indent, which
-    # is what keeps a tag from ending the list it sits in.
-    first = text.bare(start_line)
-    indent = " " * (len(first) - len(first.lstrip()))
-    block_start = text.offset(start_line, 0)
-    block_end = text.offset(end_line) + len(text.line(end_line))
-    original = text.s[block_start:block_end]
-    if not original.strip():
-        raise InsertRefusal("the span is blank; there is nothing to tag")
-    # A file whose last line has no newline is an ordinary shape. The closing
-    # tag goes straight after the text in that case rather than on a line of
-    # its own, because a newline invented here is one strip would have to
-    # invent a reason to remove, and the file would come back a byte longer.
-    tail = "\n" if original.endswith("\n") else ""
-    why_line = ""
-    if why and '"' in why:
-        why_line = "%s  <why>%s</why>\n" % (indent, why)
-        why = ""
-    attrs = attr_text(why)
-
-    if kind == "del":
-        out = "%s<del%s>\n%s%s%s</del>%s" % (indent, attrs, why_line, original, indent, tail)
-        return [(block_start, block_end, out)]
-
-    new = rec.get("with")
-    if new is None:
-        raise InsertRefusal("<repl> needs a with value")
-    new_block = "".join("%s%s\n" % (indent, x) for x in new.split("\n"))
-
-    out = "%s<repl%s>\n%s%s<del>\n%s%s</del>\n%s<ins>\n%s%s</ins>\n%s</repl>%s" % (
-        indent,
-        attrs,
-        why_line,
-        indent,
-        original,
-        indent,
-        indent,
-        new_block,
-        indent,
-        indent,
-        tail,
-    )
-    return [(block_start, block_end, out)]
-
-
-def anchored_columns(text, rec, start_line, key):
-    """(end line, col_start, col_end) of the text rec[key] names. Raises InsertRefusal.
-
-    For an <ins>, the text is what the insertion follows, so both columns are
-    the point just after it, and it has to end on its start line.
-
-    A text that crosses lines has to cover them whole, which is the block
-    form. Indentation before it on its first line counts as covered, so a
-    text naming whole list items need not copy their indentation, but their
-    markers are part of the line and have to be in the text.
-    """
-    span, problem = locate(text, start_line, rec, key, EVIDENCE_RERUN, key)
-    if problem:
-        raise InsertRefusal(problem)
-    a, b = span
-    end_line = text.line_of(b)
-    col_start = a - text.offset(start_line)
-    col_end = b - text.offset(end_line)
-    if key == INS_ANCHOR_KEY:
-        if end_line != start_line:
-            raise InsertRefusal("<ins> inserts at a point; give an %s on one line" % key)
-        return start_line, col_end, col_end
-    if end_line != start_line:
-        if text.bare(start_line)[:col_start].strip() or col_end != len(text.bare(end_line)):
-            raise InsertRefusal(
-                "a %s that crosses lines marks them whole; copy each line from its "
-                "start to its end, list marker included, or keep it inside one line" % key
-            )
-        col_start = 0
-    return end_line, col_start, col_end
-
-
-def next_question_id(repo, files):
-    highest = 0
-    for rel in files:
-        path = repo.abspath(rel)
-        if not os.path.exists(path):
-            continue
-        text = Text.read(path)
-        for node in TagScanner(text, None, rel).all:
-            if node.kind == "q" and node.attrs.get("id", "").isdigit():
-                highest = max(highest, int(node.attrs["id"]))
-    return highest + 1
 
 
 # --------------------------------------------------------------------------
@@ -2328,31 +2038,6 @@ def explicit_records(scanner, text, blocks, rel):
     return out
 
 
-def question_records(scanner, text, rel):
-    out = []
-    roots = scanner.roots
-    for n, node in enumerate(roots):
-        if node.kind != "q":
-            continue
-        answer = None
-        for later in roots[n + 1 :]:
-            if later.kind == "a":
-                answer = strip_tags(later.inner(text)).strip()
-                break
-            if later.kind == "q":
-                break
-        out.append(
-            {
-                "file": rel,
-                "line": node.line,
-                "id": node.attrs.get("id"),
-                "question": strip_tags(node.inner(text)).strip(),
-                "answer": answer,
-            }
-        )
-    return out
-
-
 def bare_lines(text):
     return [text.bare(i + 1) for i in range(text.line_count())]
 
@@ -2473,80 +2158,6 @@ def reproduced_by(base_text, matches, spans):
     return out
 
 
-def apply_inserts(text, blocks, records, path, qid_start):
-    """Returns (engine, refusals, next_qid). The caller decides all-or-nothing."""
-    engine = EditEngine(text)
-    refusals, qid, claimed = [], qid_start, []
-    for n, rec in enumerate(records):
-        try:
-            edits = plan_one_insert(text, blocks, rec, path, qid)
-        except InsertRefusal as exc:
-            refusals.append(
-                "%s:%s  record %d refused: %s" % (path, rec.get("start", "?"), n + 1, exc)
-            )
-            continue
-        except (TypeError, ValueError) as exc:
-            refusals.append("%s  record %d is malformed: %s" % (path, n + 1, exc))
-            continue
-
-        # Each record marks up one region, and the regions have to be disjoint.
-        # Overlap is two judgments about one passage, which the markup has no
-        # way to express; nesting is worse, because an <ins> landing inside
-        # another record's <del> is a grammar the scanner rejects, and the file
-        # written would be one this tool's own `tags check` turns down.
-        # plan_one_insert cannot see this - it is handed one record at a time.
-        span = (min(a for a, _, _ in edits), max(b for _, b, _ in edits))
-        clash = next((c for c in claimed if span[0] < c[1][1] and c[1][0] < span[1]), None)
-        if clash:
-            refusals.append(
-                "%s:%s  record %d overlaps record %d; each record "
-                "marks up its own passage" % (path, rec.get("start", "?"), n + 1, clash[0])
-            )
-            continue
-        claimed.append((n + 1, span))
-
-        if rec.get("kind") == "q":
-            qid += 1
-        for a, b, replacement in edits:
-            engine.replace(a, b, replacement)
-    return engine, refusals, qid
-
-
-INSERT_HELP = """\
-records:
-  Each record is one JSON object with these fields.
-
-  file       the document, relative to the repository root
-  start      the 1-indexed line the record starts on
-  kind       ins, del, repl, q or alt
-  text       for del and repl: the text to mark, copied exactly. insert
-             finds it among the places that start on the line and refuses a
-             record whose text starts at none of them, or at more than one.
-             A text holding a newline ends on a later line, and has to cover
-             each of its lines whole, list marker included.
-             For ins, q and alt: the content the tag adds
-  after      for ins: the text the insertion follows, found the same way,
-             on one line
-  with       for repl: the replacement text
-  why        optional: a short rationale, which becomes an attribute
-  end        optional: the last line, when there is no text to say it.
-             With a text, a different end is refused
-  col_start  optional: the 0-indexed column the text or after starts at,
-             when it starts at more than one place on the line
-  col_end    optional: the column a span ends at. With both columns, text
-             may be left out, and without it they default to the whole line
-
-  q and alt go in as a new line of their own above start, so they mark no
-  text. Question ids are assigned here.
-
-example:
-  [{"file": "notes.md", "start": 42, "kind": "del",
-    "text": "Curated, not collected.", "why": "restates the passage"},
-   {"file": "notes.md", "start": 60, "kind": "q",
-    "text": "Did the count change as a fact, or as prose?"}]
-"""
-
-
 # --------------------------------------------------------------------------
 # commands
 # --------------------------------------------------------------------------
@@ -2632,7 +2243,7 @@ def cmd_scope(args):
 def cmd_status(args):
     repo, config, scope = load(args)
     files = scope.files()
-    tags, unanswered, errors = {}, 0, []
+    tags, errors = {}, []  # pragma: no cover - no test runs status until #181
     for rel in files:
         path = repo.abspath(rel)
         if not os.path.exists(path):
@@ -2642,9 +2253,6 @@ def cmd_status(args):
         errors += scanner.errors
         if scanner.all:
             tags[rel] = scanner.counts()
-        for q in question_records(scanner, text, rel):
-            if q["answer"] is None:
-                unanswered += 1
     dirty = repo.dirty_md()
     data = {
         "config": {
@@ -2657,7 +2265,6 @@ def cmd_status(args):
         "scope": {"count": len(files), "overridden": scope.overridden},
         "dirty": [{"status": s, "path": p} for s, p in dirty],
         "tags": tags,
-        "unanswered_questions": unanswered,
         "markup_errors": errors,
     }
 
@@ -2679,14 +2286,14 @@ def cmd_status(args):
             for rel in sorted(tags):
                 counts = ", ".join("%d %s" % (v, k) for k, v in sorted(tags[rel].items()))
                 print("          %s  %s" % (rel, counts))
-            print("        %d unanswered question(s)" % unanswered)
         else:
             print("markup  none")
         for e in errors:
             print("!! %s" % e)
 
-    # status reports; it does not judge. Tags present is a normal mid-run
-    # state for update-prose-config, so this never exits 1.
+    # status reports; it does not judge. The author's markup present is the
+    # normal state while update-prose-config learns from it, so this never
+    # exits 1.
     return emit(args, "status", repo.root, data, human=human)
 
 
@@ -2759,7 +2366,8 @@ def cmd_preflight(args):
         in_scope = set(files)
         for rel, line in tagged:
             blockers.append(
-                "%s:%d  markup is present; an update-prose-config run is in progress" % (rel, line)
+                "%s:%d  markup is present; once update-prose-config has learned from it, "
+                "run: prose.py tags resolve, and commit the result" % (rel, line)
             )
         for status, rel in repo.dirty_md():
             if rel in in_scope:
@@ -2914,22 +2522,6 @@ def cmd_patterns(args):
     return emit(args, "patterns", repo.root, data, errors=errors, human=human)
 
 
-def evidence_token(repo, config, scope):
-    """The token evidence prints and tags insert requires, for the tree as it is now.
-
-    A sha256 over the sorted path and bytes of every file in scope, and
-    prose-style.md's bytes. Every address in the evidence is a working-tree line
-    number, so any write to one of those files leaves the batch built from it
-    pointing at the wrong lines.
-    """
-    digest = TokenHash()
-    for rel in sorted(os.path.normpath(r) for r in scope.files()):
-        digest.part(rel.encode("utf-8"))
-        digest.document(repo.abspath(rel))
-    digest.document(config.path)
-    return digest.token()
-
-
 def pending_files(repo):
     """The files a run would learn from in repo, by repo's own prose-style.md.
 
@@ -2965,7 +2557,7 @@ def cmd_evidence(args):
     if not repo.has_ref(ref):
         raise Fatal("%s is not a ref in this repository" % ref)
     ignore = set(args.ignore or [])
-    explicit, inferred, questions, errors, new_files = [], [], [], [], []
+    explicit, inferred, errors, new_files = [], [], [], []
     for rel in scope.files():
         path = repo.abspath(rel)
         if not os.path.exists(path):
@@ -2977,7 +2569,6 @@ def cmd_evidence(args):
         if scanner.errors:
             continue
         explicit += explicit_records(scanner, text, blocks, rel)
-        questions += question_records(scanner, text, rel)
         neutral = neutralize(text, blocks, rel)
         hunks, is_new = inferred_records(repo, rel, text, neutral, ref, ignore)
         if is_new:
@@ -2987,7 +2578,7 @@ def cmd_evidence(args):
     # A tree with nothing to learn from may be a fresh worktree, opened while
     # the author's edits sit in another checkout of the same repository.
     elsewhere = []
-    if not (explicit or inferred or questions or errors):
+    if not (explicit or inferred or errors):
         elsewhere = other_pending(repo)
     for tree in elsewhere:
         errors.append(
@@ -3001,25 +2592,17 @@ def cmd_evidence(args):
             )
         )
 
-    unanswered = sum(1 for q in questions if q["answer"] is None)
-    # No token for evidence that failed: markup that does not parse is fixed
-    # first, and that edit would change the token anyway.
-    token = None if errors else evidence_token(repo, config, scope)
     data = {
         "base_ref": ref,
         "explicit": explicit,
         "inferred": inferred,
-        "questions": questions,
         "new_files": new_files,
         "other_worktrees": elsewhere,
         "counts": {
             "explicit": len(explicit),
             "inferred": len(inferred),
-            "questions": len(questions),
-            "unanswered": unanswered,
             "files": len(scope.files()),
         },
-        "token": token,
     }
 
     def human():
@@ -3032,19 +2615,9 @@ def cmd_evidence(args):
         for rec in inferred:
             flag = " (%s)" % rec["signal"] if rec["signal"] else ""
             print("  inferred %s:%d [%s]%s" % (rec["file"], rec["start"], rec["change"], flag))
-        for q in questions:
-            print(
-                "  question %s:%d #%s %s"
-                % (q["file"], q["line"], q["id"], "answered" if q["answer"] else "OPEN")
-            )
-        print(
-            "\nexplicit: %d  inferred: %d  unanswered: %d"
-            % (len(explicit), len(inferred), unanswered)
-        )
+        print("\nexplicit: %d  inferred: %d" % (len(explicit), len(inferred)))
         if new_files:
             print("untracked at %s: %s" % (ref, ", ".join(new_files)))
-        if token:
-            print(EVIDENCE_TOKEN_LABEL + token)
 
     return emit(args, "evidence", repo.root, data, errors=errors, human=human)
 
@@ -3052,8 +2625,9 @@ def cmd_evidence(args):
 def cmd_reproduce(args):
     """Whether the rules reproduce the edits made since HEAD.
 
-    Each edit is a hunk as `evidence` reports it under `inferred`, read once
-    the markup is resolved, so the author's tagged edits are plain hunks too.
+    Each edit is a hunk as `evidence` reports it under `inferred`, read with
+    the author's markup resolved, so a tagged edit is a plain hunk too: its
+    <ins> text kept and its <del> text gone, as apply-prose will commit it.
     Every rule's pattern runs over the file as it was at HEAD, and an edit is
     reproduced when some match overlaps what it changed; changed_spans and
     reproduced_by have what counts. The matches carry line numbers at HEAD,
@@ -3081,8 +2655,8 @@ def cmd_reproduce(args):
         if not os.path.exists(path):
             continue
         text = Text.read(path)
-        neutral = neutralize(text, Blocks(text), rel)
-        hunks, base_text = inferred_hunks(repo, rel, text, neutral, BASE_REF, set())
+        resolved_text, _ = resolve_text(text, ACCEPT, None, rel)
+        hunks, base_text = inferred_hunks(repo, rel, text, resolved_text, BASE_REF, set())
         if base_text is None:
             new_files.append(rel)
             continue
@@ -3872,7 +3446,7 @@ def cmd_tags(args):
     which = args.tags_cmd
     targets = args.paths or scope.files()
 
-    if which in ("check", "list"):
+    if which not in ("resolve", "strip"):
         errors, warnings, data = [], [], {}
         for rel in targets:
             path = repo.abspath(rel)
@@ -3917,95 +3491,42 @@ def cmd_tags(args):
             args, "tags " + which, repo.root, data, errors=errors, warnings=warnings, human=human
         )
 
-    if which in ("resolve", "strip"):
-        mode = ACCEPT if which == "resolve" else REJECT
-        errors, warnings, data = [], [], {}
-        pending = []
-        for rel in targets:
-            path = repo.abspath(rel)
-            if not os.path.exists(path):
-                continue
-            text = Text.read(path)
-            blocks = Blocks(text)
-            scanner = TagScanner(text, blocks, rel)
-            if scanner.errors:
-                errors += scanner.errors
-                continue
-            if not scanner.all:
-                continue
-            pending.append((path, rel, resolve_scanned(text, scanner, mode), len(scanner.all)))
-            warnings += resolve_warnings(scanner, text)
-        if errors:
-            errors.append("nothing was written; fix the markup and re-run")
-            return emit(args, "tags " + which, repo.root, {}, errors=errors, warnings=warnings)
-        for path, rel, new, count in pending:
-            data[rel] = {"tags": count}
-            if not args.dry_run:
-                Text(new).write(path)
-
-        def human():
-            for rel in sorted(data):
-                print(
-                    "%s  %d tag(s) %s"
-                    % (rel, data[rel]["tags"], "would be " + which if args.dry_run else which + "d")
-                )
-            if not data:
-                print("no markup found")
-
-        return emit(args, "tags " + which, repo.root, data, warnings=warnings, human=human)
-
-    # insert
-    if args.token != evidence_token(repo, config, scope):
-        stale = EVIDENCE_STALE % config.rel()
-        return emit(args, "tags insert", repo.root, {"refused": 1}, errors=[stale])
-    records = read_json(args.batch, "batch")
-    if not isinstance(records, list):
-        raise Fatal("batch must be a JSON array of records")
-
-    by_file = {}
-    for rec in records:
-        by_file.setdefault(rec.get("file"), []).append(rec)
-    qid = next_question_id(repo, scope.files())
-
-    staged, refusals = [], []
-    for rel in sorted(by_file):
-        path = repo.abspath(rel) if rel else None
-        if not rel or not os.path.exists(path):
-            refusals.append("%s  no such file" % rel)
+    # resolve or strip
+    mode = ACCEPT if which == "resolve" else REJECT
+    errors, warnings, data = [], [], {}
+    pending = []
+    for rel in targets:
+        path = repo.abspath(rel)
+        if not os.path.exists(path):
             continue
         text = Text.read(path)
         blocks = Blocks(text)
-        engine, bad, qid = apply_inserts(text, blocks, by_file[rel], rel, qid)
-        refusals += bad
-        if bad and not args.partial:
+        scanner = TagScanner(text, blocks, rel)
+        if scanner.errors:
+            errors += scanner.errors
             continue
-        try:
-            staged.append((path, rel, engine.result()))
-        except Fatal as exc:
-            refusals.append("%s  %s" % (rel, exc))
-
-    if refusals and not args.partial:
-        refusals.append(
-            "nothing was written; a half-applied batch leaves "
-            "every later line number wrong. Fix the batch and "
-            "re-run, or pass --partial."
-        )
-        return emit(args, "tags insert", repo.root, {"refused": len(refusals)}, errors=refusals)
-
-    data = {}
-    for path, rel, new in staged:
+        if not scanner.all:
+            continue
+        pending.append((path, rel, resolve_scanned(text, scanner, mode), len(scanner.all)))
+        warnings += resolve_warnings(scanner, text)
+    if errors:
+        errors.append("nothing was written; fix the markup and re-run")
+        return emit(args, "tags " + which, repo.root, {}, errors=errors, warnings=warnings)
+    for path, rel, new, count in pending:
+        data[rel] = {"tags": count}
         if not args.dry_run:
             Text(new).write(path)
-        scanner = TagScanner(Text(new), None, rel)
-        data[rel] = {"tags": [{"kind": n.kind, "line": n.line} for n in scanner.roots]}
 
     def human():
         for rel in sorted(data):
-            for tag in data[rel]["tags"]:
-                print("%s:%d  %s" % (rel, tag["line"], tag["kind"]))
-        print("\n%d file(s) %s" % (len(data), "unchanged (dry run)" if args.dry_run else "written"))
+            print(
+                "%s  %d tag(s) %s"
+                % (rel, data[rel]["tags"], "would be " + which if args.dry_run else which + "d")
+            )
+        if not data:
+            print("no markup found")
 
-    return emit(args, "tags insert", repo.root, data, errors=refusals, human=human)
+    return emit(args, "tags " + which, repo.root, data, warnings=warnings, human=human)
 
 
 # The kinds a finding may cross lines within. Anything else between two lines
@@ -4014,22 +3535,23 @@ def cmd_tags(args):
 SPANNING_KINDS = ("paragraph", "list-item")
 # The field a finding carries in place of `replacement` for a match that stays.
 DISMISS_KEY = "dismiss"
+# What to run again when a finding's text is no longer where it was addressed.
+REPORT_RERUN = "Re-run the report."
 
 
-def locate(text, line, f, label, rerun=REPORT_RERUN, key="text"):
-    """The absolute (start, end) that a finding or record covers, or (None, why not).
+def locate(text, line, f, label):
+    """The absolute (start, end) that a finding covers, or (None, why not).
 
-    With no columns, the text in f[key] is looked for among the places that
+    With no columns, the text in f["text"] is looked for among the places that
     start on its line, and it has to start at exactly one of them. col_start
     alone says which, and the span runs as far as the text does, onto a later
     line if the text holds a newline. col_end pins the end on the same line,
     which is the one form that needs no text; without text, the columns
-    default to the whole line. label names the finding or field in a refusal,
-    and rerun says what to run again when the text has moved.
+    default to the whole line. label names the finding in a refusal.
     """
     width = len(text.bare(line))
     base = text.offset(line)
-    want = f.get(key)
+    want = f.get("text")
     col_start, col_end = f.get("col_start"), f.get("col_end")
     if want is None or col_end is not None:
         col_start = int(col_start if col_start is not None else 0)
@@ -4057,7 +3579,7 @@ def locate(text, line, f, label, rerun=REPORT_RERUN, key="text"):
         # newline, to join this line to the next, still has a place to start.
         starts = [c for c in range(width + 1) if text.s.startswith(want, base + c)]
         if not starts:
-            return None, "%s: %r does not start on this line. %s" % (label, want[:60], rerun)
+            return None, "%s: %r does not start on this line. %s" % (label, want[:60], REPORT_RERUN)
         if len(starts) > 1:
             return None, (
                 "%s: %r starts at columns %s on this line; add col_start to say which"
@@ -4070,7 +3592,7 @@ def locate(text, line, f, label, rerun=REPORT_RERUN, key="text"):
         return None, "the text moved; expected %r, found %r. %s" % (
             want[:60],
             current[:60],
-            rerun,
+            REPORT_RERUN,
         )
     return (a, b), None
 
@@ -4989,9 +4511,7 @@ def build_parser():
     p.add_argument("paths", nargs="*", help="files to read (default: every file in scope)")
     p.set_defaults(func=cmd_patterns)
 
-    p = sub.add_parser(
-        "evidence", parents=[common], help="explicit tags, inferred edits and open questions"
-    )
+    p = sub.add_parser("evidence", parents=[common], help="explicit tags and inferred edits")
     p.add_argument("--since", default=BASE_REF, metavar="REF")
     p.add_argument(
         "--ignore",
@@ -5098,34 +4618,12 @@ def build_parser():
     p = sub.add_parser("tags", parents=[common], help="the markup")
     tsub = p.add_subparsers(dest="tags_cmd", required=True)
     for name, helptext in [
-        ("check", "validate"),
         ("list", "report"),
-        ("insert", "add markup"),
         ("resolve", "accept the edits and remove markup"),
         ("strip", "abandon the edits and remove markup"),
     ]:
-        extra = {}
-        if name == "insert":
-            extra = dict(epilog=INSERT_HELP, formatter_class=argparse.RawDescriptionHelpFormatter)
-        t = tsub.add_parser(name, parents=[common], help=helptext, **extra)
-        if name == "insert":
-            t.add_argument(
-                "--batch",
-                required=True,
-                metavar="FILE",
-                help="JSON array of records, or - for stdin",
-            )
-            t.add_argument(
-                "--partial", action="store_true", help="apply what is valid instead of nothing"
-            )
-            t.add_argument("--dry-run", action="store_true", help="say what would be tagged")
-            t.add_argument(
-                "--token",
-                required=True,
-                help="the token evidence printed; insert refuses a tree that changed since",
-            )
-        else:
-            t.add_argument("paths", nargs="*")
+        t = tsub.add_parser(name, parents=[common], help=helptext)
+        t.add_argument("paths", nargs="*")
         if name in ("resolve", "strip"):
             t.add_argument("--dry-run", action="store_true")
     p.set_defaults(func=cmd_tags)

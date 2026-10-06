@@ -1,11 +1,12 @@
 # The markup vocabulary
 
-This page is normative. `prose.py tags check` enforces every rule on this page, and reports
-one line per problem.
+This page is normative. `prose.py preflight` and `prose.py evidence` enforce
+every rule on this page, and report one line per problem.
 
-The markup is temporary. It is inserted to say something about a passage, read
-once by `update-prose-config`, and removed by `tags resolve` before anything is
-committed. A tag that reaches a commit is a bug.
+The markup is temporary. The author writes it to say something about an edit.
+`update-prose-config` reads it and leaves it in place, and `apply-prose` runs
+`tags resolve` to remove it once the rules are learned. A tag that reaches a
+commit is a bug.
 
 ## The tags
 
@@ -16,8 +17,6 @@ committed. A tag that reaches a commit is a bug.
 | `<repl>…</repl>` | Swap one for the other. | the `<ins>`, on accept; the `<del>`, on strip |
 | `why` | Why the edit was made. | nothing |
 | `<alt>…</alt>` | A proposed rule, or an equivalent rewrite. | nothing |
-
-The interview adds one pair: `<q id="N">question</q>` and `<a>answer</a>`.
 
 ## A replacement is a del and an ins
 
@@ -71,27 +70,16 @@ to any passage:
 Commentary binds to the tag carrying it. A `why` on the `<repl>` describes the
 swap; a `why` on the inner `<del>` describes only the deletion.
 
-## The interview
-
-```markdown
-<q id="3">Does the pirate register apply to headings?</q>
-<a>Body only. Headings stay plain noun phrases.</a>
-```
-
-Ids are assigned by `tags insert`, never by hand, because hand-numbering
-collides across files. An `<a>` answers the nearest `<q>` above it. A `<q>` with
-no `<a>` is reported as open by `status` and `evidence`.
-
 ## Inline and block form
 
-**The script picks the form, not the author.** `tags insert` uses inline form
-when the span fits on one line, and it never splits a line. Block form is used
-only when the span starts and ends on block boundaries, and the tags are
-indented to match the span's own first line.
+A tag in inline form sits inside one line. A tag in block form has its opening
+and closing tags on lines of their own, around whole lines, indented to match
+the first of them. A tag that starts mid-line and ends on a different line
+straddles blocks, so write it as one or the other.
 
-A span is refused when it starts mid-line and ends on a different line, or when
-it touches a code fence, a heading, a table or front matter. Markup inside any
-of those breaks the thing it sits in.
+Keep markup out of a code fence, a heading, a table and front matter, since it
+breaks the thing it sits in. A block-form tag between two list items ends the
+list, which `tags resolve` warns about.
 
 Tags inside a fenced code block are ignored, so a document that discusses this
 vocabulary can quote it without being parsed as marked up.
@@ -109,7 +97,3 @@ One fault produces one message.
 | `<ins><del>no</del></ins>` | `<del> is not allowed inside <ins>` |
 | `<repl><del>old</del></repl>` | `<repl> holds 1 <del> and 0 <ins>` |
 | `<repl><ins>…</ins><del>…</del></repl>` | `<repl> has <ins> before <del>` |
-| two `<q id="1">` | `duplicate question id 1; first at line N` |
-
-`<a href="…">` is an HTML anchor and is skipped rather than reported. An `<a>`
-carrying any attribute is not an answer tag.

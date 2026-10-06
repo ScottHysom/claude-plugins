@@ -33,6 +33,7 @@ class DescribePreflightForApply:
         code, env = committed.run("preflight", "--for", "apply")
         assert code == prose.PROBLEMS
         assert errors_with(env, "target.md:1  markup is present")
+        assert "run: prose.py tags resolve" in env["errors"][0]
 
     @pytest.mark.spec("preflight-cmd-blocks-apply-mid-teaching")
     def it_blocks_on_an_uncommitted_file_in_scope(self, committed):

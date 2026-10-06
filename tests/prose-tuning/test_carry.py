@@ -110,7 +110,6 @@ class DescribeEvidenceAcrossWorktrees:
         [error] = env["errors"]
         assert "on %s," % MAIN_BRANCH in error
         assert "`carry --from %s`" % tree["root"] in error
-        assert env["data"]["token"] is None
 
     @pytest.mark.spec("evidence-cmd-names-other-worktrees")
     def it_names_a_detached_worktree_without_a_branch(self, checkouts, tmp_path):

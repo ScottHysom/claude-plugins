@@ -1,6 +1,6 @@
 ---
 name: update-prose-config
-description: Infer prose and style rules from the uncommitted markdown edits in a project repo and write them into that project's prose-style.md with stable rule ids. Reads explicit ins, del and repl markup and untagged diff hunks through scripts/prose.py, asks the author about anything ambiguous in one batch, then resolves the markup so the working tree is committable. Use when asked to learn the house style from edits just made, to update or set up prose-style.md, to tag passages for a style pass, to turn an editing pass into rules, to record why a passage was cut, or to take a note on how a passage reads, handed over by the author or another skill. Never commits and never writes outside the project repo.
+description: Infer prose and style rules from the uncommitted markdown edits in a project repo and write them into that project's prose-style.md with stable rule ids. Reads explicit ins, del and repl markup and untagged diff hunks through scripts/prose.py, asks the author about anything ambiguous in one batch, and writes only prose-style.md, leaving the documents and their markup as the author left them. Use when asked to learn the house style from edits just made, to update or set up prose-style.md, to turn an editing pass into rules, to record why a passage was cut, or to take a note on how a passage reads, handed over by the author or another skill. Never commits and never writes outside the project repo.
 ---
 
 # Learn the house prose style from edits already made
@@ -21,8 +21,7 @@ Run the block as one command, because the next command's shell will not have
 `$PROSE`. Then follow `$ROOT/reference/setup.md`. It says where every command below
 runs.
 
-Read `$ROOT/reference/tag-vocabulary.md` before inserting any markup. It is
-normative and the script enforces it.
+Read `$ROOT/reference/tag-vocabulary.md` for what the author's markup means.
 
 ## Step 1: refuse early
 
@@ -33,8 +32,8 @@ python3 "$PROSE" status
 
 `preflight` exits 1 on a blocker: unbalanced markup left by an abandoned run, or
 a `prose-style.md` that does not parse. `status` is the progress view, and it
-exits 0 even with markup present, because markup present is the normal middle of
-this skill's own run.
+exits 0 even with markup present, because the author's markup is what this
+skill reads.
 
 If there is no `.claude/rules/prose-style.md`, offer `config init`. A project that has never
 had one starts from the rules this plugin ships rather than from nothing:
@@ -110,21 +109,12 @@ commit. A note that does not say which lines changed takes them from the
   `inferred` records in its lines. The rule comes from what the diff changed,
   with the note as its commentary.
 
-When `evidence` does not find any pending edit, markup or question, and the run
-was handed notes, carry on with the notes alone. Steps 5 and 8 then have
-nothing to do.
+When `evidence` does not find any pending edit or markup, and the run was
+handed notes, carry on with the notes alone.
 
 **`evidence` computes a tag-neutral diff**, which is why it can tell the two
-apart at all. A plain `git diff` on a tagged tree reports this skill's own
-markup back as author evidence.
-
-**Do not edit any file between `evidence` and `tags insert`.** Every address in
-the payload is a working-tree line number, and any write invalidates the rest.
-The script enforces this. When `evidence` exits 0 it prints a token, as
-`data.token` and as its last line, such as `evidence token: 3f9a1c0e7b2d4a68`.
-Keep it for step 5. `tags insert` refuses a token from before a file in scope
-or `prose-style.md` changed. If something must be edited first, re-run
-`evidence` afterwards and build the batch from the new output.
+apart at all. A plain `git diff` on a tagged tree reports the tags themselves
+as edits.
 
 ## Step 4: the threshold for calling something a rule
 <!-- spec: updateproseconfig-makes-rules-at-threshold -->
@@ -136,54 +126,13 @@ A candidate becomes a rule when one of these holds:
 - it occurs **two or more times** independently, or
 - the author attached a `why` or an `<alt>` to it, which a note handed to the
   run counts as when it states a rule, or
-- an answered `<q>` settles it.
+- the author's answer in the interview settles it.
 
 Anything else becomes a question, not a rule. A rule inferred from one sentence
 with no commentary is a rule about one sentence, and it will fire on every
 document in the project forever.
 
-## Step 5: tag what needs the author's eye
-<!-- spec: updateproseconfig-inserts-in-one-batch -->
-
-Insert every tag in one call, as one batch, with JSON on stdin and the token
-`evidence` printed:
-
-```sh
-python3 "$PROSE" tags insert --token 3f9a1c0e7b2d4a68 --batch - <<'END'
-[{"file":"current-state.md","start":42,"kind":"del",
-  "text":"Curated, not collected.","why":"restates the passage"},
- {"file":"landscape.md","start":60,
-  "kind":"q","text":"Did the vendor count change as a fact, or as prose?"}]
-END
-```
-
-**The batch is the only correct form.** Each insertion shifts every line number
-below it, so twenty separate calls would leave nineteen stale addresses. The
-script applies the whole batch bottom-up from one snapshot, and writes nothing
-at all if any record is refused. A refused token means the tree changed since
-step 3: run `evidence` again and rebuild the batch from what it reports.
-
-| Field | Means |
-|---|---|
-| `start` | the 1-indexed line the record starts on |
-| `kind` | `ins`, `del`, `repl`, `q` or `alt` |
-| `text` | for `del` and `repl`, the text to mark, copied exactly from the line. For `ins`, `q` and `alt`, the content the tag adds |
-| `after` | for `ins`, the text on the line that the insertion follows |
-| `with` | the replacement text, for `repl` |
-| `why` | short rationale, becomes an attribute |
-
-Leave the columns out: the script finds the text on its line. When it is
-refused because the text starts at more than one place, add the `col_start` the
-refusal lists. A `text` that runs onto later lines holds each line whole, from
-its list marker or first word to its end, with the newlines and indents between.
-`python3 "$PROSE" tags insert --help` describes every field.
-
-The script picks inline or block form, never splits a line, and refuses a span
-that straddles blocks or touches a fence, heading, table or front matter. Do not
-argue with a refusal; give it whole lines instead. Question ids are assigned by
-the script, never by hand.
-
-## Step 6: the interview, once
+## Step 5: the interview, once
 <!-- spec: updateproseconfig-asks-in-one-batch, updateproseconfig-asks-about-vague-notes -->
 
 <!-- no-command: judgment. The author answers one batch of questions. -->
@@ -199,11 +148,7 @@ What always belongs in the batch:
 - every note on an unchanged passage that does not state a rule, such as one
   that says the passage reads badly without saying what makes it so
 
-The in-file route is for an author working asynchronously: this skill writes
-`<q>` into the documents, the author answers with `<a>`, and `evidence` reports
-answers from either channel. Prefer the batch when the author is present.
-
-## Step 7: write the rules
+## Step 6: write the rules
 <!-- spec: updateproseconfig-writes-through-cmd, updateproseconfig-writes-note-examples -->
 
 Name each rule. The name is one to four words saying what the rule means, and
@@ -273,22 +218,7 @@ instance, a pattern that misses its Before example or matches its After. On a
 refusal, fix what it names, since the example is the evidence, and run the
 batch again.
 
-## Step 8: resolve the markup
-
-```sh
-python3 "$PROSE" tags resolve
-python3 "$PROSE" tags check
-```
-
-`resolve` takes the edits the markup proposes (`<ins>` stays, `<del>` goes,
-`<repl>` keeps the replacement) and removes every tag. What is left is
-committable prose. `tags check` must then find nothing: **markup is never
-committed.**
-
-Read the warnings. A block-form tag resolved inside a list is the one case worth
-eyeballing, because a tag between two list items ends the list.
-
-## Step 9: validate by reproduction
+## Step 7: validate by reproduction
 <!-- spec: updateproseconfig-fixes-the-rule -->
 
 ```sh
@@ -296,7 +226,8 @@ python3 "$PROSE" reproduce --json
 ```
 
 `reproduce` runs every rule's pattern over each file as it was at HEAD. It
-reports each edit made since then as one entry in `edits`:
+reads the author's markup as resolved, and reports each edit made since HEAD
+as one entry in `edits`:
 
 - **`reproduced: true`** means a pattern matched what the edit changed. The
   entry's `matches` name the rule and the text at HEAD, with HEAD's line
@@ -308,15 +239,18 @@ reports each edit made since then as one entry in `edits`:
 An edit that no pattern reproduces and no unpatterned rule accounts for shows
 a rule that is wrong or incomplete. Say which, and fix the rule rather than
 the document: extend its pattern, or write the rule it is missing. Hand the fix
-to `config write` as step 7 does, then run `reproduce` again.
+to `config write` as step 6 does, then run `reproduce` again.
 
-## Step 10: hand off
-<!-- spec: updateproseconfig-never-commits, updateproseconfig-names-original-checkout -->
+## Step 8: hand off
+<!-- spec: updateproseconfig-never-commits, updateproseconfig-names-original-checkout, updateproseconfig-never-writes-documents -->
 
 <!-- no-command: hand-off to the author. The run ends with the working tree dirty. -->
 
-Report what changed, which files are dirty, and stop. If step 3 carried edits,
-name the checkout and branch that still hold the originals, from `carry`'s
+Report what changed, which files are dirty, and stop. Apart from what step 3
+carries, the only file the run writes is `prose-style.md`. Never write markup into
+a document, and never run `tags resolve`. The author's markup and edits stay
+as they left them, and `apply-prose` resolves the markup once the author says
+the rules are learned. If step 3 carried edits, name the checkout and branch that still hold the originals, from `carry`'s
 `data.from` and `data.branch`, and leave discarding them to the author.
 **Never commit.** The project's own maintenance skill owns commit types,
 message format, and the bridge's lock-file workaround.
