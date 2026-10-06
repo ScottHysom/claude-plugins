@@ -85,6 +85,19 @@ The bridge cannot:
   generated skill, as gitify's does, rejects a tag in the description it is
   handed.
 
+## Asking the user: `AskUserQuestion`
+
+Probed on 2026-10-05. Cowork's `AskUserQuestion` has the same limits as
+Claude Code's:
+
+- **One call holds one to four questions.** Five fail before any dialog
+  appears, with "Too big: expected array to have <=4 items". A skill that
+  budgets one round of questions budgets four.
+- **Each question holds two to four options.** The dialog adds "Other" on its
+  own.
+- **The model sees only the answers,** as one line pairing each question with
+  the option chosen. It cannot see the dialog itself.
+
 ## How instruction files load
 
 Probed on 2026-09-20, 2026-09-22 and 2026-09-23, in a Project made with "Use
