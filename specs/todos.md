@@ -234,9 +234,23 @@ Source: #312, which records the design the owner approved.
 - `file-cmd-never-posts-in-preview` (test): When `file` is given `--dry-run`,
   it prints what it would file, post and mark, and does not file or post
   anything.
-- `dotodos-shows-report-whole` (step): When `report` exits 0, do-todos shows
-  its output as it stands, and takes one decision over the whole set before
-  running `file`.
+- `dotodos-shows-report-whole` (step): When `report` exits 0, do-todos
+  publishes `.todos/report.md` as a private artifact, or shows the file whole
+  where it cannot, and takes one decision over the whole set, naming the
+  artifact's address and the token, before running `file`.
+
+## need user-annotates-drafts: Comment on a draft where it is read
+
+When Claude has drafted the issues, the user wants to comment on a draft where
+they read it and have Claude revise it before they approve. A change then does
+not have to be retyped in chat.
+
+Source: the owner's ruling while planning, 2026-10-04, recorded in #334.
+
+- `dotodos-revises-on-comment` (step): When the author sends a comment on the
+  published report to Claude, do-todos revises the drafts, runs `report`
+  again, republishes the report to the same address and answers in the
+  comment's thread.
 
 ## need user-reviews-then-commits: Commit each change the user's usual way
 
@@ -330,6 +344,35 @@ Source: CLAUDE.md, under "A shell variable lasts one command".
 - `setup-cmd-copies-locally` (test): When `setup` runs, it copies the script
   byte for byte into `.todos/`, and gives the prefix `TODOS=.todos/todos.py`,
   which reaches the copy from the project root.
+
+## constraint bash-hides-output: A command's output does not reliably reach the user
+
+Claude Code shows a Bash command's output to the model and not reliably to
+the user, and an `AskUserQuestion` dialog covers the text above it. So a
+report the user must approve reaches them as a file or a page, not as a
+command's output.
+
+Source: Claude Code's Bash tool description, and the owner's report in #334.
+
+- `report-cmd-writes-report-file` (test): When `report` runs, it writes the
+  report as markdown to `.todos/report.md` in the `-C` tree, also under
+  `--from`, and gives the file's path. When it refuses a draft, the file holds
+  the refusals and no token.
+
+## constraint artifact-sends-comments: A comment sent to Claude reaches the session
+
+An artifact published from Claude Code is private by default. A comment its
+owner sends to Claude reaches the session that published it, which can reply
+in the thread. A comment sent while the session is busy starts a turn once
+the session goes idle.
+
+Source: code.claude.com/docs/en/artifacts.md, under "Collect comments on an
+artifact", and the probe recorded in #334. The probe ran on 2026-10-06 from
+`.claude/worktrees/issue-347-f948c8`. The owner sent two comments to Claude
+on a private artifact the session published. `ArtifactComments` read both as
+sent to Claude, and the session's reply posted to the thread. The first
+comment, sent while the session was busy, started a turn when that turn
+ended.
 
 ## constraint bash-writes-other-checkout: A script run through Bash can write another checkout
 

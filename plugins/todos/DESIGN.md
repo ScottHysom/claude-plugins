@@ -81,6 +81,16 @@ the text `file` will send, in the repository the report named, and a fork
 cannot send issues to its upstream, since every gh call after the first passes
 that repository as `--repo`.
 
+Claude Code shows a command's output to the model, and not reliably to the
+author, and the dialog that asks for approval covers the text above it. So
+`report` also writes the report as markdown to `.todos/report.md`, and the
+skill publishes that file as a private artifact. The author reads every draft
+there, comments on one and sends the comment to Claude, and the skill revises
+the drafts and republishes to the same address. The approval dialog names
+the address and the token, so the author approves the page they read. The
+file goes in the session's own tree, even under `--from`, because that is the
+tree the session publishes from.
+
 A partial approval runs `report` again on the trimmed drafts, so `file` has no
 `--partial`.
 

@@ -163,31 +163,54 @@ step 1, copied exactly. `route` is `issue`, with `title`, `body` and `labels`,
 author wants left in place does not get a draft.
 
 ## Step 4: report, approve, file
-<!-- spec: dotodos-shows-report-whole -->
+<!-- spec: dotodos-shows-report-whole, dotodos-revises-on-comment -->
 
 <!-- seam: judgment: the author approves the report, or a part of it, before file runs -->
 
 ```sh
-TODOS=.todos/todos.py && python3 "$TODOS" report --drafts "${TMPDIR:-/tmp}/todo-drafts.json"
+TODOS=.todos/todos.py && python3 "$TODOS" report --drafts "${TMPDIR:-/tmp}/todo-drafts.json" --json
 ```
 
 Add `--from "<root>"` to `report` and `file` when step 1 collected from
 another checkout.
 
-`report` names the repository the issues go to, then prints each draft whole
-with its route, the skill each routed TODO goes to, the TODOs left in place,
-and `scan`'s warnings. Show the author that output as
-it stands. Never retype it into a table of your own, because the author then
-approves a text that `file` never sees. Its last line, printed only when it
-exits 0, is the approval token, such as `approval token: 3f9a1c0e7b2d4a68`.
+`report` writes the report to the markdown file at `data.report`: the
+repository the issues go to, each draft whole with its route, the skill each
+routed TODO goes to, the TODOs left in place and `scan`'s warnings. When it
+exits 0, `data.token` is the approval token, and the file ends with it.
 
 When `report` exits 1, its errors name each draft it refused and why. Fix the
 drafts and run `report` again before showing it.
 
-Take one decision over the whole set: all of it, a part, or none. When the
-author approves a part, take the rest out of the drafts file and run `report`
-again. Its TODOs stay in their files. The token `file` takes is the one from
-the report the author approved as a whole.
+Publish the file at `data.report` as a private artifact with the Artifact
+tool, as markdown, with the icon `checklist`. After every later run of
+`report`, publish the same file path again, so the report keeps its address.
+The author reads the report there, and nowhere else. Never retype the report
+or a part of it into chat or a dialog, because the author then approves a
+text that `file` never sees.
+
+Then put one `AskUserQuestion` to the author, naming the artifact's address
+and `data.token`, with these options:
+
+- file every draft;
+- file a part, named in the answer;
+- comment first, on the drafts in the artifact;
+- file none.
+
+On "comment first", end the turn. A comment the author sends to Claude starts
+a new turn. Revise the drafts it names, run `report` again, publish the file
+again, and answer in the comment's thread with `ArtifactComments`, saying
+what changed, then resolve the thread. Ask the one question again, with the
+new token, once the threads sent to Claude are answered.
+
+When the author approves a part, take the rest out of the drafts file, run
+`report` again and publish it again. Its TODOs stay in their files. The token
+`file` takes is the one from the report the author approved as a whole, so
+ask again with the new token.
+
+When the Artifact tool is not available, or refuses to publish, read the file
+at `data.report` and give it whole in your reply, as it stands, then end the
+turn. The author's reply is the decision, and it names the token.
 
 ```sh
 TODOS=.todos/todos.py && python3 "$TODOS" file --drafts "${TMPDIR:-/tmp}/todo-drafts.json" --token 3f9a1c0e7b2d4a68 --json
@@ -196,7 +219,7 @@ TODOS=.todos/todos.py && python3 "$TODOS" file --drafts "${TMPDIR:-/tmp}/todo-dr
 Give the Bash call a timeout of at least a minute for each draft, since each
 issue or comment is one call to GitHub. `file` refuses a token when the drafts, a file
 they name, the last commit or the repository has changed since that report,
-and then files nothing. Run `report` again and show it to the author.
+and then files nothing. Run `report` again, publish it again and ask again.
 
 ## Step 5: report
 <!-- spec: dotodos-never-commits, dotodos-reports-before-handoffs -->
