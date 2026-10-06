@@ -195,7 +195,9 @@ requirement is admitted.
   plugin's skill passes work to a skill of another plugin:
   - it does so only through the Skill tool.
   - the arguments carry the note and the passage it sat above: its file, its
-    lines, its text, and which of those lines changed since the last commit.
+    lines, its text, and which of those lines changed since the last commit,
+    and the checkout's root and branch, when the passage was not read in the
+    session's own tree.
   - the receiving skill's description names the trigger, so the sender finds
     it by what it does.
   - neither `SKILL.md` names the other plugin.
