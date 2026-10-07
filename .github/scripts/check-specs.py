@@ -110,8 +110,11 @@ Things that look like bugs and are not:
 - `inventory` counts text as naming a command, an option or a value in two
   places: a script invocation in a skill's shell fence whose arguments hold
   it, and a backticked span in a skill's prose that starts with the command's
-  words or holds the option. It lists both, and leaves to the backfill what a
-  mention in prose counts for.
+  words. An option or a value counts only after its own command's words, so
+  `render --json` credits `--json` to `render` alone, and a bare `--json`
+  credits it to no command. It lists both places, and leaves to the backfill
+  what a mention in prose counts for. `surface` reads a requirement more
+  loosely, and counts a bare option for every command that takes it.
 - `inventory` reads the parser through argparse's own attributes, `_actions`
   and the subparsers' `choices`, since argparse has no public way to list a
   parser's options.
@@ -1004,6 +1007,18 @@ def names(item, words):
     return words[: len(command)] == command and item["value"] in words[len(command) :]
 
 
+def invokes(item, words):
+    """Whether these words run the surface item: its command's words, then
+    the option or value among the words after them. An option that several
+    commands share is credited only to the command these words run."""
+    command = item["command"].split()
+    if words[: len(command)] != command:
+        return False
+    if item["kind"] == "command":
+        return True
+    return names(dict(item, command=""), words[len(command) :])
+
+
 def span_words(span):
     try:
         return shlex.split(span)
@@ -1132,16 +1147,12 @@ def cmd_inventory(args, root):
             named = [
                 {"path": inv["path"], "line": inv["line"], "text": " ".join(inv["argv"])}
                 for inv in invocations
-                if inv["script"] == script and names(item, inv["argv"])
+                if inv["script"] == script and invokes(item, inv["argv"])
             ]
             named += [
                 {"path": path, "line": line, "text": text}
                 for path, line, text in spans
-                if names(item, span_words(text))
-                or (
-                    item["kind"] == "option"
-                    and span_words(text)[:1] in [[s] for s in item["strings"]]
-                )
+                if invokes(item, span_words(text))
             ]
             entry = {k: v for k, v in item.items() if k != "strings"}
             entry.update({"script": script, "named_by": named})

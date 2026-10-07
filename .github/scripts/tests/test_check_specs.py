@@ -696,6 +696,39 @@ class DescribeInventory:
         assert self.surface(listed, "choice", "go --mode a")["named_by"][0]["line"] == 19
         assert self.surface(listed, "choice", "go --mode b")["named_by"] == []
 
+    @pytest.mark.spec("inventory-cmd-lists-parser-surface")
+    def it_credits_a_shared_option_only_to_the_command_that_takes_it_there(self, make_repo, run):
+        source = SOURCE.replace(
+            "    return ap\n",
+            '    q = sub.add_parser("stop")\n'
+            '    q.add_argument("--mode", choices=MODES)\n'
+            '    q.add_argument("--skip")\n'
+            "    return ap\n",
+        )
+        text = skill().replace(
+            "to leave one out.\n",
+            "to leave one out.\n\nRun `stop --skip`, or pass `--skip` alone.\n",
+        )
+        root = make_repo({SCRIPT: source, SKILL: text, cp.DEFAULT_REPORT: coverage_report()})
+        code, out, err = run("inventory", "foo", "--json", "-C", str(root))
+        assert code == cp.OK, err
+        data = json.loads(out)["data"]
+        named = {
+            label: [n["text"] for n in self.surface(data, kind, label)["named_by"]]
+            for kind, label in (
+                ("option", "go --skip"),
+                ("option", "stop --skip"),
+                ("option", "stop --mode"),
+                ("choice", "stop --mode a"),
+            )
+        }
+        assert named == {
+            "go --skip": ["go --skip"],
+            "stop --skip": ["stop --skip"],
+            "stop --mode": [],
+            "stop --mode a": [],
+        }
+
     @pytest.mark.spec("inventory-cmd-lists-string-collections")
     def it_lists_each_collection_of_strings_and_resolves_named_ones(self, listed):
         found = {c["name"]: c["items"] for c in listed["collections"]}
