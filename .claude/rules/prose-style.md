@@ -66,10 +66,11 @@ Concrete means a number, a name or a title.
 > **Before.** The claim step can fail if the issue is not ready.
 > **After.** `issues.py claim 64` exits 1 when #64 is not labeled `approved`.
 
-### standing-flag-simplification: Flag a simplification with the word
+### standing-flag-simplification: Flag a simplification and name what was left out
 
-Write "Simplifying:" and name what was left out. A compression the reader
-cannot see is a compression the reader will later mistake for the whole
+Say in so many words that a passage simplifies, and name what it leaves out.
+`sentences-simplification-full-sentence` gives the form. A compression the
+reader cannot see is a compression the reader will later mistake for the whole
 picture.
 
 ### standing-short-sentences: Prefer short sentences over long run-on sentences
