@@ -28,6 +28,9 @@ cannot see the user's folder. `device_bash` can see the folder but cannot read
 the plugin. The commands that `probe` and `render` print bridge the two; do not
 retype file contents across them.
 
+When a `gitify.py` command stops, the last line of its errors says what to do
+next. Do that.
+
 ## Locate the script
 
 ```sh
@@ -40,11 +43,9 @@ again in front, as the steps below show. A command without it runs
 `python3 ""`, which fails with "can't find '__main__' module" and does not name a
 script.
 
-- **0**: the templates are complete. Go on.
-- **1**: a template is malformed. This is a bug in the plugin; show the user
-  the errors and stop.
-- **No such file**, from `ln` or `python3`: the skill was installed without its plugin, for example
-  through `propose_skills`. It needs a marketplace install. Say so and stop.
+When `ln` or `python3` says **No such file**, the skill was installed without
+its plugin, for example through `propose_skills`. It needs a marketplace
+install. Say so and stop.
 
 ## Step 1: find the folder, and look at it
 <!-- spec: probe-cmd-lists-folder, probe-cmd-stops-on-missing-folder, probe-cmd-stops-on-existing-repo, gitifyproject-asks-about-unwanted-files -->
@@ -57,8 +58,8 @@ folder inside it; ask the user which when it is not obvious.
 GITIFY=/tmp/gitify/plugin/scripts/gitify.py && python3 "$GITIFY" probe --connected-folder "<connected>" [--project-folder "<project>"] --json
 ```
 
-Exit 1 means one of the paths breaks a rule; `errors` says which. Otherwise run
-`data.probe_command` through `device_bash`:
+Run `data.probe_command` through `device_bash`. Its exit code says what it
+found:
 
 - **2, `missing:`**: the folder is not there. Stop and check the path with the
   user. Do not go on, because `device_commit_files` would create it.
@@ -108,13 +109,8 @@ step made:
 GITIFY=/tmp/gitify/plugin/scripts/gitify.py && python3 "$GITIFY" render --answers /tmp/gitify/answers.json --json
 ```
 
-- **0**: every file is staged under `/mnt/user-data/outputs/`.
-- **1**: `errors` names every problem. Nothing was written. Fix `answers.json`
-  and run it again.
-- **2**: render could not run. Its message names the cause and ends with what
-  to do.
-
-`--dry-run` checks the answers without writing.
+It stages every file under `/mnt/user-data/outputs/`. `--dry-run` checks the
+answers without writing.
 
 ## Step 4: copy the files onto the device
 <!-- spec: gitifyproject-stops-on-precheck, gitifyproject-recopies-failed-files, check-cmd-names-damaged-copies -->

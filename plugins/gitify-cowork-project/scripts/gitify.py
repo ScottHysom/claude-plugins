@@ -19,6 +19,8 @@ Commands:
                 CLAUDE.md of a folder that is already a git repo
 
 Exit codes: 0 clean, 1 ran and found problems, 2 could not run.
+Whichever way a command stops, its last line of errors says what to do next,
+so SKILL.md does not map an exit code to a remedy.
 
 The device commands probe and render print have exit codes of their own, which
 SKILL.md reads: 0 go on, 1 the folder holds something this would overwrite or
@@ -146,9 +148,13 @@ class Fatal(Exception):
     """Cannot run at all. Exits 2. The message ends with what to do next."""
 
 
-# The remedy each kind of Fatal ends with, so the caller need not tell the
-# causes apart.
+# The remedy a stop ends with, whether a Fatal or a command's errors, so the
+# caller need not tell the causes apart.
 FIX_ANSWERS = "fix the answers file and run render again"
+FIX_FOLDERS = (
+    "pass connected_folder exactly as get_device_info lists it, and any project"
+    " folder as a path inside it, then run %s again"
+)
 PLUGIN_BUG = "this is a bug in the plugin; show the user this message and stop"
 
 
@@ -169,9 +175,12 @@ def envelope(command, data, errors=None, warnings=None):
     }
 
 
-def emit(args, command, data, errors=None, warnings=None, human=None):
-    """Print JSON or human output, and return the exit code."""
-    errors = errors or []
+def emit(args, command, data, errors=None, warnings=None, human=None, remedy=None):
+    """Print JSON or human output, and return the exit code. When there are
+    errors, `remedy` is the last of them, so the output says what to do next."""
+    errors = list(errors or [])
+    if errors and remedy:
+        errors.append(remedy)
     warnings = warnings or []
     if args.json:
         print(json.dumps(envelope(command, data, errors, warnings), indent=2, sort_keys=True))
@@ -589,7 +598,7 @@ def cmd_render(args):
 
     if errors:
         errors.append("nothing was written")
-        return emit(args, "render", None, errors=errors)
+        return emit(args, "render", None, errors=errors, remedy=FIX_ANSWERS)
 
     full = dict((k, values[k]) for k in SUPPLIED)
     full["PROJECT_MOUNT"] = folders.mount
@@ -608,7 +617,7 @@ def cmd_render(args):
 
     if errors:
         errors.append("nothing was written")
-        return emit(args, "render", None, errors=errors)
+        return emit(args, "render", None, errors=errors, remedy=FIX_ANSWERS)
 
     stage = os.path.join(OUTPUTS_ROOT, STAGE_DIR)
     if not args.dry_run:
@@ -665,13 +674,13 @@ def cmd_preflight(args):
         if not errors:
             print("ok")
 
-    return emit(args, "preflight", {}, errors=errors, human=human)
+    return emit(args, "preflight", {}, errors=errors, human=human, remedy=PLUGIN_BUG)
 
 
 def cmd_probe(args):
     folders, errors = resolve_folders(args.connected_folder, args.project_folder)
     if errors:
-        return emit(args, "probe", None, errors=errors)
+        return emit(args, "probe", None, errors=errors, remedy=FIX_FOLDERS % "probe")
     data = {"probe_command": probe_command(folders.mount)}
 
     def human():
@@ -683,7 +692,7 @@ def cmd_probe(args):
 def cmd_history(args):
     folders, errors = resolve_folders(args.connected_folder, None)
     if errors:
-        return emit(args, "history", None, errors=errors)
+        return emit(args, "history", None, errors=errors, remedy=FIX_FOLDERS % "history")
     t = Template.load(TEMPLATES, HISTORY_TEMPLATE)
     t.require_clean()
     # One newline at the end, which is what the heredoc gives back.
