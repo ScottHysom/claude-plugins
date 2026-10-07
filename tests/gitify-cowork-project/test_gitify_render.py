@@ -396,6 +396,30 @@ class DescribeTheRemedyOnStopping:
         assert runner.err.rstrip().endswith(gitify.PLUGIN_BUG)
 
 
+class DescribeTheRemedyOnFindingProblems:
+    # SKILL.md does not map exit 1 to a remedy either, so the last error of
+    # each command that exits 1 says what to do next.
+    @pytest.mark.spec("repo:script-names-remedy-on-stop")
+    def it_tells_the_caller_to_fix_the_answers(self, runner, make_answers):
+        code, env = runner.render(make_answers(values={}))
+        assert code == gitify.PROBLEMS
+        assert env["errors"][-1] == gitify.FIX_ANSWERS
+
+    @pytest.mark.spec("repo:script-names-remedy-on-stop")
+    def it_tells_the_caller_a_malformed_template_is_a_plugin_bug(self, runner):
+        malformed_template(runner)
+        code, env = runner.run("preflight")
+        assert code == gitify.PROBLEMS
+        assert env["errors"][-1] == gitify.PLUGIN_BUG
+
+    @pytest.mark.spec("repo:script-names-remedy-on-stop")
+    @pytest.mark.parametrize("command", ["probe", "history"])
+    def it_tells_the_caller_to_pass_the_folder_as_listed(self, runner, command):
+        code, _ = runner.run(command, "--connected-folder", "Projects", json_output=False)
+        assert code == gitify.PROBLEMS
+        assert runner.err.rstrip().endswith(gitify.FIX_FOLDERS % command)
+
+
 class DescribeLeftovers:
     @pytest.mark.spec("render-cmd-refuses-leftover-placeholders")
     def it_stops_render_when_a_template_placeholder_has_no_value(self, runner, make_answers):
