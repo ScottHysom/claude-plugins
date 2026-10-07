@@ -87,6 +87,7 @@ class DescribeRender:
             for p in ignore:
                 assert p + "\n" in gitignore
 
-            for f in env["data"]["files"]:
-                if f["file"] not in ("CLAUDE.md", ".gitignore"):
-                    assert read(f["staged_path"]) == read(os.path.join(bare, *f["file"].split("/")))
+            for f in env["data"]["commit_files"]:
+                rel = os.path.relpath(f["stagedPath"], stage)
+                if rel not in ("CLAUDE.md", ".gitignore"):
+                    assert read(f["stagedPath"]) == read(os.path.join(bare, rel))

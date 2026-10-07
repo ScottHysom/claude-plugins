@@ -7,7 +7,6 @@ itself, because a half-staged set of files copied to the device is worse than
 none.
 """
 
-import hashlib
 import json
 import re
 from pathlib import Path
@@ -47,24 +46,17 @@ class DescribeACleanRender:
     def it_stages_every_file_with_no_placeholder_left(self, runner, make_answers):
         code, env = runner.render(make_answers())
         assert code == gitify.OK, env["errors"]
-        rels = [f["file"] for f in env["data"]["files"]]
+        rels = [rel for rel, _ in runner.staged_files(env["data"])]
         assert rels == [".gitignore", "commit.sh", "setup.sh", "CLAUDE.md"]
         for rel in rels:
             assert not gitify.LEFTOVER_RE.search(runner.staged(rel)), rel
 
-    def it_checksums_the_bytes_it_staged(self, runner, make_answers):
-        _, env = runner.render(make_answers())
-        for f in env["data"]["files"]:
-            with open(f["staged_path"], "rb") as fh:
-                assert hashlib.sha256(fh.read()).hexdigest() == f["sha256"]
-
     @pytest.mark.spec("render-cmd-stages-files")
     def it_pairs_each_staged_file_with_its_device_path(self, runner, make_answers, project):
         _, env = runner.render(make_answers())
-        data = env["data"]
-        assert data["commit_files"] == [
-            {"stagedPath": f["staged_path"], "devicePath": project["project"] + "/" + f["file"]}
-            for f in data["files"]
+        assert env["data"]["commit_files"] == [
+            {"stagedPath": str(runner.stage / rel), "devicePath": project["project"] + "/" + rel}
+            for rel in (".gitignore", "commit.sh", "setup.sh", "CLAUDE.md")
         ]
 
     @pytest.mark.spec("render-cmd-stages-files")
@@ -73,8 +65,7 @@ class DescribeACleanRender:
     ):
         code, env = runner.render(make_answers(project_folder=None))
         assert code == gitify.OK, env["errors"]
-        assert env["data"]["project_mount"] == "Projects"
-        assert env["data"]["files"][0]["device_path"] == project["connected"] + "/.gitignore"
+        assert env["data"]["commit_files"][0]["devicePath"] == project["connected"] + "/.gitignore"
 
     @pytest.mark.spec("render-cmd-prints-field-pointer")
     def it_tells_claude_to_read_the_file_when_the_project_is_the_connected_folder(
@@ -123,8 +114,7 @@ class DescribeACleanRender:
     def it_reports_and_writes_nothing_on_a_dry_run(self, runner, make_answers):
         code, env = runner.render(make_answers(), "--dry-run")
         assert code == gitify.OK
-        assert env["data"]["dry_run"] is True
-        assert len(env["data"]["files"]) == len(gitify.MANIFEST)
+        assert len(env["data"]["commit_files"]) == len(gitify.MANIFEST)
         assert not runner.stage.exists()
 
     @pytest.mark.spec("repo:command-splits-output-streams")
@@ -151,10 +141,8 @@ class DescribeACleanRender:
         arrange(runner)
         code, env = runner.render(make_answers())
         assert code == gitify.OK, env["errors"]
-        staged = sorted(
-            p.relative_to(runner.stage).as_posix() for p in runner.stage.rglob("*") if p.is_file()
-        )
-        assert staged == sorted(f["file"] for f in env["data"]["files"])
+        on_disk = sorted(str(p) for p in runner.stage.rglob("*") if p.is_file())
+        assert on_disk == sorted(f["stagedPath"] for f in env["data"]["commit_files"])
 
     @pytest.mark.spec("repo:command-never-writes-in-preview")
     def it_leaves_the_stage_alone_on_a_dry_run(self, runner, make_answers):
@@ -364,10 +352,11 @@ class DescribeValidatingTheFolders:
         assert any(message in e for e in errors_of(env)), env["errors"]
         assert_nothing_staged(runner)
 
+    @pytest.mark.spec("render-cmd-stages-files")
     def it_ignores_a_trailing_slash_on_a_folder(self, runner, make_answers, project):
         code, env = runner.render(make_answers(project_folder=project["project"] + "/"))
         assert code == gitify.OK, env["errors"]
-        assert env["data"]["project_path"] == project["project"]
+        assert env["data"]["commit_files"][0]["devicePath"] == project["project"] + "/.gitignore"
 
 
 class DescribeRefusingToRun:
