@@ -73,7 +73,8 @@ Commands:
                 with that script's build_parser()
   steps         every `## Step` section of a SKILL.md runs a command `commands`
                 resolves, or carries a no-command marker with a reason; one
-                that runs more than one carries a seam marker
+                that runs more than one carries a seam marker; no command runs
+                outside a step but in "Locate the script"
   fences        every fence has an info string, and every command in a shell
                 fence runs a script or is on the ALLOWED list
 
@@ -175,6 +176,11 @@ Things that look like bugs and are not, in `steps`:
   is gone.
 - A command in a reference/ file that a step sends the model to is not
   counted for that step, for seams as for no-command markers.
+- A command outside every step fails, because check-specs.py traces only
+  steps, and a command there would reach the model with no requirement behind
+  it. The "Locate the script" section is the exception: CLAUDE.md has it run
+  the script's first command in the same call that finds the script, and
+  LOCATE_SECTION names it.
 - It fails when it finds no step at all, for the same reason as `repeats`.
 
 Things that look like bugs and are not, in `fences`:
@@ -984,9 +990,11 @@ def cmd_commands(args, root):
 def step_sections(text):
     """The steps of a SKILL.md and the no-command and seam markers in it.
 
-    Returns (steps, markers). A step is {"line", "end", "heading", "number"}:
-    it runs from its `## Step N` heading to the line before the next heading of
-    level 1 or 2, or to the end of the file. A marker is {"line", "type",
+    Returns (steps, markers, locate). A step is {"line", "end", "heading",
+    "number"}: it runs from its `## Step N` heading to the line before the next
+    heading of level 1 or 2, or to the end of the file. `locate` is the
+    LOCATE_SECTION section as {"line", "end"}, bounded the same way, or None.
+    A marker is {"line", "type",
     "kind", "reason", "own_line", "step"}, where `type` is NO_COMMAND or SEAM,
     `kind` is a seam's kind and None for a no-command marker, and `step` is the
     step dict it sits in, or None. Fences are skipped whole, so neither a `#`
@@ -994,7 +1002,7 @@ def step_sections(text):
     """
     lines = text.splitlines()
     steps, markers = [], []
-    current = None
+    current = locate = None
     i = 0
     while i < len(lines):
         line = lines[i]
@@ -1006,7 +1014,11 @@ def step_sections(text):
         if heading and len(line) - len(line.lstrip("#")) <= SECTION_LEVEL:
             if current is not None:
                 current["end"] = i
+            if locate is not None and locate["end"] is None:
+                locate["end"] = i
             current = None
+            if heading.group(1).strip() == LOCATE_SECTION and locate is None:
+                locate = {"line": i + 1, "end": None}
             step = STEP_RE.match(heading.group(1).strip())
             if step and line.startswith("#" * SECTION_LEVEL + " "):
                 current = {
@@ -1039,7 +1051,9 @@ def step_sections(text):
                     }
                 )
         i += 1
-    return steps, markers
+    if locate is not None and locate["end"] is None:
+        locate["end"] = len(lines)
+    return steps, markers, locate
 
 
 def cmd_steps(args, root):
@@ -1059,10 +1073,21 @@ def cmd_steps(args, root):
     for path in sorted(p for paths in found.values() for p in paths):
         try:
             with open(os.path.join(root, path), encoding="utf-8", errors="replace") as fh:
-                sections, markers = step_sections(fh.read())
+                sections, markers, locate = step_sections(fh.read())
         except OSError as exc:
             raise Fatal("cannot read %s: %s" % (path, exc)) from exc
         scanned.append(path)
+
+        for n in resolved.get(path, []):
+            if any(s["line"] < n <= s["end"] for s in sections):
+                continue
+            if locate is not None and locate["line"] < n <= locate["end"]:
+                continue
+            errors.append(
+                "%s:%d runs a script command outside any step, so nothing traces it to a "
+                "requirement. Put it under a `## Step <number>` heading, or into the "
+                "step that needs it." % (path, n)
+            )
 
         for m in markers:
             where = "%s:%d" % (path, m["line"])

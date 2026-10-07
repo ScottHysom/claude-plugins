@@ -640,7 +640,7 @@ def find_steps(root, cs, files, errors):
     for component, paths in sorted(cs.skill_files(files).items()):
         for path in sorted(paths):
             text = read(root, path)
-            sections, _ = cs.step_sections(text)
+            sections, _, _ = cs.step_sections(text)
             mine = []
             for s in sections:
                 entry = dict(s)
