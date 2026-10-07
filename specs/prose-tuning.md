@@ -93,8 +93,8 @@ rule are the owner's figure, in the ruling on #132.
   document or run `tags resolve`, and leaves the author's markup and edits as
   they made them.
 - `updateproseconfig-writes-through-cmd` (step): When the author approves
-  rules, update-prose-config hands them to `config write` in one batch and does
-  not edit `prose-style.md` itself.
+  rules, update-prose-config hands them to `config write` in one batch, with
+  the token the author approved, and does not edit `prose-style.md` itself.
 - `write-cmd-writes-from-data` (test): When `config write --batch` is given
   new rules and rewrites as JSON, it writes each in the format
   `prose-style.md` requires, or refuses the record and names it by its place
@@ -104,7 +104,7 @@ rule are the owner's figure, in the ruling on #132.
   refused, and a file that does not lint clean is not written to at all.
 - `write-cmd-writes-all-or-none` (test): When `config write` refuses any
   record, it writes nothing unless `--partial` is passed. Given `--dry-run`,
-  it reports what it would write and writes nothing.
+  it reports what it would write and does not change `prose-style.md`.
 - `write-cmd-places-by-section` (test): When `config write` adds a rule, it
   puts it after the last rule of its section. A rule in a section the file
   does not have goes at the end under the `##` heading its record gives, and
@@ -115,6 +115,29 @@ rule are the owner's figure, in the ruling on #132.
 - `write-cmd-refuses-stale` (test): When a rewrite's `expect` is not the
   rule's body as the file holds it now, or the file has no rule with its id,
   `config write` refuses it.
+
+## need user-approves-each-rule: See each rule as it will be written before approving
+
+When Claude has proposed rules, the user wants to see each one as
+`prose-style.md` will hold it, with its patterns and its example, and to
+comment on one and have it revised, before approving. Nothing is written that
+they did not see.
+
+Source: the owner's request on 2026-10-04, after approving rules from a
+summary in a session (#343).
+
+- `write-cmd-requires-token` (test): When `config write` runs without
+  `--dry-run`, it requires `config write --token`, and when the token is not
+  the one `config write --dry-run` would print for the batch and
+  `prose-style.md` as they are now, it writes nothing and exits 1.
+- `updateproseconfig-shows-rules-whole` (step): When the dry run exits 0,
+  update-prose-config publishes `.prose-tuning/rules.md` as a private
+  artifact, or shows the file whole where it cannot, and takes one decision
+  naming the artifact's address and the token.
+- `updateproseconfig-revises-on-comment` (step): When the author sends a
+  comment on a published rule to Claude, update-prose-config revises the
+  batch, runs the dry run again, republishes to the same address and answers
+  in the comment's thread.
 
 ## need user-answers-in-one-round: Answer every open question at once
 
@@ -670,12 +693,17 @@ command's output.
 
 Source: Claude Code's Bash tool description, and the owner's report in #334.
 `specs/todos.md` holds the same constraint for do-todos, and this copy
-records it for apply-prose.
+records it for apply-prose and update-prose-config.
 
 - `report-cmd-writes-report-file` (test): When `report` runs, it writes the
   findings as markdown to `.prose-tuning/report.md`, which git ignores, and
   gives the file's path. When it exits 1, the file holds the errors and no
   token.
+- `write-cmd-previews-rules` (test): When `config write --dry-run` runs, it
+  writes each new or rewritten rule, as `prose-style.md` would hold it, to
+  `.prose-tuning/rules.md`, which git ignores, with a rewrite's old text
+  beside its new text, and gives the file's path. When it would write a rule,
+  it prints a token, and otherwise the file holds the errors and no token.
 
 ## constraint artifact-sends-comments: A comment sent to Claude reaches the session
 

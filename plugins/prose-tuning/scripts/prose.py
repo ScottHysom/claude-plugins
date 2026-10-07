@@ -91,6 +91,9 @@ Some things in here look like bugs and are not:
    approved the report is refused rather than written. Nothing records the
    token on disk: apply recomputes it, because a state file on the Cowork
    bridge could never be deleted. approval_token has what it covers.
+   config write --dry-run prints a token in the same way, and config write
+   refuses a batch or a prose-style.md that changed since; rules_token has
+   what it covers.
 
 4. apply and tags resolve can delete a blank line that nothing names. They do
    so when a whole block that sat between two blank lines is cut, by findings
@@ -105,6 +108,9 @@ Some things in here look like bugs and are not:
    because Claude Code shows a command's output to the model and not reliably
    to the author, who has to read what they approve. A report that fails
    writes its errors and no token, so a stale token never reaches the author.
+   config write --dry-run writes .prose-tuning/rules.md for the same reason,
+   and a dry run that would write no rule writes no token either. So a dry
+   run writes a file, and only to .prose-tuning/.
 
 Python 3.9 is the floor. No match statements, no X | Y unions.
 """
@@ -124,13 +130,24 @@ ENVELOPE_VERSION = 1
 
 OK, PROBLEMS, CANNOT_RUN = 0, 1, 2
 
-# How many hex digits of the token report prints for apply.
+# How many hex digits of the token report prints for apply, and config
+# write --dry-run for config write.
 TOKEN_LENGTH = 16
 TOKEN_LABEL = "approval token: "
 TOKEN_STALE = (
     "the findings, a document they name or %s changed since report ran, "
     "or the token is not the one it printed; run report again and show it to the author"
 )
+RULES_TOKEN_STALE = (
+    "the batch or %s changed since config write --dry-run ran, or the token is not "
+    "the one it printed; run config write --dry-run again and show its page to the author"
+)
+RULES_TOKEN_MISSING = (
+    "config write needs --token: run config write --dry-run, show the author the page it "
+    "writes, and pass the token it prints"
+)
+# What the rules token hashes first, so it can never equal a report token.
+RULES_TOKEN_DOMAIN = b"config write"
 
 CONFIG_NAME = "prose-style.md"
 # Where a project keeps it. See "Where the rules live" above.
@@ -162,11 +179,14 @@ GIT_DIR_NAME = ".git"
 COPY_IGNORE = COPY_DIR + "/.gitignore"
 COPY_IGNORE_TEXT = b"*\n"
 # Where questions writes the interview, for the author to answer on a page,
-# where report writes the findings, for the author to read whole, and the info
-# string of the fence that holds a piece of evidence or a finding's text.
+# where report writes the findings and config write --dry-run the rules, for
+# the author to read whole, and the info string of the fence that holds a
+# piece of evidence or a finding's text, and of the one that holds a rule.
 QUESTIONS_FILE = COPY_DIR + "/questions.md"
 REPORT_FILE = COPY_DIR + "/report.md"
+RULES_FILE = COPY_DIR + "/rules.md"
 PAGE_FENCE_INFO = "text"
+RULES_FENCE_INFO = "markdown"
 DEVICE_MOUNT_ROOT = "$HOME/mnt"
 
 # What evidence, reproduce and restore compare the working tree against.
@@ -2198,24 +2218,13 @@ def read_json(source, what):
     stdin spares Cowork a scratch file in the project, which the bridge could
     write but never delete.
     """
-    if source == "-":
-        raw = sys.stdin.read()
-    else:
-        try:
-            with open(source, encoding="utf-8") as fh:
-                raw = fh.read()
-        except OSError as exc:
-            raise Fatal("cannot read %s: %s" % (what, exc)) from exc
-    try:
-        return json.loads(raw)
-    except ValueError as exc:
-        raise Fatal("%s is not valid JSON: %s" % (what, exc)) from exc
+    return read_json_bytes(source, what)[1]
 
 
-def read_findings(source):
-    """(raw bytes, parsed findings) from a file, or from stdin when source is -.
+def read_json_bytes(source, what):
+    """(raw bytes, parsed JSON) from a file, or from stdin when source is -.
 
-    The bytes are what the approval token hashes, so they are read once and
+    The bytes are what an approval token hashes, so they are read once and
     parsed from the same read. stdin cannot be read twice.
     """
     if source == "-":
@@ -2225,11 +2234,11 @@ def read_findings(source):
             with open(source, "rb") as fh:
                 raw = fh.read()
         except OSError as exc:
-            raise Fatal("cannot read findings: %s" % exc) from exc
+            raise Fatal("cannot read %s: %s" % (what, exc)) from exc
     try:
         return raw, json.loads(raw.decode("utf-8"))
     except ValueError as exc:
-        raise Fatal("findings is not valid JSON: %s" % exc) from exc
+        raise Fatal("%s is not valid JSON: %s" % (what, exc)) from exc
 
 
 def load(args):
@@ -3288,6 +3297,10 @@ def new_block(config, lines, rec, opened):
 def plan_writes(config, lines, records):
     """(the file's new lines, what was written, what was refused).
 
+    Each written entry carries its rule's text as the file will hold it, and
+    for a rewrite the text it replaces, for the page config write --dry-run
+    writes.
+
     Each record is checked against the file as read and against the records
     accepted before it, so a second rule in a section new to the file goes
     under the heading the first opened. A record is refused whole: on a
@@ -3316,30 +3329,100 @@ def plan_writes(config, lines, records):
         seen[rid] = n
         if rewrite:
             replaced[where] = block
+            old = "".join(lines[where[0] : where[1]])
         else:
             opened.setdefault(rec["section"], where)
             spots.setdefault(where, []).append(block)
-        written.append({"id": rid, "change": WRITTEN_REWRITE if rewrite else WRITTEN_NEW})
+            old = None
+        written.append(
+            {
+                "id": rid,
+                "change": WRITTEN_REWRITE if rewrite else WRITTEN_NEW,
+                "old": old,
+                "new": "".join(block),
+            }
+        )
     return place_blocks(lines, spots, replaced), written, refused
+
+
+def rules_token(config, raw):
+    """The token config write --dry-run prints and config write requires.
+
+    A sha256 over the batch's bytes and prose-style.md's bytes, so a batch
+    edited after the author read the page, or a file changed under it, is
+    refused. --partial is left out: a batch the dry run refused part of shows
+    no token unless --partial was given, and config write without it refuses
+    that batch whole.
+    """
+    digest = TokenHash()
+    digest.part(RULES_TOKEN_DOMAIN)
+    digest.part(raw)
+    digest.document(config.path)
+    return digest.token()
+
+
+def rules_markdown(rel, written, errors, token):
+    """The rules config write --dry-run would write, as markdown: what the
+    author reads whole, and approves.
+
+    Each rule sits in a fence as the file will hold it, and a rewrite shows
+    the rule as the file holds it now above it.
+    """
+    out = ["# Rules to write", "", "Into `%s`." % rel]
+    if errors:
+        out += ["", "## Refused", "", "Settle these and run config write --dry-run again:", ""]
+        out += ["- %s" % e for e in errors]
+    for w in written:
+        if w["change"] == WRITTEN_REWRITE:
+            out += ["", "## Rewrite `%s`, at line %d" % (w["id"], w["line"])]
+            out += ["", "Now:", "", fenced(w["old"], RULES_FENCE_INFO)]
+            out += ["", "Becomes:", "", fenced(w["new"], RULES_FENCE_INFO)]
+        else:
+            out += ["", "## New `%s`, at line %d" % (w["id"], w["line"])]
+            out += ["", fenced(w["new"], RULES_FENCE_INFO)]
+    out += ["", "%d rule(s) to write." % len(written)]
+    if token:
+        out += ["", "%s`%s`" % (TOKEN_LABEL.capitalize(), token)]
+    return "\n".join(out) + "\n"
 
 
 def config_write(args, repo, config):
     """Write approved rules into prose-style.md from a JSON batch.
 
-    update-prose-config's step 7. A record is either a new rule (section,
+    update-prose-config's step 6. A record is either a new rule (section,
     name, title, body, and optionally example, patterns and heading) or a
     rewrite (id, expect, and any of title, body, example and patterns). Writes
     nothing while any record is refused unless --partial is passed, and
     nothing at all when the result would not lint clean.
+
+    --dry-run also writes the rules as the file would hold them to
+    .prose-tuning/rules.md, and prints a token when it would write any.
+    Without --dry-run, config write takes that token, and writes nothing when
+    the batch or the file changed since.
     """
     if config.errors:
         raise Fatal(
             "%s does not lint clean; run: prose.py config lint" % config.rel()
             + ("" if not args.config_file else " --file %s" % config.path)
         )
-    records = read_json(args.batch, "the batch")
+    raw, records = read_json_bytes(args.batch, "the batch")
     if not isinstance(records, list):
         raise Fatal("the batch is not a JSON list of records")
+    if not args.dry_run and args.token is None:
+        raise Fatal(RULES_TOKEN_MISSING)
+    token = rules_token(config, raw)
+    data = {
+        "path": config.rel(),
+        "dry_run": args.dry_run,
+        "written": [],
+        "refused": [],
+        "token": None,
+        "rules": None,
+    }
+    if not args.dry_run and args.token != token:
+        stale = RULES_TOKEN_STALE % config.rel()
+        return emit(args, "config write", repo.root, data, errors=[stale])
+
     lines = Text.read(config.path).lines
     out, written, refused = plan_writes(config, lines, records)
     errors = ["record %d (%s): %s" % (r["index"], r["id"], r["reason"]) for r in refused]
@@ -3357,7 +3440,17 @@ def config_write(args, repo, config):
     at = {r.id: r.line for r in result.rules}
     for w in written:
         w["line"] = at[w["id"]]
-    data = {"path": config.rel(), "dry_run": args.dry_run, "written": written, "refused": refused}
+    data["written"] = written
+    data["refused"] = refused
+    if args.dry_run:
+        # No token for a batch that would write nothing: there is nothing to
+        # approve.
+        data["token"] = token if written else None
+        page = rules_markdown(config.rel(), written, errors, data["token"])
+        data["rules"] = write_page(repo, RULES_FILE, page)
+    for w in written:
+        # The page holds the rules' text; stdout names them.
+        del w["old"], w["new"]
 
     def human():
         verb = "would write" if args.dry_run else "wrote"
@@ -3365,6 +3458,8 @@ def config_write(args, repo, config):
             print("%s  %s  %s at line %d" % (verb, w["id"], w["change"], w["line"]))
         for r in refused:
             print("refused  record %d  %s" % (r["index"], r["id"]))
+        if data["token"]:
+            print(TOKEN_LABEL + data["token"])
 
     return emit(args, "config write", repo.root, data, errors=errors, human=human)
 
@@ -4252,7 +4347,7 @@ def cmd_report(args):
     rules, so the author can tell them from the rules checked by reading.
     """
     repo, config, scope = load(args)
-    raw, findings = read_findings(args.findings)
+    raw, findings = read_json_bytes(args.findings, "findings")
     by_file, rejected = select_findings(config, findings)
     rows, overlaps, dismissed = [], [], []
     for _path, rel, text, numbers, mine in selected_files(repo, by_file, rejected):
@@ -4343,7 +4438,7 @@ def cmd_report(args):
 
 def cmd_apply(args):
     repo, config, _ = load(args)
-    raw, findings = read_findings(args.findings)
+    raw, findings = read_json_bytes(args.findings, "findings")
     if args.token != approval_token(repo, config, raw, findings):
         stale = TOKEN_STALE % config.rel()
         return emit(args, "apply", repo.root, {"applied": []}, errors=[stale])
@@ -4387,12 +4482,12 @@ def cmd_apply(args):
     return emit(args, "apply", repo.root, data, errors=rejected, human=human)
 
 
-def fenced(text):
+def fenced(text, info=PAGE_FENCE_INFO):
     """text in a code fence longer than any run of backticks inside it, so a
     diff or a markdown passage shows as it stands."""
     longest = max([len(run) for run in re.findall(r"`+", text)] + [2])
     fence = "`" * (longest + 1)
-    return "%s%s\n%s\n%s" % (fence, PAGE_FENCE_INFO, text.rstrip("\n"), fence)
+    return "%s%s\n%s\n%s" % (fence, info, text.rstrip("\n"), fence)
 
 
 def question_refusals(n, q):
@@ -4746,9 +4841,19 @@ def build_parser():
                 metavar="PATH",
                 help="the records as a JSON list, or - for stdin",
             )
-            c.add_argument("--dry-run", action="store_true", help="say what would be written")
+            c.add_argument(
+                "--dry-run",
+                action="store_true",
+                help="say what would be written, write the rules to %s for the author to "
+                "read, and print the token config write takes" % RULES_FILE,
+            )
             c.add_argument(
                 "--partial", action="store_true", help="write what is valid instead of nothing"
+            )
+            c.add_argument(
+                "--token",
+                help="the approval token config write --dry-run printed for this batch; "
+                "config write refuses a batch or rules that changed since",
             )
         if name == "move":
             c.add_argument("--dry-run", action="store_true", help="say what would be copied")

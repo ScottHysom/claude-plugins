@@ -103,6 +103,18 @@ republishes to the same address. The approval dialog names the address and
 the token, so the author approves the page they read. Where the skill cannot
 publish, it gives the file whole in its reply.
 
+## The rules page
+
+update-prose-config shows the author the rules it proposes on a page, for the
+same reason apply-prose shows its report on one. `prose.py config write
+--dry-run` writes each new or rewritten rule to `.prose-tuning/rules.md`, as
+`prose-style.md` will hold it, with a rewrite's old text above its new text,
+and prints a token. The skill publishes that file as a private artifact, and
+revises the batch when the author comments on a rule. `config write` then
+takes the token, and writes nothing when the batch or `prose-style.md`
+changed since the dry run, so what the author approved is what is written.
+Where the skill cannot publish, it gives the file whole in its reply.
+
 ## Why a script
 
 `scripts/prose.py` does everything deterministic:
