@@ -98,8 +98,10 @@ Some things in here look like bugs and are not:
    says why neutralizing a file for evidence never does this.
 
 5. questions writes .prose-tuning/questions.md and does not take --dry-run.
-   The file is git-ignored scratch that its next run replaces, which is the
-   case the owner ruled on in #334 for todos.py's report file.
+   A command takes --dry-run only when a user scenario, a test or a
+   verification step needs the preview, and none needs one here: the skill
+   always wants the page, and the file is git-ignored scratch that the next
+   run replaces.
 
 Python 3.9 is the floor. No match statements, no X | Y unions.
 """
