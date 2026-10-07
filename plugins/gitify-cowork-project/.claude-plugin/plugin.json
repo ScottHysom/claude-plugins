@@ -1,6 +1,6 @@
 {
   "name": "gitify-cowork-project",
-  "version": "0.6.1",
+  "version": "0.6.2",
   "description": "Cowork only. Puts an existing Cowork Project folder under git without touching its documents: commit helpers, and a CLAUDE.md holding the Project Instructions and how Claude commits and reads the history. Requires a connected folder on the Cowork device bridge.",
   "author": {
     "name": "Scott Hysom",
