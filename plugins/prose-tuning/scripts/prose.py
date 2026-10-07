@@ -20,8 +20,8 @@ Commands:
     patterns    where each rule's pattern matches those spans
     evidence    explicit tags + inferred edits
     reproduce   whether the rules' patterns reproduce the edits since HEAD
-    config      list | lint | check-id | similar | classify | adopt | write |
-                init | move
+    config      list | lint | check-id | classify | adopt | write | init |
+                move
     tags        list | resolve
     report      the findings for approval, and which of them overlap, also
                 written to .prose-tuning/report.md for the author to read
@@ -3564,37 +3564,6 @@ def cmd_config(args):
             human=lambda: problem or print(rid),
         )
 
-    if which == "similar":
-        other = Config(os.path.abspath(args.to))
-        if not other.exists:
-            raise Fatal("%s does not exist" % args.to)
-        pairs = similar_pairs(config, other, args.threshold)
-
-        def human():
-            w = max([len(p["source"]) for p in pairs] + [8])
-            for p in pairs:
-                print(
-                    "%.2f  %-*s  %s   (body %.2f, name %.2f)"
-                    % (p["score"], w, p["source"], p["target"], p["body"], p["name"])
-                )
-            print(
-                "\n%d candidate pair(s) at or above %.2f; each is a question"
-                " for the author, not a decision." % (len(pairs), args.threshold)
-            )
-
-        return emit(
-            args,
-            "config similar",
-            repo.root,
-            {
-                "source": config.path,
-                "target": os.path.abspath(args.to),
-                "threshold": args.threshold,
-                "pairs": pairs,
-            },
-            human=human,
-        )
-
     if which == "classify":
         other = Config(os.path.abspath(args.to))
         if not other.exists:
@@ -4835,7 +4804,6 @@ def build_parser():
         ("list", "the rules"),
         ("lint", "check the file"),
         ("check-id", "is this id well-formed and free"),
-        ("similar", "rules two files state twice"),
         ("classify", "which bucket each rule falls in when adopted"),
         ("adopt", "copy new rules into another file, marked as adopted"),
         ("write", "write approved rules into the file from JSON"),
@@ -4855,7 +4823,7 @@ def build_parser():
         if name == "check-id":
             c.add_argument("--section", required=True)
             c.add_argument("--name", required=True, help="one to four lower-case words joined by -")
-        if name in ("similar", "classify"):
+        if name == "classify":
             c.add_argument(
                 "--to", required=True, metavar="PATH", help="the prose-style.md to compare against"
             )

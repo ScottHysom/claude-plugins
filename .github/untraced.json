@@ -51,8 +51,6 @@
     "plugins/prose-tuning/scripts/prose.py::config classify --threshold": 166,
     "plugins/prose-tuning/scripts/prose.py::config list --ids": 206,
     "plugins/prose-tuning/scripts/prose.py::config move": 203,
-    "plugins/prose-tuning/scripts/prose.py::config similar": 165,
-    "plugins/prose-tuning/scripts/prose.py::config similar --threshold": 165,
     "plugins/prose-tuning/scripts/prose.py::evidence --ignore": 173,
     "plugins/prose-tuning/scripts/prose.py::evidence --since": 172,
     "plugins/prose-tuning/scripts/prose.py::preflight --for adopt": 205,
