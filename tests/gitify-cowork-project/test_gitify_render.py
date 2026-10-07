@@ -55,37 +55,19 @@ class DescribeACleanRender:
     def it_pairs_each_staged_file_with_its_device_path(self, runner, make_answers, project):
         _, env = runner.render(make_answers())
         assert env["data"]["commit_files"] == [
-            {"stagedPath": str(runner.stage / rel), "devicePath": project["project"] + "/" + rel}
+            {"stagedPath": str(runner.stage / rel), "devicePath": project["connected"] + "/" + rel}
             for rel in (".gitignore", "commit.sh", "setup.sh", "CLAUDE.md")
         ]
 
-    @pytest.mark.spec("render-cmd-stages-files")
-    def it_allows_the_project_to_be_the_connected_folder_itself(
-        self, runner, make_answers, project
-    ):
-        code, env = runner.render(make_answers(project_folder=None))
-        assert code == gitify.OK, env["errors"]
-        assert env["data"]["commit_files"][0]["devicePath"] == project["connected"] + "/.gitignore"
-
     @pytest.mark.spec("render-cmd-prints-field-pointer")
-    def it_tells_claude_to_read_the_file_when_the_project_is_the_connected_folder(
+    def it_tells_claude_to_read_the_file_from_the_first_message(
         self, runner, make_answers, project
     ):
         # Cowork loads the root CLAUDE.md only from the second message on; the
         # field is all the first one sees. COWORK.md, "How instruction files load".
-        _, env = runner.render(make_answers(project_folder=None))
-        pointer = env["data"]["field_pointer"]
-        assert pointer == gitify.FIELD_POINTER.format(path=project["connected"])
-        assert "\n" not in pointer
-
-    def it_tells_claude_to_read_the_file_when_the_project_is_a_subfolder(
-        self, runner, make_answers, project
-    ):
-        # Cowork does not load a CLAUDE.md below the connected folder.
         _, env = runner.render(make_answers())
         pointer = env["data"]["field_pointer"]
-        assert pointer.startswith("Before anything else, read CLAUDE.md")
-        assert project["project"] in pointer
+        assert pointer == gitify.FIELD_POINTER.format(path=project["connected"])
         assert "\n" not in pointer
 
     @pytest.mark.spec("render-cmd-prints-field-pointer")
@@ -103,7 +85,7 @@ class DescribeACleanRender:
     @pytest.mark.spec("render-cmd-prints-field-pointer", "repo:command-splits-output-streams")
     def it_prints_the_pointer_in_its_plain_output(self, runner, make_answers, project):
         path = runner.tmp / "answers.json"
-        path.write_text(json.dumps(make_answers(project_folder=None)))
+        path.write_text(json.dumps(make_answers()))
         args = ("render", "--answers", str(path))
         code, _ = runner.run(*args, json_output=False)
         assert code == gitify.OK
@@ -216,17 +198,11 @@ class DescribeTheHistorySection:
         assert "Never run `git commit` through the bridge" in text
 
     @pytest.mark.spec("claudemd-gives-history-commands")
-    def it_reads_the_history_at_the_projects_mount(self, runner, make_answers):
+    def it_reads_the_history_at_the_connected_folders_mount(self, runner, make_answers):
         runner.render(make_answers())
         text = loaded(runner.staged("CLAUDE.md"))
         assert "Read-only git works through the bridge" in text
-        assert 'cd "$HOME/mnt/Projects/Foo Research"\ngit log' in text
-
-    @pytest.mark.spec("claudemd-gives-history-commands")
-    def it_reads_the_history_at_the_connected_folders_mount(self, runner, make_answers):
-        runner.render(make_answers(project_folder=None))
-        text = loaded(runner.staged("CLAUDE.md"))
-        assert 'cd "$HOME/mnt/Projects"\n' in text
+        assert 'cd "$HOME/mnt/Foo Research"\ngit log' in text
 
     @pytest.mark.spec("claudemd-gives-field-rule")
     def it_moves_anything_else_in_the_field_into_the_file(self, runner, make_answers):
@@ -307,7 +283,7 @@ class DescribeValidatingAValue:
         data["values"]["PROJECT_MOUNT"] = "x"
         code, env = runner.render(data)
         assert code == gitify.PROBLEMS
-        assert any("computed from the folders" in e for e in errors_of(env))
+        assert any("computed from the folder;" in e for e in errors_of(env))
 
     @pytest.mark.spec("repo:script-checks-every-answer")
     def it_rejects_values_that_are_not_an_object(self, runner, make_answers):
@@ -337,9 +313,7 @@ FOLDER_CASES = [
     ({"connected_folder": "Projects"}, "must be absolute"),
     ({"connected_folder": "/a/../b"}, ". or .. segments"),
     ({"connected_folder": "/a\\b"}, "newline or backslash"),
-    ({"connected_folder": "~", "project_folder": None}, "no folder name to mount"),
-    ({"project_folder": "Foo"}, "project_folder must be absolute"),
-    ({"project_folder": "/elsewhere/Foo"}, "is not inside connected_folder"),
+    ({"connected_folder": "~"}, "no folder name to mount"),
 ]
 
 
@@ -354,9 +328,9 @@ class DescribeValidatingTheFolders:
 
     @pytest.mark.spec("render-cmd-stages-files")
     def it_ignores_a_trailing_slash_on_a_folder(self, runner, make_answers, project):
-        code, env = runner.render(make_answers(project_folder=project["project"] + "/"))
+        code, env = runner.render(make_answers(connected_folder=project["connected"] + "/"))
         assert code == gitify.OK, env["errors"]
-        assert env["data"]["commit_files"][0]["devicePath"] == project["project"] + "/.gitignore"
+        assert env["data"]["commit_files"][0]["devicePath"] == project["connected"] + "/.gitignore"
 
 
 class DescribeRefusingToRun:
