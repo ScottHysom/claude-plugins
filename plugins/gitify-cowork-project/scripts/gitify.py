@@ -52,8 +52,10 @@ Things that look like bugs and are not:
    setup.sh. history's command tests for .git and leaves the commit to the
    user.
 
-3. render refuses a stage directory holding files it did not plan. It cannot
-   clean one up, for the same reason as 1.
+3. render deletes its stage directory before it writes, which 1 seems to
+   forbid. The stage is in Cowork's container, where render runs, and the
+   bridge's limits do not reach it. Clearing it means the stage holds only
+   what this run planned.
 
 4. `instructions` is copied into CLAUDE.md after placeholders are substituted
    and is never checked for them. It is the user's text, copied verbatim, and
@@ -68,6 +70,7 @@ import json
 import os
 import re
 import shlex
+import shutil
 import sys
 
 ENVELOPE_VERSION = 1
@@ -78,10 +81,10 @@ PLUGIN = "gitify-cowork-project"
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATES = os.path.join(os.path.dirname(SCRIPT_DIR), "skills", "gitify-project", "templates")
 
-# Where device_commit_files accepts files from. A stage elsewhere still renders,
-# with a warning, so the script can be run and tested off Cowork.
+# Where device_commit_files accepts files from. render stages under it, in a
+# directory of its own that it clears on every run.
 OUTPUTS_ROOT = "/mnt/user-data/outputs"
-DEFAULT_STAGE_DIR = PLUGIN
+STAGE_DIR = PLUGIN
 
 # Where each connected folder appears to device_bash.
 DEVICE_MOUNT_ROOT = "$HOME/mnt"
@@ -146,7 +149,6 @@ class Fatal(Exception):
 # The remedy each kind of Fatal ends with, so the caller need not tell the
 # causes apart.
 FIX_ANSWERS = "fix the answers file and run render again"
-NEW_STAGE = "pass a new --stage"
 PLUGIN_BUG = "this is a bug in the plugin; show the user this message and stop"
 
 
@@ -558,7 +560,7 @@ def cmd_render(args):
     for t in templates:
         t.require_clean()
 
-    errors, warnings = [], []
+    errors = []
     extra = set(answers) - set(ANSWER_KEYS)
     if extra:
         errors.append("answers has unexpected keys: %s" % ", ".join(sorted(extra)))
@@ -608,12 +610,9 @@ def cmd_render(args):
         errors.append("nothing was written")
         return emit(args, "render", None, errors=errors)
 
-    stage = os.path.abspath(args.stage or os.path.join(OUTPUTS_ROOT, DEFAULT_STAGE_DIR))
-    if not (stage + "/").startswith(OUTPUTS_ROOT + "/"):
-        warnings.append(
-            "stage %s is outside %s; device_commit_files will reject it" % (stage, OUTPUTS_ROOT)
-        )
-    check_stage(stage, [p["file"] for p in planned])
+    stage = os.path.join(OUTPUTS_ROOT, STAGE_DIR)
+    if not args.dry_run:
+        clear_stage(stage)
 
     commit_files = []
     for p in planned:
@@ -643,24 +642,15 @@ def cmd_render(args):
         print("\ncheck after copying, through device_bash:\n%s" % data["check_command"])
         print("\nfor the Project Instructions field:\n%s" % data["field_pointer"])
 
-    return emit(args, "render", data, warnings=warnings, human=human)
+    return emit(args, "render", data, human=human)
 
 
-def check_stage(stage, rels):
-    """Refuse a stage holding anything this run would not write."""
-    if not os.path.exists(stage):
-        return
-    if not os.path.isdir(stage):
-        raise Fatal("stage %s exists and is not a directory; %s" % (stage, NEW_STAGE))
-    planned = set(rels)
-    for root, _dirs, names in os.walk(stage):
-        for n in names:
-            rel = os.path.relpath(os.path.join(root, n), stage).replace(os.sep, "/")
-            if rel not in planned:
-                raise Fatal(
-                    "stage %s already holds %s, which this run would not write; %s"
-                    % (stage, rel, NEW_STAGE)
-                )
+def clear_stage(stage):
+    """Remove whatever an earlier run, or anything else, left at the stage."""
+    if os.path.isdir(stage) and not os.path.islink(stage):
+        shutil.rmtree(stage)
+    elif os.path.lexists(stage):
+        os.remove(stage)
 
 
 # --------------------------------------------------------------------------
@@ -733,11 +723,6 @@ def build_parser():
 
     p = sub.add_parser("render", parents=[common], help="fill the templates into a stage directory")
     p.add_argument("--answers", required=True, metavar="FILE", help="answers JSON file")
-    p.add_argument(
-        "--stage",
-        metavar="DIR",
-        help="where to write (default: %s/%s)" % (OUTPUTS_ROOT, DEFAULT_STAGE_DIR),
-    )
     p.add_argument("--dry-run", action="store_true")
     p.set_defaults(func=cmd_render)
 
