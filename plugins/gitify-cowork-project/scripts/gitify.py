@@ -117,8 +117,8 @@ HEREDOC_END = "GITIFY_SECTION"
 
 # What the user puts in the Project Instructions field in place of what was
 # there. Cowork adds the field to every conversation in the project, so it
-# carries only this line. The line stays even when the project is the connected
-# folder, whose CLAUDE.md Cowork also loads by itself: the field reaches every
+# carries only this line. The line stays even though Cowork also loads the
+# connected folder's CLAUDE.md by itself: the field reaches every
 # conversation from its start, so the line gets CLAUDE.md read wherever
 # Cowork's own loading does not. COWORK.md, under "How instruction files load",
 # has what Cowork loads and when. A session started from the Claude mobile app
@@ -134,10 +134,10 @@ PLACEHOLDER_RE = re.compile(r"\{\{([A-Z_]+)\}\}")
 # Anything that means a placeholder survived into the output, or was mistyped.
 LEFTOVER_RE = re.compile(r"\{\{|\}\}")
 
-# Placeholders the model supplies, and the ones computed from the folders.
+# Placeholders the model supplies, and the ones computed from the folder.
 SUPPLIED = ("PROJECT_NAME",)
 COMPUTED = ("PROJECT_MOUNT",)
-ANSWER_KEYS = ("connected_folder", "project_folder", "values", "instructions", "ignore")
+ANSWER_KEYS = ("connected_folder", "values", "instructions", "ignore")
 
 DIGEST_LEN = 12
 
@@ -327,40 +327,26 @@ def normalize_folder(value, field):
     return path, None
 
 
-class Folders:
-    """Where the project is: on the device, and as device_bash mounts it."""
+class Folder:
+    """Where the project is: on the device, and as device_bash mounts it. The
+    project is the connected folder itself, since a connected folder is not
+    shared between Cowork Projects."""
 
-    def __init__(self, connected, project, sub, mount_name):
-        self.connected = connected
-        self.project = project
-        self.sub = sub
-        self.mount = posix_join(mount_name, sub)
+    def __init__(self, path, mount):
+        self.path = path
+        self.mount = mount
 
 
-def resolve_folders(connected_value, project_value):
-    """(Folders, errors) from the two folder answers. Folders is None when
+def resolve_folder(value):
+    """(Folder, errors) from the connected_folder answer. Folder is None when
     there are errors."""
-    errors = []
-    connected, err = normalize_folder(connected_value, "connected_folder")
+    path, err = normalize_folder(value, "connected_folder")
     if err:
-        errors.append(err)
-    project = connected
-    if project_value is not None:
-        project, err = normalize_folder(project_value, "project_folder")
-        if err:
-            errors.append(err)
-    if errors:
-        return None, errors
-    if project == connected:
-        sub = ""
-    elif project.startswith(connected + "/"):
-        sub = project[len(connected) + 1 :]
-    else:
-        return None, ["project_folder %r is not inside connected_folder %r" % (project, connected)]
-    mount_name = connected.split("/")[-1] if connected != "~" else ""
-    if not mount_name:
+        return None, [err]
+    mount = path.split("/")[-1] if path != "~" else ""
+    if not mount:
         return None, ["connected_folder has no folder name to mount"]
-    return Folders(connected, project, sub, mount_name), []
+    return Folder(path, mount), []
 
 
 def check_value(name, value):
@@ -565,9 +551,7 @@ def cmd_render(args):
     if extra:
         errors.append("answers has unexpected keys: %s" % ", ".join(sorted(extra)))
 
-    folders, folder_errors = resolve_folders(
-        answers.get("connected_folder"), answers.get("project_folder")
-    )
+    folder, folder_errors = resolve_folder(answers.get("connected_folder"))
     errors.extend(folder_errors)
 
     values = answers.get("values")
@@ -576,7 +560,7 @@ def cmd_render(args):
         values = {}
     for name in COMPUTED:
         if name in values:
-            errors.append("values.%s is computed from the folders; do not pass it" % name)
+            errors.append("values.%s is computed from the folder; do not pass it" % name)
     for name in sorted(set(values) - set(SUPPLIED) - set(COMPUTED)):
         errors.append("values.%s is not a placeholder" % name)
     for name in SUPPLIED:
@@ -592,7 +576,7 @@ def cmd_render(args):
         return emit(args, "render", None, errors=errors)
 
     full = dict((k, values[k]) for k in SUPPLIED)
-    full["PROJECT_MOUNT"] = folders.mount
+    full["PROJECT_MOUNT"] = folder.mount
 
     planned = []
     for (name, dest), t in zip(MANIFEST, templates):
@@ -621,14 +605,14 @@ def cmd_render(args):
             os.makedirs(os.path.dirname(staged), exist_ok=True)
             write_text(staged, p["content"])
         commit_files.append(
-            {"stagedPath": staged, "devicePath": posix_join(folders.project, p["file"])}
+            {"stagedPath": staged, "devicePath": posix_join(folder.path, p["file"])}
         )
 
     data = {
         "commit_files": commit_files,
-        "precheck_command": precheck_command(folders.mount, [p["file"] for p in planned]),
-        "check_command": check_command(folders.mount, planned),
-        "field_pointer": FIELD_POINTER.format(path=folders.project),
+        "precheck_command": precheck_command(folder.mount, [p["file"] for p in planned]),
+        "check_command": check_command(folder.mount, planned),
+        "field_pointer": FIELD_POINTER.format(path=folder.path),
     }
 
     def human():
@@ -669,10 +653,10 @@ def cmd_preflight(args):
 
 
 def cmd_probe(args):
-    folders, errors = resolve_folders(args.connected_folder, args.project_folder)
+    folder, errors = resolve_folder(args.connected_folder)
     if errors:
         return emit(args, "probe", None, errors=errors)
-    data = {"probe_command": probe_command(folders.mount)}
+    data = {"probe_command": probe_command(folder.mount)}
 
     def human():
         print("probe, through device_bash:\n%s" % data["probe_command"])
@@ -681,14 +665,14 @@ def cmd_probe(args):
 
 
 def cmd_history(args):
-    folders, errors = resolve_folders(args.connected_folder, None)
+    folder, errors = resolve_folder(args.connected_folder)
     if errors:
         return emit(args, "history", None, errors=errors)
     t = Template.load(TEMPLATES, HISTORY_TEMPLATE)
     t.require_clean()
     # One newline at the end, which is what the heredoc gives back.
-    section = substitute(t.text, {"PROJECT_MOUNT": folders.mount}).rstrip("\n") + "\n"
-    data = {"history_command": history_command(folders.mount, section)}
+    section = substitute(t.text, {"PROJECT_MOUNT": folder.mount}).rstrip("\n") + "\n"
+    data = {"history_command": history_command(folder.mount, section)}
 
     def human():
         print("history, through device_bash:\n%s" % data["history_command"])
@@ -713,11 +697,6 @@ def build_parser():
     )
     p.add_argument(
         "--connected-folder", required=True, metavar="PATH", help="as get_device_info lists it"
-    )
-    p.add_argument(
-        "--project-folder",
-        metavar="PATH",
-        help="the project's folder inside it (default: the connected folder itself)",
     )
     p.set_defaults(func=cmd_probe)
 

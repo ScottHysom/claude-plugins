@@ -40,8 +40,7 @@ settings.register_profile("dev", max_examples=50)
 settings.register_profile("ci", derandomize=True, max_examples=200)
 settings.load_profile("ci" if os.environ.get("CI") else "dev")
 
-CONNECTED = "/Users/owner/Documents/Projects"
-PROJECT = CONNECTED + "/Foo Research"
+CONNECTED = "/Users/owner/Documents/Foo Research"
 VALUES = {"PROJECT_NAME": "Foo Research"}
 
 
@@ -50,7 +49,6 @@ def answers(**overrides):
     guard is aimed at."""
     data = {
         "connected_folder": CONNECTED,
-        "project_folder": PROJECT,
         "values": dict(VALUES),
         "instructions": None,
         "ignore": [],
@@ -122,21 +120,20 @@ class Device:
 
     def __init__(self, tmp_path):
         self.home = tmp_path / "home"
-        self.connected = self.home / "mnt" / "Projects"
-        self.project = self.connected / "Foo Research"
+        self.connected = self.home / "mnt" / "Foo Research"
 
     def make(self, docs=True):
-        self.project.mkdir(parents=True)
+        self.connected.mkdir(parents=True)
         if docs:
-            (self.project / "notes.md").write_text("the owner's own notes\n")
-            (self.project / "drafts").mkdir()
-            (self.project / "drafts" / "plan.md").write_text("# Plan\n")
-        return self.project
+            (self.connected / "notes.md").write_text("the owner's own notes\n")
+            (self.connected / "drafts").mkdir()
+            (self.connected / "drafts" / "plan.md").write_text("# Plan\n")
+        return self.connected
 
     def copy_in(self, staged_files):
         """Copy in what Runner.staged_files lists, as device_commit_files would."""
         for rel, staged in staged_files:
-            dst = self.project / rel
+            dst = self.connected / rel
             dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(staged, dst)
 
@@ -166,4 +163,4 @@ def make_answers():
 
 @pytest.fixture
 def project():
-    return {"connected": CONNECTED, "project": PROJECT, "values": dict(VALUES)}
+    return {"connected": CONNECTED, "values": dict(VALUES)}
