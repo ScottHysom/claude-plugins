@@ -18,11 +18,8 @@ needs_sha256sum = pytest.mark.skipif(
 )
 
 
-def probe(runner, project_folder="/Users/owner/Documents/Projects/Foo Research"):
-    argv = ["probe", "--connected-folder", "/Users/owner/Documents/Projects"]
-    if project_folder:
-        argv += ["--project-folder", project_folder]
-    code, env = runner.run(*argv)
+def probe(runner):
+    code, env = runner.run("probe", "--connected-folder", "/Users/owner/Documents/Foo Research")
     assert code == gitify.OK, env["errors"]
     return env["data"]["probe_command"]
 
@@ -59,35 +56,20 @@ class DescribeTheProbeCommand:
 
     @pytest.mark.spec("probe-cmd-stops-on-missing-folder")
     def it_stops_on_a_folder_that_is_not_there(self, runner, device):
-        device.connected.mkdir(parents=True)
+        (device.home / "mnt").mkdir(parents=True)
         result = device.sh(probe(runner))
         assert result.returncode == 2
-        assert result.stdout.startswith("missing: Projects/Foo Research")
+        assert result.stdout.startswith("missing: Foo Research")
 
     @pytest.mark.spec("probe-cmd-stops-on-existing-repo")
     def it_refuses_a_folder_that_is_already_a_git_repo(self, runner, device):
         (device.make() / ".git").mkdir()
         result = device.sh(probe(runner))
         assert result.returncode == 1
-        assert result.stdout.startswith("repo: Projects/Foo Research")
+        assert result.stdout.startswith("repo: Foo Research")
         assert "does not take over an existing repo" in result.stdout
         assert "gitify.py history" in result.stdout
         assert "files:" not in result.stdout
-
-    @pytest.mark.spec("probe-cmd-lists-folder")
-    def it_probes_the_connected_folder_itself(self, runner, device):
-        device.make()
-        (device.connected / "top.md").write_text("x\n")
-        result = device.sh(probe(runner, project_folder=None))
-        assert result.returncode == 0
-        assert "entry: top.md" in result.stdout.splitlines()
-
-    def it_rejects_a_project_outside_the_connected_folder(self, runner):
-        code, env = runner.run(
-            "probe", "--connected-folder", "/a/Projects", "--project-folder", "/b/Foo"
-        )
-        assert code == gitify.PROBLEMS
-        assert any("is not inside connected_folder" in e for e in env["errors"])
 
     @pytest.mark.spec("repo:command-splits-output-streams")
     def it_prints_the_command_on_stdout_in_plain_output(self, runner):
@@ -130,7 +112,7 @@ class DescribeThePrecheckCommand:
     @pytest.mark.spec("probe-cmd-stops-on-missing-folder")
     def it_stops_on_a_folder_that_is_not_there(self, runner, device, make_answers):
         _, env = runner.render(make_answers())
-        device.connected.mkdir(parents=True)
+        (device.home / "mnt").mkdir(parents=True)
         result = device.sh(env["data"]["precheck_command"])
         assert result.returncode == 2
         assert result.stdout.startswith("missing: ")

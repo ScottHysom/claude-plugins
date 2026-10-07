@@ -51,11 +51,10 @@ install. Say so and stop.
 <!-- spec: probe-cmd-lists-folder, probe-cmd-stops-on-missing-folder, probe-cmd-stops-on-existing-repo, gitifyproject-asks-about-unwanted-files -->
 
 Call `get_device_info`. `connected_folder` is one of its `connectedFolders`,
-exactly as listed. The project folder is the connected folder itself, or a
-folder inside it; ask the user which when it is not obvious.
+exactly as listed. The project folder is the connected folder itself.
 
 ```sh
-GITIFY=/tmp/gitify/plugin/scripts/gitify.py && python3 "$GITIFY" probe --connected-folder "<connected>" [--project-folder "<project>"] --json
+GITIFY=/tmp/gitify/plugin/scripts/gitify.py && python3 "$GITIFY" probe --connected-folder "<connected>" --json
 ```
 
 Run `data.probe_command` through `device_bash`. Its exit code says what it
@@ -84,7 +83,6 @@ step made:
 ```json
 {
   "connected_folder": "<as listed>",
-  "project_folder": "<the project folder, or null>",
   "values": {
     "PROJECT_NAME": "Foo Research"
   },
@@ -100,7 +98,7 @@ step made:
   `null` when the field is empty.
 - `ignore`: the patterns from step 1, or `[]`.
 
-`PROJECT_MOUNT` is worked out from the folders. Do not pass it.
+`PROJECT_MOUNT` is worked out from the folder. Do not pass it.
 
 ## Step 3: render
 <!-- spec: render-cmd-stages-files, repo:script-checks-every-answer, repo:script-names-remedy-on-stop -->
@@ -154,8 +152,8 @@ out, run `sh setup.sh` again to see the new list, and when it is right run
 Then tell them to change the Project Instructions field, which only they can
 do. `CLAUDE.md` now holds what was there, and the field keeping a copy is how
 the two drift apart. They replace everything in the field with
-`data.field_pointer`, exactly, even when the project is the connected folder.
-The field reaches every conversation from its start, so this line gets
+`data.field_pointer`, exactly, even though Cowork also loads `CLAUDE.md` by
+itself. The field reaches every conversation from its start, so this line gets
 `CLAUDE.md` read wherever Cowork's own loading of the file does not reach.
 COWORK.md, in the claude-plugins repo, under "How instruction files load", has
 what Cowork loads and when.
@@ -167,8 +165,7 @@ Come here only from step 1's `repo:`, and skip steps 2 to 5. This skill does not
 `commit.sh` or `setup.sh`, or move the Project Instructions. It can add one
 thing: a "Git history" section at the end of the root `CLAUDE.md`, which tells
 Claude to keep the record of a change out of the documents and to leave the
-commit to the user. Cowork loads only the connected folder's own `CLAUDE.md`,
-so this works only when the repo is the connected folder itself.
+commit to the user.
 
 Ask the user whether to add it. On a yes:
 

@@ -19,7 +19,7 @@ needs_sha256sum = pytest.mark.skipif(
 )
 needs_git = pytest.mark.skipif(shutil.which("git") is None, reason="git is not installed here")
 
-CONNECTED = "/Users/owner/Documents/Projects"
+CONNECTED = "/Users/owner/Documents/Foo Research"
 
 
 def history(runner):
@@ -123,7 +123,7 @@ class DescribeTheHistoryCommand:
         device.connected.mkdir(parents=True)
         result = device.sh(history(runner))
         assert result.returncode == 1
-        assert result.stdout.startswith("not-repo: Projects")
+        assert result.stdout.startswith("not-repo: Foo Research")
         assert not (device.connected / "CLAUDE.md").exists()
 
     @pytest.mark.spec("history-cmd-refuses-non-repo")
@@ -131,7 +131,7 @@ class DescribeTheHistoryCommand:
         (device.home / "mnt").mkdir(parents=True)
         result = device.sh(history(runner))
         assert result.returncode == 2
-        assert result.stdout.startswith("missing: Projects")
+        assert result.stdout.startswith("missing: Foo Research")
 
     @pytest.mark.spec("history-cmd-appends-section")
     def it_says_so_when_the_appended_bytes_do_not_match(self, runner, device, tmp_path):
@@ -162,7 +162,7 @@ class DescribeTheHistorySection:
     @pytest.mark.spec("historysection-gives-history-commands")
     def it_reads_the_history_at_the_connected_folders_mount(self, runner):
         text = section(runner)
-        assert 'cd "$HOME/mnt/Projects"' in text
+        assert 'cd "$HOME/mnt/Foo Research"' in text
         assert "git log --oneline -- <file>" in text
         assert "{{" not in text
 
