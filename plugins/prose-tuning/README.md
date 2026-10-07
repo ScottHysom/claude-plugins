@@ -88,7 +88,8 @@ you to delete.
    uncommitted.
 2. Ask Claude to update the prose config.
 3. Claude asks about any edit whose reason it cannot tell, all in one round of
-   questions.
+   questions. When there are more than four, Claude puts them on a private
+   page, and you answer each one in a comment sent to Claude.
 4. Claude writes the rules into `prose-style.md`, and leaves your documents
    as you edited them, for you to review and commit.
 

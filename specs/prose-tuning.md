@@ -125,8 +125,21 @@ Source: README.md, under "Teaching it your style", step 3, and the
 update-prose-config description.
 
 - `updateproseconfig-asks-in-one-batch` (step): When update-prose-config has
-  open questions, it puts all of them to the author in one `AskUserQuestion`
-  call, with every hunk that carries a signal asked as one question.
+  open questions, it puts all of them to the author in one round, with every
+  hunk that carries a signal asked as one question. The round is one
+  `AskUserQuestion` call when the questions fit in it, and otherwise one
+  page.
+- `questions-cmd-writes-page` (test): When `questions` is given the interview
+  as JSON with `--batch`, it writes `.prose-tuning/questions.md`, which git
+  ignores, with each question numbered and its options and evidence under it.
+  It refuses a question without options or evidence, and then the file holds
+  the refusals and no question.
+- `updateproseconfig-asks-on-page` (step): When the open questions are more
+  than one `AskUserQuestion` call holds, update-prose-config publishes the
+  page `questions` writes as a private artifact, replies in each question's
+  thread with the answer it took, and drafts rules only once every question
+  has an answer. Where it cannot publish the page, it asks in dialogs of up to
+  four questions each.
 
 ## need user-explains-edits-in-place: Say why an edit was made, in the document
 
@@ -629,6 +642,17 @@ Source: the owner's review of #139, and README.md, under "When to use it".
 
 - `command-requires-a-repo` (test): When a command runs outside a git
   repository, or git is not installed, it names the cause and exits 2.
+
+## constraint artifact-sends-comments: A comment sent to Claude reaches the session
+
+An artifact published from Claude Code is private by default. A comment its
+owner sends to Claude reaches the session that published it, which can reply
+in the thread. A comment sent while the session is busy starts a turn once
+the session goes idle.
+
+Source: code.claude.com/docs/en/artifacts.md, under "Collect comments on an
+artifact", and the probe recorded in #334. `specs/todos.md` holds the same
+constraint for do-todos, and this copy records it for update-prose-config.
 
 ## constraint worktree-guards-shared-claude: A worktree session cannot edit another checkout's .claude/
 

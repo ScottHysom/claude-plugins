@@ -141,21 +141,51 @@ with no commentary is a rule about one sentence, and it will fire on every
 document in the project forever.
 
 ## Step 5: the interview, once
-<!-- spec: updateproseconfig-asks-in-one-batch, updateproseconfig-asks-about-vague-notes -->
+<!-- spec: updateproseconfig-asks-in-one-batch, updateproseconfig-asks-on-page, updateproseconfig-asks-about-vague-notes -->
 
-<!-- no-command: judgment. The author answers one batch of questions. -->
-
-**Budget: one `AskUserQuestion` call of at most four questions, plus one
-approval at the end.** `AskUserQuestion` rejects a fifth question. A second
+**Budget: one round of questions, plus one approval at the end.** A second
 round means the first asked the wrong things.
 
-What always belongs in the batch:
+What always belongs in the round:
 
 - every hunk with a `signal`, asked as one question, not one question each
 - every single-occurrence candidate with no commentary
 - every candidate that touches a subject an existing rule already covers
 - every note on an unchanged passage that does not state a rule, such as one
   that says the passage reads badly without saying what makes it so
+
+**With four questions or fewer,** put them in one `AskUserQuestion` call.
+
+**With five or more,** write them to a page, as JSON on stdin:
+
+```sh
+python3 "$PROSE" questions --batch - --json <<'END'
+[{"question":"Was \"in order to\" cut for style, or to fix this one sentence?",
+  "options":[{"label":"Style","description":"Write to, not in order to."},
+             {"label":"This sentence"}],
+  "evidence":["guide.md:12\n- Run it in order to check.\n+ Run it to check."]}]
+END
+```
+
+Each question gives `question`, its `options`, each with a `label` and
+optionally a `description`, and `evidence`: the edits, passages or notes it
+rests on, as a list of text. When `questions` exits 1, its errors name each
+question it refused. Fix those and run it again.
+
+Publish the file at `data.page` as a private artifact with the Artifact tool,
+as markdown, with the icon `question`. Give the author its address, and tell
+them to answer each question by commenting on it and sending the comment to
+Claude. Then end the turn.
+
+A comment sent to Claude starts a new turn. Read the threads with
+`ArtifactComments`, and reply in each question's thread with the answer you
+took from it. When a comment does not settle its question, reply asking what
+it left open. Go on to step 6 once every question has an answer, and end the
+turn until then.
+
+When the Artifact tool is not available, or refuses to publish, ask in
+`AskUserQuestion` calls of up to four questions each, in the order the
+questions were written.
 
 ## Step 6: write the rules
 <!-- spec: updateproseconfig-writes-through-cmd, updateproseconfig-writes-note-examples -->
