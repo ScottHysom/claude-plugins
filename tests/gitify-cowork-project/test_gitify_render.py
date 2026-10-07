@@ -169,6 +169,7 @@ class DescribeTheInstructions:
             ("  \n", "pass null when the field is empty"),
             ("", "pass null when the field is empty"),
             (["a"], "must be the field's text"),
+            ("half a pair \ud800", "not valid Unicode text"),
         ],
     )
     @pytest.mark.spec("render-cmd-accepts-null-instructions")
