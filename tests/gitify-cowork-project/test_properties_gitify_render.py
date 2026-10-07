@@ -12,6 +12,7 @@ import io
 import json
 import os
 import tempfile
+from unittest import mock
 
 import pytest
 from hypothesis import HealthCheck, example, given, settings
@@ -52,8 +53,10 @@ def render(tmp, instructions, ignore):
             },
             fh,
         )
-    stage = os.path.join(tmp, "stage")
-    code, env = run(["render", "--answers", answers, "--stage", stage, "--json"])
+    outputs = os.path.join(tmp, "outputs")
+    with mock.patch.object(gitify, "OUTPUTS_ROOT", outputs):
+        code, env = run(["render", "--answers", answers, "--json"])
+    stage = os.path.join(outputs, gitify.STAGE_DIR)
     assert code == gitify.OK, env["errors"]
     return stage, env
 

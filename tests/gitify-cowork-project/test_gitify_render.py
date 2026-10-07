@@ -31,6 +31,16 @@ def loaded(text):
     return re.sub(r"(?ms)^<!--.*?-->[ \t]*\n", "", text)
 
 
+def foreign_file_in_stage(runner):
+    runner.stage.mkdir(parents=True)
+    (runner.stage / "notes.txt").write_text("mine")
+
+
+def file_as_stage(runner):
+    runner.stage.parent.mkdir(parents=True)
+    runner.stage.write_text("mine")
+
+
 class DescribeACleanRender:
     @pytest.mark.spec("render-cmd-stages-files", "render-cmd-refuses-leftover-placeholders")
     def it_stages_every_file_with_no_placeholder_left(self, runner, make_answers):
@@ -94,7 +104,7 @@ class DescribeACleanRender:
     def it_prints_the_pointer_in_its_plain_output(self, runner, make_answers, project):
         path = runner.tmp / "answers.json"
         path.write_text(json.dumps(make_answers(project_folder=None)))
-        args = ("render", "--answers", str(path), "--stage", str(runner.stage))
+        args = ("render", "--answers", str(path))
         code, _ = runner.run(*args, json_output=False)
         assert code == gitify.OK
         pointer = gitify.FIELD_POINTER.format(path=project["connected"])
@@ -107,27 +117,39 @@ class DescribeACleanRender:
         assert len(env["data"]["commit_files"]) == len(gitify.MANIFEST)
         assert not runner.stage.exists()
 
-    def it_warns_about_a_stage_outside_the_outputs_root(self, runner, make_answers):
-        _, env = runner.render(make_answers())
-        assert any("device_commit_files will reject it" in w for w in env["warnings"])
-
     @pytest.mark.spec("repo:command-splits-output-streams")
     def it_sends_human_output_to_stdout_and_warnings_to_stderr(self, runner, make_answers):
         path = runner.tmp / "answers.json"
         path.write_text(json.dumps(make_answers()))
-        code, _ = runner.run(
-            "render", "--answers", str(path), "--stage", str(runner.stage), json_output=False
-        )
+        code, _ = runner.run("render", "--answers", str(path), json_output=False)
         assert code == gitify.OK
         assert "precheck, through device_bash" in runner.out
         assert "Project Instructions field" in runner.out
-        assert "warning:" in runner.err
-        assert "warning:" not in runner.out
+        assert runner.err == ""
 
-    def it_allows_rendering_again_into_the_same_stage(self, runner, make_answers):
+    @pytest.mark.spec("render-cmd-stages-files")
+    def it_renders_again_into_the_stage_it_left(self, runner, make_answers):
         runner.render(make_answers())
         code, env = runner.render(make_answers())
         assert code == gitify.OK, env["errors"]
+
+    @pytest.mark.spec("render-cmd-stages-files")
+    @pytest.mark.parametrize(
+        "arrange", [foreign_file_in_stage, file_as_stage], ids=["foreign file", "not a directory"]
+    )
+    def it_clears_whatever_was_left_at_the_stage(self, runner, make_answers, arrange):
+        arrange(runner)
+        code, env = runner.render(make_answers())
+        assert code == gitify.OK, env["errors"]
+        on_disk = sorted(str(p) for p in runner.stage.rglob("*") if p.is_file())
+        assert on_disk == sorted(f["stagedPath"] for f in env["data"]["commit_files"])
+
+    @pytest.mark.spec("repo:command-never-writes-in-preview")
+    def it_leaves_the_stage_alone_on_a_dry_run(self, runner, make_answers):
+        foreign_file_in_stage(runner)
+        code, _ = runner.render(make_answers(), "--dry-run")
+        assert code == gitify.OK
+        assert (runner.stage / "notes.txt").read_text() == "mine"
 
 
 class DescribeTheInstructions:
@@ -150,7 +172,6 @@ class DescribeTheInstructions:
         field = "I am a {{PROJECT_NAME}} fan.\n\n- Budget: $500 <!-- a note -->\n"
         runner.render(make_answers())
         header = runner.staged("CLAUDE.md")
-        runner.stage = runner.tmp / "stage2"
         code, env = runner.render(make_answers(instructions=field))
         assert code == gitify.OK, env["errors"]
         assert runner.staged("CLAUDE.md") == header + "\n" + field
@@ -299,9 +320,7 @@ class DescribeValidatingAValue:
     def it_writes_its_rejections_to_stderr_in_plain_output(self, runner, make_answers):
         path = runner.tmp / "answers.json"
         path.write_text(json.dumps(make_answers(values={})))
-        code, _ = runner.run(
-            "render", "--answers", str(path), "--stage", str(runner.stage), json_output=False
-        )
+        code, _ = runner.run("render", "--answers", str(path), json_output=False)
         assert code == gitify.PROBLEMS
         assert "values.PROJECT_NAME is required" in runner.err
         assert runner.out == ""
@@ -361,23 +380,6 @@ class DescribeRefusingToRun:
         assert code == gitify.CANNOT_RUN
         assert "answers must be a JSON object" in runner.err
 
-    def it_refuses_a_stage_holding_a_foreign_file(self, runner, make_answers):
-        runner.stage.mkdir()
-        (runner.stage / "notes.txt").write_text("mine")
-        code, _ = runner.render(make_answers())
-        assert code == gitify.CANNOT_RUN
-        assert "already holds notes.txt" in runner.err
-        assert (runner.stage / "notes.txt").read_text() == "mine"
-
-
-def foreign_file_in_stage(runner):
-    runner.stage.mkdir()
-    (runner.stage / "notes.txt").write_text("mine")
-
-
-def file_as_stage(runner):
-    runner.stage.write_text("mine")
-
 
 def missing_templates(runner):
     runner.use_templates(runner.tmp / "nowhere")
@@ -404,18 +406,7 @@ class DescribeTheRemedyOnStopping:
         code, _ = runner.render(None, raw=raw)
         assert code == gitify.CANNOT_RUN
         assert runner.err.rstrip().endswith(gitify.FIX_ANSWERS)
-        assert gitify.NEW_STAGE not in runner.err
-
-    @pytest.mark.spec("repo:script-names-remedy-on-stop")
-    @pytest.mark.parametrize(
-        "arrange", [foreign_file_in_stage, file_as_stage], ids=["foreign file", "not a directory"]
-    )
-    def it_tells_the_caller_to_pass_a_new_stage(self, runner, make_answers, arrange):
-        arrange(runner)
-        code, _ = runner.render(make_answers())
-        assert code == gitify.CANNOT_RUN
-        assert runner.err.rstrip().endswith(gitify.NEW_STAGE)
-        assert gitify.FIX_ANSWERS not in runner.err
+        assert gitify.PLUGIN_BUG not in runner.err
 
     @pytest.mark.spec("repo:script-names-remedy-on-stop")
     @pytest.mark.parametrize(
