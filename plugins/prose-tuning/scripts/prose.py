@@ -3565,7 +3565,7 @@ def cmd_config(args):
             human=lambda: problem or print(rid),
         )
 
-    if which == "similar":
+    if which == "similar":  # pragma: no cover - no test runs similar, which #165 removes
         other = Config(os.path.abspath(args.to))
         if not other.exists:
             raise Fatal("%s does not exist" % args.to)
