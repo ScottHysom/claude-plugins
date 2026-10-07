@@ -161,18 +161,6 @@ class DescribeReport:
         assert "overlaps" not in out
         assert "doc.md:6" in out
 
-    def it_drops_an_overlap_the_filters_leave_one_side_of(self, prose_repo):
-        """The report for an approval by rule is the batch apply gets with the
-        same flags, and that batch no longer holds both findings.
-        """
-        style = prose_repo.root / prose.CONFIG_PATH
-        style.write_text(style.read_text() + "\n### standing-no-em-dash: No em-dash\n\nA dash.\n")
-        write_doc(prose_repo)
-        findings = [dict(dash(prose_repo), rule="standing-no-em-dash"), cut(prose_repo)]
-        code, envelope = prose_repo.report(findings, "--only", "standing-no-em-dash")
-        assert code == prose.OK
-        assert [r["finding"] for r in envelope["data"]["findings"]] == [1]
-
     @pytest.mark.spec("report-cmd-refuses-stale-findings")
     def it_refuses_a_finding_whose_text_has_moved(self, prose_repo):
         write_doc(prose_repo)

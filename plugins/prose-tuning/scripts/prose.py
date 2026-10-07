@@ -4044,9 +4044,10 @@ def approval_token(repo, config, raw, findings):
     """The token report prints and apply requires, for this batch as it is now.
 
     A sha256 over the findings' bytes, the path and bytes of every document any
-    finding names, and prose-style.md's bytes. --only and --file are left out:
-    they select within the approved set, so they must not change what was
-    approved.
+    finding names, and prose-style.md's bytes. report takes no filter, so the
+    token covers every finding it printed. apply's --only and --file are left
+    out: they select within the approved set, so they must not change what
+    was approved.
     """
     digest = TokenHash()
     digest.part(raw)
@@ -4062,14 +4063,16 @@ def approval_token(repo, config, raw, findings):
     return digest.token()
 
 
-def select_findings(args, config, findings):
-    """The findings --only and --file keep, by file, and the ones refused.
+def select_findings(config, findings, only=None, file=None):
+    """The findings apply's --only and --file keep, by file, and the ones refused.
 
-    Returns (by_file, rejected). by_file maps each file to its
-    findings as (place in the whole batch, counting from 1, finding).
+    `only` and `file` are the flags as argparse gives them; report passes
+    neither and gets every finding. Returns (by_file, rejected). by_file maps
+    each file to its findings as (place in the whole batch, counting from 1,
+    finding).
     """
-    only = set(x.strip() for x in args.only.split(",")) if args.only else None
-    files = set(os.path.normpath(p) for p in args.file) if args.file else None
+    only = set(x.strip() for x in only.split(",")) if only else None
+    files = set(os.path.normpath(p) for p in file) if file else None
     known = config.by_id()
 
     # The filters are how an approval by rule or by file reaches apply, so
@@ -4166,9 +4169,8 @@ def uncovered_matches(repo, config, scope, findings):
     """Every pattern match in scope that no finding of the same rule contains.
 
     The files are the ones `patterns` reads with no paths. Every finding in
-    the batch counts, dismissals included, whatever --only and --file select:
-    they choose within the approved batch, and the batch is what has to cover
-    the matches. A finding that does not locate covers nothing.
+    the batch counts, dismissals included. A finding that does not locate
+    covers nothing.
     """
     by_file = {}
     for n, f in enumerate(findings, 1):
@@ -4251,7 +4253,7 @@ def cmd_report(args):
     """
     repo, config, scope = load(args)
     raw, findings = read_findings(args.findings)
-    by_file, rejected = select_findings(args, config, findings)
+    by_file, rejected = select_findings(config, findings)
     rows, overlaps, dismissed = [], [], []
     for _path, rel, text, numbers, mine in selected_files(repo, by_file, rejected):
         staged = stage_findings(text, Blocks(text), rel, mine, numbers)
@@ -4345,7 +4347,7 @@ def cmd_apply(args):
     if args.token != approval_token(repo, config, raw, findings):
         stale = TOKEN_STALE % config.rel()
         return emit(args, "apply", repo.root, {"applied": []}, errors=[stale])
-    by_file, rejected = select_findings(args, config, findings)
+    by_file, rejected = select_findings(config, findings, args.only, args.file)
     staged, applied = [], []
     for path, rel, text, numbers, mine in selected_files(repo, by_file, rejected):
         new, done, refused = plan_findings(text, Blocks(text), rel, mine, numbers)
@@ -4772,21 +4774,15 @@ def build_parser():
             t.add_argument("--dry-run", action="store_true")
     p.set_defaults(func=cmd_tags)
 
-    # report and apply read one findings file through the same filters, so
-    # the report the author approves is the batch apply is handed.
+    # report and apply read one findings file. Only apply takes --only and
+    # --file: a filtered report would print a token over findings it did not
+    # show (#116).
     findings = argparse.ArgumentParser(add_help=False)
     findings.add_argument(
         "--findings",
         required=True,
         metavar="FILE",
         help="JSON array of findings, described below, or - for stdin",
-    )
-    findings.add_argument("--only", metavar="ID,ID", help="only these rule ids")
-    findings.add_argument(
-        "--file",
-        action="append",
-        metavar="PATH",
-        help="only findings in this file; repeat for more",
     )
 
     p = sub.add_parser(
@@ -4808,6 +4804,13 @@ def build_parser():
         description="Apply approved rewrites.",
         epilog=FINDINGS_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p.add_argument("--only", metavar="ID,ID", help="only these rule ids")
+    p.add_argument(
+        "--file",
+        action="append",
+        metavar="PATH",
+        help="only findings in this file; repeat for more",
     )
     p.add_argument(
         "--partial",
