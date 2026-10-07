@@ -214,6 +214,12 @@ Source: README.md, under "Committing a change".
 - `commit-cmd-records-every-change` (test): When the user runs
   `./commit.sh` with a message after the first commit, it stages every change
   and commits with that message.
+- `commitsh-reads-message-file` (test): When the user runs `./commit.sh`
+  without a message and `.commit-msg` holds one, it commits with that message
+  and empties `.commit-msg`.
+- `commitsh-clears-stranded-locks` (test): When a `.git/index.lock` or other
+  lock file is stranded under `.git`, `./commit.sh` deletes it and makes the
+  commit.
 - `commitsh-refuses-before-setup` (test): When the folder has no commit yet,
   `commit.sh` refuses and points to `sh setup.sh`.
 
