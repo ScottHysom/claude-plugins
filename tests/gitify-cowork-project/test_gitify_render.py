@@ -10,6 +10,7 @@ none.
 import hashlib
 import json
 import re
+from pathlib import Path
 
 import pytest
 
@@ -243,7 +244,7 @@ class DescribeTheIgnorePatterns:
     @pytest.mark.spec("render-cmd-appends-ignore-patterns")
     def it_leaves_the_template_as_it_is_when_there_are_none(self, runner, make_answers):
         runner.render(make_answers(ignore=[]))
-        template = (runner.templates_copy() / "gitignore").read_text()
+        template = Path(gitify.TEMPLATES, "gitignore").read_text()
         assert runner.staged(".gitignore") == template
 
     @pytest.mark.parametrize(
@@ -388,19 +389,15 @@ def file_as_stage(runner):
 
 
 def missing_templates(runner):
-    return "--templates", str(runner.tmp / "nowhere")
+    runner.use_templates(runner.tmp / "nowhere")
 
 
 def missing_template(runner):
-    templates = runner.templates_copy()
-    (templates / "commit.sh").unlink()
-    return "--templates", str(templates)
+    (runner.templates_copy() / "commit.sh").unlink()
 
 
 def malformed_template(runner):
-    templates = runner.templates_copy()
-    (templates / "gitignore").write_text("a stray }} brace\n")
-    return "--templates", str(templates)
+    (runner.templates_copy() / "gitignore").write_text("a stray }} brace\n")
 
 
 class DescribeTheRemedyOnStopping:
@@ -436,8 +433,8 @@ class DescribeTheRemedyOnStopping:
         ids=["no templates directory", "missing template", "malformed template"],
     )
     def it_tells_the_caller_a_broken_template_is_a_plugin_bug(self, runner, make_answers, arrange):
-        flags = arrange(runner)
-        code, _ = runner.render(make_answers(), *flags)
+        arrange(runner)
+        code, _ = runner.render(make_answers())
         assert code == gitify.CANNOT_RUN
         assert runner.err.rstrip().endswith(gitify.PLUGIN_BUG)
 
@@ -450,17 +447,7 @@ class DescribeLeftovers:
         templates = runner.templates_copy()
         with open(templates / "CLAUDE.md", "a") as fh:
             fh.write("{{NOT_A_THING}}\n")
-        path = runner.tmp / "answers.json"
-        path.write_text(json.dumps(make_answers()))
-        code, env = runner.run(
-            "render",
-            "--answers",
-            str(path),
-            "--stage",
-            str(runner.stage),
-            "--templates",
-            str(templates),
-        )
+        code, env = runner.render(make_answers())
         assert code == gitify.PROBLEMS
         assert "CLAUDE.md: output still contains {{, }}" in env["errors"]
         assert_nothing_staged(runner)

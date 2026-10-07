@@ -76,9 +76,7 @@ OK, PROBLEMS, CANNOT_RUN = 0, 1, 2
 
 PLUGIN = "gitify-cowork-project"
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-DEFAULT_TEMPLATES = os.path.join(
-    os.path.dirname(SCRIPT_DIR), "skills", "gitify-project", "templates"
-)
+TEMPLATES = os.path.join(os.path.dirname(SCRIPT_DIR), "skills", "gitify-project", "templates")
 
 # Where device_commit_files accepts files from. A stage elsewhere still renders,
 # with a warning, so the script can be run and tested off Cowork.
@@ -556,7 +554,7 @@ def posix_join(*parts):
 
 def cmd_render(args):
     answers = read_answers(args.answers)
-    templates = load_templates(args.templates)
+    templates = load_templates(TEMPLATES)
     for t in templates:
         t.require_clean()
 
@@ -684,11 +682,11 @@ def check_stage(stage, rels):
 
 
 def cmd_preflight(args):
-    errors = check_templates(args.templates)
-    data = {"templates": args.templates, "python": "%d.%d" % sys.version_info[:2]}
+    errors = check_templates(TEMPLATES)
+    data = {"templates": TEMPLATES, "python": "%d.%d" % sys.version_info[:2]}
 
     def human():
-        print("templates  %s" % args.templates)
+        print("templates  %s" % TEMPLATES)
         print("python     %s" % data["python"])
         if not errors:
             print("ok")
@@ -716,7 +714,7 @@ def cmd_history(args):
     folders, errors = resolve_folders(args.connected_folder, None)
     if errors:
         return emit(args, "history", None, errors=errors)
-    t = Template.load(DEFAULT_TEMPLATES, HISTORY_TEMPLATE)
+    t = Template.load(TEMPLATES, HISTORY_TEMPLATE)
     t.require_clean()
     # One newline at the end, which is what the heredoc gives back.
     section = substitute(t.text, {"PROJECT_MOUNT": folders.mount}).rstrip("\n") + "\n"
@@ -729,15 +727,8 @@ def cmd_history(args):
 
 
 def build_parser():
-    output = argparse.ArgumentParser(add_help=False)
-    output.add_argument("--json", action="store_true", help="machine-readable envelope on stdout")
-    common = argparse.ArgumentParser(add_help=False, parents=[output])
-    common.add_argument(
-        "--templates",
-        metavar="DIR",
-        default=DEFAULT_TEMPLATES,
-        help="templates directory (default: the one shipped with this plugin)",
-    )
+    common = argparse.ArgumentParser(add_help=False)
+    common.add_argument("--json", action="store_true", help="machine-readable envelope on stdout")
 
     ap = argparse.ArgumentParser(
         prog="gitify.py", description="Deterministic half of the gitify-project skill."
@@ -772,7 +763,7 @@ def build_parser():
 
     p = sub.add_parser(
         "history",
-        parents=[output],
+        parents=[common],
         help="a device command that adds the Git history section to an existing repo",
     )
     p.add_argument(

@@ -8,6 +8,7 @@ alone, and a second run changes nothing.
 
 import shutil
 import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -110,7 +111,7 @@ class DescribeTheHistoryCommand:
     @pytest.mark.spec("history-cmd-keeps-existing-section")
     def it_counts_the_section_a_full_setup_wrote(self, runner, device):
         folder = bare_repo(device)
-        claude_md = (runner.templates_copy() / "CLAUDE.md").read_text()
+        claude_md = (Path(gitify.TEMPLATES) / "CLAUDE.md").read_text()
         (folder / "CLAUDE.md").write_text(claude_md)
         result = device.sh(history(runner))
         assert result.returncode == 1
