@@ -57,12 +57,7 @@ if [ "${1:-}" != commit ]; then
     exit 0
 fi
 
-if [ -s .commit-msg ]; then
-    git commit --quiet -F .commit-msg
-    : > .commit-msg
-else
-    git commit --quiet -m "Adopt existing folder into git with gitify-cowork-project"
-fi
+git commit --quiet -m "Adopt existing folder into git with gitify-cowork-project"
 
 echo "Done. From now on, use ./commit.sh"
 git --no-pager log --stat --oneline

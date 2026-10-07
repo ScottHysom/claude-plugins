@@ -269,11 +269,7 @@ def _no_duplicate_keys(pairs):
 
 def read_answers(path):
     try:
-        if path == "-":
-            raw = sys.stdin.read()
-        else:
-            raw = read_text(path)
-        data = json.loads(raw, object_pairs_hook=_no_duplicate_keys)
+        data = json.loads(read_text(path), object_pairs_hook=_no_duplicate_keys)
     except (OSError, ValueError) as exc:
         raise Fatal("cannot read answers: %s; %s" % (exc, FIX_ANSWERS)) from exc
     if not isinstance(data, dict):
@@ -656,7 +652,7 @@ def build_parser():
     p.set_defaults(func=cmd_probe)
 
     p = sub.add_parser("render", parents=[common], help="fill the templates into a stage directory")
-    p.add_argument("--answers", required=True, metavar="FILE", help="answers JSON, or - for stdin")
+    p.add_argument("--answers", required=True, metavar="FILE", help="answers JSON file")
     p.add_argument(
         "--stage",
         metavar="DIR",
