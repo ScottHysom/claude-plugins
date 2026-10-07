@@ -602,7 +602,7 @@ def cmd_render(args):
             content = add_instructions(content, instructions)
         elif name == GITIGNORE_TEMPLATE:
             content = add_ignores(content, ignore)
-        planned.append({"file": rel, "template": name, "content": content})
+        planned.append({"file": rel, "content": content})
 
     if errors:
         errors.append("nothing was written")
@@ -615,42 +615,29 @@ def cmd_render(args):
         )
     check_stage(stage, [p["file"] for p in planned])
 
-    files = []
+    commit_files = []
     for p in planned:
         staged = os.path.join(stage, *p["file"].split("/"))
         if not args.dry_run:
             os.makedirs(os.path.dirname(staged), exist_ok=True)
             write_text(staged, p["content"])
-        files.append(
-            {
-                "file": p["file"],
-                "template": p["template"],
-                "staged_path": staged,
-                "device_path": posix_join(folders.project, p["file"]),
-                "sha256": sha256(p["content"]),
-            }
+        commit_files.append(
+            {"stagedPath": staged, "devicePath": posix_join(folders.project, p["file"])}
         )
 
     data = {
-        "dry_run": args.dry_run,
-        "stage": stage,
-        "project_path": folders.project,
-        "project_mount": folders.mount,
-        "files": files,
-        "commit_files": [
-            {"stagedPath": f["staged_path"], "devicePath": f["device_path"]} for f in files
-        ],
-        "precheck_command": precheck_command(folders.mount, [f["file"] for f in files]),
+        "commit_files": commit_files,
+        "precheck_command": precheck_command(folders.mount, [p["file"] for p in planned]),
         "check_command": check_command(folders.mount, planned),
         "field_pointer": FIELD_POINTER.format(path=folders.project),
     }
 
     def human():
-        for f in files:
-            print("%s  %s" % (f["sha256"][:DIGEST_LEN], f["file"]))
+        for p in planned:
+            print("%s  %s" % (sha256(p["content"])[:DIGEST_LEN], p["file"]))
         print(
             "\n%d file(s) %s %s"
-            % (len(files), "planned for" if args.dry_run else "staged in", stage)
+            % (len(planned), "planned for" if args.dry_run else "staged in", stage)
         )
         print("\nprecheck, through device_bash:\n%s" % data["precheck_command"])
         print("\ncheck after copying, through device_bash:\n%s" % data["check_command"])
@@ -683,26 +670,19 @@ def check_stage(stage, rels):
 
 def cmd_preflight(args):
     errors = check_templates(TEMPLATES)
-    data = {"templates": TEMPLATES, "python": "%d.%d" % sys.version_info[:2]}
 
     def human():
-        print("templates  %s" % TEMPLATES)
-        print("python     %s" % data["python"])
         if not errors:
             print("ok")
 
-    return emit(args, "preflight", data, errors=errors, human=human)
+    return emit(args, "preflight", {}, errors=errors, human=human)
 
 
 def cmd_probe(args):
     folders, errors = resolve_folders(args.connected_folder, args.project_folder)
     if errors:
         return emit(args, "probe", None, errors=errors)
-    data = {
-        "project_path": folders.project,
-        "project_mount": folders.mount,
-        "probe_command": probe_command(folders.mount),
-    }
+    data = {"probe_command": probe_command(folders.mount)}
 
     def human():
         print("probe, through device_bash:\n%s" % data["probe_command"])
