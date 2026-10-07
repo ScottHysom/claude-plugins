@@ -397,6 +397,9 @@ Source: CLAUDE.md, under "Skills and scripts", and #98.
 - `steps-cmd-checks-no-command-markers` (test): When a no-command marker
   has no reason, shares its line with other text, sits outside a step, or sits
   on a step that runs a command, `steps` fails it.
+- `steps-cmd-fails-commands-outside-steps` (test): When a SKILL.md runs
+  an invocation `commands` accepts outside every `## Step` section and outside
+  "Locate the script", `steps` fails it.
 - `steps-cmd-scans-something` (test): When no SKILL.md has a step, `steps`
   fails.
 - `checkskills-cmd-reads-project-skills` (test): When a skill sits at

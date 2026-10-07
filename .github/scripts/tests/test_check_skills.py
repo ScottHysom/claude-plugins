@@ -734,6 +734,35 @@ class DescribeSteps:
         files[SKILL] += "## Abandoning a run\n\n" + RUNS
         root = make_repo(files)
         code, _, err = run("steps", "-C", str(root))
+        assert "marker is stale" not in err
+        assert "outside any step" in err
+
+    @pytest.mark.spec("steps-cmd-fails-commands-outside-steps")
+    def it_rejects_a_command_in_a_section_that_is_not_a_step(self, make_repo, run):
+        files = steps(RUNS)
+        files[SKILL] += "## Checking the template\n\n" + RUNS
+        root = make_repo(files)
+        code, _, err = run("steps", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "%s:24 runs a script command outside any step" % SKILL in err
+
+    @pytest.mark.spec("steps-cmd-fails-commands-outside-steps")
+    def it_rejects_a_command_above_the_first_section(self, make_repo, run):
+        files = steps(RUNS)
+        files[SKILL] = files[SKILL].replace("## Locate the script", RUNS + "\n## Locate the script")
+        root = make_repo(files)
+        code, _, err = run("steps", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "outside any step" in err
+
+    @pytest.mark.spec("steps-cmd-fails-commands-outside-steps")
+    def it_accepts_the_first_command_in_the_locate_section(self, make_repo, run):
+        files = steps(RUNS)
+        files[SKILL] = files[SKILL].replace(
+            'FOO="$ROOT/scripts/foo.py"\n', 'FOO="$ROOT/scripts/foo.py" && python3 "$FOO" lint\n'
+        )
+        root = make_repo(files)
+        code, _, err = run("steps", "-C", str(root))
         assert code == cs.OK, err
 
     def it_warns_for_a_known_gap(self, make_repo, run, monkeypatch):
