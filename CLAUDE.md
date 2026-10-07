@@ -158,6 +158,9 @@ requirement is admitted.
   `<!-- no-command: <reason> -->` on its own line under its heading.
   `check-skills.py steps` fails a step with neither, and its module docstring
   covers `KNOWN_GAPS`, the list of steps waiting on an issue for a command.
+  A command runs inside a `## Step` section, where `check-specs.py trace`
+  can tie it to a requirement, or in "Locate the script". `steps` fails one
+  anywhere else.
 - **Python for anything with logic.** Shell only for a short wrapper a person
   runs from their own terminal: POSIX `sh`, `#!/bin/sh` and `set -e`, no bash
   syntax. It must pass shellcheck (README.md says how). A deliberate warning is
