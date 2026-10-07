@@ -223,7 +223,8 @@ description.
   and `apply` refuse it and name it by its place in the batch.
 - `report-cmd-shows-current-text` (test): When `report` prints a finding,
   it shows the text at the finding's place in the file as it is now, each line
-  between `|` marks, with `(cut)` for an empty rewrite, and it does not write a file.
+  between `|` marks, with `(cut)` for an empty rewrite, and it does not change a
+  document.
 - `report-cmd-prints-approval-token` (test): When `report` exits 0, it
   prints a token as its last line, and otherwise prints none.
 - `apply-cmd-requires-token` (test): When the token passed to `apply
@@ -275,9 +276,23 @@ description.
   apply-prose makes it a finding or a dismissal, and never searches the prose
   with a command of its own.
 - `applyprose-shows-report-whole` (step): When `report` exits 0, apply-prose
-  shows its output to the author as it stands, and takes one decision over the
-  whole set, a set of rule ids or a set of files, with the side of each
-  overlap that stays.
+  publishes `.prose-tuning/report.md` as a private artifact, or shows the file
+  whole where it cannot, and takes one decision over the whole set, a set of
+  rule ids or a set of files, naming the artifact's address and the token.
+
+## need user-annotates-findings: Comment on a finding where it is read
+
+When Claude has proposed rewrites, the user wants to comment on a finding
+where they read it and have Claude revise or drop it before they approve. A
+change then does not have to be retyped in chat.
+
+Source: the owner's ruling on do-todos's report, 2026-10-04 (#334), applied
+to apply-prose's report at the owner's request in #342.
+
+- `applyprose-revises-on-comment` (step): When the author sends a comment on
+  the published report to Claude, apply-prose revises or dismisses the
+  finding, runs `report` again, republishes the report to the same address
+  and answers in the comment's thread.
 
 ## need user-keeps-document-meaning: Keep what a document says through a rewrite
 
@@ -643,6 +658,22 @@ Source: the owner's review of #139, and README.md, under "When to use it".
 - `command-requires-a-repo` (test): When a command runs outside a git
   repository, or git is not installed, it names the cause and exits 2.
 
+## constraint bash-hides-output: A command's output does not reliably reach the user
+
+Claude Code shows a Bash command's output to the model and not reliably to
+the user, and an `AskUserQuestion` dialog covers the text above it. So a
+report the user must approve reaches them as a file or a page, not as a
+command's output.
+
+Source: Claude Code's Bash tool description, and the owner's report in #334.
+`specs/todos.md` holds the same constraint for do-todos, and this copy
+records it for apply-prose.
+
+- `report-cmd-writes-report-file` (test): When `report` runs, it writes the
+  findings as markdown to `.prose-tuning/report.md`, which git ignores, and
+  gives the file's path. When it exits 1, the file holds the errors and no
+  token.
+
 ## constraint artifact-sends-comments: A comment sent to Claude reaches the session
 
 An artifact published from Claude Code is private by default. A comment its
@@ -652,7 +683,8 @@ the session goes idle.
 
 Source: code.claude.com/docs/en/artifacts.md, under "Collect comments on an
 artifact", and the probe recorded in #334. `specs/todos.md` holds the same
-constraint for do-todos, and this copy records it for update-prose-config.
+constraint for do-todos, and this copy records it for update-prose-config
+and apply-prose.
 
 ## constraint worktree-guards-shared-claude: A worktree session cannot edit another checkout's .claude/
 

@@ -91,6 +91,18 @@ evidence, to `.prose-tuning/questions.md`. The skill publishes that file as a
 private artifact, and the author answers each question in a comment sent to
 Claude. Where the skill cannot publish, it falls back to dialogs of four.
 
+## The report page
+
+Claude Code shows a command's output to the model, and not reliably to the
+author, and the dialog that asks for approval covers the text above it. So
+`prose.py report` also writes the findings as markdown to
+`.prose-tuning/report.md`, and apply-prose publishes that file as a private
+artifact. The author reads every finding there, comments on one and sends the
+comment to Claude, and the skill revises or dismisses the finding and
+republishes to the same address. The approval dialog names the address and
+the token, so the author approves the page they read. Where the skill cannot
+publish, it gives the file whole in its reply.
+
 ## Why a script
 
 `scripts/prose.py` does everything deterministic:

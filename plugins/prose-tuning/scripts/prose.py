@@ -23,7 +23,8 @@ Commands:
     config      list | lint | check-id | similar | classify | adopt | write |
                 init | move
     tags        list | resolve
-    report      the findings for approval, and which of them overlap
+    report      the findings for approval, and which of them overlap, also
+                written to .prose-tuning/report.md for the author to read
     apply       apply approved rewrites
     questions   write update-prose-config's interview to .prose-tuning/
                 questions.md, for the author to answer on a page
@@ -97,11 +98,15 @@ Some things in here look like bugs and are not:
    neighbors rather than two. plan_findings has the rule, and resolve_scanned
    says why neutralizing a file for evidence never does this.
 
-5. questions writes .prose-tuning/questions.md and does not take --dry-run.
-   A command takes --dry-run only when a user scenario, a test or a
-   verification step needs the preview, and none needs one here: the skill
-   always wants the page, and the file is git-ignored scratch that the next
-   run replaces.
+5. questions writes .prose-tuning/questions.md, and report writes
+   .prose-tuning/report.md, and neither takes --dry-run. A command takes
+   --dry-run only when a user scenario, a test or a verification step needs
+   the preview, and none needs one here: the skill always wants the page, and
+   the file is git-ignored scratch that the next run replaces. report writes
+   its page because Claude Code shows a command's output to the model and not
+   reliably to the author, who has to read what they approve. A report that
+   fails writes its errors and no token, so a stale token never reaches the
+   author.
 
 Python 3.9 is the floor. No match statements, no X | Y unions.
 """
@@ -159,9 +164,11 @@ GIT_DIR_NAME = ".git"
 COPY_IGNORE = COPY_DIR + "/.gitignore"
 COPY_IGNORE_TEXT = b"*\n"
 # Where questions writes the interview, for the author to answer on a page,
-# and the info string of the fence that holds each piece of evidence.
+# where report writes the findings, for the author to read whole, and the info
+# string of the fence that holds a piece of evidence or a finding's text.
 QUESTIONS_FILE = COPY_DIR + "/questions.md"
-QUESTIONS_FENCE_INFO = "text"
+REPORT_FILE = COPY_DIR + "/report.md"
+PAGE_FENCE_INFO = "text"
 DEVICE_MOUNT_ROOT = "$HOME/mnt"
 
 # What evidence, reproduce and restore compare the working tree against.
@@ -4195,6 +4202,42 @@ def uncovered_matches(repo, config, scope, findings):
     return out
 
 
+def report_markdown(data, rejected):
+    """The report as markdown: what the author reads whole, and approves.
+
+    Each text sits in a fence between the same | marks stdout uses, so a
+    space at either end shows on the page too.
+    """
+    out = ["# Prose report"]
+    if rejected:
+        out += ["", "## Refused", "", "Settle these and run report again:", ""]
+        out += ["- %s" % e for e in rejected]
+    for r in data["findings"] + data["dismissed"]:
+        out += [
+            "",
+            "## Finding %d: `%s:%d`, `%s`" % (r["finding"], r["file"], r["line"], r["rule"]),
+        ]
+        out += ["", "Current:", "", fenced(report_text(r["current"], REPORT_NOTHING))]
+        if "reason" in r:
+            out += ["", "Dismissed: %s" % r["reason"]]
+            continue
+        out += ["", "Proposed:", "", fenced(report_text(r["proposed"], REPORT_CUT))]
+        if r["why"]:
+            out += ["", "Why: %s" % r["why"]]
+    rows = data["findings"]
+    out += ["", "%d finding(s) in %d file(s)." % (len(rows), len(set(r["file"] for r in rows)))]
+    if data["dismissed"]:
+        out.append("%d match(es) dismissed." % len(data["dismissed"]))
+    out += [
+        "",
+        "Checked by pattern: %s. Every other rule was checked by reading."
+        % (", ".join("`%s`" % r for r in data["checked_by_pattern"]) or "none"),
+    ]
+    if data["token"]:
+        out += ["", "%s`%s`" % (TOKEN_LABEL.capitalize(), data["token"])]
+    return "\n".join(out) + "\n"
+
+
 def cmd_report(args):
     """The findings as the author approves them, read against the files now.
 
@@ -4270,6 +4313,7 @@ def cmd_report(args):
         "checked_by_pattern": patterned,
         "token": token,
     }
+    data["report"] = write_page(repo, REPORT_FILE, report_markdown(data, rejected))
 
     def human():
         for r in rows:
@@ -4348,7 +4392,7 @@ def fenced(text):
     diff or a markdown passage shows as it stands."""
     longest = max([len(run) for run in re.findall(r"`+", text)] + [2])
     fence = "`" * (longest + 1)
-    return "%s%s\n%s\n%s" % (fence, QUESTIONS_FENCE_INFO, text.rstrip("\n"), fence)
+    return "%s%s\n%s\n%s" % (fence, PAGE_FENCE_INFO, text.rstrip("\n"), fence)
 
 
 def question_refusals(n, q):
@@ -4399,6 +4443,20 @@ def questions_markdown(questions, refused):
     return "\n".join(out) + "\n"
 
 
+def write_page(repo, rel, text):
+    """Write text to rel in .prose-tuning/, beside the .gitignore that keeps
+    it out of the project's commits, and return its path."""
+    ignore = repo.abspath(COPY_IGNORE)
+    os.makedirs(os.path.dirname(ignore), exist_ok=True)
+    if not os.path.isfile(ignore):
+        # In place, on purpose. See the module docstring.
+        with open(ignore, "wb") as fh:
+            fh.write(COPY_IGNORE_TEXT)
+    path = repo.abspath(rel)
+    Text(text).write(path)
+    return path
+
+
 def cmd_questions(args):
     """Write the interview to .prose-tuning/questions.md, for the author to
     answer on a page when one dialog cannot hold it.
@@ -4415,14 +4473,7 @@ def cmd_questions(args):
     refused = []
     for n, q in enumerate(questions, 1):
         refused += question_refusals(n, q)
-    ignore = repo.abspath(COPY_IGNORE)
-    os.makedirs(os.path.dirname(ignore), exist_ok=True)
-    if not os.path.isfile(ignore):
-        # In place, on purpose. See the module docstring.
-        with open(ignore, "wb") as fh:
-            fh.write(COPY_IGNORE_TEXT)
-    path = repo.abspath(QUESTIONS_FILE)
-    Text(questions_markdown(questions, refused)).write(path)
+    path = write_page(repo, QUESTIONS_FILE, questions_markdown(questions, refused))
     data = {"page": path, "questions": 0 if refused else len(questions)}
     return emit(
         args, "questions", repo.root, data, errors=refused, human=lambda: print("wrote %s" % path)
@@ -4745,7 +4796,8 @@ def build_parser():
         parents=[common, findings],
         help="the findings, for approval",
         description="Print the findings for approval, read against the files as they are now, "
-        "and name every pair of them that overlaps.",
+        "and name every pair of them that overlaps. Also write them to %s, for the author "
+        "to read whole." % REPORT_FILE,
         epilog=FINDINGS_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )

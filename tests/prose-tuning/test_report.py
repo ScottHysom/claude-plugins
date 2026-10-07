@@ -7,6 +7,8 @@ would refuse, and names every pair of findings that apply could not do both
 of, before the author is asked anything.
 """
 
+import json
+
 import pytest
 
 import prose
@@ -184,3 +186,62 @@ class DescribeReport:
         write_doc(prose_repo)
         prose_repo.report([wrapped(prose_repo), dash(prose_repo), cut(prose_repo)])
         assert prose_repo.read("doc.md") == DOC
+
+
+@pytest.mark.spec("report-cmd-writes-report-file")
+class DescribeTheReportFile:
+    def report(self, prose_repo, findings):
+        code, envelope = prose_repo.report(findings)
+        path = prose_repo.root / prose.REPORT_FILE
+        assert envelope["data"]["report"] == str(path)
+        return code, envelope, path.read_text(encoding="utf-8")
+
+    def it_writes_each_finding_and_ends_with_the_token(self, prose_repo):
+        write_doc(prose_repo)
+        code, envelope, text = self.report(prose_repo, [wrapped(prose_repo)])
+        assert code == prose.OK
+        assert text.startswith("# Prose report\n")
+        assert (
+            "## Finding 1: `doc.md:3`, `%s`\n\n"
+            "Current:\n\n"
+            "```text\n|Able to state|\n|  what is inside the file.|\n```\n\n"
+            "Proposed:\n\n"
+            "```text\n|A reader can state what is inside the file.|\n```\n\n"
+            "Why: it borrows its subject\n" % wrapped(prose_repo)["rule"]
+        ) in text
+        assert "1 finding(s) in 1 file(s).\n" in text
+        assert text.endswith("Approval token: `%s`\n" % envelope["data"]["token"])
+
+    def it_shows_a_cut_and_a_dismissal(self, prose_repo):
+        write_doc(prose_repo)
+        dismissal = prose_repo.finding(
+            6, file="doc.md", text=" - until", rule=wrapped(prose_repo)["rule"]
+        )
+        dismissal.pop("replacement")
+        dismissal["dismiss"] = "a range"
+        code, _, text = self.report(prose_repo, [cut(prose_repo), dismissal])
+        assert code == prose.OK, prose_repo.err
+        assert "Proposed:\n\n```text\n(cut)\n```\n" in text
+        assert "Current:\n\n```text\n| - until|\n```\n\nDismissed: a range\n" in text
+
+    def it_writes_the_refusals_and_no_token(self, prose_repo):
+        write_doc(prose_repo)
+        code, envelope, text = self.report(prose_repo, [dash(prose_repo), cut(prose_repo)])
+        assert code == prose.PROBLEMS
+        assert "## Refused\n" in text
+        assert "- %s\n" % envelope["errors"][0] in text
+        assert "token" not in text.lower()
+
+    def it_replaces_a_token_from_an_earlier_run(self, prose_repo):
+        write_doc(prose_repo)
+        self.report(prose_repo, [wrapped(prose_repo)])
+        _, _, text = self.report(prose_repo, [dash(prose_repo), cut(prose_repo)])
+        assert "token" not in text.lower()
+
+    def it_keeps_the_file_out_of_the_projects_commits_and_its_scope(self, prose_repo):
+        write_doc(prose_repo)
+        self.report(prose_repo, [wrapped(prose_repo)])
+        assert (prose_repo.root / prose.COPY_IGNORE).read_bytes() == prose.COPY_IGNORE_TEXT
+        code, envelope = prose_repo.run("scope")
+        assert code == prose.OK
+        assert prose.REPORT_FILE not in json.dumps(envelope["data"])
