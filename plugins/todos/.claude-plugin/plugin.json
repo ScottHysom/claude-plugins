@@ -1,6 +1,6 @@
 {
   "name": "todos",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "description": "Claude Code only. Files the TODO comments left in a project's uncommitted changes as GitHub issues, or hands one to an installed skill made for its work, after the author approves every draft, and marks each one in its file with where it went. Ships todos.py, so it must be installed as a plugin rather than proposed as a single skill.",
   "author": {
     "name": "Scott Hysom",
