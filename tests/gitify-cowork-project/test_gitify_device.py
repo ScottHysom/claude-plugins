@@ -70,7 +70,8 @@ class DescribeTheProbeCommand:
         result = device.sh(probe(runner))
         assert result.returncode == 1
         assert result.stdout.startswith("repo: Projects/Foo Research")
-        assert "does not adopt an existing repo" in result.stdout
+        assert "does not take over an existing repo" in result.stdout
+        assert "gitify.py history" in result.stdout
         assert "files:" not in result.stdout
 
     @pytest.mark.spec("probe-cmd-lists-folder")

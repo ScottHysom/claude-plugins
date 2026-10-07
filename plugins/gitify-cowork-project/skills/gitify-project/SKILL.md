@@ -1,6 +1,6 @@
 ---
 name: gitify-project
-description: Put an existing Cowork Project folder under git, writing commit.sh, setup.sh, .gitignore, and a CLAUDE.md holding the Project Instructions and how Claude commits and reads the history. Use when a Cowork Project that already has documents needs version history, when asked to git-back, gitify or add git to a project folder, or to move the Project Instructions into a versioned file. Writes nothing about what the documents say.
+description: Put an existing Cowork Project folder under git, writing commit.sh, setup.sh, .gitignore, and a CLAUDE.md holding the Project Instructions and how Claude commits and reads the history. Use when a Cowork Project that already has documents needs version history, when asked to git-back, gitify or add git to a project folder, or to move the Project Instructions into a versioned file. In a folder that is already a git repo, adds only a section to its CLAUDE.md that tells Claude to leave change history to git. Writes nothing about what the documents say.
 ---
 
 # Putting an existing Cowork Project under git
@@ -62,8 +62,8 @@ Exit 1 means one of the paths breaks a rule; `errors` says which. Otherwise run
 
 - **2, `missing:`**: the folder is not there. Stop and check the path with the
   user. Do not go on, because `device_commit_files` would create it.
-- **1, `repo:`**: the folder is already a git repo. Stop. This skill starts
-  git history; it does not adopt a repo that already has some.
+- **1, `repo:`**: the folder is already a git repo. Do not set it up. Go to
+  step 6.
 - **0**: it prints `files:` with a count, an `entry:` line for each top-level
   entry, and a `large:` line for each file over 10 MB.
 
@@ -163,3 +163,30 @@ The field reaches every conversation from its start, so this line gets
 `CLAUDE.md` read wherever Cowork's own loading of the file does not reach.
 COWORK.md, in the claude-plugins repo, under "How instruction files load", has
 what Cowork loads and when.
+
+## Step 6: a folder that is already a git repo
+<!-- spec: gitifyproject-adds-history-to-repo -->
+
+Come here only from step 1's `repo:`, and skip steps 2 to 5. This skill does not take over a repo, and does not write its `.gitignore`,
+`commit.sh` or `setup.sh`, or move the Project Instructions. It can add one
+thing: a "Git history" section at the end of the root `CLAUDE.md`, which tells
+Claude to keep the record of a change out of the documents and to leave the
+commit to the user. Cowork loads only the connected folder's own `CLAUDE.md`,
+so this works only when the repo is the connected folder itself.
+
+Ask the user whether to add it. On a yes:
+
+```sh
+GITIFY=/tmp/gitify/plugin/scripts/gitify.py && python3 "$GITIFY" history --connected-folder "<connected>" --json
+```
+
+Run `data.history_command` through `device_bash`. It prints one line:
+
+- **`added:`**: the section is at the end of `CLAUDE.md`. Tell the user to
+  review it and commit `CLAUDE.md` from their own terminal. Do not commit it
+  from here.
+- **`present:`**: `CLAUDE.md` already has the section. Nothing changed.
+- **`not-repo:`** or **`missing:`**: the line says what is wrong. Tell the user
+  and stop.
+- **`failed:`**: the end of `CLAUDE.md` does not match the section. Show the
+  user the file's end and stop. Do not edit it to repair it.

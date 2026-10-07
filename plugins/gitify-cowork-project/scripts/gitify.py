@@ -15,12 +15,16 @@ Commands:
     preflight   check the shipped templates are complete and well formed
     probe       a device command that checks the folder and lists what is in it
     render      fill the templates from an answers file into a stage directory
+    history     a device command that adds the Git history section to the
+                CLAUDE.md of a folder that is already a git repo
 
 Exit codes: 0 clean, 1 ran and found problems, 2 could not run.
 
 The device commands probe and render print have exit codes of their own, which
 SKILL.md reads: 0 go on, 1 the folder holds something this would overwrite or
-is already a git repo, 2 the folder is not there.
+is already a git repo, 2 the folder is not there. history's command reads 1
+differently: the folder is not a git repo, or its CLAUDE.md already has the
+section.
 
 Where this runs: in Cowork's container, which can read the plugin but not the
 user's folder. COWORK.md at the root of the claude-plugins repo says what
@@ -29,6 +33,9 @@ directory under /mnt/user-data/outputs/ and prints the `files` list
 `device_commit_files` takes, plus two commands for `device_bash`: a precheck
 that nothing would be overwritten, and a sha256 check that everything arrived
 intact.
+history is the exception. It appends to a file that may already be on the
+device, so its command carries the section in a heredoc and checks the bytes
+it appended itself.
 probe and the precheck both refuse a folder that is not there, because the
 copy would quietly create it. setup.sh sets its own execute bits, since they
 do not survive the copy.
@@ -39,9 +46,11 @@ Things that look like bugs and are not:
    into position. Cowork's device bridge cannot delete files, and a script in
    this repo may end up running where that matters. Do not "fix" this.
 
-2. Nothing here runs git, not even to read. A git write through the bridge
-   strands .git/*.lock files that block every later write, and the folder is
-   not a repo until the user runs setup.sh.
+2. Nothing here runs git, not even to read, and neither do the device
+   commands. A git write through the bridge strands .git/*.lock files that
+   block every later write, and the folder is not a repo until the user runs
+   setup.sh. history's command tests for .git and leaves the commit to the
+   user.
 
 3. render refuses a stage directory holding files it did not plan. It cannot
    clean one up, for the same reason as 1.
@@ -90,6 +99,18 @@ MANIFEST = [
 GITIGNORE_TEMPLATE = "gitignore"
 INSTRUCTIONS_TEMPLATE = "CLAUDE.md"
 GITIGNORE_HEADING = "# This project"
+
+# The section history appends to an existing repo's CLAUDE.md. It is not in
+# MANIFEST, because render never writes it as a file of its own.
+HISTORY_TEMPLATE = "git-history.md"
+HISTORY_FILE = "CLAUDE.md"
+# A line of CLAUDE.md that says the section is already there. The CLAUDE.md
+# template's own section has the same heading, so a folder this plugin set up
+# counts too.
+HISTORY_HEADING = "## Git history"
+# Ends the heredoc that carries the section. A line of the template equal to it
+# would end the heredoc early, so preflight refuses one.
+HEREDOC_END = "GITIFY_SECTION"
 
 # What the user puts in the Project Instructions field in place of what was
 # there. Cowork adds the field to every conversation in the project, so it
@@ -233,7 +254,7 @@ def check_templates(directory):
     errors = []
     if not os.path.isdir(directory):
         return ["templates directory not found: %s" % directory]
-    expected = set(name for name, _ in MANIFEST)
+    expected = set(name for name, _ in MANIFEST) | {HISTORY_TEMPLATE}
     present = set(os.listdir(directory))
     for name in sorted(expected - present):
         errors.append("%s is in the manifest but not in %s" % (name, directory))
@@ -242,7 +263,7 @@ def check_templates(directory):
             "%s is in %s but not in the manifest, so it would never ship" % (name, directory)
         )
     known = set(SUPPLIED) | set(COMPUTED)
-    for name, _ in MANIFEST:
+    for name in [name for name, _ in MANIFEST] + [HISTORY_TEMPLATE]:
         if name not in present:
             continue
         t = Template.load(directory, name)
@@ -250,6 +271,18 @@ def check_templates(directory):
         for p in t.placeholders:
             if p not in known:
                 errors.append("%s  {{%s}} is not a known placeholder" % (name, p))
+    if HISTORY_TEMPLATE in present:
+        t = Template.load(directory, HISTORY_TEMPLATE)
+        if HEREDOC_END in t.text.splitlines():
+            errors.append(
+                "%s  a line reads %s, which would end history's heredoc"
+                % (HISTORY_TEMPLATE, HEREDOC_END)
+            )
+        if HISTORY_HEADING not in t.text.splitlines():
+            errors.append(
+                "%s  has no %r line, so history would append it again"
+                % (HISTORY_TEMPLATE, HISTORY_HEADING)
+            )
     return errors
 
 
@@ -422,8 +455,9 @@ def folder_guard(mount):
         ),
         "if [ -e .git ]; then echo %s; exit 1; fi"
         % shlex.quote(
-            "repo: %s is already a git repo. %s establishes git and does not adopt "
-            "an existing repo" % (mount, PLUGIN)
+            "repo: %s is already a git repo. %s does not take over an existing repo. "
+            "It can add only the Git history section to its CLAUDE.md, with gitify.py "
+            "history" % (mount, PLUGIN)
         ),
     ]
 
@@ -461,6 +495,56 @@ def check_command(mount, files):
     for f in files:
         lines.append("%s  %s" % (sha256(f["content"]), f["file"]))
     lines.append("SUMS")
+    return "\n".join(lines)
+
+
+def history_command(mount, section):
+    """sh that appends the section to CLAUDE.md in a folder that is already a
+    git repo, and checks what it appended. Exits 2 when the folder is not there,
+    and 1 when it is not a repo or already has the section."""
+    data = section.encode("utf-8")
+    quoted = shlex.quote(HISTORY_FILE)
+    lines = [
+        "cd %s 2>/dev/null || { echo %s; exit 2; }"
+        % (
+            sh_quote_under(DEVICE_MOUNT_ROOT, mount),
+            shlex.quote("missing: %s is not a folder on this device" % mount),
+        ),
+        "if [ ! -e .git ]; then echo %s; exit 1; fi"
+        % shlex.quote(
+            "not-repo: %s is not a git repo. Start from step 1 of gitify-project instead" % mount
+        ),
+        "if [ -f %s ] && grep -qx %s %s; then echo %s; exit 1; fi"
+        % (
+            quoted,
+            shlex.quote(HISTORY_HEADING),
+            quoted,
+            shlex.quote(
+                "present: %s already has a %s section. Nothing was changed"
+                % (HISTORY_FILE, HISTORY_HEADING)
+            ),
+        ),
+        # A blank line between the user's text and the section, and a newline
+        # first when their file does not end in one.
+        "if [ -s %s ]; then" % quoted,
+        '  [ -n "$(tail -c 1 %s)" ] && echo >> %s' % (quoted, quoted),
+        "  echo >> %s" % quoted,
+        "fi",
+        "cat >> %s <<'%s'" % (quoted, HEREDOC_END),
+        section.rstrip("\n"),
+        HEREDOC_END,
+        'if [ "$(tail -c %d %s | sha256sum | cut -d " " -f 1)" = %s ]; then'
+        % (len(data), quoted, hashlib.sha256(data).hexdigest()),
+        "  echo %s" % shlex.quote("added: %s" % HISTORY_FILE),
+        "else",
+        "  echo %s"
+        % shlex.quote(
+            "failed: the end of %s does not match the section. Show the user and stop"
+            % HISTORY_FILE
+        ),
+        "  exit 1",
+        "fi",
+    ]
     return "\n".join(lines)
 
 
@@ -626,6 +710,22 @@ def cmd_probe(args):
     return emit(args, "probe", data, human=human)
 
 
+def cmd_history(args):
+    folders, errors = resolve_folders(args.connected_folder, None)
+    if errors:
+        return emit(args, "history", None, errors=errors)
+    t = Template.load(TEMPLATES, HISTORY_TEMPLATE)
+    t.require_clean()
+    # One newline at the end, which is what the heredoc gives back.
+    section = substitute(t.text, {"PROJECT_MOUNT": folders.mount}).rstrip("\n") + "\n"
+    data = {"history_command": history_command(folders.mount, section)}
+
+    def human():
+        print("history, through device_bash:\n%s" % data["history_command"])
+
+    return emit(args, "history", data, human=human)
+
+
 def build_parser():
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument("--json", action="store_true", help="machine-readable envelope on stdout")
@@ -660,6 +760,16 @@ def build_parser():
     )
     p.add_argument("--dry-run", action="store_true")
     p.set_defaults(func=cmd_render)
+
+    p = sub.add_parser(
+        "history",
+        parents=[common],
+        help="a device command that adds the Git history section to an existing repo",
+    )
+    p.add_argument(
+        "--connected-folder", required=True, metavar="PATH", help="as get_device_info lists it"
+    )
+    p.set_defaults(func=cmd_history)
 
     return ap
 

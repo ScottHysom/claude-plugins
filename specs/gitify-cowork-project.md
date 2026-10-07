@@ -56,6 +56,27 @@ Source: the owner's review of #139.
   holds a section outside any HTML comment that tells Claude to keep the record
   of a change out of the documents, and to commit by writing `.commit-msg` and
   asking the user to run `./commit.sh`.
+- `history-cmd-appends-section` (test): When the command that `gitify.py
+  history --connected-folder` prints runs in a folder that is already a git
+  repo, it appends the Git history section to the root `CLAUDE.md` after a
+  blank line, creating the file when it is missing, and leaves the user's text
+  and the repo's commits as they were. It prints `added:` and exits 0 when the
+  appended bytes match the section, and `failed:` with exit 1 when they do
+  not.
+- `history-cmd-keeps-existing-section` (test): When `CLAUDE.md` already has a
+  `## Git history` line, the command prints `present:`, exits 1 and changes
+  nothing.
+- `history-cmd-refuses-non-repo` (test): When the connected folder is not a
+  git repo, the command prints `not-repo:` and exits 1 without writing, and
+  when the folder is not on the device it prints `missing:` and exits 2.
+- `historysection-leaves-history-to-git` (test): The section that `history`
+  appends tells Claude to keep the record of a change out of the documents,
+  never to run a git command that writes through the bridge, and to give the
+  user the commit message to commit from their own terminal.
+- `gitifyproject-adds-history-to-repo` (step): When the folder is already a
+  git repo, gitify-project offers to add only the Git history section to its
+  `CLAUDE.md`, runs `history`'s command on a yes, and tells the user to commit
+  `CLAUDE.md` from their own terminal.
 
 ## need user-asks-about-history: Ask Claude about the history
 
@@ -68,6 +89,9 @@ Source: README.md, under "Looking back".
 - `claudemd-gives-history-commands` (test): When `render` writes `CLAUDE.md`,
   its history section says that read-only git works through the bridge, and
   gives the commands at the project's mount.
+- `historysection-gives-history-commands` (test): The section that `history`
+  appends says that read-only git works through the bridge, and gives the
+  commands at the connected folder's mount.
 
 ## need user-reviews-first-commit: See the first commit before it is made
 
@@ -114,7 +138,8 @@ Source: README.md, under "Setting it up".
   not on the device, `probe`'s command and the precheck print `missing:` and
   exit 2.
 - `probe-cmd-stops-on-existing-repo` (test): When the project folder is
-  already a git repo, `probe`'s command and the precheck print `repo:` and
+  already a git repo, `probe`'s command and the precheck print `repo:`, say
+  that the plugin adds only the Git history section to an existing repo, and
   exit 1.
 - `precheck-cmd-names-overwrites` (test): When the folder holds a file
   with the name of one `render` would write, the precheck prints `exists:` for
