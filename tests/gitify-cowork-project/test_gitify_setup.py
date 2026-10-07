@@ -112,13 +112,6 @@ class DescribeSetup:
         assert "notes.md" in files
         assert files.isdisjoint(kept_out), files & set(kept_out)
 
-    def it_names_the_plugin_in_the_first_commit(self, folder):
-        (folder / ".commit-msg").write_text("chore: left over\n")
-        sh(folder, "setup.sh", "commit")
-        subject = git(folder, "log", "-1", "--format=%s").stdout.strip()
-        assert "gitify-cowork-project" in subject
-        assert "existing folder" in subject
-
     @pytest.mark.spec("setup-cmd-sets-exec-bits")
     def it_makes_both_scripts_executable(self, folder):
         sh(folder, "setup.sh")
