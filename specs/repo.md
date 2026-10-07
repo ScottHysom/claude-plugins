@@ -661,7 +661,8 @@ Source: #114, #129, and SPEC-METHODOLOGY.md, under "The chain".
 - `inventory-cmd-lists-parser-surface` (test): When `check-specs.py
   inventory` lists a plugin, it gives every subcommand, option and `choices`
   value its script's `build_parser()` accepts, each with the skill text that
-  names it.
+  names it. Skill text names an option or a value only when it gives the
+  option's own command first.
 - `inventory-cmd-lists-string-collections` (test): When `inventory` lists
   a plugin, it gives every module-level set, tuple or list of strings in its
   script.
