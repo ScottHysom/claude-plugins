@@ -150,3 +150,25 @@ class DescribeCommit:
         result = sh(folder, "commit.sh", "docs: add to the notes")
         assert result.returncode == 0, result.stderr
         assert git(folder, "log", "-1", "--format=%s").stdout.strip() == "docs: add to the notes"
+
+    @pytest.mark.spec("commitsh-reads-message-file")
+    def it_commits_with_the_message_left_in_commit_msg_and_empties_it(self, folder):
+        sh(folder, "setup.sh", "commit")
+        (folder / "notes.md").write_text("more notes\n")
+        (folder / ".commit-msg").write_text("docs: add to the notes\n")
+        result = sh(folder, "commit.sh")
+        assert result.returncode == 0, result.stderr
+        assert git(folder, "log", "-1", "--format=%s").stdout.strip() == "docs: add to the notes"
+        assert git(folder, "status", "--porcelain").stdout == ""
+        assert (folder / ".commit-msg").read_bytes() == b""
+
+    @pytest.mark.spec("commitsh-clears-stranded-locks")
+    def it_clears_a_stranded_index_lock_and_commits(self, folder):
+        sh(folder, "setup.sh", "commit")
+        (folder / "notes.md").write_text("more notes\n")
+        lock = folder / ".git" / "index.lock"
+        lock.write_text("")
+        result = sh(folder, "commit.sh", "docs: add to the notes")
+        assert result.returncode == 0, result.stderr
+        assert not lock.exists()
+        assert git(folder, "log", "-1", "--format=%s").stdout.strip() == "docs: add to the notes"
