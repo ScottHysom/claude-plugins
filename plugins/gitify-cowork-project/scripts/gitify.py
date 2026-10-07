@@ -67,9 +67,7 @@ OK, PROBLEMS, CANNOT_RUN = 0, 1, 2
 
 PLUGIN = "gitify-cowork-project"
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-DEFAULT_TEMPLATES = os.path.join(
-    os.path.dirname(SCRIPT_DIR), "skills", "gitify-project", "templates"
-)
+TEMPLATES = os.path.join(os.path.dirname(SCRIPT_DIR), "skills", "gitify-project", "templates")
 
 # Where device_commit_files accepts files from. A stage elsewhere still renders,
 # with a warning, so the script can be run and tested off Cowork.
@@ -476,7 +474,7 @@ def posix_join(*parts):
 
 def cmd_render(args):
     answers = read_answers(args.answers)
-    templates = load_templates(args.templates)
+    templates = load_templates(TEMPLATES)
     for t in templates:
         t.require_clean()
 
@@ -604,11 +602,11 @@ def check_stage(stage, rels):
 
 
 def cmd_preflight(args):
-    errors = check_templates(args.templates)
-    data = {"templates": args.templates, "python": "%d.%d" % sys.version_info[:2]}
+    errors = check_templates(TEMPLATES)
+    data = {"templates": TEMPLATES, "python": "%d.%d" % sys.version_info[:2]}
 
     def human():
-        print("templates  %s" % args.templates)
+        print("templates  %s" % TEMPLATES)
         print("python     %s" % data["python"])
         if not errors:
             print("ok")
@@ -635,12 +633,6 @@ def cmd_probe(args):
 def build_parser():
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument("--json", action="store_true", help="machine-readable envelope on stdout")
-    common.add_argument(
-        "--templates",
-        metavar="DIR",
-        default=DEFAULT_TEMPLATES,
-        help="templates directory (default: the one shipped with this plugin)",
-    )
 
     ap = argparse.ArgumentParser(
         prog="gitify.py", description="Deterministic half of the gitify-project skill."
