@@ -378,6 +378,70 @@ class DescribeRefusingToRun:
         assert (runner.stage / "notes.txt").read_text() == "mine"
 
 
+def foreign_file_in_stage(runner):
+    runner.stage.mkdir()
+    (runner.stage / "notes.txt").write_text("mine")
+
+
+def file_as_stage(runner):
+    runner.stage.write_text("mine")
+
+
+def missing_templates(runner):
+    return "--templates", str(runner.tmp / "nowhere")
+
+
+def missing_template(runner):
+    templates = runner.templates_copy()
+    (templates / "commit.sh").unlink()
+    return "--templates", str(templates)
+
+
+def malformed_template(runner):
+    templates = runner.templates_copy()
+    (templates / "gitignore").write_text("a stray }} brace\n")
+    return "--templates", str(templates)
+
+
+class DescribeTheRemedyOnStopping:
+    # SKILL.md reads every exit 2 from render the same way, so each message
+    # has to carry the remedy for its own cause, and only that one.
+    @pytest.mark.spec("repo:script-names-remedy-on-stop")
+    @pytest.mark.parametrize(
+        "raw",
+        ['{"ignore": [], "ignore": []}', "not json", "[]"],
+        ids=["duplicate key", "not json", "not an object"],
+    )
+    def it_tells_the_caller_to_fix_unreadable_answers(self, runner, raw):
+        code, _ = runner.render(None, raw=raw)
+        assert code == gitify.CANNOT_RUN
+        assert runner.err.rstrip().endswith(gitify.FIX_ANSWERS)
+        assert gitify.NEW_STAGE not in runner.err
+
+    @pytest.mark.spec("repo:script-names-remedy-on-stop")
+    @pytest.mark.parametrize(
+        "arrange", [foreign_file_in_stage, file_as_stage], ids=["foreign file", "not a directory"]
+    )
+    def it_tells_the_caller_to_pass_a_new_stage(self, runner, make_answers, arrange):
+        arrange(runner)
+        code, _ = runner.render(make_answers())
+        assert code == gitify.CANNOT_RUN
+        assert runner.err.rstrip().endswith(gitify.NEW_STAGE)
+        assert gitify.FIX_ANSWERS not in runner.err
+
+    @pytest.mark.spec("repo:script-names-remedy-on-stop")
+    @pytest.mark.parametrize(
+        "arrange",
+        [missing_templates, missing_template, malformed_template],
+        ids=["no templates directory", "missing template", "malformed template"],
+    )
+    def it_tells_the_caller_a_broken_template_is_a_plugin_bug(self, runner, make_answers, arrange):
+        flags = arrange(runner)
+        code, _ = runner.render(make_answers(), *flags)
+        assert code == gitify.CANNOT_RUN
+        assert runner.err.rstrip().endswith(gitify.PLUGIN_BUG)
+
+
 class DescribeLeftovers:
     @pytest.mark.spec("render-cmd-refuses-leftover-placeholders")
     def it_stops_render_when_a_template_placeholder_has_no_value(self, runner, make_answers):

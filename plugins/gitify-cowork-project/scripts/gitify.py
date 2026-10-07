@@ -121,7 +121,14 @@ DIGEST_LEN = 12
 
 
 class Fatal(Exception):
-    """Cannot run at all. Exits 2."""
+    """Cannot run at all. Exits 2. The message ends with what to do next."""
+
+
+# The remedy each kind of Fatal ends with, so the caller need not tell the
+# causes apart.
+FIX_ANSWERS = "fix the answers file and run render again"
+NEW_STAGE = "pass a new --stage"
+PLUGIN_BUG = "this is a bug in the plugin; show the user this message and stop"
 
 
 # --------------------------------------------------------------------------
@@ -210,16 +217,16 @@ class Template:
         try:
             return cls(name, read_text(path))
         except OSError as exc:
-            raise Fatal("cannot read template %s: %s" % (path, exc)) from exc
+            raise Fatal("cannot read template %s: %s; %s" % (path, exc, PLUGIN_BUG)) from exc
 
     def require_clean(self):
         if self.errors:
-            raise Fatal("template is malformed: %s" % "; ".join(self.errors))
+            raise Fatal("template is malformed: %s; %s" % ("; ".join(self.errors), PLUGIN_BUG))
 
 
 def load_templates(directory):
     if not os.path.isdir(directory):
-        raise Fatal("templates directory not found: %s" % directory)
+        raise Fatal("templates directory not found: %s; %s" % (directory, PLUGIN_BUG))
     return [Template.load(directory, name) for name, _ in MANIFEST]
 
 
@@ -270,9 +277,9 @@ def read_answers(path):
             raw = read_text(path)
         data = json.loads(raw, object_pairs_hook=_no_duplicate_keys)
     except (OSError, ValueError) as exc:
-        raise Fatal("cannot read answers: %s" % exc) from exc
+        raise Fatal("cannot read answers: %s; %s" % (exc, FIX_ANSWERS)) from exc
     if not isinstance(data, dict):
-        raise Fatal("answers must be a JSON object")
+        raise Fatal("answers must be a JSON object; %s" % FIX_ANSWERS)
     return data
 
 
@@ -579,15 +586,15 @@ def check_stage(stage, rels):
     if not os.path.exists(stage):
         return
     if not os.path.isdir(stage):
-        raise Fatal("stage %s exists and is not a directory" % stage)
+        raise Fatal("stage %s exists and is not a directory; %s" % (stage, NEW_STAGE))
     planned = set(rels)
     for root, _dirs, names in os.walk(stage):
         for n in names:
             rel = os.path.relpath(os.path.join(root, n), stage).replace(os.sep, "/")
             if rel not in planned:
                 raise Fatal(
-                    "stage %s already holds %s, which this run would not write; "
-                    "pass a new --stage" % (stage, rel)
+                    "stage %s already holds %s, which this run would not write; %s"
+                    % (stage, rel, NEW_STAGE)
                 )
 
 

@@ -102,7 +102,7 @@ step made:
 `PROJECT_MOUNT` is worked out from the folders. Do not pass it.
 
 ## Step 3: render
-<!-- spec: render-cmd-stages-files, repo:script-checks-every-answer -->
+<!-- spec: render-cmd-stages-files, repo:script-checks-every-answer, repo:script-names-remedy-on-stop -->
 
 ```sh
 GITIFY=/tmp/gitify/plugin/scripts/gitify.py && python3 "$GITIFY" render --answers /tmp/gitify/answers.json --json
@@ -111,8 +111,8 @@ GITIFY=/tmp/gitify/plugin/scripts/gitify.py && python3 "$GITIFY" render --answer
 - **0**: every file is staged under `/mnt/user-data/outputs/`.
 - **1**: `errors` names every problem. Nothing was written. Fix `answers.json`
   and run it again.
-- **2**: the stage directory holds files from something else. Pass
-  `--stage /mnt/user-data/outputs/<new directory>`.
+- **2**: render could not run. Its message names the cause and ends with what
+  to do. A new `--stage` goes under `/mnt/user-data/outputs/`.
 
 `--dry-run` checks the answers without writing.
 
