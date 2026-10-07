@@ -114,17 +114,25 @@ class DescribeApprovalToken:
         assert code == prose.OK
         assert out[-1] == prose.TOKEN_LABEL + prose_repo.token()
 
-    def it_keeps_the_token_under_only_and_file(self, prose_repo, target_lines):
+    @pytest.mark.spec("report-cmd-shows-whole-batch")
+    @pytest.mark.parametrize("flag", [["--only", "standing-define-terms"], ["--file", "target.md"]])
+    def it_refuses_a_filter_on_report(self, prose_repo, target_lines, capsys, flag):
+        path = prose_repo.findings_file([closing(prose_repo, target_lines)])
+        with pytest.raises(SystemExit) as exc:
+            prose.main(["report", "--findings", path, "-C", str(prose_repo.root), *flag])
+        assert exc.value.code == prose.CANNOT_RUN
+        out, err = capsys.readouterr()
+        assert flag[0] in err
+        assert prose.TOKEN_LABEL not in out
+
+    @pytest.mark.spec("apply-cmd-obeys-filters")
+    def it_filters_apply_under_the_token_of_the_whole_report(self, prose_repo, target_lines):
         (prose_repo.root / "other.md").write_text("Other text.\n")
         findings = [
             closing(prose_repo, target_lines),
             prose_repo.finding(1, file="other.md", text="Other text."),
         ]
         whole = reported_token(prose_repo, findings)
-        filtered = reported_token(
-            prose_repo, findings, "--only", prose_repo.finding(1)["rule"], "--file", "target.md"
-        )
-        assert filtered == whole
 
         code, envelope = apply_with(prose_repo, whole, "--file", "target.md")
         assert code == prose.OK

@@ -33,7 +33,6 @@
     "tests/prose-tuning/test_apply.py::DescribeAnchoredFindings::it_refuses_an_empty_text_without_col_start": 192,
     "tests/prose-tuning/test_apply.py::DescribeApply::it_reads_the_findings_from_stdin_given_a_dash": 195,
     "tests/prose-tuning/test_apply.py::DescribeGuards::it_refuses_columns_outside_the_line": 191,
-    "tests/prose-tuning/test_approval_token.py::DescribeApprovalToken::it_keeps_the_token_under_only_and_file": 116,
     "tests/prose-tuning/test_config_location.py::DescribeConfigCommandsBeforeTheMove::it_points_to_config_move_when_only_the_root_file_exists": 203,
     "tests/prose-tuning/test_config_location.py::DescribeConfigMove::it_copies_the_root_file_byte_for_byte": 203,
     "tests/prose-tuning/test_config_location.py::DescribeConfigMove::it_leaves_the_root_file_for_the_author_to_delete": 203,
@@ -47,8 +46,6 @@
     "tests/prose-tuning/test_config_location.py::DescribePreflightWithARootFile::it_passes_once_the_root_copy_is_gone": 203,
     "tests/prose-tuning/test_cowork.py::DescribeStage::it_warns_when_the_stage_is_where_device_commit_files_cannot_read": 209,
     "tests/prose-tuning/test_evidence.py::DescribeInferredEdits::it_suppresses_one_hunk_by_its_file_and_line": 173,
-    "tests/prose-tuning/test_patterns.py::DescribeReportOnPatterns::it_counts_a_finding_the_filters_leave_out": 116,
-    "tests/prose-tuning/test_report.py::DescribeReport::it_drops_an_overlap_the_filters_leave_one_side_of": 116,
     "tests/prose-tuning/test_report.py::DescribeReport::it_takes_the_current_text_from_the_file_when_the_finding_gives_only_columns": 191,
     "tests/prose-tuning/test_segments.py::DescribeTheSegmentsCommand::it_leaves_the_segments_out_of_the_json_summary": 197,
     "tests/prose-tuning/test_segments.py::DescribeTheSegmentsCommand::it_prints_one_summary_line_per_file_and_the_totals": 197

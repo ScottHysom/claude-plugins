@@ -369,12 +369,6 @@ class DescribeReportOnPatterns:
         assert [m["file"] for m in envelope["data"]["uncovered"]] == ["other.md"]
         assert envelope["errors"][0].startswith("other.md:1:0-11  %s" % RULE)
 
-    def it_counts_a_finding_the_filters_leave_out(self, prose_repo):
-        patterned_doc(prose_repo)
-        findings = [rewrite(prose_repo), dismissal(prose_repo)]
-        code, envelope = prose_repo.report(findings, "--only", RULE_OWN)
-        assert code == prose.OK, envelope["errors"]
-
     @pytest.mark.spec("patterns-cmd-refuses-unlinted-rules")
     def it_refuses_to_report_on_a_rule_file_lint_refuses(self, prose_repo):
         patterned_doc(prose_repo)
