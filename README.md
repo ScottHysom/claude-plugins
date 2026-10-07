@@ -98,7 +98,7 @@ directory under `plugins/` and one new entry in the catalog.
 3. Add an entry to `.claude-plugin/marketplace.json` with `name`, `source`,
    `description` and `version`. State the required surface in the first
    sentence of the description.
-4. Validate, then push:
+4. Validate, then push. From the venv:
    ```sh
    claude plugin validate --strict .
    claude plugin validate --strict plugins/<name>
@@ -107,8 +107,19 @@ directory under `plugins/` and one new entry in the catalog.
    python3 .github/scripts/check-skills.py commands
    python3 .github/scripts/check-skills.py steps
    python3 .github/scripts/check-skills.py fences
+   python3 .github/scripts/check-skills.py repeats
    python3 .github/scripts/check-tests.py placement
-   pytest
+   python3 .github/scripts/check-tests.py naming
+   python3 .github/scripts/check-specs.py trace
+   python3 .github/scripts/check-specs.py surface
+   ruff format --check .
+   ruff check .
+   git ls-files -z '*.sh' | xargs -0 -n1 sh -n
+   git ls-files -z '*.sh' | xargs -0 shellcheck
+   pytest --cov --cov-report=json:coverage.json --cov-report=term-missing:skip-covered
+   python3 .github/scripts/check-coverage.py floors --base origin/main
+   python3 .github/scripts/check-coverage.py diff --base origin/main
+   python3 .github/scripts/check-coverage.py pragmas
    ```
 
    CI runs these on every pull request, on every plugin. `--strict` fails on
@@ -123,6 +134,21 @@ directory under `plugins/` and one new entry in the catalog.
    rather than part way through a run.
    The placement check catches a contributor-only file left under `plugins/`,
    which would otherwise be copied into every install.
+
+   A local run differs from CI's in these ways:
+
+   - `check-linked-issues.py` and `check-specs.py changes` read the pull
+     request's title and description, so they run only in CI, once the pull
+     request exists.
+   - `check-specs.py trace` asks GitHub whether the issues in
+     `.github/untraced.json` are still open only when `GITHUB_TOKEN` and
+     `GITHUB_REPOSITORY` are set. Without them, it warns that it did not look.
+   - `check-coverage.py floors` runs only on Python 3.13, and stops on any
+     other version. [Coverage](#coverage) says why.
+
+   [Coverage](#coverage), [Requirements](#requirements) and
+   [Formatting and linting](#formatting-and-linting) say what the other checks
+   catch.
 5. Add a `plugin:<name>` label, and the plugin to the Area list in
    `.github/ISSUE_TEMPLATE/problem.yml`, so issues about it can say so:
    ```sh
