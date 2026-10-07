@@ -21,8 +21,11 @@ Commands:
             as markdown to .todos/report.md
     file    file or post each draft that report showed, mark its TODO
             handled, and print the hand-off for each draft routed to a skill
+    questions
+            write the questions about TODOs that say too little to
+            .todos/questions.md, for the author to answer on a page
 
-scan, report and file take --from with another worktree of the repository,
+scan, report, file and questions take --from with another worktree of the repository,
 named by its folder or by the branch it has checked out, and read that
 worktree's TODOs instead of this tree's. file then marks them there, and each
 hand-off names that worktree's root and branch. --from naming this tree reads
@@ -160,12 +163,21 @@ It goes in the -C tree even under --from, since that is the tree the session
 can publish from. A report that refuses a draft writes the refusals and no
 token, so a stale token never reaches the author.
 
-Only `setup`, `report` and `file` write, and only in a working tree: `setup`
-its copy in .todos/, `report` .todos/report.md, and `file` the files whose
-TODOs it marks, in the worktree --from names when it is given. `setup` and
-`report` also write .todos/.gitignore, so git ignores what they leave there.
-`report` does not take --dry-run, because nothing reads a preview of the
-scratch it writes, which its next run replaces. Nothing writes to
+The questions file. One dialog holds only a few questions, and a later one
+covers the one before, so `questions` writes a round too long for one dialog
+to .todos/questions.md, for the skill to publish as a page. Each question
+names the TODOs it asks about by file and first line, and the script takes
+each title from its own scan, so a question about a TODO that is not pending
+is refused. Like the report, the file goes in the -C tree, and a batch with a
+refused question writes the refusals and no question.
+
+Only `setup`, `report`, `questions` and `file` write, and only in a working
+tree: `setup` its copy in .todos/, `report` .todos/report.md, `questions`
+.todos/questions.md, and `file` the files whose TODOs it marks, in the
+worktree --from names when it is given. `setup`, `report` and `questions` also
+write .todos/.gitignore, so git ignores what they leave there. `report` and
+`questions` do not take --dry-run, because nothing reads a preview of the
+scratch they write, which their next run replaces. Nothing writes to
 git, and every git call passes --no-optional-locks so that even git's own
 index refresh is skipped.
 
@@ -264,6 +276,10 @@ COPY_IGNORE_TEXT = b"*\n"
 COPY_PREFIX = "TODOS=" + COPY_SCRIPT
 # Where report writes the report as markdown, for the author to read whole.
 REPORT_FILE = COPY_DIR + "/report.md"
+# Where questions writes the questions, for the author to answer on a page.
+QUESTIONS_FILE = COPY_DIR + "/questions.md"
+# What --batch takes in place of a path to read from stdin.
+STDIN_PATH = "-"
 
 # Every gh call times out, and none prompts or checks for gh's own updates.
 GH_TIMEOUT = 60
@@ -1549,18 +1565,23 @@ def report_markdown(data, refused):
     return "\n".join(out) + "\n"
 
 
-def write_report(repo, data, refused):
-    """Write the report into repo's .todos/, beside the ignore file, and
+def write_page(repo, rel, text):
+    """Write text to rel in repo's .todos/, beside the ignore file, and
     return its path."""
     ignore = os.path.join(repo.root, COPY_IGNORE)
     os.makedirs(os.path.dirname(ignore), exist_ok=True)
     if not os.path.isfile(ignore):
         with open(ignore, "wb") as fh:
             fh.write(COPY_IGNORE_TEXT)
-    path = os.path.join(repo.root, REPORT_FILE)
+    path = os.path.join(repo.root, rel)
     with open(path, "w", encoding="utf-8") as fh:
-        fh.write(report_markdown(data, refused))
+        fh.write(text)
     return path
+
+
+def write_report(repo, data, refused):
+    """Write the report into repo's .todos/, and return its path."""
+    return write_page(repo, REPORT_FILE, report_markdown(data, refused))
 
 
 def cmd_report(args):
@@ -1606,6 +1627,111 @@ def cmd_report(args):
             print("\n" + TOKEN_LABEL + token)
 
     return emit(args, "report", data, errors=refused, human=human)
+
+
+# --------------------------------------------------------------------------
+# questions
+# --------------------------------------------------------------------------
+
+
+def read_questions(path):
+    """The questions from the file --batch names, or from stdin given -."""
+    try:
+        if path == STDIN_PATH:
+            raw = sys.stdin.read()
+        else:
+            with open(path, encoding="utf-8") as fh:
+                raw = fh.read()
+    except OSError as exc:
+        raise Fatal(
+            "cannot read the questions in %s: %s. Write them there, then run again."
+            % (path, exc.strerror)
+        ) from exc
+    try:
+        questions = json.loads(raw)
+    except ValueError as exc:
+        raise Fatal("the questions are not JSON: %s. Fix them, then run again." % exc) from exc
+    if not isinstance(questions, list) or not questions:
+        raise Fatal(
+            "the questions are not a JSON array of at least one question. Fix them, then run again."
+        )
+    return questions
+
+
+def question_problems(n, q, todos):
+    """(reasons question n cannot go on the page, the TODOs it names)."""
+    if not isinstance(q, dict):
+        return ["question %d is not a JSON object" % n], []
+    reasons, named = [], []
+    if not is_text(q.get("question")) or not q["question"].strip():
+        reasons.append("question %d has no question text" % n)
+    options = q.get("options")
+    if not isinstance(options, list) or not options:
+        reasons.append("question %d has no options" % n)
+    else:
+        for i, o in enumerate(options, 1):
+            if not isinstance(o, dict) or not is_text(o.get("label")) or not o["label"].strip():
+                reasons.append("question %d, option %d has no label" % (n, i))
+            elif not is_text(o.get("description", "")):
+                reasons.append("question %d, option %d has a description that is not text" % (n, i))
+    asked = q.get("todos")
+    if not isinstance(asked, list) or not asked:
+        reasons.append("question %d does not name a TODO" % n)
+        return reasons, named
+    for i, t in enumerate(asked, 1):
+        if not isinstance(t, dict) or not is_text(t.get("file")) or not is_number(t.get("line")):
+            reasons.append("question %d, TODO %d does not give a `file` and a `line`" % (n, i))
+            continue
+        todo = todos.get((t["file"], t["line"]))
+        if todo is None:
+            reasons.append(
+                "question %d, TODO %d: %s:%d does not hold a pending TODO. Run scan again and"
+                " name the TODO by its file and first line" % (n, i, t["file"], t["line"])
+            )
+            continue
+        named.append(todo)
+    return reasons, named
+
+
+def questions_markdown(asked, refused):
+    """The questions as the author reads them whole, or the refusals instead."""
+    out = ["# Questions from do-todos", ""]
+    if refused:
+        out += ["Fix these questions and run questions again:", ""]
+        out += ["- %s" % r for r in refused]
+        return "\n".join(out) + "\n"
+    out.append(
+        "Answer each question by commenting on it and sending the comment to Claude."
+        " Pick an option, or say what you mean in your own words."
+    )
+    for n, (q, named) in enumerate(asked, 1):
+        out += ["", "## Question %d" % n, ""]
+        out += ["- `%s:%d` %s" % (t["file"], t["first"], t["title"]) for t in named]
+        out += ["", q["question"].strip(), "", "Options:", ""]
+        for o in q["options"]:
+            line = "- **%s**" % o["label"]
+            if o.get("description"):
+                line += ": %s" % o["description"]
+            out.append(line)
+    return "\n".join(out) + "\n"
+
+
+def cmd_questions(args):
+    """Write the questions to .todos/questions.md, for the author to answer
+    on a page when one dialog cannot hold them."""
+    here = Repo(args.repo)
+    repo, _ = open_tree(args, here)
+    questions = read_questions(args.batch)
+    todos = dict(((t["file"], t["first"]), t) for t in Scan(repo).todos)
+    asked, refused = [], []
+    for n, q in enumerate(questions, 1):
+        reasons, named = question_problems(n, q, todos)
+        refused += reasons
+        asked.append((q, named))
+    # In this session's tree even under --from, as report's file is.
+    path = write_page(here, QUESTIONS_FILE, questions_markdown(asked, refused))
+    data = {"page": path, "questions": 0 if refused else len(asked)}
+    return emit(args, "questions", data, errors=refused, human=lambda: print("wrote %s" % path))
 
 
 # --------------------------------------------------------------------------
@@ -1870,6 +1996,22 @@ def build_parser():
     )
     p.add_argument("--token", required=True, help="the approval token report printed")
     p.set_defaults(func=cmd_file)
+
+    p = sub.add_parser(
+        "questions",
+        parents=[common, source],
+        help="write the questions to %s, for the author to answer on a page" % QUESTIONS_FILE,
+    )
+    p.add_argument(
+        "--batch",
+        required=True,
+        metavar="PATH",
+        help=(
+            "the questions as a JSON array, or %s for stdin; each has question, options"
+            " (label, description) and todos (file, line, as scan gave file and first)" % STDIN_PATH
+        ),
+    )
+    p.set_defaults(func=cmd_questions)
 
     return ap
 

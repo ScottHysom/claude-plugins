@@ -77,7 +77,9 @@ Ask Claude to file your TODOs. Claude:
 1. Finds every TODO in your uncommitted changes, and warns about any line
    that looks like one but cannot be read.
 2. Asks you, in one round, about every TODO that says too little, whose
-   kind is unclear, or that may repeat an issue already open.
+   kind is unclear, or that may repeat an issue already open. When there are
+   more than four questions, Claude puts them on a private page, and you
+   answer each one in a comment sent to Claude.
 3. Drafts an issue for each, following your project's own rules for issues
    and using only labels your repository has. When an open issue already
    covers a TODO, Claude drafts a comment on that issue instead, so the

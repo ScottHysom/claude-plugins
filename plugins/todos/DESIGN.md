@@ -105,6 +105,17 @@ tree the session publishes from.
 A partial approval runs `report` again on the trimmed drafts, so `file` has no
 `--partial`.
 
+## The questions page
+
+do-todos asks about every unclear TODO in one round. One `AskUserQuestion`
+call holds at most four questions, and a later dialog covers the one before
+it, so the author could not compare two TODOs asked in different dialogs. A
+round of five or more questions goes on a page instead. `todos.py questions`
+writes each question, under the `file:first` and title of each TODO it asks
+about, to `.todos/questions.md`. The skill publishes that file as a private
+artifact, and the author answers each question in a comment sent to Claude.
+Where the skill cannot publish, it falls back to dialogs of four.
+
 ## Open issues like a TODO
 
 The owner ruled in #313 that a TODO repeating an open issue becomes a comment

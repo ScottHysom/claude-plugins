@@ -1,6 +1,7 @@
 """TODOs left in another worktree of the repository: how `scan` names the
 worktree, and how `--from` reads it and marks the TODOs there."""
 
+import json
 import os
 import shlex
 import shutil
@@ -143,6 +144,23 @@ class DescribeFrom:
         assert code == todos.OK, repo.err
         assert [r["file"] for r in env["data"]["drafts"]] == ["a.py"]
         assert env["data"]["token"]
+
+    def it_asks_about_the_todos_of_the_worktree_named(self, repo, worktree):
+        worktree.write("a.py", "# TODO: there\n")
+        batch = repo.root.parent / "questions.json"
+        q = {
+            "question": "Bug?",
+            "options": [{"label": "Yes"}],
+            "todos": [{"file": "a.py", "line": 1}],
+        }
+        batch.write_text(json.dumps([q]))
+        code, env = repo.run("questions", "--batch", str(batch), "--from", str(worktree.root))
+        assert code == todos.OK, repo.err
+        assert env["data"]["page"] == str(repo.root / todos.QUESTIONS_FILE)
+        assert "- `a.py:1` there\n" in (repo.root / todos.QUESTIONS_FILE).read_text(
+            encoding="utf-8"
+        )
+        assert not (worktree.root / todos.QUESTIONS_FILE).exists()
 
     def it_refuses_a_draft_for_this_tree_when_reading_another(self, repo, worktree):
         repo.write("here.py", "# TODO: here\n")

@@ -104,10 +104,10 @@ Source: #315, and #301, which found the same split for update-prose-config.
   pending TODO and another worktree of the repo does, `scan` names each such
   worktree with its branch and files, and exits 1 naming `scan --from` with
   its path.
-- `command-reads-other-worktree` (test): When `scan`, `report` or `file` is
-  given `--from` with a worktree of this repo, named by its folder or by the
-  branch it has checked out, it reads that worktree's TODOs. Given this tree,
-  it behaves as with no `--from`.
+- `command-reads-other-worktree` (test): When `scan`, `report`, `file` or
+  `questions` is given `--from` with a worktree of this repo, named by its
+  folder or by the branch it has checked out, it reads that worktree's TODOs.
+  Given this tree, it behaves as with no `--from`.
 - `file-cmd-marks-in-other-worktree` (test): When `file` is given `--from`, it
   marks the finished TODOs in that worktree's files.
 - `command-refuses-unknown-worktree` (test): When `--from` names neither a
@@ -195,7 +195,22 @@ TODO's detail is missing or too sparse.
 
 - `dotodos-asks-at-once` (step): When TODOs say too little to draft, or their
   kind, route or duplicate is unclear, do-todos asks the author about all of
-  them in one round, before writing any draft.
+  them in one round, before writing any draft. The round is one
+  `AskUserQuestion` call when the questions fit in it, and otherwise one
+  page.
+- `questions-cmd-writes-page` (test): When `questions` is given the questions
+  as JSON with `--batch`, it writes `.todos/questions.md` in the `-C` tree,
+  also under `--from`, which git ignores. Each question is numbered, named by
+  the `file:first` and title of each TODO it asks about, with its options
+  under it. It refuses a question without options, without a TODO, or naming
+  a line that does not hold a pending TODO, and then the file holds the
+  refusals and no question.
+- `dotodos-asks-on-page` (step): When the open questions are more than one
+  `AskUserQuestion` call holds, do-todos publishes the page `questions`
+  writes as a private artifact, takes each answer from a comment sent to
+  Claude, replies in each question's thread with the answer it took, and
+  drafts only once every question has an answer. Where it cannot publish the
+  page, it asks in dialogs of up to four questions each.
 
 ## need user-avoids-duplicate-issues: Keep one issue per problem
 

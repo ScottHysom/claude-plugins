@@ -86,9 +86,7 @@ code fences, binary files and the copy in `.todos/`. A search of your own
 finds a different set, and the drafts it yields fail in step 4.
 
 ## Step 2: settle what is unclear
-<!-- spec: dotodos-asks-at-once -->
-
-<!-- no-command: judgment. The model decides which TODOs need the author, and asks. -->
+<!-- spec: dotodos-asks-at-once, dotodos-asks-on-page -->
 
 Read each TODO with the lines around it, from `above` and the file. Find every
 TODO where any of these holds:
@@ -100,10 +98,44 @@ TODO where any of these holds:
   do not settle whether it does;
 - it may repeat another TODO.
 
-Ask about all of them in one round, before writing any draft. Use
-`AskUserQuestion`, in as many calls as its limit on questions per call needs,
-one after another. Name each TODO by its `file:first` and title. Offer the
-likely answers as options, so a one-word TODO costs the author one click.
+Ask about all of them in one round, before writing any draft. Offer the
+likely answers as options, so a one-word TODO costs the author one click. Two
+TODOs that may repeat each other are one question.
+
+**With four questions or fewer,** put them in one `AskUserQuestion` call.
+Name each TODO by its `file:first` and title.
+
+**With five or more,** write them to a page, as JSON on stdin:
+
+```sh
+TODOS=.todos/todos.py && python3 "$TODOS" questions --batch - --json <<'END'
+[{"question": "Does run() hang on every call, or only after a timeout?",
+  "options": [{"label": "Every call", "description": "A bug: run() never returns."},
+              {"label": "After a timeout"}],
+  "todos": [{"file": "src/run.py", "line": 12}]}]
+END
+```
+
+Add the `--from` that step 1's `scan` took, when it took one. Each question
+gives `question`, its `options`, each with a `label` and optionally a
+`description`, and `todos`: the `file` and `first` of each TODO it asks
+about, as `file` and `line`. When `questions` exits 1, its errors name each
+question it refused. Fix those and run it again.
+
+Publish the file at `data.page` as a private artifact with the Artifact tool,
+as markdown, with the icon `question`. Give the author its address, and tell
+them to answer each question by commenting on it and sending the comment to
+Claude. Then end the turn.
+
+A comment sent to Claude starts a new turn. Read the threads with
+`ArtifactComments`, and reply in each question's thread with the answer you
+took from it. When a comment does not settle its question, reply asking what
+it left open. Go on to step 3 once every question has an answer, and end the
+turn until then.
+
+When the Artifact tool is not available, or refuses to publish, ask in
+`AskUserQuestion` calls of up to four questions each, in the order the
+questions were written, naming each TODO by its `file:first` and title.
 
 Ask nothing when every TODO is clear. Never ask one TODO at a time, and never
 ask again after drafting starts.
