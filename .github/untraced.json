@@ -48,7 +48,6 @@
     ".github/scripts/check-specs.py::inventory --report": 257,
     ".github/scripts/issues.py::release --reason": 218,
     ".github/scripts/issues.py::stale --days": 219,
-    "plugins/prose-tuning/scripts/prose.py::config classify --threshold": 166,
     "plugins/prose-tuning/scripts/prose.py::config list --ids": 206,
     "plugins/prose-tuning/scripts/prose.py::config move": 203,
     "plugins/prose-tuning/scripts/prose.py::evidence --ignore": 173,

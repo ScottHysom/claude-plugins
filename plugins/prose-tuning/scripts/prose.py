@@ -653,8 +653,9 @@ def rule_similarity(a, b):
     return body, name, max(body, name)
 
 
-def similar_pairs(config, other, threshold):
-    """The pairs of rules across two files scoring at or above threshold.
+def similar_pairs(config, other):
+    """The pairs of rules across two files scoring at or above
+    SIMILAR_THRESHOLD.
 
     A shared id is adopt-prose's identical or colliding bucket, so a pair
     under one id is left out. These are the pairs that agree in substance
@@ -666,7 +667,7 @@ def similar_pairs(config, other, threshold):
             if a.id == b.id:
                 continue
             body, name, score = rule_similarity(a, b)
-            if score >= threshold:
+            if score >= SIMILAR_THRESHOLD:
                 pairs.append(
                     {
                         "source": a.id,
@@ -680,7 +681,7 @@ def similar_pairs(config, other, threshold):
     return pairs
 
 
-def classify_rules(config, other, threshold):
+def classify_rules(config, other):
     """One entry per rule in config, in its order: the bucket it falls in
     when adopted into other, and the rule of other it matched.
 
@@ -692,7 +693,7 @@ def classify_rules(config, other, threshold):
     by_id = {}
     for r in other.rules:
         by_id.setdefault(r.id, r)
-    pairs = similar_pairs(config, other, threshold)
+    pairs = similar_pairs(config, other)
     out = []
     for a in config.rules:
         match = by_id.get(a.id)
@@ -3568,7 +3569,7 @@ def cmd_config(args):
         other = Config(os.path.abspath(args.to))
         if not other.exists:
             raise Fatal("%s does not exist" % args.to)
-        rules = classify_rules(config, other, args.threshold)
+        rules = classify_rules(config, other)
         counts = {b: sum(1 for r in rules if r["bucket"] == b) for b in BUCKETS}
 
         def human():
@@ -3585,7 +3586,6 @@ def cmd_config(args):
             {
                 "source": config.path,
                 "target": os.path.abspath(args.to),
-                "threshold": args.threshold,
                 "rules": rules,
                 "counts": counts,
             },
@@ -4827,7 +4827,6 @@ def build_parser():
             c.add_argument(
                 "--to", required=True, metavar="PATH", help="the prose-style.md to compare against"
             )
-            c.add_argument("--threshold", type=float, default=SIMILAR_THRESHOLD, metavar="N")
         if name == "adopt":
             c.add_argument(
                 "--to", required=True, metavar="PATH", help="the prose-style.md to copy into"
