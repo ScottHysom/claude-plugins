@@ -231,10 +231,12 @@ requirement is admitted.
 - **Constants for repeated values.** File names, defaults, regexes and the
   envelope version are named once near the top of the module, never repeated as
   bare literals.
-- **Changing files.** A command that writes takes `--dry-run`. A batch applies
-  all or nothing unless `--partial` is passed. Changes are planned against one
-  snapshot of the file and applied together, so an earlier one cannot shift the
-  address of a later one.
+- **Changing files.** A command that writes takes `--dry-run` only when a
+  user scenario, a test or a verification step reads its preview. The
+  requirement in `specs/` that names the command's `--dry-run` records which
+  one does. A batch applies all or nothing unless `--partial` is passed.
+  Changes are planned against one snapshot of the file and applied together,
+  so an earlier one cannot shift the address of a later one.
 - **Cowork's device bridge cannot delete files.** A script that may run there
   rewrites files in place with `open(path, "w")`, not via a temp file moved into
   place, and only ever reads git, because a git write through the bridge

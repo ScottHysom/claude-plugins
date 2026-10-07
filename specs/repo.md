@@ -39,10 +39,11 @@ Source: #126, and CLAUDE.md, under "Skills and scripts".
 
 ## need contributor-reads-shared-flags: Read every script's flags the same way
 
-When a contributor runs or writes a repo script, they want the flags every
-command takes, `--json`, `-C/--repo`, `--dry-run` and `--partial`, to mean the
-same thing in each script, so a skill can read any result and preview or batch
-any change the same way.
+When a contributor runs or writes a repo script, they want each shared flag
+to mean the same thing in every script that has it, so a skill can read any
+result and preview or batch any change the same way. Every command takes
+`--json` and `-C/--repo`. A command that writes takes `--dry-run` or
+`--partial` only where a requirement names it for that command.
 
 Source: CLAUDE.md, under "Script conventions".
 
