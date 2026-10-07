@@ -8,6 +8,8 @@ from it. Each case names a shape of markup in the sample document.
 
 import pytest
 
+import prose
+
 
 class DescribeNeutralize:
     @pytest.mark.spec("evidence-cmd-diffs-without-markup")
@@ -55,3 +57,27 @@ class DescribeNeutralize:
                 {"kind": "alt", "line": 10, "text": "List items take the same register."},
             ]
         )
+
+    @pytest.mark.spec("evidence-cmd-diffs-without-markup")
+    def it_drops_a_proposal_set_apart_as_a_paragraph(self, round_trip):
+        round_trip([{"kind": "alt", "line": 7, "text": "Say what earns a place.", "apart": True}])
+
+    @pytest.mark.spec("evidence-cmd-diffs-without-markup")
+    @pytest.mark.parametrize(
+        ("tagged", "untagged"),
+        [
+            pytest.param("A.\n\n<ins>B.</ins>\n\nC.\n", "A.\n\nC.\n", id="between-paragraphs"),
+            pytest.param("<alt>x</alt>\n\nA.\n", "A.\n", id="first-line"),
+            pytest.param("A.\n\n<alt>x</alt>\n", "A.\n", id="last-line"),
+            pytest.param(
+                "A.\n\n<alt>x</alt>\n\n<alt>y</alt>\n\nB.\n", "A.\n\nB.\n", id="two-in-a-row"
+            ),
+            pytest.param("A.\n\n\n<alt>x</alt>\nB.\n", "A.\n\n\nB.\n", id="own-two-blanks"),
+        ],
+    )
+    def it_drops_the_blank_line_added_with_a_tag_on_its_own_line(self, tagged, untagged):
+        """A tag between two paragraphs needs a blank line on each side, and
+        evidence reported the one the author added as an untagged edit. A pair
+        of blank lines the author wrote has no tag between them, and stays.
+        """
+        assert prose.neutralize(prose.Text(tagged)) == untagged

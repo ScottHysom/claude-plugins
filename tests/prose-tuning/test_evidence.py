@@ -130,6 +130,22 @@ class DescribeInferredEdits:
         )
         assert [h["start"] for h in self.inferred(prose_repo)] == [21]
 
+    @pytest.mark.spec("evidence-cmd-diffs-without-markup")
+    @pytest.mark.parametrize(
+        "tag",
+        [
+            pytest.param("<why>Is this a fact fix?</why>", id="why"),
+            pytest.param("<ins>A paragraph the author added.</ins>", id="ins"),
+        ],
+    )
+    def it_reports_nothing_for_a_tag_set_apart_between_paragraphs(self, prose_repo, target, tag):
+        """The tag needs a blank line below it as well as the one above, and
+        only the one above was there before the author tagged the file.
+        """
+        prose_repo.commit()
+        self.edit(prose_repo, target, {}, insert_at=9, inserted=tag + "\n")
+        assert self.inferred(prose_repo) == []
+
     @pytest.mark.spec("evidence-cmd-skips-comment-hunks")
     @pytest.mark.parametrize(
         ("index", "line"),
