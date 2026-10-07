@@ -27,7 +27,7 @@ class DescribePreflight:
     def it_names_a_template_missing_from_disk(self, runner):
         templates = runner.templates_copy()
         (templates / "commit.sh").unlink()
-        code, env = runner.run("preflight", "--templates", str(templates))
+        code, env = runner.run("preflight")
         assert code == gitify.PROBLEMS
         assert any("commit.sh is in the manifest" in e for e in env["errors"])
 
@@ -35,7 +35,7 @@ class DescribePreflight:
     def it_names_a_template_missing_from_the_manifest(self, runner):
         templates = runner.templates_copy()
         (templates / "extra.md").write_text("# Extra\n")
-        code, env = runner.run("preflight", "--templates", str(templates))
+        code, env = runner.run("preflight")
         assert code == gitify.PROBLEMS
         assert any("extra.md" in e and "never ship" in e for e in env["errors"])
 
@@ -44,7 +44,7 @@ class DescribePreflight:
         templates = runner.templates_copy()
         with open(templates / "CLAUDE.md", "a") as fh:
             fh.write("{{NOT_A_THING}}\n")
-        code, env = runner.run("preflight", "--templates", str(templates))
+        code, env = runner.run("preflight")
         assert code == gitify.PROBLEMS
         assert any("{{NOT_A_THING}}" in e for e in env["errors"])
 
@@ -52,13 +52,14 @@ class DescribePreflight:
     def it_names_a_stray_brace_with_its_line(self, runner):
         templates = runner.templates_copy()
         (templates / "gitignore").write_text("one\n{{PROJECT_NAME}\n")
-        code, env = runner.run("preflight", "--templates", str(templates))
+        code, env = runner.run("preflight")
         assert code == gitify.PROBLEMS
         assert any(e.startswith("gitignore:2") and "'{{'" in e for e in env["errors"])
 
     @pytest.mark.spec("preflight-cmd-names-template-problems")
     def it_reports_a_missing_templates_directory_rather_than_crashing(self, runner):
-        code, env = runner.run("preflight", "--templates", str(runner.tmp / "nowhere"))
+        runner.use_templates(runner.tmp / "nowhere")
+        code, env = runner.run("preflight")
         assert code == gitify.PROBLEMS
         assert any("not found" in e for e in env["errors"])
 
@@ -68,7 +69,7 @@ class DescribePreflight:
         (templates / "gitignore").write_text("a stray }} brace\n")
         path = runner.tmp / "answers.json"
         path.write_text("{}")
-        code, env = runner.run("render", "--answers", str(path), "--templates", str(templates))
+        code, env = runner.run("render", "--answers", str(path))
         assert code == gitify.CANNOT_RUN
         assert env is None
         assert "template is malformed" in runner.err

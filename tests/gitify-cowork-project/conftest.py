@@ -66,10 +66,11 @@ class Runner:
     printed, as when the command cannot run. stderr is kept in self.err.
     """
 
-    def __init__(self, tmp_path, capsys):
+    def __init__(self, tmp_path, capsys, monkeypatch):
         self.tmp = tmp_path
         self.stage = tmp_path / "stage"
         self._capsys = capsys
+        self._monkeypatch = monkeypatch
         self.out = self.err = ""
 
     def run(self, *argv, json_output=True):
@@ -89,10 +90,16 @@ class Runner:
     def staged(self, rel):
         return (self.stage / rel).read_text()
 
+    def use_templates(self, directory):
+        """Point gitify.py at another templates directory, for this test only."""
+        self._monkeypatch.setattr(gitify, "TEMPLATES", str(directory))
+
     def templates_copy(self):
-        """A writable copy of the shipped templates, for tests that break one."""
+        """A writable copy of the shipped templates, which gitify.py then reads,
+        for tests that break one."""
         dst = self.tmp / "templates"
-        shutil.copytree(gitify.DEFAULT_TEMPLATES, dst)
+        shutil.copytree(gitify.TEMPLATES, dst)
+        self.use_templates(dst)
         return dst
 
 
@@ -128,8 +135,8 @@ class Device:
 
 
 @pytest.fixture
-def runner(tmp_path, capsys):
-    return Runner(tmp_path, capsys)
+def runner(tmp_path, capsys, monkeypatch):
+    return Runner(tmp_path, capsys, monkeypatch)
 
 
 @pytest.fixture
