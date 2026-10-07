@@ -164,8 +164,8 @@ Only `setup`, `report` and `file` write, and only in a working tree: `setup`
 its copy in .todos/, `report` .todos/report.md, and `file` the files whose
 TODOs it marks, in the worktree --from names when it is given. `setup` and
 `report` also write .todos/.gitignore, so git ignores what they leave there.
-`report` does not take --dry-run, since what it writes is scratch that its next
-run replaces, as the owner ruled in #334. Nothing writes to
+`report` does not take --dry-run, because nothing reads a preview of the
+scratch it writes, which its next run replaces. Nothing writes to
 git, and every git call passes --no-optional-locks so that even git's own
 index refresh is skipped.
 

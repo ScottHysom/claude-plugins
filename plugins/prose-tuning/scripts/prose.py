@@ -99,14 +99,12 @@ Some things in here look like bugs and are not:
    says why neutralizing a file for evidence never does this.
 
 5. questions writes .prose-tuning/questions.md, and report writes
-   .prose-tuning/report.md, and neither takes --dry-run. A command takes
-   --dry-run only when a user scenario, a test or a verification step needs
-   the preview, and none needs one here: the skill always wants the page, and
-   the file is git-ignored scratch that the next run replaces. report writes
-   its page because Claude Code shows a command's output to the model and not
-   reliably to the author, who has to read what they approve. A report that
-   fails writes its errors and no token, so a stale token never reaches the
-   author.
+   .prose-tuning/report.md, and neither takes --dry-run, because nothing
+   reads a preview of either: the skill always wants the page, and the file
+   is git-ignored scratch that the next run replaces. report writes its page
+   because Claude Code shows a command's output to the model and not reliably
+   to the author, who has to read what they approve. A report that fails
+   writes its errors and no token, so a stale token never reaches the author.
 
 Python 3.9 is the floor. No match statements, no X | Y unions.
 """
