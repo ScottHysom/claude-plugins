@@ -227,6 +227,9 @@ description.
   document.
 - `report-cmd-prints-approval-token` (test): When `report` exits 0, it
   prints a token as its last line, and otherwise prints none.
+- `report-cmd-shows-whole-batch` (test): When `report` is given `--only` or
+  `--file`, it refuses them and exits 2, so its token covers only findings it
+  showed.
 - `apply-cmd-requires-token` (test): When the token passed to `apply
   --token` is not the one `report` would print for the findings, the documents
   they name and `prose-style.md` as they are now, `apply` refuses the batch
