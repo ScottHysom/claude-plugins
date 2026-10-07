@@ -75,9 +75,9 @@ class DescribeResolvingAWholeBlockCut:
         assert accept("One <del>two</del>.\n\n\nThree.\n") == "One .\n\n\nThree.\n"
 
     @pytest.mark.spec("evidence-cmd-diffs-without-markup")
-    def it_keeps_every_blank_line_on_reject(self):
+    def it_takes_only_the_blank_line_added_with_a_block_insertion_on_reject(self):
         source = "One.\n\n<ins>\nTwo\n</ins>\n\nThree.\n"
-        assert reject(source) == "One.\n\n\nThree.\n"
+        assert reject(source) == "One.\n\nThree.\n"
 
 
 class DescribeTagsResolve:

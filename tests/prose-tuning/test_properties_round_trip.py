@@ -47,6 +47,8 @@ def mark(draw, line, below):
     rec = {"kind": kind, "line": line}
     if kind == "alt":
         rec["text"] = draw(WORDS)
+        if _BLOCKS.kind(line - 1) == "blank":
+            rec["apart"] = draw(st.booleans())
         return rec
     if kind.startswith("block-"):
         rec["kind"] = kind[len("block-") :]
@@ -82,10 +84,12 @@ class DescribeAuthorMarkup:
     @example([{"kind": "del", "line": 12, "cols": (0, 7)}])
     @example([{"kind": "repl", "lines": (23, 23), "with": "a"}])
     @example([{"kind": "alt", "line": 10, "text": "a"}, {"kind": "del", "lines": (11, 12)}])
+    @example([{"kind": "alt", "line": 23, "text": "a", "apart": True}])
     def it_neutralizes_to_the_untagged_text(self, batch):
         """Each @example is a shape that sits on an edge: a tag wrapping a
         whole line, so it reads as block form, the last line with no newline,
-        and a proposal directly above a block in a list.
+        a proposal directly above a block in a list, and a proposal set apart
+        as a paragraph above the last line.
         """
         text = prose.Text(tagged(SAMPLE, batch))
         scanner = prose.TagScanner(text, None, "sample.md")

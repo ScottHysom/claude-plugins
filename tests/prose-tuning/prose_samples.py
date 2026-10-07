@@ -51,7 +51,9 @@ def tagged(source, marks):
       no newline is invented.
     - `ins` with `line`, `col` and `text` adds text at a point.
     - `alt` with `line` and `text` puts a proposal on a line of its own above
-      that line.
+      that line. With `apart` true it also adds a blank line below the
+      proposal, setting it off as a paragraph of its own, so `line` should
+      follow a blank line.
 
     Any mark but `alt` takes an optional `why` attribute, and an inline one an
     optional `alt` child. The marks have to cover lines apart from one another.
@@ -67,7 +69,8 @@ def tagged(source, marks):
         alt = "<alt>%s</alt>" % m["alt"] if m.get("alt") else ""
         if kind == "alt":
             at = starts[m["line"] - 1]
-            edits.append((at, at, "<alt>%s</alt>\n" % m["text"]))
+            gap = "\n" if m.get("apart") else ""
+            edits.append((at, at, "<alt>%s</alt>\n%s" % (m["text"], gap)))
         elif kind == "ins":
             at = starts[m["line"] - 1] + m["col"]
             edits.append((at, at, "<ins%s>%s%s</ins>" % (why, m["text"], alt)))

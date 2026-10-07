@@ -98,8 +98,9 @@ Some things in here look like bugs and are not:
 4. apply and tags resolve can delete a blank line that nothing names. They do
    so when a whole block that sat between two blank lines is cut, by findings
    or by a block-form <del>, so that one blank line is left between its
-   neighbors rather than two. plan_findings has the rule, and resolve_scanned
-   says why neutralizing a file for evidence never does this.
+   neighbors rather than two. plan_findings has the rule. Neutralizing a file
+   for evidence takes only the blank line an author added beside a tag on a
+   line of its own, by the narrower rule in apart_blanks.
 
 5. questions writes .prose-tuning/questions.md, and report writes
    .prose-tuning/report.md, and neither takes --dry-run, because nothing
@@ -1727,9 +1728,9 @@ def resolve_scanned(text, scanner, mode):
     stood between two blank lines left the two touching. A blank line inside a
     tag that is kept is never taken.
 
-    Reject leaves every blank line where it was. It has to return the file
-    byte for byte as it was before the author tagged it, because evidence
-    diffs against it.
+    Reject has to return the file byte for byte as it was before the author
+    tagged it, because evidence diffs against it. It takes a blank line only
+    where apart_blanks says the author added it with the tag.
     """
     engine = EditEngine(text)
     cut, touched = set(), set()
@@ -1737,14 +1738,50 @@ def resolve_scanned(text, scanner, mode):
         start, end = node_span(node, text)
         new = top_replacement(node, text, mode)
         lines = set(range(text.line_of(start), text.line_of(max(end - 1, start)) + 1))
-        if mode == ACCEPT and not new and is_block_form(node, text):
+        if not new and is_block_form(node, text):
             cut |= lines
-            continue
-        touched |= lines
+            if mode == ACCEPT:
+                continue
+        else:
+            touched |= lines
         engine.replace(start, end, new)
-    for start, end in cut_runs(text, scanner.blocks, cut, touched):
-        engine.replace(start, end, "")
+    if mode == ACCEPT:
+        for start, end in cut_runs(text, scanner.blocks, cut, touched):
+            engine.replace(start, end, "")
+        return engine.result()
+    last = text.line_count()
+    for n in apart_blanks(text, scanner.blocks, cut, touched):
+        engine.replace(text.offset(n), text.offset(n + 1) if n < last else text.end, "")
     return engine.result()
+
+
+def apart_blanks(text, blocks, cut, touched):
+    """The blank lines an author added to set a cut tag apart from its neighbors.
+
+    A tag on a line of its own between two paragraphs needs a blank line on
+    each side, and only one of them was there before. So a blank line goes
+    when a cut lies between it and the blank line before it, or the start of
+    the file. A blank line after a trailing cut goes the same way. An author's
+    own two blank lines in a row have no cut between them, and both stay.
+    """
+    last = text.line_count()
+
+    def blank(n):
+        return not text.bare(n).strip() and not blocks.is_protected(n) and n not in touched
+
+    out, kept, after_cut = [], [], False
+    for n in range(1, last + 1):
+        if n in cut:
+            after_cut = True
+            continue
+        if after_cut and blank(n) and (not kept or blank(kept[-1])):
+            out.append(n)
+        else:
+            kept.append(n)
+        after_cut = False
+    if after_cut and kept and blank(kept[-1]):
+        out.append(kept[-1])
+    return out
 
 
 def neutralize(text, blocks=None, path="<text>"):
