@@ -68,7 +68,9 @@ class Runner:
 
     def __init__(self, tmp_path, capsys, monkeypatch):
         self.tmp = tmp_path
-        self.stage = tmp_path / "stage"
+        outputs = tmp_path / "outputs"
+        monkeypatch.setattr(gitify, "OUTPUTS_ROOT", str(outputs))
+        self.stage = outputs / gitify.STAGE_DIR
         self._capsys = capsys
         self._monkeypatch = monkeypatch
         self.out = self.err = ""
@@ -85,7 +87,7 @@ class Runner:
     def render(self, data, *flags, raw=None):
         path = self.tmp / "answers.json"
         path.write_text(raw if raw is not None else json.dumps(data))
-        return self.run("render", "--answers", str(path), "--stage", str(self.stage), *flags)
+        return self.run("render", "--answers", str(path), *flags)
 
     def staged(self, rel):
         return (self.stage / rel).read_text()

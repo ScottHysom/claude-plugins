@@ -112,7 +112,7 @@ GITIFY=/tmp/gitify/plugin/scripts/gitify.py && python3 "$GITIFY" render --answer
 - **1**: `errors` names every problem. Nothing was written. Fix `answers.json`
   and run it again.
 - **2**: render could not run. Its message names the cause and ends with what
-  to do. A new `--stage` goes under `/mnt/user-data/outputs/`.
+  to do.
 
 `--dry-run` checks the answers without writing.
 
