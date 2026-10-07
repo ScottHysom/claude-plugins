@@ -210,50 +210,66 @@ with its newline, and when a cut takes a whole block `apply` keeps one blank
 line between the blocks either side.
 
 ## Step 6: one approval round
-<!-- spec: applyprose-shows-report-whole -->
+<!-- spec: applyprose-shows-report-whole, applyprose-revises-on-comment -->
 
 ```sh
-python3 "$PROSE" report --findings "${TMPDIR:-/tmp}/prose-findings.json"
+python3 "$PROSE" report --findings "${TMPDIR:-/tmp}/prose-findings.json" --json
 ```
 
-`report` prints each finding with its `file:line`, rule id, current text,
-proposed text and why. It reads the current text from the file as it is now.
-Each line of a current or proposed text sits between `|` marks, so a space at
-either end shows. `(cut)` and `(nothing: this inserts)` stand for an empty
-text and carry no marks. A dismissal shows its reason under `dismissed` in
-place of a proposed text.
-Show the author that output as it stands. Never retype it into a table of
-your own, because the author then approves a text that `apply` never sees.
-Its next-to-last line names the rules `patterns` checked in every file, and
-says that every other rule was checked by reading. Its last line, printed only
-when it exits 0, is the approval token, such as
-`approval token: 3f9a1c0e7b2d4a68`. Keep the token from the run the author
-approved; step 7 needs it.
+`report` reads each finding's current text from the file as it is now, and
+writes the report to the markdown file at `data.report`: each finding with its
+`file:line`, rule id, current text, proposed text and why, then the rules
+`patterns` checked in every file. Each line of a text sits between `|` marks,
+so a space at either end shows. `(cut)` and `(nothing: this inserts)` stand
+for an empty text. A dismissal shows its reason in place of a proposed text.
+When `report` exits 0, `data.token` is the approval token, and the file ends
+with it. Step 7 takes the token from the report the author approved.
 
-`report` exits 1 when a finding cannot apply, and says why on stderr:
+`report` exits 1 when a finding cannot apply, and its errors say why:
 
 - **a finding `apply` would refuse**, such as one whose text has moved. Fix
   the finding and run `report` again.
 - **two findings that overlap**, named as `finding 3 (notes.md:96,
   standing-no-em-dash) overlaps finding 7 (notes.md:94,
   sentences-no-restating-close)`. Each can apply alone, and the pair cannot.
-  Put the pair to the author in this round, and let the author choose which
-  one to keep. Never drop one yourself.
+  The author chooses which one to keep. Never drop one yourself.
 - **a pattern's match that nothing covers**, named by its address, rule and
   text, as `patterns` prints it. Add a finding that rewrites it, or a
   dismissal when it stays, and run `report` again.
 
-Take one decision. It covers the whole set, a set of rule ids, or a set of
-files, and says which side of each overlap stays. Batch it; do not ask per
-finding.
+Publish the file at `data.report` as a private artifact with the Artifact
+tool, as markdown, with the icon `checklist`. After every later run of
+`report`, publish the same file path again, so the report keeps its address.
+The author reads the report there, and nowhere else. Never retype the report
+or a part of it into chat or a dialog, because the author then approves a
+text that `apply` never sees.
 
-Then remove the side of each overlap the author turned down from the findings
-file, and run `report` again. It has to exit 0 before step 7, and its token is
-the one step 7 takes.
+When the only errors left are overlaps, publish the report with them, give
+the author its address, and ask them to comment on each overlap saying which
+finding stays and send the comment to Claude. Then end the turn.
+
+Once `report` exits 0, put one `AskUserQuestion` to the author, naming the
+artifact's address and `data.token`, with these options:
+
+- apply every finding;
+- apply some rule ids or some files, named in the answer;
+- comment first, on the findings in the artifact;
+- apply none.
+
+On "comment first", end the turn. A comment the author sends to Claude starts
+a new turn. Revise or dismiss the findings it names, or remove the side of an
+overlap the author turned down, then run `report` again, publish the file
+again, and answer in the comment's thread with `ArtifactComments`, saying
+what changed. Ask the one question again, with the new token, once the
+threads sent to Claude are answered.
+
+When the Artifact tool is not available, or refuses to publish, read the file
+at `data.report` and give it whole in your reply, as it stands, then end the
+turn. The author's reply is the decision, and it names the token.
 
 ## Step 7: apply
 
-Hand the approval to `apply` as flags, with the token `report` printed.
+Hand the approval to `apply` as flags, with the token the author approved.
 The flags select within the approved set and leave the token as it is.
 
 | Approved | Flags |
@@ -275,8 +291,8 @@ python3 "$PROSE" apply --findings "${TMPDIR:-/tmp}/prose-findings.json" \
 A rule id or file that does not match any finding is an error, not an empty run.
 
 `apply` exits 1 and writes nothing when the findings file, a document a finding
-names or `prose-style.md` has changed since that `report`. Run `report` again
-and show its output to the author before applying anything.
+names or `prose-style.md` has changed since that `report`. Run `report` again,
+publish it again and ask again before applying anything.
 
 `apply` is all-or-nothing by default, so a partial pass cannot leave half the addresses
 stale. `--partial` applies what is valid and reports the rest.
