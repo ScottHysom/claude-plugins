@@ -142,7 +142,7 @@ class DescribeTheCheckCommand:
     def it_passes_when_every_file_arrived(self, runner, device, make_answers):
         _, env = runner.render(make_answers(instructions="Be brief."))
         device.make()
-        device.copy_in(env["data"])
+        device.copy_in(runner.staged_files(env["data"]))
         result = device.sh(env["data"]["check_command"])
         assert result.returncode == 0, result.stdout + result.stderr
 
@@ -151,7 +151,7 @@ class DescribeTheCheckCommand:
     def it_fails_when_a_file_changed_on_the_way(self, runner, device, make_answers):
         _, env = runner.render(make_answers())
         folder = device.make()
-        device.copy_in(env["data"])
+        device.copy_in(runner.staged_files(env["data"]))
         with open(folder / "setup.sh", "a") as fh:
             fh.write("\n")
         result = device.sh(env["data"]["check_command"])
