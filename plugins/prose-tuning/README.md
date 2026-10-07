@@ -90,8 +90,14 @@ you to delete.
 3. Claude asks about any edit whose reason it cannot tell, all in one round of
    questions. When there are more than four, Claude puts them on a private
    page, and you answer each one in a comment sent to Claude.
-4. Claude writes the rules into `prose-style.md`, and leaves your documents
-   as you edited them, for you to review and commit.
+4. Claude shows you each rule as `prose-style.md` will hold it, with its
+   patterns and its example. In Claude Code, the rules are on a private page
+   on claude.ai that only you can open. Comment on a rule there and send the
+   comment to Claude, and Claude revises it and updates the page.
+5. Once you approve, Claude writes the rules into `prose-style.md`, and leaves
+   your documents as you edited them, for you to review and commit. If the
+   rules or `prose-style.md` change after you approve, nothing is written, and
+   Claude shows you the rules again.
 
 If you edit in one copy of the project and Claude's session opens in another,
 as the Claude Code desktop app does when it starts each session in a fresh

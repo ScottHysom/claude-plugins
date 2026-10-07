@@ -71,9 +71,25 @@ def style(prose_repo):
     return prose_repo.read(prose.CONFIG_PATH)
 
 
+def token(prose_repo, raw, config_file=None):
+    """The token config write --dry-run prints for these bytes, as the file is now."""
+    path = config_file or str(prose_repo.root / prose.CONFIG_PATH)
+    return prose.rules_token(prose.Config(path), raw)
+
+
 def write(prose_repo, records, *flags):
+    """Run config write on records, with the token they have now unless the
+    run is a dry run.
+
+    The token comes from rules_token rather than from a dry run, so a test of
+    a record config write refuses, which the dry run would refuse too, still
+    reaches config write. Returns what run() does.
+    """
     path = prose_repo.root / "batch.json"
     path.write_text(json.dumps(records))
+    if "--dry-run" not in flags:
+        config_file = flags[flags.index("--file") + 1] if "--file" in flags else None
+        flags += ("--token", token(prose_repo, path.read_bytes(), config_file))
     return prose_repo.run("config", "write", "--batch", str(path), *flags)
 
 
@@ -109,8 +125,10 @@ class DescribeConfigWrite:
 
     @pytest.mark.spec("write-cmd-writes-from-data")
     def it_reads_the_batch_from_stdin_given_a_dash(self, prose_repo, monkeypatch):
-        monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps([NEW_RULE])))
-        code, _ = prose_repo.run("config", "write", "--batch", "-")
+        batch = json.dumps([NEW_RULE])
+        monkeypatch.setattr("sys.stdin", io.StringIO(batch))
+        flags = ("--token", token(prose_repo, batch.encode("utf-8")))
+        code, _ = prose_repo.run("config", "write", "--batch", "-", *flags)
         assert code == prose.OK
         assert NEW_RULE_BLOCK in style(prose_repo)
 
@@ -120,7 +138,7 @@ class DescribeConfigWrite:
         path.write_text(json.dumps([NEW_RULE]))
         capsys.readouterr()
         argv = ["config", "write", "--batch", str(path), "-C", str(prose_repo.root)]
-        code = prose.main(argv)
+        code = prose.main([*argv, "--token", token(prose_repo, path.read_bytes())])
         out = capsys.readouterr().out
         assert code == prose.OK
         assert out == "wrote  sentences-no-in-order-to  new at line 14\n"
@@ -266,6 +284,7 @@ class DescribeAllOrNone:
         assert out == (
             "would write  sentences-no-in-order-to  new at line 14\n"
             "refused  record 1  sentences-bad-01\n"
+            "approval token: %s\n" % token(prose_repo, path.read_bytes())
         )
         assert style(prose_repo) == start
 
@@ -409,3 +428,118 @@ class DescribePatternLine:
         line = prose.pattern_line(source)
         parsed, problem = prose.parse_pattern(line[len("**Pattern.**") : -1])
         assert problem or parsed == source
+
+
+OWN_SUBJECT_BLOCK = (
+    "### sentences-own-subject: Carries its own subject\n"
+    "\n"
+    "A sentence that borrows its subject from the heading above it is incomplete.\n"
+    "\n"
+    "> **Before.** Curated, not collected.\n"
+    "> **After.** The list is curated, not collected.\n"
+)
+
+
+def fence(block):
+    return "```markdown\n%s```\n" % block
+
+
+@pytest.mark.spec("write-cmd-previews-rules")
+class DescribeTheRulesPage:
+    def dry_run(self, prose_repo, records, *flags):
+        code, env = write(prose_repo, records, "--dry-run", *flags)
+        path = prose_repo.root / prose.RULES_FILE
+        assert env["data"]["rules"] == str(path)
+        return code, env, path.read_text(encoding="utf-8")
+
+    def it_writes_a_new_rule_as_the_file_will_hold_it_and_ends_with_the_token(self, prose_repo):
+        code, env, text = self.dry_run(prose_repo, [NEW_RULE])
+        assert code == prose.OK
+        assert text.startswith("# Rules to write\n\nInto `%s`.\n" % prose.CONFIG_PATH)
+        assert "## New `sentences-no-in-order-to`, at line 14\n\n" + fence(NEW_RULE_BLOCK) in text
+        assert "1 rule(s) to write.\n" in text
+        assert text.endswith("Approval token: `%s`\n" % env["data"]["token"])
+
+    def it_shows_a_rewrite_beside_the_rule_it_replaces(self, prose_repo):
+        code, _, text = self.dry_run(prose_repo, [rewrite(title="Owns its subject")])
+        new = OWN_SUBJECT_BLOCK.replace("Carries its own subject", "Owns its subject")
+        assert code == prose.OK
+        assert (
+            "## Rewrite `sentences-own-subject`, at line 7\n\n"
+            "Now:\n\n" + fence(OWN_SUBJECT_BLOCK) + "\nBecomes:\n\n" + fence(new)
+        ) in text
+
+    def it_writes_the_refusals_and_no_token(self, prose_repo):
+        code, env, text = self.dry_run(prose_repo, [NEW_RULE, new_rule(name="bad-01")])
+        assert code == prose.PROBLEMS
+        assert env["data"]["token"] is None
+        assert "## Refused\n" in text
+        assert "- %s\n" % env["errors"][0] in text
+        assert "token" not in text.lower()
+
+    def it_replaces_a_token_from_an_earlier_run(self, prose_repo):
+        self.dry_run(prose_repo, [NEW_RULE])
+        _, _, text = self.dry_run(prose_repo, [new_rule(name="bad-01")])
+        assert "token" not in text.lower()
+
+    def it_keeps_the_page_out_of_the_projects_commits(self, prose_repo):
+        self.dry_run(prose_repo, [NEW_RULE])
+        assert (prose_repo.root / prose.COPY_IGNORE).read_bytes() == prose.COPY_IGNORE_TEXT
+
+    def it_leaves_the_rules_text_off_stdout(self, prose_repo):
+        _, env, _ = self.dry_run(prose_repo, [NEW_RULE])
+        assert env["data"]["written"] == [
+            {"id": "sentences-no-in-order-to", "change": prose.WRITTEN_NEW, "line": 14}
+        ]
+
+
+@pytest.mark.spec("write-cmd-requires-token")
+class DescribeTheApprovalToken:
+    def dry_run_token(self, prose_repo, records):
+        code, env = write(prose_repo, records, "--dry-run")
+        assert code == prose.OK
+        return env["data"]["token"]
+
+    def write_with(self, prose_repo, given):
+        path = str(prose_repo.root / "batch.json")
+        return prose_repo.run("config", "write", "--batch", path, "--token", given)
+
+    def it_writes_given_the_token_the_dry_run_printed(self, prose_repo):
+        given = self.dry_run_token(prose_repo, [NEW_RULE])
+        code, env = self.write_with(prose_repo, given)
+        assert code == prose.OK
+        assert env["data"]["token"] is None
+        assert NEW_RULE_BLOCK in style(prose_repo)
+
+    def it_refuses_a_batch_changed_since_the_dry_run(self, prose_repo):
+        given = self.dry_run_token(prose_repo, [NEW_RULE])
+        before = style(prose_repo)
+        (prose_repo.root / "batch.json").write_text(json.dumps([VOICE_RULE]))
+        code, env = self.write_with(prose_repo, given)
+        assert code == prose.PROBLEMS
+        assert env["errors"] == [prose.RULES_TOKEN_STALE % prose.CONFIG_PATH]
+        assert env["data"]["written"] == []
+        assert style(prose_repo) == before
+
+    def it_refuses_when_prose_style_changed_since_the_dry_run(self, prose_repo):
+        given = self.dry_run_token(prose_repo, [NEW_RULE])
+        path = prose_repo.root / prose.CONFIG_PATH
+        path.write_text(style(prose_repo) + "\n")
+        code, _ = self.write_with(prose_repo, given)
+        assert code == prose.PROBLEMS
+        assert NEW_RULE_BLOCK not in style(prose_repo)
+
+    def it_cannot_run_without_a_token(self, prose_repo):
+        before = style(prose_repo)
+        path = prose_repo.root / "batch.json"
+        path.write_text(json.dumps([NEW_RULE]))
+        code, _ = prose_repo.run("config", "write", "--batch", str(path))
+        assert code == prose.CANNOT_RUN
+        assert "config write --dry-run" in prose_repo.err
+        assert style(prose_repo) == before
+
+    def it_never_takes_a_report_token_for_the_same_bytes(self, prose_repo):
+        raw = b"[]"
+        repo = prose.Repo(str(prose_repo.root))
+        config = prose.Config(str(prose_repo.root / prose.CONFIG_PATH))
+        assert prose.rules_token(config, raw) != prose.approval_token(repo, config, raw, [])
