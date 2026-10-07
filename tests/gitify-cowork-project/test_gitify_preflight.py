@@ -57,6 +57,23 @@ class DescribePreflight:
         assert any(e.startswith("gitignore:2") and "'{{'" in e for e in env["errors"])
 
     @pytest.mark.spec("preflight-cmd-names-template-problems")
+    def it_names_a_section_line_that_would_end_the_heredoc(self, runner):
+        templates = runner.templates_copy()
+        with open(templates / gitify.HISTORY_TEMPLATE, "a") as fh:
+            fh.write(gitify.HEREDOC_END + "\n")
+        code, env = runner.run("preflight", "--templates", str(templates))
+        assert code == gitify.PROBLEMS
+        assert any("end history's heredoc" in e for e in env["errors"])
+
+    @pytest.mark.spec("preflight-cmd-names-template-problems")
+    def it_names_a_section_without_its_heading(self, runner):
+        templates = runner.templates_copy()
+        (templates / gitify.HISTORY_TEMPLATE).write_text("## History\n")
+        code, env = runner.run("preflight", "--templates", str(templates))
+        assert code == gitify.PROBLEMS
+        assert any("would append it again" in e for e in env["errors"])
+
+    @pytest.mark.spec("preflight-cmd-names-template-problems")
     def it_reports_a_missing_templates_directory_rather_than_crashing(self, runner):
         code, env = runner.run("preflight", "--templates", str(runner.tmp / "nowhere"))
         assert code == gitify.PROBLEMS

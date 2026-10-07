@@ -22,11 +22,17 @@ The plugin adds the history and nothing else. It does not write any documents, o
 rules about what documents say or how they read. Those belong to the project,
 and a project that wants a house style adds one separately.
 
-## When not to use it
+## A folder that is already a git repository
 
-A folder that is already a git repository has a history of its own. The plugin
-starts history rather than taking over an existing one, so Claude stops when it
-finds one.
+A folder that is already a git repository has a history of its own, and the
+plugin does not take it over. It writes none of the files below, and leaves
+the Project Instructions field as it is. Claude offers one thing instead: a
+short section at the end of the folder's `CLAUDE.md` (which it creates if
+there is none) telling Claude to leave change history to git. Like the
+section described under "What you get", it tells Claude to keep dated notes
+out of the documents and how to read the history. There is no `commit.sh`, so
+it tells Claude to give you each commit message to commit yourself. You
+review the section and commit it the same way.
 
 ## What you get
 

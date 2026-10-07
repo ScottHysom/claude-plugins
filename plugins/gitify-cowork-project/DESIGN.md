@@ -68,6 +68,16 @@ every conversation, so the section needs nothing registered on the account and
 has no second copy to keep in step. It sits outside the note's HTML comment,
 because Claude never sees what is inside one.
 
+A folder that is already a git repo gets only this section, from
+`templates/git-history.md`, appended to its root `CLAUDE.md` by
+`gitify.py history`. The repo is the user's, so the plugin does not write
+`commit.sh` there, and the section asks the user to make the commit instead.
+The section is appended on the device with a heredoc rather than copied by
+`device_commit_files`, which can only replace a whole file. The command
+checks the bytes it appended, and does nothing when a `## Git history` line is
+already there. Cowork loads only the connected folder's own `CLAUDE.md`, so
+`history` takes the connected folder and nothing inside it.
+
 ## Why `commit.sh` exists
 
 The device bridge cannot delete files. While git updates a branch it holds a
