@@ -25,10 +25,10 @@ def folder(runner, make_answers, tmp_path):
     (folder / "notes.md").write_text("notes\n")
     (folder / "drafts" / "plan.md").write_text("# Plan\n")
     (folder / "film.mov").write_text("big\n")
-    for f in env["data"]["files"]:
-        dst = folder / f["file"]
+    for rel, staged in runner.staged_files(env["data"]):
+        dst = folder / rel
         dst.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copyfile(f["staged_path"], dst)
+        shutil.copyfile(staged, dst)
     return folder
 
 

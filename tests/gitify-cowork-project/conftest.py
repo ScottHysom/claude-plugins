@@ -90,6 +90,14 @@ class Runner:
     def staged(self, rel):
         return (self.stage / rel).read_text()
 
+    def staged_files(self, data):
+        """Each file render staged, as (path relative to the stage, staged path),
+        read from the commit_files it hands device_commit_files."""
+        return [
+            (os.path.relpath(f["stagedPath"], self.stage).replace(os.sep, "/"), f["stagedPath"])
+            for f in data["commit_files"]
+        ]
+
     def use_templates(self, directory):
         """Point gitify.py at another templates directory, for this test only."""
         self._monkeypatch.setattr(gitify, "TEMPLATES", str(directory))
@@ -123,11 +131,12 @@ class Device:
             (self.project / "drafts" / "plan.md").write_text("# Plan\n")
         return self.project
 
-    def copy_in(self, env_data):
-        for f in env_data["files"]:
-            dst = self.project / f["file"]
+    def copy_in(self, staged_files):
+        """Copy in what Runner.staged_files lists, as device_commit_files would."""
+        for rel, staged in staged_files:
+            dst = self.project / rel
             dst.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copyfile(f["staged_path"], dst)
+            shutil.copyfile(staged, dst)
 
     def sh(self, command):
         env = dict(os.environ, HOME=str(self.home))
