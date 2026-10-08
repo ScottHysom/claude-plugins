@@ -302,7 +302,6 @@ KNOWN_GAPS = {}
 # command or gains a marker; `steps` fails until it does. `check-specs.py
 # trace` fails an entry whose issue has closed.
 KNOWN_SEAMS = {
-    ("plugins/prose-tuning/skills/adopt-prose/SKILL.md", 1): 167,
     ("plugins/prose-tuning/skills/update-prose-config/SKILL.md", 1): 181,
     ("plugins/prose-tuning/skills/apply-prose/SKILL.md", 2): 196,
     ("plugins/prose-tuning/skills/apply-prose/SKILL.md", 7): 190,

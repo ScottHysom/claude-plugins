@@ -310,7 +310,7 @@ class DescribeBodyKey:
 
 
 class DescribeConfigClassify:
-    """adopt-prose's step 2. Every source rule lands in one bucket, and two
+    """adopt-prose's step 1. Every source rule lands in one bucket, and two
     runs on the same pair of files land it in the same one.
     """
 
@@ -405,6 +405,59 @@ class DescribeConfigClassify:
         assert (code, env) == (prose.CANNOT_RUN, None)
         assert "nowhere.md does not exist" in prose_repo.err
 
+    @pytest.mark.spec("classify-refuses-unlinted")
+    @pytest.mark.parametrize("bad", ["source", "target"])
+    def it_refuses_a_file_that_does_not_lint(self, prose_repo, bad):
+        src, tgt = prose_repo.root / "source.md", prose_repo.root / "target-style.md"
+        good = self.HEAD + "## Sentences\n\n" + self.rule("sentences-own-subject", self.SHARED)
+        broken = self.HEAD + "## Sentences\n\n" + self.rule("sentences-01", "Bad id.")
+        src.write_text(broken if bad == "source" else good)
+        tgt.write_text(broken if bad == "target" else good)
+        code, env = prose_repo.run("config", "classify", "--file", str(src), "--to", str(tgt))
+        assert (code, env) == (prose.CANNOT_RUN, None)
+        path = src if bad == "source" else tgt
+        assert "%s does not lint clean; run: prose.py config lint" % path in prose_repo.err
+
+    @pytest.mark.spec("classify-gives-bodies")
+    def it_gives_the_body_of_a_colliding_rule_and_its_target(self, prose_repo):
+        other = "Commit messages name the file they touch."
+        rules = self.classify(
+            prose_repo,
+            [self.rule("sentences-own-subject", self.SHARED)],
+            [self.rule("sentences-own-subject", other)],
+        )
+        got = rules["sentences-own-subject"]
+        assert (got["body"], got["target_body"]) == (self.SHARED, other)
+
+    @pytest.mark.spec("classify-gives-bodies")
+    def it_gives_the_body_of_each_similar_candidate(self, prose_repo):
+        reworded = self.SHARED.replace("incomplete", "not complete")
+        rules = self.classify(
+            prose_repo,
+            [self.rule("sentences-own-subject", self.SHARED)],
+            [
+                self.rule("sentences-carries-subject", self.SHARED),
+                self.rule("sentences-subject-present", reworded),
+            ],
+        )
+        got = rules["sentences-own-subject"]
+        bodies = {c["target"]: c["target_body"] for c in got["candidates"]}
+        assert bodies == {
+            "sentences-carries-subject": self.SHARED,
+            "sentences-subject-present": reworded,
+        }
+        assert got["target_body"] == bodies[got["target"]]
+
+    @pytest.mark.spec("classify-gives-bodies")
+    def it_gives_no_target_body_for_a_new_rule(self, prose_repo):
+        rules = self.classify(
+            prose_repo,
+            [self.rule("sentences-own-subject", self.SHARED)],
+            [self.rule("sentences-count-needs-list", "A count needs its list nearby.")],
+        )
+        got = rules["sentences-own-subject"]
+        assert (got["body"], got["target_body"]) == (self.SHARED, None)
+
     @pytest.mark.spec("repo:command-splits-output-streams")
     def it_prints_each_bucket_on_stdout_without_json(self, prose_repo):
         src, tgt = prose_repo.root / "source.md", prose_repo.root / "target-style.md"
@@ -433,7 +486,7 @@ class DescribeConfigClassify:
 
 
 class DescribeConfigAdopt:
-    """adopt-prose's step 3. A new rule reaches the target as the source wrote
+    """adopt-prose's step 2. A new rule reaches the target as the source wrote
     it, with only its metadata replaced, and never over a rule the target has.
     """
 
@@ -565,7 +618,7 @@ class DescribeConfigAdopt:
             "## Sentences\n\n" + self.OWN_SUBJECT,
             "## Sentences\n\n" + self.COUNT + "\n## Register\n\n" + self.TONE,
         )
-        code, env = self.adopt(prose_repo, src, tgt, "--rule", "sentences-own-subject")
+        code, _ = self.adopt(prose_repo, src, tgt, "--rule", "sentences-own-subject")
         assert code == prose.OK
         text = tgt.read_text()
         assert (
@@ -575,8 +628,21 @@ class DescribeConfigAdopt:
         )
         assert "> **After.** These rules apply:\n\n### sentences-own-subject" in text
         assert "> **After.** A reader can state it.\n\n## Register" in text
-        line = env["data"]["adopted"][0]["line"]
-        assert text.split("\n")[line - 1].startswith("### sentences-own-subject:")
+
+    @pytest.mark.spec("adopt-cmd-places-by-section")
+    def it_prints_the_line_it_placed_a_rule_at(self, prose_repo):
+        src, tgt = self.files(
+            prose_repo,
+            "## Sentences\n\n" + self.OWN_SUBJECT,
+            "## Sentences\n\n" + self.COUNT + "\n## Register\n\n" + self.TONE,
+        )
+        prose_repo._capsys.readouterr()
+        argv = ["config", "adopt", "--file", str(src), "--to", str(tgt), "-C", str(prose_repo.root)]
+        code = prose.main([*argv, "--rule", "sentences-own-subject"])
+        out, _ = prose_repo._capsys.readouterr()
+        assert code == prose.OK
+        line = int(out.split("\n")[0].rsplit(" ", 1)[1])
+        assert tgt.read_text().split("\n")[line - 1].startswith("### sentences-own-subject:")
 
     @pytest.mark.spec("adopt-cmd-places-by-section")
     def it_adds_the_section_heading_when_the_target_has_none(self, prose_repo):

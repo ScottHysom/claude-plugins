@@ -101,10 +101,9 @@ class DescribeAnswersWritten:
     def it_puts_the_source_rule_in_place_of_the_target_rule_on_take_source(self, prose_repo):
         src, tgt = files(prose_repo, OWN_SUBJECT, OWN_SUBJECT_THEIRS + "\n" + COUNT)
         ans = answer(src, tgt, "sentences-own-subject", "sentences-own-subject", "take-source")
-        code, env = resolve(prose_repo, src, tgt, [ans])
+        code, _ = resolve(prose_repo, src, tgt, [ans])
         assert code == prose.OK
         assert tgt.read_text() == HEAD + "## Sentences\n\n" + OWN_SUBJECT + "\n" + COUNT
-        assert env["data"]["resolved"][0]["line"] == 7
 
     @pytest.mark.spec("resolve-cmd-writes-answers")
     def it_leaves_the_target_as_it_was_on_keep_target(self, prose_repo):
@@ -112,7 +111,7 @@ class DescribeAnswersWritten:
         before = tgt.read_bytes()
         ans = answer(src, tgt, "sentences-own-subject", "sentences-own-subject", "keep-target")
         code, env = resolve(prose_repo, src, tgt, [ans])
-        assert (code, env["data"]["resolved"][0]["line"]) == (prose.OK, None)
+        assert (code, env["data"]["resolved"][0]["resolution"]) == (prose.OK, "keep-target")
         assert tgt.read_bytes() == before
 
     @pytest.mark.spec("resolve-cmd-writes-answers", "adoptprose-keeps-target-id")
@@ -147,12 +146,9 @@ class DescribeAnswersWritten:
     def it_copies_the_source_rule_in_beside_the_target_rule_on_keep_both(self, prose_repo):
         src, tgt = files(prose_repo, OWN_SUBJECT, CARRIES + "\n## Register\n\n" + TONE)
         ans = answer(src, tgt, "sentences-own-subject", "sentences-carries-subject", "keep-both")
-        code, env = resolve(prose_repo, src, tgt, [ans])
-        text = tgt.read_text()
+        code, _ = resolve(prose_repo, src, tgt, [ans])
         assert code == prose.OK
-        assert "A reader can read it.\n\n" + OWN_SUBJECT + "\n## Register" in text
-        line = env["data"]["resolved"][0]["line"]
-        assert text.split("\n")[line - 1].startswith("### sentences-own-subject:")
+        assert "A reader can read it.\n\n" + OWN_SUBJECT + "\n## Register" in tgt.read_text()
 
     @pytest.mark.spec("resolve-cmd-writes-answers")
     def it_leaves_the_source_rule_out_on_drop_source(self, prose_repo):

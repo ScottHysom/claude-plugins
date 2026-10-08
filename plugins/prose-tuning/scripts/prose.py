@@ -127,7 +127,7 @@ import shlex
 import subprocess
 import sys
 
-ENVELOPE_VERSION = 1
+ENVELOPE_VERSION = 2
 
 OK, PROBLEMS, CANNOT_RUN = 0, 1, 2
 
@@ -641,8 +641,8 @@ def validate_rule_name(name):
 def rule_similarity(a, b):
     """(body, name, score) for two rules, each 0..1.
 
-    Deliberately crude, and reported in parts so the author can see which
-    half fired. A rule can be restated in different words under the same
+    Deliberately crude, and returned in parts so a test can see which half
+    fired. A rule can be restated in different words under the same
     name, or say the same thing under a different one, and either is worth
     a look - so the score is the higher of the two rather than a blend that
     hides both. The corpus is a few dozen rules, so the quadratic is free.
@@ -666,24 +666,17 @@ def similar_pairs(config, other):
         for b in other.rules:
             if a.id == b.id:
                 continue
-            body, name, score = rule_similarity(a, b)
+            score = rule_similarity(a, b)[2]
             if score >= SIMILAR_THRESHOLD:
-                pairs.append(
-                    {
-                        "source": a.id,
-                        "target": b.id,
-                        "score": round(score, 2),
-                        "body": round(body, 2),
-                        "name": round(name, 2),
-                    }
-                )
-    pairs.sort(key=lambda p: (-p["score"], p["source"], p["target"]))
-    return pairs
+                pairs.append((round(score, 2), a.id, b.id))
+    pairs.sort(key=lambda p: (-p[0], p[1], p[2]))
+    return [{"source": src, "target": tgt} for _, src, tgt in pairs]
 
 
 def classify_rules(config, other):
     """One entry per rule in config, in its order: the bucket it falls in
-    when adopted into other, and the rule of other it matched.
+    when adopted into other, and the rule of other it matched, each with its
+    body, so adopt-prose's step 3 can show the author both in full.
 
     An id match settles a rule before any score is read. A rule the target
     already names is a question about that rule, and the similar bucket is
@@ -704,13 +697,22 @@ def classify_rules(config, other):
             target = match.id
         else:
             candidates = [
-                {k: p[k] for k in ("target", "score", "body", "name")}
+                {"target": p["target"], "target_body": by_id[p["target"]].body_text()}
                 for p in pairs
                 if p["source"] == a.id
             ]
             bucket = BUCKET_SIMILAR if candidates else BUCKET_NEW
             target = candidates[0]["target"] if candidates else None
-        out.append({"id": a.id, "bucket": bucket, "target": target, "candidates": candidates})
+        out.append(
+            {
+                "id": a.id,
+                "bucket": bucket,
+                "body": a.body_text(),
+                "target": target,
+                "target_body": by_id[target].body_text() if target else None,
+                "candidates": candidates,
+            }
+        )
     return out
 
 
@@ -3061,12 +3063,11 @@ def place_blocks(lines, spots, replaced=None):
     return out
 
 
-def config_adopt(args, repo, config):
-    """Copy named rules from this file into --to, and say where they came from.
+def linted_target(args, config):
+    """The Config at --to, once it and config both lint clean.
 
-    adopt-prose's step 3. Refuses an id the target already has, because a
-    shared id is step 4's question, and writes nothing while any id is refused
-    unless --partial is passed.
+    classify, adopt and resolve share it: a rule read from a malformed file is
+    classified or copied wrong, and the error then looks like the command's.
     """
     target = Config(os.path.abspath(args.to))
     if not target.exists:
@@ -3076,6 +3077,17 @@ def config_adopt(args, repo, config):
             raise Fatal(
                 "%s does not lint clean; run: prose.py config lint --file %s" % (cfg.path, cfg.path)
             )
+    return target
+
+
+def config_adopt(args, repo, config):
+    """Copy named rules from this file into --to, and say where they came from.
+
+    adopt-prose's step 2. Refuses an id the target already has, because a
+    shared id is step 3's question, and writes nothing while any id is refused
+    unless --partial is passed.
+    """
+    target = linted_target(args, config)
     source_lines = Text.read(config.path).lines
     target_lines = Text.read(target.path).lines
     out, adopted, refused = plan_adoption(config, source_lines, target, target_lines, args.rule)
@@ -3093,20 +3105,17 @@ def config_adopt(args, repo, config):
         if m:
             lines.setdefault("%s-%s" % (m.group(1), m.group(2)), i + 1)
     data = {
-        "source": config.path,
-        "target": target.path,
         "commit_note": (
             ADOPTED_NOTE % (adopted_from(config), ", ".join(adopted)) if adopted else None
         ),
-        "dry_run": args.dry_run,
-        "adopted": [{"id": rid, "line": lines[rid]} for rid in adopted],
+        "adopted": [{"id": rid} for rid in adopted],
         "refused": refused,
     }
 
     def human():
         verb = "would adopt" if args.dry_run else "adopted"
-        for a in data["adopted"]:
-            print("%s  %s  at line %d" % (verb, a["id"], a["line"]))
+        for rid in adopted:
+            print("%s  %s  at line %d" % (verb, rid, lines[rid]))
         for r in refused:
             print("refused  %s" % r["id"])
         if data["commit_note"]:
@@ -3509,7 +3518,7 @@ def config_write(args, repo, config):
     return emit(args, "config write", repo.root, data, errors=errors, human=human)
 
 
-# config resolve: the author's answers to adopt-prose's step 4. A pair under
+# config resolve: the author's answers to adopt-prose's step 3. A pair under
 # one id is a collision; a pair under two ids is a similar pair.
 RESOLVE_TAKE = "take-source"
 RESOLVE_KEEP = "keep-target"
@@ -3640,19 +3649,13 @@ def plan_resolutions(config, source_lines, target, target_lines, answers):
 def config_resolve(args, repo, config):
     """Write the author's answer to each colliding and similar pair into --to.
 
-    adopt-prose's step 4. Each answer names a source rule, the target rule it
-    was paired with, the resolution, and both bodies as config list read them.
+    adopt-prose's step 3. Each answer names a source rule, the target rule it
+    was paired with, the resolution, and both bodies as config classify read
+    them.
     Writes nothing while any answer is refused unless --partial is passed, and
     nothing at all when the result would not lint clean.
     """
-    target = Config(os.path.abspath(args.to))
-    if not target.exists:
-        raise Fatal("%s does not exist" % args.to)
-    for cfg in (config, target):
-        if cfg.errors:
-            raise Fatal(
-                "%s does not lint clean; run: prose.py config lint --file %s" % (cfg.path, cfg.path)
-            )
+    target = linted_target(args, config)
     answers = read_json(args.answers, "the answers")
     if not isinstance(answers, list):
         raise Fatal("the answers are not a JSON list")
@@ -3675,13 +3678,9 @@ def config_resolve(args, repo, config):
         Text("".join(out)).write(target.path)
 
     at = {r.id: r.line for r in result.rules}
-    for t in taken:
-        rid = {RESOLVE_TAKE: t["target"], RESOLVE_COMBINE: t["target"], RESOLVE_BOTH: t["source"]}
-        t["line"] = at[rid[t["resolution"]]] if t["resolution"] in rid else None
+    written = {RESOLVE_TAKE: "target", RESOLVE_COMBINE: "target", RESOLVE_BOTH: "source"}
     copied = [t["source"] for t in taken if t["resolution"] in (RESOLVE_TAKE, RESOLVE_BOTH)]
     data = {
-        "source": config.path,
-        "target": target.path,
         "commit_note": ADOPTED_NOTE % (adopted_from(config), ", ".join(copied)) if copied else None,
         "resolved": taken,
         "refused": refused,
@@ -3689,7 +3688,8 @@ def config_resolve(args, repo, config):
 
     def human():
         for t in taken:
-            where = "  at line %d" % t["line"] if t["line"] else ""
+            side = written.get(t["resolution"])
+            where = "  at line %d" % at[t[side]] if side else ""
             print("%s  %s -> %s%s" % (t["resolution"], t["source"], t["target"], where))
         for r in refused:
             print("refused  answer %d  %s" % (r["index"], r["source"]))
@@ -3766,9 +3766,7 @@ def cmd_config(args):
         )
 
     if which == "classify":
-        other = Config(os.path.abspath(args.to))
-        if not other.exists:
-            raise Fatal("%s does not exist" % args.to)
+        other = linted_target(args, config)
         rules = classify_rules(config, other)
         counts = {b: sum(1 for r in rules if r["bucket"] == b) for b in BUCKETS}
 
@@ -3783,12 +3781,7 @@ def cmd_config(args):
             args,
             "config classify",
             repo.root,
-            {
-                "source": config.path,
-                "target": os.path.abspath(args.to),
-                "rules": rules,
-                "counts": counts,
-            },
+            {"rules": rules},
             human=human,
         )
 
