@@ -683,7 +683,8 @@ def similar_pairs(config, other):
 
 def classify_rules(config, other):
     """One entry per rule in config, in its order: the bucket it falls in
-    when adopted into other, and the rule of other it matched.
+    when adopted into other, and the rule of other it matched, each with its
+    body, so adopt-prose's step 3 can show the author both in full.
 
     An id match settles a rule before any score is read. A rule the target
     already names is a question about that rule, and the similar bucket is
@@ -704,13 +705,25 @@ def classify_rules(config, other):
             target = match.id
         else:
             candidates = [
-                {k: p[k] for k in ("target", "score", "body", "name")}
+                dict(
+                    {k: p[k] for k in ("target", "score", "body", "name")},
+                    target_body=by_id[p["target"]].body_text(),
+                )
                 for p in pairs
                 if p["source"] == a.id
             ]
             bucket = BUCKET_SIMILAR if candidates else BUCKET_NEW
             target = candidates[0]["target"] if candidates else None
-        out.append({"id": a.id, "bucket": bucket, "target": target, "candidates": candidates})
+        out.append(
+            {
+                "id": a.id,
+                "bucket": bucket,
+                "body": a.body_text(),
+                "target": target,
+                "target_body": by_id[target].body_text() if target else None,
+                "candidates": candidates,
+            }
+        )
     return out
 
 
@@ -3055,12 +3068,11 @@ def place_blocks(lines, spots, replaced=None):
     return out
 
 
-def config_adopt(args, repo, config):
-    """Copy named rules from this file into --to, and say where they came from.
+def linted_target(args, config):
+    """The Config at --to, once it and config both lint clean.
 
-    adopt-prose's step 3. Refuses an id the target already has, because a
-    shared id is step 4's question, and writes nothing while any id is refused
-    unless --partial is passed.
+    classify and adopt share it: a rule read from a malformed file is
+    classified or copied wrong, and the error then looks like the command's.
     """
     target = Config(os.path.abspath(args.to))
     if not target.exists:
@@ -3070,6 +3082,17 @@ def config_adopt(args, repo, config):
             raise Fatal(
                 "%s does not lint clean; run: prose.py config lint --file %s" % (cfg.path, cfg.path)
             )
+    return target
+
+
+def config_adopt(args, repo, config):
+    """Copy named rules from this file into --to, and say where they came from.
+
+    adopt-prose's step 2. Refuses an id the target already has, because a
+    shared id is step 3's question, and writes nothing while any id is refused
+    unless --partial is passed.
+    """
+    target = linted_target(args, config)
     source_lines = Text.read(config.path).lines
     target_lines = Text.read(target.path).lines
     out, adopted, refused = plan_adoption(config, source_lines, target, target_lines, args.rule)
@@ -3566,9 +3589,7 @@ def cmd_config(args):
         )
 
     if which == "classify":
-        other = Config(os.path.abspath(args.to))
-        if not other.exists:
-            raise Fatal("%s does not exist" % args.to)
+        other = linted_target(args, config)
         rules = classify_rules(config, other)
         counts = {b: sum(1 for r in rules if r["bucket"] == b) for b in BUCKETS}
 
