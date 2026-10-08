@@ -507,6 +507,19 @@ in the ruling on #131.
   round, with both bodies in full.
 - `adoptprose-keeps-target-id` (step): When the author settles a pair with a
   combination or a rewrite, the resulting rule keeps the target's id.
+- `resolve-cmd-writes-answers` (test): When `config resolve --answers` is
+  given the author's answer to each pair, it writes each into the target.
+  A collision takes `take-source`, `keep-target` or `combine`, and a pair
+  under two ids takes `keep-both`, `combine` or `drop-source`. A
+  combination keeps the target's id. A source rule is answered once, and a
+  target rule is written once.
+- `resolve-cmd-refuses-stale` (test): When an answer's `expect` does not
+  hold the body of the source rule or the target rule as the file has it now,
+  `config resolve` refuses it.
+- `resolve-cmd-lints-result` (test): When `config resolve` writes, the target
+  lints clean, or the command writes nothing.
+- `resolve-cmd-writes-all-or-none` (test): When `config resolve` refuses any
+  answer, it writes nothing, unless `config resolve --partial` is passed.
 
 ## need owner-ships-a-rule: Ship a rule with the plugin
 
@@ -533,9 +546,12 @@ descriptions.
 - `adopt-cmd-gives-commit-note` (test): When `config adopt` writes, it
   gives a commit note naming the source's project, or its path outside a
   repository, and each id adopted.
+- `resolve-cmd-gives-commit-note` (test): When `config resolve` copies a rule
+  whole from the source, it gives a commit note naming the source's project,
+  or its path outside a repository, and each id copied.
 - `adoptprose-never-commits` (step): When adopt-prose finishes, it reports what
-  changed, gives the author `config adopt`'s commit note for their commit
-  description, and commits nothing.
+  changed, gives the author the commit notes from `config adopt` and
+  `config resolve` for their commit description, and commits nothing.
 - `updateproseconfig-never-commits` (step): When update-prose-config finishes,
   it reports what changed and which files are dirty, and commits nothing.
 - `applyprose-never-commits` (step): When apply-prose finishes, it shows

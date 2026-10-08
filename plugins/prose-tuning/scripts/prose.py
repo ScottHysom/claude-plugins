@@ -20,8 +20,8 @@ Commands:
     patterns    where each rule's pattern matches those spans
     evidence    explicit tags + inferred edits
     reproduce   whether the rules' patterns reproduce the edits since HEAD
-    config      list | lint | check-id | classify | adopt | write | init |
-                move
+    config      list | lint | check-id | classify | adopt | resolve | write |
+                init | move
     tags        list | resolve
     report      the findings for approval, and which of them overlap, also
                 written to .prose-tuning/report.md for the author to read
@@ -2995,7 +2995,14 @@ def plan_adoption(config, source_lines, target, target_lines, ids):
             chosen.append(source_ids[rid])
         seen.add(rid)
     chosen.sort(key=lambda r: r.line)
+    spots = adoption_spots(source_lines, target, target_lines, chosen)
+    return place_blocks(target_lines, spots), [r.id for r in chosen], refused
 
+
+def adoption_spots(source_lines, target, target_lines, rules):
+    """The spots place_blocks takes for copying rules into the target, each
+    rule found where plan_adoption says. rules are in the source's order.
+    """
     h2s = {}
     for i, ln in enumerate(target_lines):
         m = ANY_H2.match(ln.rstrip("\n").rstrip("\r"))
@@ -3004,7 +3011,7 @@ def plan_adoption(config, source_lines, target, target_lines, ids):
 
     # (position, heading to open or None) -> blocks, in first-seen order.
     spots = {}
-    for rule in chosen:
+    for rule in rules:
         mine = [r for r in target.rules if r.section == rule.section]
         if mine:
             key = (heading_end(target_lines, mine[-1].line - 1), None)
@@ -3013,8 +3020,7 @@ def plan_adoption(config, source_lines, target, target_lines, ids):
         else:
             key = (len(target_lines), rule.group or None)
         spots.setdefault(key, []).append(adopted_block(source_lines, rule))
-
-    return place_blocks(target_lines, spots), [r.id for r in chosen], refused
+    return spots
 
 
 def place_blocks(lines, spots, replaced=None):
@@ -3226,7 +3232,8 @@ def part_problem(record, part):
 
 
 class WriteRefusal(Exception):
-    """One record config write cannot write, and why."""
+    """One record config write, or one answer config resolve, cannot write,
+    and why."""
 
 
 def record_id(rec):
@@ -3502,6 +3509,196 @@ def config_write(args, repo, config):
     return emit(args, "config write", repo.root, data, errors=errors, human=human)
 
 
+# config resolve: the author's answers to adopt-prose's step 4. A pair under
+# one id is a collision; a pair under two ids is a similar pair.
+RESOLVE_TAKE = "take-source"
+RESOLVE_KEEP = "keep-target"
+RESOLVE_COMBINE = "combine"
+RESOLVE_BOTH = "keep-both"
+RESOLVE_DROP = "drop-source"
+SAME_ID_RESOLUTIONS = (RESOLVE_TAKE, RESOLVE_KEEP, RESOLVE_COMBINE)
+TWO_ID_RESOLUTIONS = (RESOLVE_BOTH, RESOLVE_COMBINE, RESOLVE_DROP)
+ANSWER_FIELDS = frozenset(("source", "target", "resolution", "expect", *WRITE_PARTS))
+EXPECT_SIDES = ("source", "target")
+
+
+def checked_answer(config, target, ans):
+    """(source rule, target rule) for one answer. Raises WriteRefusal on a
+    field that is unknown, missing or malformed, a rule either file lacks, a
+    body that changed since expect was read, and a resolution the pair's kind
+    does not offer.
+    """
+    if not isinstance(ans, dict):
+        raise WriteRefusal("answer is not an object")
+    unknown = sorted(set(ans) - ANSWER_FIELDS)
+    if unknown:
+        raise WriteRefusal(
+            "unknown field %s; an answer takes %s"
+            % (", ".join(unknown), ", ".join(sorted(ANSWER_FIELDS)))
+        )
+    missing = [f for f in ("source", "target", "resolution", "expect") if f not in ans]
+    if missing:
+        raise WriteRefusal("an answer needs %s" % ", ".join(missing))
+    if not all(isinstance(ans[f], str) for f in ("source", "target", "resolution")):
+        raise WriteRefusal("source, target and resolution are not strings")
+    expect = ans["expect"]
+    if not (
+        isinstance(expect, dict)
+        and set(expect) == set(EXPECT_SIDES)
+        and all(isinstance(v, str) for v in expect.values())
+    ):
+        raise WriteRefusal("expect is not an object with source and target bodies")
+    rules = []
+    for side, cfg in zip(EXPECT_SIDES, (config, target)):
+        rule = cfg.by_id().get(ans[side])
+        if rule is None:
+            raise WriteRefusal("%s has no rule %s" % (cfg.rel(), ans[side]))
+        if expect[side] != rule.body_text():
+            raise WriteRefusal(
+                "the body of %s in %s is not what expect holds; it changed since it was "
+                "read, so run config classify again and put the pair to the author again"
+                % (rule.id, cfg.rel())
+            )
+        rules.append(rule)
+    offered = SAME_ID_RESOLUTIONS if ans["source"] == ans["target"] else TWO_ID_RESOLUTIONS
+    if ans["resolution"] not in offered:
+        raise WriteRefusal(
+            "%s does not settle a %s; it takes %s"
+            % (
+                ans["resolution"],
+                "collision" if ans["source"] == ans["target"] else "pair under two ids",
+                ", ".join(offered),
+            )
+        )
+    parts = [p for p in WRITE_PARTS if p in ans]
+    if parts and ans["resolution"] != RESOLVE_COMBINE:
+        raise WriteRefusal("only %s takes %s" % (RESOLVE_COMBINE, ", ".join(parts)))
+    for part in parts:
+        problem = part_problem(ans, part)
+        if problem:
+            raise WriteRefusal(problem)
+    return rules[0], rules[1]
+
+
+def plan_resolutions(config, source_lines, target, target_lines, answers):
+    """(the target's new lines, the answers taken, the answers refused).
+
+    take-source puts the source's rule in place of the target's, byte for
+    byte as config adopt copies one. combine rewrites the target's rule with
+    the parts the answer gives, under the target's id, as config write
+    rewrites one. keep-both copies the source's rule in as config adopt does.
+    keep-target and drop-source write nothing. A source rule is answered once,
+    and a target rule is written once. Every range is read from the target as
+    given, so an earlier answer cannot move a later one.
+    """
+    taken, refused, kept = [], [], []
+    replaced, answered, written = {}, {}, {}
+    for n, ans in enumerate(answers, 1):
+        try:
+            src, tgt = checked_answer(config, target, ans)
+            how = ans["resolution"]
+            if src.id in answered:
+                raise WriteRefusal("%s is answered by answer %d too" % (src.id, answered[src.id]))
+            if how in (RESOLVE_TAKE, RESOLVE_COMBINE) and tgt.id in written:
+                raise WriteRefusal("%s is written by answer %d too" % (tgt.id, written[tgt.id]))
+            if how == RESOLVE_BOTH and src.id in target.by_id():
+                raise WriteRefusal("%s already has %s" % (target.rel(), src.id))
+            block = None
+            if how == RESOLVE_TAKE:
+                block = adopted_block(source_lines, src)
+            elif how == RESOLVE_COMBINE:
+                rec = {"id": tgt.id, "expect": tgt.body_text()}
+                rec.update((p, ans[p]) for p in WRITE_PARTS if p in ans)
+                _, block = rewritten_block(target, target_lines, rec)
+                alone = Config(target.path, target.rel(), LINT_FRONT + "".join(block))
+                if alone.errors:
+                    raise WriteRefusal("; ".join(e.split("  ", 1)[-1] for e in alone.errors))
+        except WriteRefusal as exc:
+            named = ans if isinstance(ans, dict) else {}
+            refused.append(
+                {
+                    "index": n,
+                    "source": named.get("source"),
+                    "target": named.get("target"),
+                    "reason": str(exc),
+                }
+            )
+            continue
+        answered[src.id] = n
+        if block is not None:
+            written[tgt.id] = n
+            start, end, _ = rule_parts(target_lines, tgt)
+            replaced[(start, end)] = block
+        if how == RESOLVE_BOTH:
+            kept.append(src)
+        taken.append({"index": n, "source": src.id, "target": tgt.id, "resolution": how})
+    kept.sort(key=lambda r: r.line)
+    spots = adoption_spots(source_lines, target, target_lines, kept)
+    return place_blocks(target_lines, spots, replaced), taken, refused
+
+
+def config_resolve(args, repo, config):
+    """Write the author's answer to each colliding and similar pair into --to.
+
+    adopt-prose's step 4. Each answer names a source rule, the target rule it
+    was paired with, the resolution, and both bodies as config list read them.
+    Writes nothing while any answer is refused unless --partial is passed, and
+    nothing at all when the result would not lint clean.
+    """
+    target = Config(os.path.abspath(args.to))
+    if not target.exists:
+        raise Fatal("%s does not exist" % args.to)
+    for cfg in (config, target):
+        if cfg.errors:
+            raise Fatal(
+                "%s does not lint clean; run: prose.py config lint --file %s" % (cfg.path, cfg.path)
+            )
+    answers = read_json(args.answers, "the answers")
+    if not isinstance(answers, list):
+        raise Fatal("the answers are not a JSON list")
+    source_lines = Text.read(config.path).lines
+    target_lines = Text.read(target.path).lines
+    out, taken, refused = plan_resolutions(config, source_lines, target, target_lines, answers)
+    errors = [
+        "answer %d (%s -> %s): %s" % (r["index"], r["source"], r["target"], r["reason"])
+        for r in refused
+    ]
+    if refused and not args.partial:
+        errors.append("nothing was written; fix the answers named, or pass --partial")
+        taken = []
+    result = Config(target.path, target.rel(), "".join(out))
+    if taken and result.errors:
+        errors += result.errors
+        errors.append("nothing was written; the result would not lint clean")
+        taken = []
+    if taken:
+        Text("".join(out)).write(target.path)
+
+    at = {r.id: r.line for r in result.rules}
+    for t in taken:
+        rid = {RESOLVE_TAKE: t["target"], RESOLVE_COMBINE: t["target"], RESOLVE_BOTH: t["source"]}
+        t["line"] = at[rid[t["resolution"]]] if t["resolution"] in rid else None
+    copied = [t["source"] for t in taken if t["resolution"] in (RESOLVE_TAKE, RESOLVE_BOTH)]
+    data = {
+        "source": config.path,
+        "target": target.path,
+        "commit_note": ADOPTED_NOTE % (adopted_from(config), ", ".join(copied)) if copied else None,
+        "resolved": taken,
+        "refused": refused,
+    }
+
+    def human():
+        for t in taken:
+            where = "  at line %d" % t["line"] if t["line"] else ""
+            print("%s  %s -> %s%s" % (t["resolution"], t["source"], t["target"], where))
+        for r in refused:
+            print("refused  answer %d  %s" % (r["index"], r["source"]))
+        if data["commit_note"]:
+            print("\nfor the commit description: %s" % data["commit_note"])
+
+    return emit(args, "config resolve", repo.root, data, errors=errors, human=human)
+
+
 def cmd_config(args):
     repo, config, scope = load(args)
     which = args.config_cmd
@@ -3551,6 +3748,9 @@ def cmd_config(args):
 
     if which == "write":
         return config_write(args, repo, config)
+
+    if which == "resolve":
+        return config_resolve(args, repo, config)
 
     if which == "check-id":
         rid, problem = config.check_id(args.section, args.name)
@@ -4806,6 +5006,7 @@ def build_parser():
         ("check-id", "is this id well-formed and free"),
         ("classify", "which bucket each rule falls in when adopted"),
         ("adopt", "copy new rules into another file, marked as adopted"),
+        ("resolve", "write the answer to each colliding and similar pair into another file"),
         ("write", "write approved rules into the file from JSON"),
         ("init", "start one from the shipped rules"),
         ("move", "move a root prose-style.md to %s" % CONFIG_DIR),
@@ -4837,6 +5038,19 @@ def build_parser():
             c.add_argument("--dry-run", action="store_true", help="say what would be copied")
             c.add_argument(
                 "--partial", action="store_true", help="adopt what is valid instead of nothing"
+            )
+        if name == "resolve":
+            c.add_argument(
+                "--to", required=True, metavar="PATH", help="the prose-style.md to write into"
+            )
+            c.add_argument(
+                "--answers",
+                required=True,
+                metavar="PATH",
+                help="the answers as a JSON list, or - for stdin",
+            )
+            c.add_argument(
+                "--partial", action="store_true", help="write what is valid instead of nothing"
             )
         if name == "write":
             c.add_argument(
