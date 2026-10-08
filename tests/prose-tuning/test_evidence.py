@@ -45,6 +45,12 @@ class DescribeInferredEdits:
         return envelope["data"]["inferred"]
 
     @pytest.mark.spec("evidence-cmd-reports-inferred-hunks")
+    def it_infers_nothing_from_a_file_that_has_no_copy_at_the_last_commit(self, prose_repo, target):
+        prose_repo.commit()
+        (prose_repo.root / "new.md").write_text("A page written since the last commit.\n")
+        assert self.inferred(prose_repo) == []
+
+    @pytest.mark.spec("evidence-cmd-reports-inferred-hunks")
     def it_reports_a_replacement_and_an_insertion_since_the_last_commit(self, prose_repo, target):
         prose_repo.commit()
         self.edit(
@@ -268,11 +274,3 @@ class DescribePlainOutput:
         assert "  explicit target.md:7 [del] restates\n" in out
         assert "  inferred target.md:20 [replace]\n" in out
         assert "explicit: 1  inferred: 1\n" in out
-
-    @pytest.mark.spec("repo:command-splits-output-streams")
-    def it_names_a_file_that_has_no_copy_at_the_last_commit(self, prose_repo, target, capsys):
-        prose_repo.commit()
-        (prose_repo.root / "new.md").write_text("A page written since the last commit.\n")
-        capsys.readouterr()
-        assert prose.main(["evidence", "-C", str(prose_repo.root)]) == prose.OK
-        assert "untracked at HEAD: new.md\n" in capsys.readouterr().out
