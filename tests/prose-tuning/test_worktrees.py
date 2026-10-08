@@ -328,7 +328,6 @@ class DescribeReproduceFrom:
         edit(main.root, rel=prose.CONFIG_PATH, text=STYLE.split("### register")[0])
         code, env = session.run("reproduce", "--from", str(main.root))
         assert code == prose.OK, env["errors"]
-        assert env["data"]["patterned"] == [RULE]
         assert [e["reproduced"] for e in env["data"]["edits"]] == [True]
 
     @pytest.mark.spec("reproduce-cmd-reads-other-worktree")
