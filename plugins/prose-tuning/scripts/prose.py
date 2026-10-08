@@ -127,7 +127,7 @@ import shlex
 import subprocess
 import sys
 
-ENVELOPE_VERSION = 2
+ENVELOPE_VERSION = 3
 
 OK, PROBLEMS, CANNOT_RUN = 0, 1, 2
 
@@ -2723,17 +2723,11 @@ def cmd_evidence(args):
         )
 
     data = {
-        "base_ref": BASE_REF,
         "explicit": explicit,
         "inferred": inferred,
         "new_files": new_files,
         "checkout": checkout,
         "other_worktrees": elsewhere,
-        "counts": {
-            "explicit": len(explicit),
-            "inferred": len(inferred),
-            "files": len(scope.files()),
-        },
     }
 
     def human():
@@ -2801,10 +2795,8 @@ def cmd_reproduce(args):
             found = reproduced_by(base_text, matches, spans)
             edits.append(dict(rec, reproduced=bool(found), matches=found))
     data = {
-        "base_ref": BASE_REF,
         "checkout": checkout,
         "edits": edits,
-        "patterned": [r.id for r in rules],
         "unpatterned": [r.id for r in config.rules if not r.patterns],
         "new_files": new_files,
     }
@@ -3875,7 +3867,7 @@ def cmd_tags(args):
             args, "tags " + which, repo.root, data, errors=errors, warnings=warnings, human=human
         )
 
-    errors, warnings, data = [], [], {}
+    errors, warnings, resolved = [], [], {}
     pending = []
     for rel in targets:
         path = repo.abspath(rel)
@@ -3895,20 +3887,20 @@ def cmd_tags(args):
         errors.append("nothing was written; fix the markup and re-run")
         return emit(args, "tags " + which, repo.root, {}, errors=errors, warnings=warnings)
     for path, rel, new, count in pending:
-        data[rel] = {"tags": count}
+        resolved[rel] = count
         if not args.dry_run:
             Text(new).write(path)
 
     def human():
-        for rel in sorted(data):
+        for rel in sorted(resolved):
             print(
                 "%s  %d tag(s) %s"
-                % (rel, data[rel]["tags"], "would be resolved" if args.dry_run else "resolved")
+                % (rel, resolved[rel], "would be resolved" if args.dry_run else "resolved")
             )
-        if not data:
+        if not resolved:
             print("no markup found")
 
-    return emit(args, "tags " + which, repo.root, data, warnings=warnings, human=human)
+    return emit(args, "tags " + which, repo.root, {}, warnings=warnings, human=human)
 
 
 # The kinds a finding may cross lines within. Anything else between two lines

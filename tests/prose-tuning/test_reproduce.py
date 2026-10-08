@@ -118,7 +118,6 @@ class DescribeReproduce:
     def it_lists_the_rules_with_no_pattern_by_id(self, prose_repo):
         data = reproduce(prose_repo, BEFORE.replace("It keeps", "The rule keeps"))
         assert data["unpatterned"] == [UNPATTERNED]
-        assert data["patterned"] == [RULE]
 
     @pytest.mark.spec("reproduce-cmd-matches-changed-text")
     def it_finds_a_match_on_a_later_line_of_a_hunk(self, prose_repo):
