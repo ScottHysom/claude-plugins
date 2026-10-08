@@ -2076,7 +2076,8 @@ def nearest(mapping, index, fallback):
 
 
 def explicit_records(scanner, text, blocks, rel):
-    """Tag records, with a bare <del>+<ins> pair reported as one replacement."""
+    """Tag records, with a bare <del>+<ins> pair reported as one replacement,
+    and an <alt> tied to no passage reported on its own."""
     out = []
     pairs, paired = scanner.pairs()
     for a, b in pairs:
@@ -2096,7 +2097,7 @@ def explicit_records(scanner, text, blocks, rel):
             }
         )
     for node in scanner.roots:
-        if id(node) in paired or node.kind not in EDIT_KINDS:
+        if id(node) in paired or node.kind not in EDIT_KINDS | {"alt"}:
             continue
         rec = {
             "file": rel,
@@ -2109,7 +2110,12 @@ def explicit_records(scanner, text, blocks, rel):
             "block_kind": blocks.kind(node.line),
             "form": "block" if is_block_form(node, text) else "inline",
         }
-        if node.kind == "repl":
+        if node.kind == "alt":
+            # An <alt> tied to no passage is a rule the author proposed, and
+            # the record carries it as its own proposal.
+            rec["alt"] = [strip_tags(node.inner(text)).strip()]
+            rec["old_text"] = rec["new_text"] = ""
+        elif node.kind == "repl":
             d, i = node.child("del"), node.child("ins")
             rec["old_text"] = tidy_block(strip_tags(d.inner(text))).strip() if d else ""
             rec["new_text"] = tidy_block(strip_tags(i.inner(text))).strip() if i else ""
@@ -2731,7 +2737,7 @@ def cmd_evidence(args):
         for rec in explicit:
             print(
                 "  explicit %s:%d [%s] %s"
-                % (rec["file"], rec["start"], rec["kind"], (rec["why"] or [""])[0])
+                % (rec["file"], rec["start"], rec["kind"], (rec["why"] or rec["alt"] or [""])[0])
             )
         for rec in inferred:
             flag = " (%s)" % rec["signal"] if rec["signal"] else ""
