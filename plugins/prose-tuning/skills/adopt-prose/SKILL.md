@@ -78,9 +78,8 @@ Pass every rule still in the new bucket after step 1, each as its own
 as the source has it and puts it under its section. Keep `data.commit_note`
 for the hand-off.
 
-The command exits 1 and writes nothing while any id is refused. An id refused
-because the target already has it is a colliding rule: take it to step 3 and
-run the command again without it.
+The command exits 1 and writes nothing while any id is refused, and each
+refusal says what to do.
 
 ## Step 3: the author's answers, in one batch
 <!-- spec: adoptprose-shows-conflicts-once, adoptprose-keeps-target-id -->
