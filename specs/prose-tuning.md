@@ -500,7 +500,9 @@ in the ruling on #131.
 - `adopt-cmd-lints-clean` (test): When `config adopt` writes, the target
   still lints clean.
 - `adopt-cmd-refuses-collision` (test): When the target already has an id
-  passed to `config adopt`, the command refuses it as a collision.
+  passed to `config adopt`, the command refuses it as a collision, and the
+  refusal says to run `config adopt` again without it and to put the pair to
+  the author for `config resolve`.
 - `adopt-cmd-refuses-unknown` (test): When the source has no rule with an
   id passed to `config adopt`, or the id is passed twice, the command refuses
   it.
