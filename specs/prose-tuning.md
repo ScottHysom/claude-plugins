@@ -479,6 +479,10 @@ in the ruling on #131.
 - `classify-cmd-names-missing-target` (test): When the file given to
   `--to` does not exist, `config classify` and `config adopt` name it and exit
   2.
+- `classify-refuses-unlinted` (test): When the source or the target does
+  not lint clean, `config classify` names the lint command and exits 2.
+- `classify-gives-bodies` (test): When `config classify` reports a rule, it
+  gives the rule's body, and the body of each target rule it matched.
 - `adoptprose-rereads-new-rules` (step): When `config classify` puts a rule in
   `new`, adopt-prose reads it against the target and treats it as similar if
   it states a target rule's point in other words.

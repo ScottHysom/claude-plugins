@@ -783,7 +783,8 @@ class DescribeInventory:
         assert "Name a plugin that has one: foo." in err
 
 
-SEAM_SKILL = "plugins/prose-tuning/skills/adopt-prose/SKILL.md"
+# A step the real KNOWN_SEAMS lists, so the test outlives any one entry.
+SEAM_SKILL, SEAM_STEP = sorted(cp.load_check_skills().KNOWN_SEAMS)[0]
 
 
 def listed_test(issue):
@@ -811,11 +812,11 @@ class DescribeTraceOnClosedIssues:
 
     @pytest.mark.spec("trace-cmd-fails-closed-issue-entries")
     def it_fails_a_known_seams_step_whose_issue_has_closed(self, make_repo, run):
-        root = make_repo({SEAM_SKILL: "---\nname: adopt-prose\n---\n"})
+        root = make_repo({SEAM_SKILL: "---\nname: seam-skill\n---\n"})
         github = FakeGitHub({n: {"state": "CLOSED"} for n in range(1000)})
         code, _, err = run("trace", "-C", str(root), environ=GITHUB_ENV, graphql=github)
         assert code == cp.PROBLEMS
-        assert "KNOWN_SEAMS lists step 1 of %s for #" % SEAM_SKILL in err
+        assert "KNOWN_SEAMS lists step %d of %s for #" % (SEAM_STEP, SEAM_SKILL) in err
 
     @pytest.mark.spec("trace-cmd-fails-closed-issue-entries", "trace-cmd-warns-on-listed-items")
     def it_passes_a_listed_test_whose_issue_is_open(self, make_repo, run):
