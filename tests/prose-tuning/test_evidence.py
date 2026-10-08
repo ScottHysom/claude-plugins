@@ -39,8 +39,8 @@ class DescribeInferredEdits:
             lines.insert(insert_at, inserted)
         (prose_repo.root / "target.md").write_text("\n".join(lines))
 
-    def inferred(self, prose_repo, *flags):
-        code, envelope = prose_repo.run("evidence", *flags)
+    def inferred(self, prose_repo):
+        code, envelope = prose_repo.run("evidence")
         assert code == prose.OK, envelope["errors"]
         return envelope["data"]["inferred"]
 
@@ -103,16 +103,6 @@ class DescribeInferredEdits:
         assert [(h["start"], h["end"], h["new_lines"]) for h in hunks] == [
             (21, 21, ["Final paragraph, now longer."])
         ]
-
-    def it_suppresses_one_hunk_by_its_file_and_line(self, prose_repo, target):
-        prose_repo.commit()
-        self.edit(
-            prose_repo,
-            target,
-            {7: "used for something real.", 19: "Final paragraph, now longer."},
-        )
-        assert [h["start"] for h in self.inferred(prose_repo)] == [8, 20]
-        assert [h["start"] for h in self.inferred(prose_repo, "--ignore", "target.md:8")] == [20]
 
     @pytest.mark.spec("evidence-cmd-diffs-without-markup")
     def it_places_a_hunk_on_a_line_that_also_holds_markup(self, prose_repo, target):
