@@ -14,7 +14,6 @@ Usage:
 
 Commands:
     preflight   refuse-to-run check for one skill
-    status      what is in the working tree right now
     scope       which files the prose rules govern
     segments    the prose-eligible spans of each file, one per line
     patterns    where each rule's pattern matches those spans
@@ -2316,63 +2315,6 @@ def cmd_scope(args):
     return emit(args, "scope", repo.root, data, human=human)
 
 
-def cmd_status(args):
-    repo, config, scope = load(args)
-    files = scope.files()
-    tags, errors = {}, []  # pragma: no cover - no test runs status until #181
-    for rel in files:
-        path = repo.abspath(rel)
-        if not os.path.exists(path):
-            continue
-        text = Text.read(path)
-        scanner = TagScanner(text, None, rel)
-        errors += scanner.errors
-        if scanner.all:
-            tags[rel] = scanner.counts()
-    dirty = repo.dirty_md()
-    data = {
-        "config": {
-            "path": config.rel(),
-            "exists": config.exists,
-            "rules": len(config.rules),
-            "errors": config.errors,
-            "warnings": config.warnings,
-        },
-        "scope": {"count": len(files), "overridden": scope.overridden},
-        "dirty": [{"status": s, "path": p} for s, p in dirty],
-        "tags": tags,
-        "markup_errors": errors,
-    }
-
-    def human():
-        print("repo    %s" % repo.root)
-        print(
-            "config  %s  %s"
-            % (
-                config.rel(),
-                "%d rule(s)" % len(config.rules) if config.exists else "MISSING - run config init",
-            )
-        )
-        print("scope   %d file(s)%s" % (len(files), " (overridden)" if scope.overridden else ""))
-        print("dirty   %d markdown file(s)" % len(dirty))
-        for s, p in dirty:
-            print("          %-2s %s" % (s, p))
-        if tags:
-            print("markup")
-            for rel in sorted(tags):
-                counts = ", ".join("%d %s" % (v, k) for k, v in sorted(tags[rel].items()))
-                print("          %s  %s" % (rel, counts))
-        else:
-            print("markup  none")
-        for e in errors:
-            print("!! %s" % e)
-
-    # status reports; it does not judge. The author's markup present is the
-    # normal state while update-prose-config learns from it, so this never
-    # exits 1.
-    return emit(args, "status", repo.root, data, human=human)
-
-
 def unignored_copy(repo):
     """This script's path in the repo when it is a copy git would commit.
 
@@ -2423,7 +2365,7 @@ def cmd_preflight(args):
         )
 
     files = scope.files()
-    tagged, markup_errors = [], []
+    tagged, markup, markup_errors = [], {}, []
     for rel in files:
         path = repo.abspath(rel)
         if not os.path.exists(path):
@@ -2432,6 +2374,7 @@ def cmd_preflight(args):
         markup_errors += scanner.errors
         if scanner.all:
             tagged.append((rel, scanner.all[0].line))
+            markup[rel] = scanner.counts()
     blockers += markup_errors
 
     hints = []
@@ -2457,7 +2400,7 @@ def cmd_preflight(args):
         "for": want,
         "blockers": blockers,
         "hints": hints,
-        "tagged_files": [r for r, _ in tagged],
+        "markup": markup,
         "config_exists": config.exists,
         "scope_count": len(files),
     }
@@ -2467,6 +2410,16 @@ def cmd_preflight(args):
             print("ok: nothing blocks %s" % want)
         else:
             print("%d blocker(s) for %s" % (len(blockers), want))
+        if want == "config" and not blockers:
+            # The progress update-prose-config starts from: whether there are
+            # rules to add to, and the author's markup it is about to read.
+            missing = "missing; run: prose.py config init"
+            print("config  %s" % (config.rel() if config.exists else missing))
+            for rel in sorted(markup):
+                counts = ", ".join("%d %s" % (n, k) for k, n in sorted(markup[rel].items()))
+                print("markup  %s  %s" % (rel, counts))
+            if not markup:
+                print("markup  none")
 
     if args.force and want == "apply":
         blockers = []
@@ -4862,9 +4815,6 @@ def build_parser():
     p.add_argument("--for", dest="for_target", required=True, choices=["config", "apply", "adopt"])
     p.add_argument("--force", action="store_true", help="apply only: proceed despite blockers")
     p.set_defaults(func=cmd_preflight)
-
-    p = sub.add_parser("status", parents=[common], help="what is in the working tree right now")
-    p.set_defaults(func=cmd_status)
 
     p = sub.add_parser("scope", parents=[common], help="which files the prose rules govern")
     p.add_argument(
