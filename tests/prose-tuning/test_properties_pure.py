@@ -139,9 +139,10 @@ class DescribeRuleSimilarity:
 
         difflib.SequenceMatcher.ratio() is not symmetric - about one random
         rule pair in five scores differently depending on argument order. It
-        matters because `config similar` loops `for a in config.rules: for b in
-        other.rules`, so which project you adopt *from* changes which pairs
-        clear the threshold. Asserting symmetry here would be asserting
+        matters because `config classify` scores each rule of the file adopted
+        *from* against each rule of the file adopted *into*, so swapping `--file`
+        and `--to` can move a rule between the similar and new buckets.
+        Asserting symmetry here would be asserting
         something false; this records the asymmetry so that making it symmetric
         is a decision somebody takes, not a surprise.
         """
