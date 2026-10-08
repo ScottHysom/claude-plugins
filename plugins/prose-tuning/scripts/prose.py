@@ -22,7 +22,7 @@ Commands:
     reproduce   whether the rules' patterns reproduce the edits since HEAD
     config      list | lint | check-id | classify | adopt | resolve | write |
                 init | move
-    tags        list | resolve
+    tags        resolve
     report      the findings for approval, and which of them overlap, also
                 written to .prose-tuning/report.md for the author to read
     apply       apply approved rewrites
@@ -3816,51 +3816,6 @@ def cmd_tags(args):
     which = args.tags_cmd
     targets = args.paths or scope.files()
 
-    if which == "list":
-        errors, warnings, data = [], [], {}
-        for rel in targets:
-            path = repo.abspath(rel)
-            if not os.path.exists(path):
-                errors.append("%s  no such file" % rel)
-                continue
-            text = Text.read(path)
-            scanner = TagScanner(text, None, rel)
-            errors += scanner.errors
-            warnings += scanner.warnings
-            if scanner.all:
-                data[rel] = {
-                    "counts": scanner.counts(),
-                    "tags": [
-                        {
-                            "kind": n.kind,
-                            "line": n.line,
-                            "form": "block" if is_block_form(n, text) else "inline",
-                            "why": n.whys(text),
-                            "alt": n.alts(text),
-                            "text": strip_tags(n.inner(text)).strip()[:200],
-                        }
-                        for n in scanner.roots
-                    ],
-                }
-
-        def human():
-            total = 0
-            for rel in sorted(data):
-                print(rel)
-                for tag in data[rel]["tags"]:
-                    total += 1
-                    if which == "list":
-                        why = ("  %s" % tag["why"][0]) if tag["why"] else ""
-                        print(
-                            "  %4d  %-5s %-6s %s%s"
-                            % (tag["line"], tag["kind"], tag["form"], tag["text"][:60], why)
-                        )
-            print("\n%d tag(s) in %d file(s)" % (total, len(data)))
-
-        return emit(
-            args, "tags " + which, repo.root, data, errors=errors, warnings=warnings, human=human
-        )
-
     errors, warnings, data = [], [], {}
     pending = []
     for rel in targets:
@@ -5050,14 +5005,9 @@ def build_parser():
 
     p = sub.add_parser("tags", parents=[common], help="the markup")
     tsub = p.add_subparsers(dest="tags_cmd", required=True)
-    for name, helptext in [
-        ("list", "report"),
-        ("resolve", "accept the edits and remove markup"),
-    ]:
-        t = tsub.add_parser(name, parents=[common], help=helptext)
-        t.add_argument("paths", nargs="*")
-        if name == "resolve":
-            t.add_argument("--dry-run", action="store_true")
+    t = tsub.add_parser("resolve", parents=[common], help="accept the edits and remove markup")
+    t.add_argument("paths", nargs="*")
+    t.add_argument("--dry-run", action="store_true")
     p.set_defaults(func=cmd_tags)
 
     # report and apply read one findings file. Only apply takes --only and
