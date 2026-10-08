@@ -51,7 +51,6 @@
     "plugins/prose-tuning/scripts/prose.py::preflight --force": 204,
     "plugins/prose-tuning/scripts/prose.py::segments --summary": 197,
     "plugins/prose-tuning/scripts/prose.py::stage --stage": 209,
-    "plugins/prose-tuning/scripts/prose.py::status": 181,
-    "plugins/prose-tuning/scripts/prose.py::tags list": 176
+    "plugins/prose-tuning/scripts/prose.py::status": 181
   }
 }
