@@ -3806,7 +3806,7 @@ def cmd_config(args):
 def cmd_tags(args):
     repo, config, scope = load(args)
     which = args.tags_cmd
-    targets = args.paths or scope.files()
+    targets = scope.files()
 
     errors, warnings, resolved = [], [], {}
     pending = []
@@ -4998,7 +4998,6 @@ def build_parser():
     p = sub.add_parser("tags", parents=[common], help="the markup")
     tsub = p.add_subparsers(dest="tags_cmd", required=True)
     t = tsub.add_parser("resolve", parents=[common], help="accept the edits and remove markup")
-    t.add_argument("paths", nargs="*")
     t.add_argument("--dry-run", action="store_true")
     p.set_defaults(func=cmd_tags)
 
