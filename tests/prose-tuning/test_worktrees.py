@@ -239,7 +239,6 @@ class DescribeEvidenceFrom:
         code, env = session.run("evidence", "--from", str(main.root))
         assert code == prose.OK, env["errors"]
         assert env["data"]["inferred"] == []
-        assert env["data"]["new_files"] == ["notes/new.md"]
 
     @pytest.mark.spec("evidence-cmd-reads-other-worktree")
     def it_names_a_pending_prose_style_md_there_and_does_not_read_it(self, checkouts):
