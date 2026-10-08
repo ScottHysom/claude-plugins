@@ -507,10 +507,6 @@ class Repo:
         code, stdout, _ = self.git("show", "%s:%s" % (ref, relpath))
         return stdout if code == 0 else None
 
-    def has_ref(self, ref):
-        code, _, _ = self.git("rev-parse", "--verify", "--quiet", ref)
-        return code == 0
-
     def dirty(self):
         """[(status, relpath)] for everything git reports as changed."""
         code, stdout, stderr = self.git("status", "--porcelain")
@@ -2686,9 +2682,6 @@ def other_pending(repo):
 
 def cmd_evidence(args):
     repo, config, source, checkout, scope = load_from(args)
-    ref = args.since
-    if not source.has_ref(ref):
-        raise Fatal("%s is not a ref in this repository" % ref)
     ignore = set(args.ignore or [])
     explicit, inferred, errors, new_files, warnings = [], [], [], [], []
     for rel in scope.files():
@@ -2703,7 +2696,7 @@ def cmd_evidence(args):
             continue
         explicit += explicit_records(scanner, text, blocks, rel)
         neutral = neutralize(text, blocks, rel)
-        hunks, is_new = inferred_records(source, rel, text, neutral, ref, ignore)
+        hunks, is_new = inferred_records(source, rel, text, neutral, BASE_REF, ignore)
         if is_new:
             new_files.append(rel)
         inferred += hunks
@@ -2733,7 +2726,7 @@ def cmd_evidence(args):
         )
 
     data = {
-        "base_ref": ref,
+        "base_ref": BASE_REF,
         "explicit": explicit,
         "inferred": inferred,
         "new_files": new_files,
@@ -2749,7 +2742,7 @@ def cmd_evidence(args):
     def human():
         if checkout is not None:
             print("reading %s" % checkout_label(checkout))
-        print("base %s" % ref)
+        print("base %s" % BASE_REF)
         for rec in explicit:
             print(
                 "  explicit %s:%d [%s] %s"
@@ -2760,7 +2753,7 @@ def cmd_evidence(args):
             print("  inferred %s:%d [%s]%s" % (rec["file"], rec["start"], rec["change"], flag))
         print("\nexplicit: %d  inferred: %d" % (len(explicit), len(inferred)))
         if new_files:
-            print("untracked at %s: %s" % (ref, ", ".join(new_files)))
+            print("untracked at %s: %s" % (BASE_REF, ", ".join(new_files)))
 
     return emit(args, "evidence", repo.root, data, errors=errors, warnings=warnings, human=human)
 
@@ -4972,7 +4965,6 @@ def build_parser():
     p = sub.add_parser(
         "evidence", parents=[common, source], help="explicit tags and inferred edits"
     )
-    p.add_argument("--since", default=BASE_REF, metavar="REF")
     p.add_argument(
         "--ignore",
         action="append",

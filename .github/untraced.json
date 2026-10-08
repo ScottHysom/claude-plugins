@@ -49,7 +49,6 @@
     "plugins/prose-tuning/scripts/prose.py::config list --ids": 206,
     "plugins/prose-tuning/scripts/prose.py::config move": 203,
     "plugins/prose-tuning/scripts/prose.py::evidence --ignore": 173,
-    "plugins/prose-tuning/scripts/prose.py::evidence --since": 172,
     "plugins/prose-tuning/scripts/prose.py::preflight --for adopt": 205,
     "plugins/prose-tuning/scripts/prose.py::preflight --force": 204,
     "plugins/prose-tuning/scripts/prose.py::segments --summary": 197,
