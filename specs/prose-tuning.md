@@ -60,6 +60,8 @@ rule are the owner's figure, in the ruling on #132.
   `numeric-only`, `link-only` or `whitespace-only`.
 - `evidence-cmd-skips-comment-hunks` (test): When an inferred hunk changed
   only HTML comments, `evidence` leaves it out.
+- `evidence-gives-rules` (test): When `evidence` runs, it reports every rule
+  in `prose-style.md` with its id, body and patterns.
 - `updateproseconfig-asks-about-signals` (step): When a hunk carries a signal,
   update-prose-config takes it to the interview and never straight into a
   rule.
