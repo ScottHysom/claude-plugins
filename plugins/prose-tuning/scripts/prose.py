@@ -2188,10 +2188,8 @@ def prose_outside_comments(text, blocks, first, stop):
 
 
 def inferred_records(repo, rel, text, neutral, ref):
-    hunks, base_text = inferred_hunks(repo, rel, text, neutral, ref)
-    if base_text is None:
-        return [], True
-    return [rec for rec, _first in hunks], False
+    hunks, _base_text = inferred_hunks(repo, rel, text, neutral, ref)
+    return [rec for rec, _first in hunks or []]
 
 
 def changed_spans(base_text, first, old_lines, new_lines):
@@ -2680,7 +2678,7 @@ def other_pending(repo):
 
 def cmd_evidence(args):
     repo, config, source, checkout, scope = load_from(args)
-    explicit, inferred, errors, new_files, warnings = [], [], [], [], []
+    explicit, inferred, errors, warnings = [], [], [], []
     for rel in scope.files():
         path = source.abspath(rel)
         if not os.path.exists(path):
@@ -2693,10 +2691,7 @@ def cmd_evidence(args):
             continue
         explicit += explicit_records(scanner, text, blocks, rel)
         neutral = neutralize(text, blocks, rel)
-        hunks, is_new = inferred_records(source, rel, text, neutral, BASE_REF)
-        if is_new:
-            new_files.append(rel)
-        inferred += hunks
+        inferred += inferred_records(source, rel, text, neutral, BASE_REF)
 
     # A tree with nothing to learn from may be a fresh worktree, opened while
     # the author's edits sit in another checkout of the same repository.
@@ -2725,7 +2720,6 @@ def cmd_evidence(args):
     data = {
         "explicit": explicit,
         "inferred": inferred,
-        "new_files": new_files,
         "checkout": checkout,
         "other_worktrees": elsewhere,
     }
@@ -2743,8 +2737,6 @@ def cmd_evidence(args):
             flag = " (%s)" % rec["signal"] if rec["signal"] else ""
             print("  inferred %s:%d [%s]%s" % (rec["file"], rec["start"], rec["change"], flag))
         print("\nexplicit: %d  inferred: %d" % (len(explicit), len(inferred)))
-        if new_files:
-            print("untracked at %s: %s" % (BASE_REF, ", ".join(new_files)))
 
     return emit(args, "evidence", repo.root, data, errors=errors, warnings=warnings, human=human)
 
@@ -2776,7 +2768,7 @@ def cmd_reproduce(args):
             errors=[*config.errors, "%s  fix it first; see: prose.py config lint" % config.rel()],
         )
     rules = config.patterned()
-    edits, new_files = [], []
+    edits = []
     for rel in scope.files():
         path = source.abspath(rel)
         if not os.path.exists(path):
@@ -2784,9 +2776,6 @@ def cmd_reproduce(args):
         text = Text.read(path)
         resolved_text, _ = resolve_text(text, ACCEPT, None, rel)
         hunks, base_text = inferred_hunks(source, rel, text, resolved_text, BASE_REF)
-        if base_text is None:
-            new_files.append(rel)
-            continue
         if not hunks:
             continue
         matches = pattern_matches(base_text, Blocks(base_text), rules)
@@ -2798,7 +2787,6 @@ def cmd_reproduce(args):
         "checkout": checkout,
         "edits": edits,
         "unpatterned": [r.id for r in config.rules if not r.patterns],
-        "new_files": new_files,
     }
 
     def human():
@@ -2813,8 +2801,6 @@ def cmd_reproduce(args):
         done = sum(1 for e in edits if e["reproduced"])
         print("\n%d of %d edit(s) reproduced by a pattern." % (done, len(edits)))
         print("Checked by reading, no pattern: %s" % (", ".join(data["unpatterned"]) or "none"))
-        if new_files:
-            print("untracked at %s: %s" % (BASE_REF, ", ".join(new_files)))
 
     return emit(args, "reproduce", repo.root, data, human=human)
 

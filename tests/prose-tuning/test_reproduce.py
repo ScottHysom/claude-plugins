@@ -73,6 +73,15 @@ class DescribeReproduce:
         assert (edit["start"], edit["reproduced"], edit["matches"]) == (5, False, [])
 
     @pytest.mark.spec("reproduce-cmd-matches-changed-text")
+    def it_reports_no_edit_in_a_file_that_has_no_copy_at_the_last_commit(self, prose_repo):
+        (prose_repo.root / prose.CONFIG_PATH).write_text(STYLE)
+        prose_repo.commit()
+        (prose_repo.root / "new.md").write_text("We run it in order to check.\n")
+        code, envelope = prose_repo.run("reproduce")
+        assert code == prose.OK, envelope["errors"]
+        assert envelope["data"]["edits"] == []
+
+    @pytest.mark.spec("reproduce-cmd-matches-changed-text")
     def it_reads_the_authors_markup_as_resolved(self, prose_repo):
         """update-prose-config leaves the author's markup in place, so a tagged
         edit is read as apply-prose will resolve it: the <del> text gone and
