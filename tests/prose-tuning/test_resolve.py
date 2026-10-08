@@ -84,7 +84,7 @@ class DescribeTagsResolve:
     @pytest.mark.spec("resolve-cmd-tidies-cuts")
     def it_leaves_one_blank_line_where_a_paragraph_was_cut(self, prose_repo):
         (prose_repo.root / "target.md").write_text(CUT_MIDDLE)
-        code, envelope = prose_repo.run("tags", "resolve", "target.md")
+        code, envelope = prose_repo.run("tags", "resolve")
         assert code == prose.OK, envelope
         assert prose_repo.read() == "One.\n\nThree.\n"
 
