@@ -82,10 +82,8 @@ The command exits 1 and writes nothing while any id is refused. An id refused
 because the target already has it is a colliding rule: take it to step 3 and
 run the command again without it.
 
-## Step 3: questions, one batch
+## Step 3: the author's answers, in one batch
 <!-- spec: adoptprose-shows-conflicts-once, adoptprose-keeps-target-id -->
-
-<!-- no-command: judgment. The author resolves each colliding and similar pair. -->
 
 Ask one `AskUserQuestion` set covering every colliding and every similar pair, each
 showing both bodies in full. Take them from step 1's result: a rule's `body`
@@ -99,20 +97,29 @@ combination.
 A similar pair offers three: keep both as distinct rules, rewrite the target's
 rule to cover the source as well, or drop the source rule.
 
-A combination or a rewrite is written by hand and **keeps the target's id**. The
-id is what every existing report and cross-reference in the target already
-names, and a similar pair that resolves into one rule is the case where losing
-that id would be easiest and least noticed.
-
-## Step 4: write and check
+Then hand every answer to the command as one JSON list on stdin:
 
 ```sh
-python3 "$PROSE" config lint --file <target>
+python3 "$PROSE" config resolve --file <source> --to <target> --answers - --json
 ```
 
-The lint must pass.
+Each answer is an object:
 
-## Step 5: when the target is the shipped rules
+- `source` and `target`: the ids of the pair.
+- `resolution`: `take-source`, `keep-target` or `combine` for a collision;
+  `keep-both`, `combine` or `drop-source` for a similar pair. A rewrite of
+  the target's rule is `combine`.
+- `expect`: `{"source": ..., "target": ...}`, the rule's `body` and the
+  matching `target_body` from step 1's result.
+- For `combine` only, the parts the author's wording changes: `title`,
+  `body`, `example` (`{"before": ..., "after": ...}`) and `patterns`, as
+  `config write` takes them. The command writes the combination under the
+  target's id.
+
+Keep `data.commit_note` for the hand-off. The command exits 1 and writes
+nothing while any answer is refused, and each refusal says why.
+
+## Step 4: when the target is the shipped rules
 <!-- spec: adoptprose-bumps-shipped-version -->
 
 Promoting into them carries three extra obligations, because the shipped rules are part of the plugin:
@@ -133,12 +140,12 @@ python3 .github/scripts/check-manifest-consistency.py check
   replaced by a `FILL` telling the next project what to supply, or every project
   inherits a worked example about something it has never heard of.
 
-## Step 6: hand off
+## Step 5: hand off
 <!-- spec: adoptprose-never-commits -->
 
-<!-- no-command: hand-off to the author. Step 2's output holds the commit note. -->
+<!-- no-command: hand-off to the author. Steps 2 and 3 hold the commit notes. -->
 
-Report what changed, and give the author step 2's `data.commit_note` as the
-line for their commit description. Nothing in `prose-style.md` records where
+Report what changed, and give the author the `data.commit_note` of steps 2
+and 3 as the lines for their commit description. Nothing in `prose-style.md` records where
 a rule came from, so the commit is where that note lives. Leave the working
 tree dirty. **Never commit.**
