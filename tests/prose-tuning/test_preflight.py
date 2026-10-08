@@ -78,6 +78,43 @@ class DescribePreflightForConfig:
         assert code == prose.OK, env["errors"]
 
 
+class DescribePreflightProgress:
+    def human(self, repo, capsys):
+        capsys.readouterr()
+        code = prose.main(["preflight", "--for", "config", "-C", str(repo.root)])
+        return code, capsys.readouterr().out
+
+    @pytest.mark.spec("preflight-shows-progress")
+    def it_counts_the_markup_in_each_file(self, committed):
+        (committed.root / "target.md").write_text(
+            "A <del>old</del><ins>new</ins> <ins>word</ins>.\n"
+        )
+        code, env = committed.run("preflight", "--for", "config")
+        assert code == prose.OK, env["errors"]
+        assert env["data"]["markup"] == {"target.md": {"del": 1, "ins": 2}}
+
+    @pytest.mark.spec("preflight-shows-progress")
+    def it_prints_the_rules_file_and_the_markup(self, committed, capsys):
+        (committed.root / "target.md").write_text("A <ins>new</ins> word.\n")
+        code, out = self.human(committed, capsys)
+        assert code == prose.OK
+        assert "config  %s\n" % prose.CONFIG_PATH in out
+        assert "markup  target.md  1 ins\n" in out
+
+    @pytest.mark.spec("preflight-shows-progress")
+    def it_says_when_there_is_no_markup(self, committed, capsys):
+        code, out = self.human(committed, capsys)
+        assert code == prose.OK
+        assert "markup  none\n" in out
+
+    @pytest.mark.spec("preflight-shows-progress")
+    def it_names_config_init_when_the_rules_file_is_missing(self, committed, capsys):
+        (committed.root / prose.CONFIG_PATH).unlink()
+        code, out = self.human(committed, capsys)
+        assert code == prose.OK
+        assert "config  missing; run: prose.py config init\n" in out
+
+
 class DescribeNoRulesFile:
     @pytest.fixture
     def bare(self, prose_repo):
@@ -108,7 +145,7 @@ class DescribeNoRulesFile:
 class DescribeOutsideARepository:
     @pytest.mark.spec("command-requires-a-repo")
     def it_names_a_folder_that_is_not_in_a_git_repository(self, tmp_path, capsys):
-        code = prose.main(["status", "-C", str(tmp_path), "--json"])
+        code = prose.main(["scope", "-C", str(tmp_path), "--json"])
         captured = capsys.readouterr()
         assert (code, captured.out) == (prose.CANNOT_RUN, "")
         assert "%s is not inside a git repository" % tmp_path in captured.err
@@ -117,7 +154,7 @@ class DescribeOutsideARepository:
     def it_starts_from_the_folder_holding_a_file_it_is_given(self, tmp_path, capsys):
         loose = tmp_path / "loose.md"
         loose.write_text("x\n")
-        code = prose.main(["status", "-C", str(loose)])
+        code = prose.main(["scope", "-C", str(loose)])
         assert code == prose.CANNOT_RUN
         assert "%s is not inside a git repository" % tmp_path in capsys.readouterr().err
 

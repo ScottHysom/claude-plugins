@@ -2,7 +2,6 @@
   "steps": {
     "plugins/prose-tuning/skills/apply-prose/SKILL.md::2": 196,
     "plugins/prose-tuning/skills/apply-prose/SKILL.md::7": 190,
-    "plugins/prose-tuning/skills/update-prose-config/SKILL.md::1": 181,
     "plugins/prose-tuning/skills/update-prose-config/SKILL.md::2": 182
   },
   "tests": {
@@ -50,7 +49,6 @@
     "plugins/prose-tuning/scripts/prose.py::preflight --for adopt": 205,
     "plugins/prose-tuning/scripts/prose.py::preflight --force": 204,
     "plugins/prose-tuning/scripts/prose.py::segments --summary": 197,
-    "plugins/prose-tuning/scripts/prose.py::stage --stage": 209,
-    "plugins/prose-tuning/scripts/prose.py::status": 181
+    "plugins/prose-tuning/scripts/prose.py::stage --stage": 209
   }
 }

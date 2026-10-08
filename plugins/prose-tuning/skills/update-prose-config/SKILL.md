@@ -24,18 +24,19 @@ runs.
 Read `$ROOT/reference/tag-vocabulary.md` for what the author's markup means.
 
 ## Step 1: refuse early
+<!-- spec: updateproseconfig-offers-init -->
+<!-- seam: judgment: the author decides whether to start a rules file with config init -->
 
 ```sh
 python3 "$PROSE" preflight --for config
-python3 "$PROSE" status
 ```
 
-`preflight` exits 1 on a blocker: unbalanced markup, or
-a `prose-style.md` that does not parse. `status` is the progress view, and it
-exits 0 even with markup present, because the author's markup is what this
-skill reads.
+`preflight` exits 1 on a blocker: unbalanced markup, or a `prose-style.md`
+that does not parse. Otherwise it reports whether `prose-style.md` exists and
+the markup already in each file. The markup is what this skill reads, so
+`preflight` does not block on it.
 
-If there is no `.claude/rules/prose-style.md`, offer `config init`. A project that has never
+When `preflight` reports the rules file missing, offer `config init`. A project that has never
 had one starts from the rules this plugin ships rather than from nothing:
 
 ```sh

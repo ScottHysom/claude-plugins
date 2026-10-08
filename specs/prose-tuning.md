@@ -81,6 +81,9 @@ rule are the owner's figure, in the ruling on #132.
 - `preflight-cmd-checks-before-teaching` (test): When `preflight --for
   config` runs, it exits 1 on markup that does not parse or a `prose-style.md`
   with errors.
+- `preflight-shows-progress` (test): When `preflight --for config` finds no
+  blocker, it reports whether `prose-style.md` exists and the markup already
+  in the files.
 - `list-cmd-gives-every-rule` (test): When `config list --json` runs, it
   gives every rule in `prose-style.md` with its id, its title and its worked
   example.
@@ -425,6 +428,9 @@ nothing.
 
 Source: README.md, under "Setting up".
 
+- `updateproseconfig-offers-init` (step): When `preflight --for config`
+  reports that `prose-style.md` is missing, update-prose-config offers
+  `config init`, and runs it only once the author says yes.
 - `template-catches-spelling-and-dashes` (test): When a project starts from
   the shipped rules, they lint clean, and their patterns find a British
   spelling and a dash doing an em-dash's job, and leave a US spelling alone.
