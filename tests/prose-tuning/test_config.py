@@ -602,6 +602,8 @@ class DescribeConfigAdopt:
         assert code == prose.PROBLEMS
         assert [r["id"] for r in env["data"]["refused"]] == ["sentences-own-subject"]
         assert "collision" in env["errors"][0]
+        assert "again without it" in env["errors"][0]
+        assert "config resolve" in env["errors"][0]
         assert tgt.read_bytes() == before
 
     @pytest.mark.spec("adopt-cmd-refuses-unknown")

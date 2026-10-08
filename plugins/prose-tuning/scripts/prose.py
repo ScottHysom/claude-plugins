@@ -2986,8 +2986,9 @@ def plan_adoption(config, source_lines, target, target_lines, ids):
             refused.append(
                 {
                     "id": rid,
-                    "reason": "%s already has %s; that is a collision, not a new rule"
-                    % (target.rel(), rid),
+                    "reason": "%s already has %s; that is a collision, not a new rule."
+                    " Run config adopt again without it, and put the pair to the"
+                    " author for config resolve" % (target.rel(), rid),
                 }
             )
         else:
