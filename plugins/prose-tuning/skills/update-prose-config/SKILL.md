@@ -95,8 +95,9 @@ If the author picks none and the run was not handed any notes, stop. This
 tree has nothing to learn from.
 
 **`explicit`** is markup the author wrote: an `<ins>`, `<del>` or `<repl>` with
-its `why` and its `<alt>` proposals. The author has already said what they mean.
-Take it at face value.
+its `why` and its `<alt>` proposals, or an `<alt>` tied to no passage, whose
+record has kind `alt` and holds the proposal in `alt`. The author has already
+said what they mean. Take it at face value.
 
 **`inferred`** is an untagged diff hunk. Treat every one as a statement about
 prose, not a factual correction. That is the working assumption of this whole

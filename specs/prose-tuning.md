@@ -52,6 +52,9 @@ rule are the owner's figure, in the ruling on #132.
   author's `<ins>`, `<del>` or `<repl>`, `evidence` reports each as an
   explicit record with its old and new text, and the `why` and `<alt>` it
   carries.
+- `evidence-cmd-reports-standalone-alts` (test): When a file holds an
+  `<alt>` tied to no edit, `evidence` reports it as an explicit record of its
+  own.
 - `evidence-cmd-marks-hunk-signals` (test): When an inferred hunk changed
   only numbers, only link targets or only whitespace, `evidence` marks it
   `numeric-only`, `link-only` or `whitespace-only`.
