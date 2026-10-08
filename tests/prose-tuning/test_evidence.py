@@ -259,6 +259,24 @@ class DescribeExplicitRecords:
             },
         ]
 
+    @pytest.mark.spec("evidence-cmd-reports-standalone-alts")
+    def it_reports_an_alt_tied_to_no_passage(self, prose_repo):
+        body = "# Doc\n\nA line.\n\n<alt>Headings never editorialize.</alt>\n"
+        records = evidence(prose_repo, body)["explicit"]
+        assert [shape(r) for r in records] == [
+            {
+                "kind": "alt",
+                "start": 5,
+                "old_text": "",
+                "new_text": "",
+                "why": [],
+                "alt": ["Headings never editorialize."],
+                "form": "block",
+            }
+        ]
+        assert records[0]["file"] == "target.md"
+        assert records[0]["heading_path"] == ["Doc"]
+
 
 class DescribePlainOutput:
     @pytest.mark.spec("repo:command-splits-output-streams")
