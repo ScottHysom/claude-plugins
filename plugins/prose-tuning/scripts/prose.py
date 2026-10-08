@@ -127,7 +127,7 @@ import shlex
 import subprocess
 import sys
 
-ENVELOPE_VERSION = 1
+ENVELOPE_VERSION = 2
 
 OK, PROBLEMS, CANNOT_RUN = 0, 1, 2
 
@@ -641,8 +641,8 @@ def validate_rule_name(name):
 def rule_similarity(a, b):
     """(body, name, score) for two rules, each 0..1.
 
-    Deliberately crude, and reported in parts so the author can see which
-    half fired. A rule can be restated in different words under the same
+    Deliberately crude, and returned in parts so a test can see which half
+    fired. A rule can be restated in different words under the same
     name, or say the same thing under a different one, and either is worth
     a look - so the score is the higher of the two rather than a blend that
     hides both. The corpus is a few dozen rules, so the quadratic is free.
@@ -666,19 +666,11 @@ def similar_pairs(config, other):
         for b in other.rules:
             if a.id == b.id:
                 continue
-            body, name, score = rule_similarity(a, b)
+            score = rule_similarity(a, b)[2]
             if score >= SIMILAR_THRESHOLD:
-                pairs.append(
-                    {
-                        "source": a.id,
-                        "target": b.id,
-                        "score": round(score, 2),
-                        "body": round(body, 2),
-                        "name": round(name, 2),
-                    }
-                )
-    pairs.sort(key=lambda p: (-p["score"], p["source"], p["target"]))
-    return pairs
+                pairs.append((round(score, 2), a.id, b.id))
+    pairs.sort(key=lambda p: (-p[0], p[1], p[2]))
+    return [{"source": src, "target": tgt} for _, src, tgt in pairs]
 
 
 def classify_rules(config, other):
@@ -705,10 +697,7 @@ def classify_rules(config, other):
             target = match.id
         else:
             candidates = [
-                dict(
-                    {k: p[k] for k in ("target", "score", "body", "name")},
-                    target_body=by_id[p["target"]].body_text(),
-                )
+                {"target": p["target"], "target_body": by_id[p["target"]].body_text()}
                 for p in pairs
                 if p["source"] == a.id
             ]
@@ -3110,20 +3099,17 @@ def config_adopt(args, repo, config):
         if m:
             lines.setdefault("%s-%s" % (m.group(1), m.group(2)), i + 1)
     data = {
-        "source": config.path,
-        "target": target.path,
         "commit_note": (
             ADOPTED_NOTE % (adopted_from(config), ", ".join(adopted)) if adopted else None
         ),
-        "dry_run": args.dry_run,
-        "adopted": [{"id": rid, "line": lines[rid]} for rid in adopted],
+        "adopted": [{"id": rid} for rid in adopted],
         "refused": refused,
     }
 
     def human():
         verb = "would adopt" if args.dry_run else "adopted"
-        for a in data["adopted"]:
-            print("%s  %s  at line %d" % (verb, a["id"], a["line"]))
+        for rid in adopted:
+            print("%s  %s  at line %d" % (verb, rid, lines[rid]))
         for r in refused:
             print("refused  %s" % r["id"])
         if data["commit_note"]:
@@ -3604,12 +3590,7 @@ def cmd_config(args):
             args,
             "config classify",
             repo.root,
-            {
-                "source": config.path,
-                "target": os.path.abspath(args.to),
-                "rules": rules,
-                "counts": counts,
-            },
+            {"rules": rules},
             human=human,
         )
 

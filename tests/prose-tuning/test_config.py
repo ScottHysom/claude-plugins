@@ -618,7 +618,7 @@ class DescribeConfigAdopt:
             "## Sentences\n\n" + self.OWN_SUBJECT,
             "## Sentences\n\n" + self.COUNT + "\n## Register\n\n" + self.TONE,
         )
-        code, env = self.adopt(prose_repo, src, tgt, "--rule", "sentences-own-subject")
+        code, _ = self.adopt(prose_repo, src, tgt, "--rule", "sentences-own-subject")
         assert code == prose.OK
         text = tgt.read_text()
         assert (
@@ -628,8 +628,21 @@ class DescribeConfigAdopt:
         )
         assert "> **After.** These rules apply:\n\n### sentences-own-subject" in text
         assert "> **After.** A reader can state it.\n\n## Register" in text
-        line = env["data"]["adopted"][0]["line"]
-        assert text.split("\n")[line - 1].startswith("### sentences-own-subject:")
+
+    @pytest.mark.spec("adopt-cmd-places-by-section")
+    def it_prints_the_line_it_placed_a_rule_at(self, prose_repo):
+        src, tgt = self.files(
+            prose_repo,
+            "## Sentences\n\n" + self.OWN_SUBJECT,
+            "## Sentences\n\n" + self.COUNT + "\n## Register\n\n" + self.TONE,
+        )
+        prose_repo._capsys.readouterr()
+        argv = ["config", "adopt", "--file", str(src), "--to", str(tgt), "-C", str(prose_repo.root)]
+        code = prose.main([*argv, "--rule", "sentences-own-subject"])
+        out, _ = prose_repo._capsys.readouterr()
+        assert code == prose.OK
+        line = int(out.split("\n")[0].rsplit(" ", 1)[1])
+        assert tgt.read_text().split("\n")[line - 1].startswith("### sentences-own-subject:")
 
     @pytest.mark.spec("adopt-cmd-places-by-section")
     def it_adds_the_section_heading_when_the_target_has_none(self, prose_repo):
