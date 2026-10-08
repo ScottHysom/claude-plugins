@@ -2131,7 +2131,7 @@ def bare_lines(text):
     return [text.bare(i + 1) for i in range(text.line_count())]
 
 
-def inferred_hunks(repo, rel, text, neutral, ref, ignore):
+def inferred_hunks(repo, rel, text, neutral, ref):
     """(hunks, the file at ref as a Text), or (None, None) for a file new
     since ref. Each hunk is (its record, the index of its first line at ref).
 
@@ -2159,8 +2159,6 @@ def inferred_hunks(repo, rel, text, neutral, ref, ignore):
         old = base_lines[i1:i2]
         new = neutral_lines[j1:j2]
         line = nearest(to_work, j1, j1) + 1
-        if "%s:%d" % (rel, line) in ignore:
-            continue
         before = prose_outside_comments(base_text, base_blocks, i1, i2)
         after = prose_outside_comments(neutral_text, neutral_blocks, j1, j2)
         if before[0] == after[0] and (before[1] or after[1]):
@@ -2193,8 +2191,8 @@ def prose_outside_comments(text, blocks, first, stop):
     return " ".join(words), blocks.comment_overlaps(a, b)
 
 
-def inferred_records(repo, rel, text, neutral, ref, ignore):
-    hunks, base_text = inferred_hunks(repo, rel, text, neutral, ref, ignore)
+def inferred_records(repo, rel, text, neutral, ref):
+    hunks, base_text = inferred_hunks(repo, rel, text, neutral, ref)
     if base_text is None:
         return [], True
     return [rec for rec, _first in hunks], False
@@ -2689,7 +2687,6 @@ def cmd_evidence(args):
     ref = args.since
     if not source.has_ref(ref):
         raise Fatal("%s is not a ref in this repository" % ref)
-    ignore = set(args.ignore or [])
     explicit, inferred, errors, new_files, warnings = [], [], [], [], []
     for rel in scope.files():
         path = source.abspath(rel)
@@ -2703,7 +2700,7 @@ def cmd_evidence(args):
             continue
         explicit += explicit_records(scanner, text, blocks, rel)
         neutral = neutralize(text, blocks, rel)
-        hunks, is_new = inferred_records(source, rel, text, neutral, ref, ignore)
+        hunks, is_new = inferred_records(source, rel, text, neutral, ref)
         if is_new:
             new_files.append(rel)
         inferred += hunks
@@ -2799,7 +2796,7 @@ def cmd_reproduce(args):
             continue
         text = Text.read(path)
         resolved_text, _ = resolve_text(text, ACCEPT, None, rel)
-        hunks, base_text = inferred_hunks(source, rel, text, resolved_text, BASE_REF, set())
+        hunks, base_text = inferred_hunks(source, rel, text, resolved_text, BASE_REF)
         if base_text is None:
             new_files.append(rel)
             continue
@@ -4974,12 +4971,6 @@ def build_parser():
         "evidence", parents=[common, source], help="explicit tags and inferred edits"
     )
     p.add_argument("--since", default=BASE_REF, metavar="REF")
-    p.add_argument(
-        "--ignore",
-        action="append",
-        metavar="FILE:LINE",
-        help="suppress one inferred hunk (repeatable)",
-    )
     p.set_defaults(func=cmd_evidence)
 
     p = sub.add_parser(
