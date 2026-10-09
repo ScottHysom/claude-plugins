@@ -301,9 +301,7 @@ KNOWN_GAPS = {}
 # warning until the issue sifts it. An entry goes when its step runs one
 # command or gains a marker; `steps` fails until it does. `check-specs.py
 # trace` fails an entry whose issue has closed.
-KNOWN_SEAMS = {
-    ("plugins/prose-tuning/skills/apply-prose/SKILL.md", 2): 196,
-}
+KNOWN_SEAMS = {}
 
 # Where a command other than a script invocation may stand on its line.
 ANYWHERE = "anywhere"

@@ -62,17 +62,25 @@ resolved files and run this skill again to conform them.
 
 `--force` exists. Use it only when the author has asked for it by name.
 
-## Step 2: the rules and the files
-<!-- spec: applyprose-passes-named-documents -->
+## Step 2: the rules, the prose and the pattern matches
+<!-- spec: applyprose-passes-named-documents, applyprose-judges-each-match, applyprose-reads-segments-only -->
+<!-- seam: platform: the author asks why a file was skipped, and scope --all answers -->
 
 ```sh
-python3 "$PROSE" config list --json
+python3 "$PROSE" pass
 ```
 
 When the author named the documents to check, name the same files after
-`patterns`, `segments`, `report` and `apply` in the steps below, as in
-`patterns notes.md`. With no file, each of them reads every file in scope.
+`pass` here, and after `report` and `apply` in the steps below, as in
+`pass notes.md`. With no file, each of them reads every file in scope.
 `apply` refuses the token unless it is given the files `report` was.
+
+`pass` prints three parts, each under its own heading:
+
+- `== rules ==`: every rule in `prose-style.md`, as the file words it.
+- `== segments ==`: the prose a rule may touch, one span per line.
+- `== matches ==`: every place a rule's pattern matches those spans, then
+  the rules checked by pattern.
 
 When the author asks why a file was skipped:
 
@@ -82,56 +90,9 @@ python3 "$PROSE" scope --all
 
 which prints every markdown file with the pattern that included or excluded it.
 
-## Step 3: run the rules' patterns
-<!-- spec: applyprose-judges-each-match -->
+### The segments
 
-```sh
-python3 "$PROSE" patterns
-```
-
-A rule can carry a regular expression that finds its breaches, such as a
-spaced hyphen for `standing-no-em-dash`. `patterns` runs every one over the
-same spans `segments` returns, in the files step 2 read, and prints one line
-per match:
-
-```text
-notes.md:12:40-42  standing-no-em-dash  " -"
-notes.md:30:61-31:4  register-plain-words  "in order\n  to"
-```
-
-The address is `file:line:col_start-col_end`, with `end_line:col_end` after
-the dash when the match wraps onto the next line. Then come the rule id and
-the matched text, as a JSON string that goes into a finding's `text` as it
-stands. The last line names the rules checked by pattern.
-
-When it says that none of the rules carries one, the project's rules were written before
-rules could, and every rule is checked by reading. Tell the author that
-`adopt-prose` from the shipped rules brings in their patterns.
-
-A pattern finds places to look, so judge each match. A spaced hyphen can be a
-minus sign. Every match that breaks its rule becomes a finding in step 5,
-usually with a longer `text` than the match, since the rewrite is of the
-sentence. A match that stays as it is becomes a finding with `dismiss` and the
-reason in place of `replacement`. `report` runs the patterns again, and fails
-on a match that no finding or dismissal of its rule contains.
-
-**Never search the prose with a command of your own,** such as `grep` over
-the `segments` output. A search written during a run finds a different set on
-the next run, and nothing records which rules it covered. A rule with no
-pattern is checked by reading, in step 4. A break of a patterned rule that
-reading turns up anyway is still a finding. Tell the author the pattern
-missed it, since the pattern is theirs to extend.
-
-## Step 4: read only the eligible prose
-<!-- spec: applyprose-reads-segments-only -->
-
-```sh
-python3 "$PROSE" segments
-```
-
-One run covers the whole pass.
-
-**Never read the raw file to judge conformance.** `segments` returns only the
+**Never read the raw file to judge conformance.** The segments are only the
 spans a prose rule may touch, one per line:
 
 ```text
@@ -161,10 +122,44 @@ What never appears, and why:
 A comment part way along a line is cut out, and
 the prose either side of it comes back as separate segments.
 
-## Step 5: produce findings
+### The matches
+
+A rule can carry a regular expression that finds its breaches, such as a
+spaced hyphen for `standing-no-em-dash`. `pass` runs every one over the
+segments, and prints one line per match:
+
+```text
+notes.md:12:40-42  standing-no-em-dash  " -"
+notes.md:30:61-31:4  register-plain-words  "in order\n  to"
+```
+
+The address is `file:line:col_start-col_end`, with `end_line:col_end` after
+the dash when the match wraps onto the next line. Then come the rule id and
+the matched text, as a JSON string that goes into a finding's `text` as it
+stands. The last line names the rules checked by pattern.
+
+When it says that none of the rules carries one, the project's rules were written before
+rules could, and every rule is checked by reading. Tell the author that
+`adopt-prose` from the shipped rules brings in their patterns.
+
+A pattern finds places to look, so judge each match. A spaced hyphen can be a
+minus sign. Every match that breaks its rule becomes a finding in step 3,
+usually with a longer `text` than the match, since the rewrite is of the
+sentence. A match that stays as it is becomes a finding with `dismiss` and the
+reason in place of `replacement`. `report` runs the patterns again, and fails
+on a match that no finding or dismissal of its rule contains.
+
+**Never search the prose with a command of your own,** such as `grep` over
+the segments. A search written during a run finds a different set on
+the next run, and nothing records which rules it covered. A rule with no
+pattern is checked by reading the segments. A break of a patterned rule that
+reading turns up anyway is still a finding. Tell the author the pattern
+missed it, since the pattern is theirs to extend.
+
+## Step 3: produce findings
 <!-- spec: applyprose-splits-findings-by-rule, applyprose-keeps-facts -->
 
-<!-- no-command: judgment. The model writes each finding, and step 6's report checks them. -->
+<!-- no-command: judgment. The model writes each finding, and step 4's report checks them. -->
 
 Each finding is one JSON object in a findings file:
 
@@ -210,7 +205,7 @@ To cut text, give `"replacement":""`. A line that the cuts cover whole goes
 with its newline, and when a cut takes a whole block `apply` keeps one blank
 line between the blocks either side.
 
-## Step 6: one approval round
+## Step 4: one approval round
 <!-- spec: applyprose-shows-report-whole, applyprose-revises-on-comment -->
 
 ```sh
@@ -220,11 +215,11 @@ python3 "$PROSE" report --findings "${TMPDIR:-/tmp}/prose-findings.json" --json
 `report` reads each finding's current text from the file as it is now, and
 writes the report to the markdown file at `data.report`: each finding with its
 `file:line`, rule id, current text and proposed text, then the rules
-`patterns` checked in the files step 2 read. Each line of a text sits between
+checked by pattern in the files step 2 read. Each line of a text sits between
 `|` marks, so a space at either end shows. `(cut)` stands for an empty
 proposed text. A dismissal shows its reason in place of a proposed text.
 When `report` exits 0, `data.token` is the approval token, and the file ends
-with it. Step 7 takes the token from the report the author approved.
+with it. Step 5 takes the token from the report the author approved.
 
 `report` exits 1 when a finding cannot apply, and its errors say why:
 
@@ -235,7 +230,7 @@ with it. Step 7 takes the token from the report the author approved.
   sentences-no-restating-close)`. Each can apply alone, and the pair cannot.
   The author chooses which one to keep. Never drop one yourself.
 - **a pattern's match that nothing covers**, named by its address, rule and
-  text, as `patterns` prints it. Add a finding that rewrites it, or a
+  text, as `pass` prints it. Add a finding that rewrites it, or a
   dismissal when it stays, and run `report` again.
 
 Publish the file at `data.report` as a private artifact with the Artifact
@@ -268,7 +263,7 @@ When the Artifact tool is not available, or refuses to publish, read the file
 at `data.report` and give it whole in your reply, as it stands, then end the
 turn. The author's reply is the decision, and it names the token.
 
-## Step 7: apply
+## Step 5: apply
 <!-- spec: applyprose-applies-once -->
 
 Hand the approval to `apply` as flags, with the token the author approved.
@@ -315,14 +310,14 @@ The engine rejects a finding rather than trusting it when:
   keep each code span the text covers, unchanged and in order
 - a `table-cell` replacement contains a `|` or a newline, which would silently
   restructure the table
-- two findings overlap, which `report` names in step 6
+- two findings overlap, which `report` names in step 4
 
-## Step 8: report and stop
+## Step 6: report and stop
 <!-- spec: applyprose-never-commits -->
 
-<!-- no-command: hand-off to the author. The output of apply in step 7 is the report. -->
+<!-- no-command: hand-off to the author. The output of apply in step 5 is the report. -->
 
-The output of `apply` in step 7 is the report of what changed: the edits per
+The output of `apply` in step 5 is the report of what changed: the edits per
 file and per rule id. Show it to the author as it stands. Leave the working
 tree dirty.
 **Never commit.** The project's own maintenance skill owns that.

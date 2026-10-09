@@ -783,8 +783,17 @@ class DescribeInventory:
         assert "Name a plugin that has one: foo." in err
 
 
-# A step the real KNOWN_SEAMS lists, so the test outlives any one entry.
-SEAM_SKILL, SEAM_STEP = sorted(cp.load_check_skills().KNOWN_SEAMS)[0]
+# A step KNOWN_SEAMS lists. The test sets the entry itself, so it outlives
+# the real list, which empties as each issue sifts its step.
+SEAM_SKILL, SEAM_STEP = "plugins/foo/skills/seam-skill/SKILL.md", 2
+
+
+@pytest.fixture
+def known_seam(monkeypatch):
+    """KNOWN_SEAMS holding SEAM_STEP of SEAM_SKILL, as every command reads it."""
+    cs = cp.load_check_skills()
+    cs.KNOWN_SEAMS = {(SEAM_SKILL, SEAM_STEP): 131}
+    monkeypatch.setattr(cp, "load_check_skills", lambda: cs)
 
 
 def listed_test(issue):
@@ -811,7 +820,7 @@ class DescribeTraceOnClosedIssues:
         assert "lists %s for #130, which has closed" % TEST_ID in err
 
     @pytest.mark.spec("trace-cmd-fails-closed-issue-entries")
-    def it_fails_a_known_seams_step_whose_issue_has_closed(self, make_repo, run):
+    def it_fails_a_known_seams_step_whose_issue_has_closed(self, make_repo, run, known_seam):
         root = make_repo({SEAM_SKILL: "---\nname: seam-skill\n---\n"})
         github = FakeGitHub({n: {"state": "CLOSED"} for n in range(1000)})
         code, _, err = run("trace", "-C", str(root), environ=GITHUB_ENV, graphql=github)
