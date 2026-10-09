@@ -218,7 +218,7 @@ class ProseRepo:
             raw = fh.read()
         repo = prose.Repo(str(self.root))
         config = prose.Config(prose.config_path(repo))
-        return prose.approval_token(repo, config, raw, json.loads(raw))
+        return prose.approval_token(repo, config, raw, json.loads(raw), [])
 
     def report(self, findings, *flags):
         """Run `prose.py report` on these findings. Returns what run() does."""

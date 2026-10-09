@@ -292,3 +292,35 @@ class DescribePlainOutput:
         assert "  explicit target.md:7 [del] restates\n" in out
         assert "  inferred target.md:20 [replace]\n" in out
         assert "explicit: 1  inferred: 1\n" in out
+
+
+class DescribeRules:
+    """The rules `evidence` reports beside the edits, which every candidate
+    rule is checked against before it is drafted. A rewrite of one quotes its
+    body to `config write` as `expect`, so the body is the one `config list`
+    gives.
+    """
+
+    @pytest.mark.spec("evidence-gives-rules")
+    def it_reports_each_rule_with_its_id_body_and_patterns(self, prose_repo):
+        config = prose_repo.root / prose.CONFIG_PATH
+        config.write_text(
+            config.read_text()
+            + "\n### sentences-no-in-order-to: Write to, not in order to\n\n"
+            + "The two extra words carry nothing.\n\n"
+            + "**Pattern.** `\\bin order to\\b`\n\n"
+            + "> **Before.** Run it in order to check.\n"
+            + "> **After.** Run it to check.\n"
+        )
+        prose_repo.commit()
+        code, envelope = prose_repo.run("evidence")
+        assert code == prose.OK, envelope["errors"]
+        _, listed = prose_repo.run("config", "list")
+        assert envelope["data"]["rules"] == [
+            {"id": r["id"], "body": r["body"], "patterns": r["patterns"]}
+            for r in listed["data"]["rules"]
+        ]
+        assert [(r["id"], r["patterns"]) for r in envelope["data"]["rules"]] == [
+            ("sentences-own-subject", []),
+            ("sentences-no-in-order-to", ["\\bin order to\\b"]),
+        ]
