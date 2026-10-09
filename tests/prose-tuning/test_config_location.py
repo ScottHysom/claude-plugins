@@ -30,10 +30,10 @@ class DescribePathsKey:
 
 
 class DescribeDefaultScope:
-    def it_leaves_out_everything_under_the_claude_folder(self, prose_repo):
+    def it_leaves_out_everything_under_the_claude_folder(self, prose_repo, capsys):
         other = prose_repo.root / prose.CONFIG_DIR / "other.md"
         other.write_text("# Another rule file\n")
-        _, env = prose_repo.run("scope", "--all")
-        verdict = {v["path"]: v for v in env["data"]["files"]}[".claude/rules/other.md"]
-        assert verdict["included"] is False
-        assert verdict["reason"] == "excluded by .claude/**"
+        capsys.readouterr()
+        prose.main(["scope", "--all", "-C", str(prose_repo.root)])
+        [line] = [ln for ln in capsys.readouterr().out.splitlines() if "other.md" in ln]
+        assert line.split() == ["-", ".claude/rules/other.md", "excluded", "by", ".claude/**"]
