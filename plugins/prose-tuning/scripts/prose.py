@@ -3806,17 +3806,9 @@ def cmd_config(args):
         )
 
     rules = config.rules
-    if args.rule:
-        rules = [r for r in rules if r.id == args.rule]
-        if not rules:
-            raise Fatal("no rule with id %s in %s" % (args.rule, config.rel()))
     data = {"path": config.rel(), "front": config.front, "rules": [r.as_dict() for r in rules]}
 
     def human():
-        if args.ids:
-            for r in rules:
-                print(r.id)
-            return
         w = max([len(r.id) for r in rules] + [16])
         for r in rules:
             mark = " " if (r.before or r.after) else "!"
@@ -5029,9 +5021,6 @@ def build_parser():
             metavar="PATH",
             help="a prose-style.md other than this repo's",
         )
-        if name == "list":
-            c.add_argument("--rule", metavar="ID")
-            c.add_argument("--ids", action="store_true")
         if name == "check-id":
             c.add_argument("--section", required=True)
             c.add_argument("--name", required=True, help="one to four lower-case words joined by -")
