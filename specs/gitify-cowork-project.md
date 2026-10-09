@@ -245,7 +245,7 @@ usually versioned.
 Source: the owner's ruling on #130, item 11, and the owner's answer on #162
 for temporary files.
 
-- `render-cmd-excludes-macos-editor-files` (test): When `render` writes
+- `render-cmd-excludes-macos-and-editor-files` (test): When `render` writes
   `.gitignore`, it leaves out macOS's `.DS_Store`, `.AppleDouble`,
   `.LSOverride` and `._*` files, editor swap and backup files, and `*.tmp`
   files, and keeps shared editor settings such as `.vscode/settings.json`.

@@ -455,7 +455,7 @@ class DescribeShippedPatterns:
         rule = shipped.by_id()[rid]
         return [m["text"] for m in prose.pattern_matches(text, prose.Blocks(text), [rule])]
 
-    @pytest.mark.spec("template-catches-british-spellings-emdashes")
+    @pytest.mark.spec("template-catches-british-spellings-and-emdashes")
     def it_lints_clean(self, shipped):
         assert shipped.errors == []
         assert [r.id for r in shipped.patterned()] == [
@@ -463,7 +463,7 @@ class DescribeShippedPatterns:
             "standing-us-spelling",
         ]
 
-    @pytest.mark.spec("template-catches-british-spellings-emdashes")
+    @pytest.mark.spec("template-catches-british-spellings-and-emdashes")
     @pytest.mark.parametrize(
         ("doc", "want"),
         [
@@ -481,7 +481,7 @@ class DescribeShippedPatterns:
     def it_finds_a_dash_doing_an_em_dash_job(self, shipped, doc, want):
         assert self.found(shipped, "standing-no-em-dash", doc) == want
 
-    @pytest.mark.spec("template-catches-british-spellings-emdashes")
+    @pytest.mark.spec("template-catches-british-spellings-and-emdashes")
     @pytest.mark.parametrize(
         "word",
         "behaviour Colourful favourite honour neighbour analyse organisation "
@@ -492,7 +492,7 @@ class DescribeShippedPatterns:
     def it_finds_a_british_spelling(self, shipped, word):
         assert self.found(shipped, "standing-us-spelling", "A %s here.\n" % word) == [word]
 
-    @pytest.mark.spec("template-catches-british-spellings-emdashes")
+    @pytest.mark.spec("template-catches-british-spellings-and-emdashes")
     @pytest.mark.parametrize(
         "word",
         "behavior color hour contour glamour analyses analysis emphasis realism "

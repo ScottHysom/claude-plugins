@@ -630,9 +630,9 @@ asked for, and no requirement loses the last thing that verifies it.
 
 Source: #114, #129, and SPEC-METHODOLOGY.md, under "The chain".
 
-- `trace-cmd-fails-uncited-tests-skills` (test): When a test or a skill step
-  does not cite a requirement, and `.github/untraced.json` does not list it,
-  `check-specs.py trace` fails it.
+- `trace-cmd-fails-uncited-tests-and-skills` (test): When a test or a skill
+  step does not cite a requirement, and `.github/untraced.json` does not list
+  it, `check-specs.py trace` fails it.
 - `trace-cmd-fails-unknown-ids` (test): When a test, a skill step or a
   workflow step cites an id its component's spec does not hold, `trace` fails
   the citation.

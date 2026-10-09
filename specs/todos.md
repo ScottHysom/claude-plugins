@@ -140,10 +140,10 @@ recorded there.
   is not `-`, `*`, `+`, `>` or `|`, `scan` gives as its detail the added lines
   directly below it that open with the same marker at the same indent, up to
   a blank line or the next TODO, marked handled or not.
-- `scan-cmd-reads-c-html-comments` (test): When a TODO's marker contains `/*`
-  or `<!--`, and every line to the comment's `*/` or `-->` was added since
-  the last commit, `scan` runs the TODO to there and gives the rest of the
-  comment as the detail.
+- `scan-cmd-reads-c-and-html-comments` (test): When a TODO's marker contains
+  `/*` or `<!--`, and every line to the comment's `*/` or `-->` was added
+  since the last commit, `scan` runs the TODO to there and gives the rest of
+  the comment as the detail.
 - `scan-cmd-skips-markdown-code-todos` (test): When a TODO sits in a code
   fence or a code span of a file ending `.md` or `.markdown`, `scan` neither
   reads it nor warns.

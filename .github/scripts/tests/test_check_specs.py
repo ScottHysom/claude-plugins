@@ -216,28 +216,28 @@ def cited_as(rid):
 
 
 class DescribeTrace:
-    @pytest.mark.spec("trace-cmd-fails-uncited-tests-skills")
+    @pytest.mark.spec("trace-cmd-fails-uncited-tests-and-skills")
     def it_passes_a_clone_where_every_link_holds(self, make_repo, run):
         code, out, err = run("trace", "-C", str(make_repo()))
         assert code == cp.OK, err
         assert "4 requirement(s) verified" in out
         assert err == ""
 
-    @pytest.mark.spec("trace-cmd-fails-uncited-tests-skills")
+    @pytest.mark.spec("trace-cmd-fails-uncited-tests-and-skills")
     def it_fails_a_test_that_cites_nothing(self, make_repo, run):
         root = make_repo({TEST: suite_file(method_marker="")})
         code, _, err = run("trace", "-C", str(root))
         assert code == cp.PROBLEMS
         assert "%s:5: DescribeFoo::it_does_x cites no requirement" % TEST in err
 
-    @pytest.mark.spec("trace-cmd-fails-uncited-tests-skills")
+    @pytest.mark.spec("trace-cmd-fails-uncited-tests-and-skills")
     def it_fails_a_step_that_cites_nothing(self, make_repo, run):
         root = make_repo({SKILL: skill(step_two_marker="")})
         code, _, err = run("trace", "-C", str(root))
         assert code == cp.PROBLEMS
         assert '"Step 2: ask" cites no requirement' in err
 
-    @pytest.mark.spec("trace-cmd-fails-uncited-tests-skills")
+    @pytest.mark.spec("trace-cmd-fails-uncited-tests-and-skills")
     def it_reads_a_marker_on_the_class_for_each_test_in_it(self, make_repo, run):
         root = make_repo(
             {TEST: suite_file(class_marker='@pytest.mark.spec("foo-does-x")\n', method_marker="")}
@@ -245,13 +245,13 @@ class DescribeTrace:
         code, _, err = run("trace", "-C", str(root))
         assert code == cp.OK, err
 
-    @pytest.mark.spec("trace-cmd-fails-uncited-tests-skills")
+    @pytest.mark.spec("trace-cmd-fails-uncited-tests-and-skills")
     def it_ignores_a_method_pytest_does_not_collect(self, make_repo, run):
         code, _, err = run("trace", "-C", str(make_repo()))
         assert code == cp.OK
         assert "helper" not in err
 
-    @pytest.mark.spec("trace-cmd-fails-uncited-tests-skills")
+    @pytest.mark.spec("trace-cmd-fails-uncited-tests-and-skills")
     def it_fails_a_step_marker_that_shares_its_line(self, make_repo, run):
         root = make_repo({SKILL: skill(step_two_marker="Ask. <!-- spec: foo-does-x -->\n")})
         code, _, err = run("trace", "-C", str(root))
@@ -591,7 +591,7 @@ class DescribeTrace:
         assert code == cp.PROBLEMS
         assert "found no step;" in err
 
-    @pytest.mark.spec("trace-cmd-fails-uncited-tests-skills")
+    @pytest.mark.spec("trace-cmd-fails-uncited-tests-and-skills")
     def it_prints_one_envelope_on_stdout_with_json(self, make_repo, run):
         code, out, err = run("trace", "--json", "-C", str(make_repo()))
         assert code == cp.OK

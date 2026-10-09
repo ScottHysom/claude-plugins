@@ -77,7 +77,7 @@ class DescribeLineDetail:
         assert (todo["detail"], todo["last"]) == ("", 1)
 
 
-@pytest.mark.spec("scan-cmd-reads-c-html-comments")
+@pytest.mark.spec("scan-cmd-reads-c-and-html-comments")
 class DescribeBlockComments:
     def it_reads_a_comment_on_one_line(self, repo):
         todo = one(repo, "a.md", "<!-- TODO(docs): the layout leaves things out -->\n")

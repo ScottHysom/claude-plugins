@@ -198,7 +198,7 @@ description.
 - `resolve-cmd-tidies-cuts` (test): When a resolved cut removes whole
   paragraphs, one blank line is left where they were, none at either end of
   the file, and no newline is added to a file that had none.
-- `resolve-cmd-warns-on-list-blocks` (test): When `tags resolve` removes a
+- `resolve-cmd-warns-on-list-block-tags` (test): When `tags resolve` removes a
   block-form tag inside a list, it warns with the tag's file and line.
 - `applyprose-resolves-author-markup` (step): When `preflight --for apply`
   names markup, apply-prose asks the author whether update-prose-config has
@@ -370,10 +370,10 @@ ruling on #133.
 - `segments-cmd-maps-list-items` (test): When a line continues a list
   item, by its indent or lazily, `segments` reports it as the item's, and a
   paragraph after the list as a paragraph.
-- `apply-cmd-refuses-protected-lines` (test): When a finding reaches a
-  protected line, touches an HTML comment, or crosses a line that is not part
-  of a paragraph or a list item, `report` and `apply` refuse it, with or
-  without `--partial`.
+- `apply-cmd-refuses-protected-lines-and-comments` (test): When a finding
+  reaches a protected line, touches an HTML comment, or crosses a line that is
+  not part of a paragraph or a list item, `report` and `apply` refuse it, with
+  or without `--partial`.
 - `apply-cmd-never-splits-table-cells` (test): When a rewrite would put a `|`
   or a newline in a table cell, or a newline in a line it does not already
   cross outside a paragraph, `apply` refuses it.
@@ -452,9 +452,10 @@ Source: README.md, under "Setting up".
 - `updateproseconfig-offers-init` (step): When `preflight --for config`
   reports that `prose-style.md` is missing, update-prose-config offers
   `config init`, and runs it only once the author says yes.
-- `template-catches-british-spellings-emdashes` (test): When a project starts
-  from the shipped rules, they lint clean, and their patterns find a British
-  spelling and a dash doing an em-dash's job, and leave a US spelling alone.
+- `template-catches-british-spellings-and-emdashes` (test): When a project
+  starts from the shipped rules, they lint clean, and their patterns find a
+  British spelling and a dash doing an em-dash's job, and leave a US spelling
+  alone.
 - `init-cmd-writes-shipped-rules` (test): When `config init` runs with no
   option, it writes the shipped rules to `.claude/rules/prose-style.md`,
   creating the folder, with the project's name where the rules leave a slot,
