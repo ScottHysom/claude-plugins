@@ -311,6 +311,9 @@ description.
   publishes `.prose-tuning/report.md` as a private artifact, or shows the file
   whole where it cannot, and takes one decision over the whole set, a set of
   rule ids or a set of files, naming the artifact's address and the token.
+- `applyprose-applies-once` (step): When the author has approved the report,
+  apply-prose runs `apply` once, with the token `report` printed and the
+  filters the approval names.
 
 ## need user-annotates-findings: Comment on a finding where it is read
 

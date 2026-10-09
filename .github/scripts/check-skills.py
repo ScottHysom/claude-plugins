@@ -303,7 +303,6 @@ KNOWN_GAPS = {}
 # trace` fails an entry whose issue has closed.
 KNOWN_SEAMS = {
     ("plugins/prose-tuning/skills/apply-prose/SKILL.md", 2): 196,
-    ("plugins/prose-tuning/skills/apply-prose/SKILL.md", 7): 190,
 }
 
 # Where a command other than a script invocation may stand on its line.

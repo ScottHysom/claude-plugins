@@ -268,6 +268,7 @@ at `data.report` and give it whole in your reply, as it stands, then end the
 turn. The author's reply is the decision, and it names the token.
 
 ## Step 7: apply
+<!-- spec: applyprose-applies-once -->
 
 Hand the approval to `apply` as flags, with the token the author approved.
 The flags select within the approved set and leave the token as it is.
@@ -279,11 +280,9 @@ The flags select within the approved set and leave the token as it is.
 | by file | `--file landscape.md --file resources.md`, one per file |
 | rule ids in some files | both; a finding must pass each |
 
-Run it with `--dry-run` first, then without:
+Run it once. The report the author approved is the preview.
 
 ```sh
-python3 "$PROSE" apply --findings "${TMPDIR:-/tmp}/prose-findings.json" \
-  --token 3f9a1c0e7b2d4a68 --only sentences-own-subject --file landscape.md --dry-run
 python3 "$PROSE" apply --findings "${TMPDIR:-/tmp}/prose-findings.json" \
   --token 3f9a1c0e7b2d4a68 --only sentences-own-subject --file landscape.md
 ```
