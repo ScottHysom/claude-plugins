@@ -50,6 +50,12 @@ class DescribeMarkingATodo:
             b"a  \r\n\n#  TODO-HANDLED(#1): one\r\n\n\tb\r\nnew line"
         )
 
+    def it_marks_each_todo_in_a_block_comment(self, repo):
+        now = "/* TODO: a\n * more\n * TODO: b\n */\nint x;\n"
+        assert file_all(repo, "a.c", "int x;\n", now) == (
+            b"/* TODO-HANDLED(#2): a\n * more\n * TODO-HANDLED(#1): b\n */\nint x;\n"
+        )
+
     def it_keeps_a_byte_order_mark(self, repo):
         base = b"\xef\xbb\xbfx = 1\n"
         now = b"\xef\xbb\xbf# TODO: one\nx = 1\n"
@@ -205,6 +211,18 @@ class DescribeScanningMarkedTodos:
             repo, "a.c", "x = 1\n", "// TODO: new\n/* TODO-HANDLED(#3): old\n   more */\nx = 1\n"
         )
         assert found[0]["above"]["line"] == 4
+
+    @pytest.mark.spec("scan-cmd-reads-c-and-html-comments")
+    def it_reads_a_todo_after_a_marked_one_in_its_comment(self, repo):
+        found, warnings = changed(
+            repo, "a.c", "x = 1\n", "/* TODO-HANDLED(#3): old\n   TODO: new\n   more */\nx = 1\n"
+        )
+        assert [(t["title"], t["detail"], t["first"]) for t in found] == [("new", "more", 2)]
+        assert warnings == []
+
+    def it_warns_about_an_unclosed_marked_block_holding_a_todo(self, repo):
+        _, warnings = changed(repo, "a.c", "x = 1\n", "/* TODO-HANDLED(#3): old\n   TODO: new\n")
+        assert warnings == ["a.c:1: the comment does not close with `*/`"]
 
     def it_reads_an_unclosed_marked_block_as_one_line(self, repo):
         found, warnings = changed(

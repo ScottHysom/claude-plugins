@@ -100,6 +100,33 @@ class DescribeBlockComments:
         todo = one(repo, "a.c", "int x; /* not this */\n/* TODO: title */\n")
         assert (todo["title"], todo["first"]) == ("title", 2)
 
+    @pytest.mark.parametrize(
+        ("rel", "text"),
+        [
+            ("a.c", "/* TODO: a\n   more\n   TODO: b */\nint x;\n"),
+            ("a.css", "/* TODO: a\n * more\n * TODO: b\n */\n"),
+            ("a.html", "<!-- TODO: a\n  more\n  TODO(bug): b -->\n"),
+        ],
+    )
+    def it_reads_a_second_todo_in_the_comment_as_its_own(self, repo, rel, text):
+        repo.write(rel, text)
+        found, warnings = repo.scan()
+        assert [(t["title"], t["detail"], t["first"]) for t in found] == [
+            ("a", "more", 1),
+            ("b", "", 3),
+        ]
+        assert found[0]["last"] == 2
+        assert warnings == []
+
+    def it_gives_the_second_todo_the_rest_of_the_comment(self, repo):
+        repo.write("a.c", "/* TODO: a\n   TODO: b\n   more */\nint x;\n")
+        found, _ = repo.scan()
+        assert [(t["title"], t["detail"], t["last"]) for t in found] == [
+            ("a", "", 1),
+            ("b", "more", 3),
+        ]
+        assert found[0]["above"]["text"] == "int x;"
+
     def it_warns_when_the_comment_runs_into_a_committed_line(self, repo):
         repo.write("a.md", "text\n-->\n")
         repo.commit()
