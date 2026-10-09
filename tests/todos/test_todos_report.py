@@ -220,7 +220,7 @@ class DescribeRefusals:
         assert code == todos.PROBLEMS
         assert len(env["errors"]) == 2
 
-    @pytest.mark.spec("report-cmd-refuses-repeated-todos")
+    @pytest.mark.spec("report-cmd-refuses-drafts-sharing-todo")
     def it_refuses_both_drafts_of_one_todo(self, two):
         found, _ = two.scan()
         drafts = [two.draft(found[0]), two.draft(found[1]), two.draft(found[0], title="again")]

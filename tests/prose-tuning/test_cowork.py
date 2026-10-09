@@ -144,7 +144,9 @@ class DescribeStage:
         assert code == prose.CANNOT_RUN
         assert "--connected must be an absolute path" in err
 
-    @pytest.mark.spec("stage-cmd-gives-checksum-command", "repo:command-splits-output-streams")
+    @pytest.mark.spec(
+        "stage-cmd-gives-checksum-command", "repo:command-splits-output-streams-without-json"
+    )
     def it_prints_the_check_and_the_prefix_without_json(self, tmp_path, capsys):
         capsys.readouterr()
         code = prose.main(["stage", "--folder", FOLDER, "--stage", str(tmp_path)])
@@ -250,7 +252,7 @@ class DescribeSetup:
         code, env = prose_repo.run("preflight", "--for", "config")
         assert code == prose.OK, env["errors"]
 
-    @pytest.mark.spec("setup-cmd-copies-locally", "repo:command-splits-output-streams")
+    @pytest.mark.spec("setup-cmd-copies-locally", "repo:command-splits-output-streams-without-json")
     def it_prints_the_prefix_without_json(self, prose_repo, monkeypatch, capsys):
         monkeypatch.setattr(prose, "OUTPUTS_ROOT", str(prose_repo.root.parent / "absent"))
         capsys.readouterr()

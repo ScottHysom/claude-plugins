@@ -12,7 +12,7 @@ def one(repo, rel, text):
     return found[0]
 
 
-@pytest.mark.spec("scan-cmd-reads-any-marker")
+@pytest.mark.spec("scan-cmd-reads-any-symbol-marker")
 class DescribeMarkers:
     @pytest.mark.parametrize(
         ("rel", "line", "marker"),
@@ -77,7 +77,7 @@ class DescribeLineDetail:
         assert (todo["detail"], todo["last"]) == ("", 1)
 
 
-@pytest.mark.spec("scan-cmd-reads-block-comments")
+@pytest.mark.spec("scan-cmd-reads-c-and-html-comments")
 class DescribeBlockComments:
     def it_reads_a_comment_on_one_line(self, repo):
         todo = one(repo, "a.md", "<!-- TODO(docs): the layout leaves things out -->\n")
@@ -119,8 +119,8 @@ class DescribeBlockComments:
         assert repo.scan() == ([], ["a.c:2: text follows the comment's `*/`"])
 
 
-@pytest.mark.spec("scan-cmd-skips-quoted-todos")
-class DescribeQuotedTodos:
+@pytest.mark.spec("scan-cmd-skips-markdown-code-todos")
+class DescribeTodosInMarkdownCode:
     @pytest.mark.parametrize("fence", ["```", "~~~", "````"])
     def it_skips_a_todo_in_a_markdown_fence(self, repo, fence):
         repo.write("a.md", "%s sh\nTODO: shown\n# TODO( shown\n%s\nTODO: real\n" % (fence, fence))

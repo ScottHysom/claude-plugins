@@ -26,9 +26,9 @@ Source: README.md, under "When to use it" and "What it adds to your project".
   `prose-style.md` carries a `paths:` key, `config lint` refuses it.
 - `lint-cmd-accepts-any-source` (test): When a rule's `prose-rule` comment
   carries `source=` with any value, `config lint` accepts it.
-- `lint-cmd-names-unknown-keys` (test): When a rule's `prose-rule` comment
-  carries a key other than `origin` or `source`, `config lint` names it and
-  exits 1.
+- `lint-cmd-names-unknown-comment-keys` (test): When a rule's `prose-rule`
+  comment carries a key other than `origin` or `source`, `config lint` names
+  it and exits 1.
 
 ## need user-teaches-by-editing: Teach the style by editing
 
@@ -110,9 +110,10 @@ rule are the owner's figure, in the ruling on #132.
 - `write-cmd-lints-clean` (test): When `config write` writes rules,
   `prose-style.md` still lints clean. A record whose rule would not lint is
   refused, and a file that does not lint clean is not written to at all.
-- `write-cmd-writes-all-or-none` (test): When `config write` refuses any
-  record, it writes nothing unless `--partial` is passed. Given `--dry-run`,
-  it reports what it would write and does not change `prose-style.md`.
+- `write-cmd-writes-nothing-unless-partial` (test): When `config write`
+  refuses any record, it writes nothing unless `--partial` is passed. Given
+  `--dry-run`, it reports what it would write and does not change
+  `prose-style.md`.
 - `write-cmd-places-by-section` (test): When `config write` adds a rule, it
   puts it after the last rule of its section. A rule in a section the file
   does not have goes at the end under the `##` heading its record gives, and
@@ -134,9 +135,9 @@ they did not see.
 Source: the owner's request on 2026-10-04, after approving rules from a
 summary in a session (#343).
 
-- `write-cmd-requires-token` (test): When `config write` runs without
-  `--dry-run`, it requires `config write --token`, and when the token is not
-  the one `config write --dry-run` would print for the batch and
+- `write-cmd-requires-token-unless-dry-run` (test): When `config write` runs
+  without `--dry-run`, it requires `config write --token`, and when the token
+  is not the one `config write --dry-run` would print for the batch and
   `prose-style.md` as they are now, it writes nothing and exits 1.
 - `updateproseconfig-shows-rules-whole` (step): When the dry run exits 0,
   update-prose-config publishes `.prose-tuning/rules.md` as a private
@@ -185,8 +186,8 @@ description.
 - `scanner-names-markup-faults` (test): When markup breaks the grammar in
   `reference/tag-vocabulary.md`, the scanner reports each fault once, with its
   file and line.
-- `scanner-ignores-tags-in-code` (test): When a tag sits inside a code fence
-  or a code span, the scanner reads it as prose.
+- `scanner-ignores-tags-in-backticks` (test): When a tag sits inside a code
+  fence or a code span, the scanner reads it as prose.
 - `scanner-ignores-tags-in-comments` (test): When a tag sits inside an HTML
   comment, the scanner does not read it as markup.
 - `scanner-pairs-del-and-ins` (test): When a `<del>` is followed directly by an
@@ -197,7 +198,7 @@ description.
 - `resolve-cmd-tidies-cuts` (test): When a resolved cut removes whole
   paragraphs, one blank line is left where they were, none at either end of
   the file, and no newline is added to a file that had none.
-- `resolve-cmd-warns-in-lists` (test): When `tags resolve` removes a
+- `resolve-cmd-warns-on-list-block-tags` (test): When `tags resolve` removes a
   block-form tag inside a list, it warns with the tag's file and line.
 - `applyprose-resolves-author-markup` (step): When `preflight --for apply`
   names markup, apply-prose asks the author whether update-prose-config has
@@ -286,8 +287,8 @@ description.
 - `report-cmd-stops-on-unreadable-findings` (test): When the file given to
   `--findings` cannot be read, or is not JSON, `report` and `apply` name the
   fault and exit 2.
-- `apply-cmd-describes-finding-fields` (test): When `apply --help` runs,
-  it describes every field of a finding, and where a rewrite may hold a
+- `apply-cmd-describes-finding-fields-in-help` (test): When `apply --help`
+  runs, it describes every field of a finding, and where a rewrite may hold a
   newline.
 - `config-cmd-reads-pattern-lines` (test): When a rule carries
   `**Pattern.**` lines, `config` reads every one, fenced in one or two
@@ -296,11 +297,12 @@ description.
   its rule's After example or finds nothing in its Before example, `config
   lint` names it and exits 1. A rule with no example leaves its patterns
   unchecked.
-- `patterns-cmd-prints-each-match` (test): When a rule carries a pattern,
-  `patterns` prints each place it matches in the segments' spans once, with
-  its address, its rule and its text as a JSON string that `apply` accepts as
-  a finding's `text`, including a match that wraps within a passage. It leaves
-  out a match in a code span, and one made only of a line break.
+- `patterns-cmd-prints-each-prose-match` (test): When a rule carries a
+  pattern, `patterns` prints each place it matches in the segments' spans
+  once, with its address, its rule and its text as a JSON string that `apply`
+  accepts as a finding's `text`, including a match that wraps within a
+  passage. It leaves out a match in a code span, and one made only of a line
+  break.
 - `patterns-cmd-refuses-unlinted-rules` (test): When `prose-style.md` does
   not lint clean, `patterns` and `report` name the fault and exit 1 before
   reading any document.
@@ -357,7 +359,7 @@ prose.
 Source: the apply-prose description. The owner confirmed the need in the
 ruling on #133.
 
-- `segments-cmd-gives-prose-only` (test): When `segments` or `patterns`
+- `segments-cmd-skips-protected-blocks` (test): When `segments` or `patterns`
   reads a file, it gives headings and table cells, and leaves out front
   matter, fences, blockquotes, HTML comments and a table's delimiter row.
 - `segments-cmd-cuts-out-comments` (test): When an HTML comment opens part
@@ -368,11 +370,11 @@ ruling on #133.
 - `segments-cmd-maps-list-items` (test): When a line continues a list
   item, by its indent or lazily, `segments` reports it as the item's, and a
   paragraph after the list as a paragraph.
-- `apply-cmd-refuses-non-prose` (test): When a finding reaches a protected
-  line, touches an HTML comment, or crosses a line that is not part of a
-  paragraph or a list item, `report` and `apply` refuse it, with or without
-  `--partial`.
-- `apply-cmd-keeps-table-structure` (test): When a rewrite would put a `|`
+- `apply-cmd-refuses-protected-lines-and-comments` (test): When a finding
+  reaches a protected line, touches an HTML comment, or crosses a line that is
+  not part of a paragraph or a list item, `report` and `apply` refuse it, with
+  or without `--partial`.
+- `apply-cmd-never-splits-table-cells` (test): When a rewrite would put a `|`
   or a newline in a table cell, or a newline in a line it does not already
   cross outside a paragraph, `apply` refuses it.
 - `apply-cmd-indents-list-items` (test): When a rewrite in a list item
@@ -416,7 +418,7 @@ description.
 - `segments-cmd-reads-scope-by-default` (test): When `segments` or
   `patterns` is not given a file, it reads every file in scope, and names a file
   given that does not exist.
-- `report-cmd-checks-only-named-files` (test): When `report` is given
+- `report-cmd-only-searches-named-files` (test): When `report` is given
   files, it fails only on uncovered pattern matches in those files, and names
   a file given that does not exist. Its token covers the files it was given,
   so `apply` refuses the token unless it is given the same files.
@@ -435,8 +437,8 @@ description.
   folder and `?` one character, against the whole path from the project root.
 - `scope-cmd-never-lists-rules-file` (test): When `scope` lists the files
   in scope, it leaves out `prose-style.md` whatever the scope says.
-- `scope-cmd-explains-each-file` (test): When `scope --all` runs, it lists
-  every markdown file with the pattern that included or excluded it.
+- `scope-cmd-explains-each-file-with-all` (test): When `scope --all` runs, it
+  lists every markdown file with the pattern that included or excluded it.
 
 ## need user-starts-from-defaults: Start a rules file without writing one
 
@@ -450,9 +452,10 @@ Source: README.md, under "Setting up".
 - `updateproseconfig-offers-init` (step): When `preflight --for config`
   reports that `prose-style.md` is missing, update-prose-config offers
   `config init`, and runs it only once the author says yes.
-- `template-catches-spelling-and-dashes` (test): When a project starts from
-  the shipped rules, they lint clean, and their patterns find a British
-  spelling and a dash doing an em-dash's job, and leave a US spelling alone.
+- `template-catches-british-spellings-and-emdashes` (test): When a project
+  starts from the shipped rules, they lint clean, and their patterns find a
+  British spelling and a dash doing an em-dash's job, and leave a US spelling
+  alone.
 - `init-cmd-writes-shipped-rules` (test): When `config init` runs with no
   option, it writes the shipped rules to `.claude/rules/prose-style.md`,
   creating the folder, with the project's name where the rules leave a slot,
@@ -466,7 +469,7 @@ Source: README.md, under "Setting up".
   not exist.
 - `init-cmd-never-overwrites` (test): When `.claude/rules/prose-style.md`
   exists, `config init` refuses and leaves it as it was.
-- `preflight-cmd-points-to-init` (test): When a project has no
+- `preflight-cmd-points-to-init-for-apply` (test): When a project has no
   `prose-style.md`, `preflight --for apply` and every `config` command but
   `init` stop and name `config init`.
 
@@ -549,8 +552,9 @@ in the ruling on #131.
   `config resolve` refuses it.
 - `resolve-cmd-lints-result` (test): When `config resolve` writes, the target
   lints clean, or the command writes nothing.
-- `resolve-cmd-writes-all-or-none` (test): When `config resolve` refuses any
-  answer, it writes nothing, unless `config resolve --partial` is passed.
+- `resolve-cmd-writes-nothing-unless-partial` (test): When `config resolve`
+  refuses any answer, it writes nothing, unless `config resolve --partial` is
+  passed.
 
 ## need owner-ships-a-rule: Ship a rule with the plugin
 
@@ -640,19 +644,19 @@ Source: #301, and the owner's rulings on #339, which replaced copying the
 edits with reading them in place, and skip the question when only one other
 checkout holds edits.
 
-- `evidence-cmd-names-other-worktrees` (test): When this tree does not hold
-  any pending edit, markup or question in scope, `--from` is not given, and
-  another worktree of the repo holds pending edits, `evidence` names each such
-  worktree with its branch and files, and exits 1 naming `evidence --from`
-  with its path.
-- `evidence-cmd-reads-other-worktree` (test): When `evidence` is given
-  `--from` with a worktree of this repo, named by its folder or by the branch
-  it has checked out, it reads that worktree's edits and markup against its
-  last commit, with the scope of this tree's `prose-style.md`, and names a
+- `evidence-cmd-names-other-worktrees-without-from` (test): When this tree
+  does not hold any pending edit, markup or question in scope, `--from` is not
+  given, and another worktree of the repo holds pending edits, `evidence`
+  names each such worktree with its branch and files, and exits 1 naming
+  `evidence --from` with its path.
+- `evidence-cmd-reads-other-worktree-with-from` (test): When `evidence` is
+  given `--from` with a worktree of this repo, named by its folder or by the
+  branch it has checked out, it reads that worktree's edits and markup against
+  its last commit, with the scope of this tree's `prose-style.md`, and names a
   pending `prose-style.md` there, which it does not read. Given this tree, it
   behaves as with no `--from`.
-- `reproduce-cmd-reads-other-worktree` (test): When `reproduce` is given
-  `--from` with a worktree of this repo, it checks that worktree's edits
+- `reproduce-cmd-reads-other-worktree-with-from` (test): When `reproduce` is
+  given `--from` with a worktree of this repo, it checks that worktree's edits
   against the patterns in this tree's `prose-style.md`. Given this tree, it
   behaves as with no `--from`.
 - `command-refuses-unknown-worktree` (test): When `--from` names neither a
@@ -686,9 +690,9 @@ plugin knows only itself", for the hand-off convention.
 - `updateproseconfig-takes-handed-notes` (step): When update-prose-config is
   handed a note on a passage that has not changed since the last commit, it
   takes the note as it takes an `<alt>` on that passage.
-- `updateproseconfig-reads-notes-as-whys` (step): When update-prose-config is
-  handed a note on a passage that has changed since the last commit, it takes
-  the note as the `why` of those changes.
+- `updateproseconfig-reads-notes-on-edits` (step): When update-prose-config
+  is handed a note on a passage that has changed since the last commit, it
+  takes the note as the `why` of those changes.
 - `updateproseconfig-asks-about-vague-notes` (step): When a note on an
   unchanged passage does not state a rule, update-prose-config asks about it
   in the interview.

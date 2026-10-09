@@ -17,12 +17,12 @@ def scan(src):
 
 
 class DescribeTagScanner:
-    @pytest.mark.spec("scanner-ignores-tags-in-code")
+    @pytest.mark.spec("scanner-ignores-tags-in-backticks")
     def it_leaves_markup_inside_a_code_fence_as_prose(self, sample):
         """The sample's python fence contains a <del> that must stay prose."""
         assert scan(sample).all == []
 
-    @pytest.mark.spec("scanner-ignores-tags-in-code")
+    @pytest.mark.spec("scanner-ignores-tags-in-backticks")
     def it_leaves_markup_inside_a_code_span_as_prose(self):
         src = (
             "A `<del>` in prose is a quotation.\n\n"

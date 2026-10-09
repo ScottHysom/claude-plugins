@@ -22,12 +22,12 @@ def lines_of(segs):
 
 
 class DescribeSegments:
-    @pytest.mark.spec("segments-cmd-gives-prose-only")
+    @pytest.mark.spec("segments-cmd-skips-protected-blocks")
     def it_leaves_out_every_line_of_a_multi_line_comment(self):
         segs = segments("# T\n\n<!--\nA note for people.\n-->\n\nProse.\n")
         assert lines_of(segs) == [1, 7]
 
-    @pytest.mark.spec("segments-cmd-gives-prose-only")
+    @pytest.mark.spec("segments-cmd-skips-protected-blocks")
     def it_leaves_out_a_comment_on_a_line_of_its_own(self):
         segs = segments("Before.\n\n<!-- FILL: say what this is for -->\n\nAfter.\n")
         assert [s["text"] for s in segs] == ["Before.", "After."]
@@ -46,7 +46,7 @@ class DescribeSegments:
         ]
         assert {s["kind"] for s in segs} == {"paragraph"}
 
-    @pytest.mark.spec("segments-cmd-gives-prose-only")
+    @pytest.mark.spec("segments-cmd-skips-protected-blocks")
     def it_leaves_out_the_middle_lines_of_a_comment_that_spans_paragraph_lines(self):
         segs = segments("A line <!-- that\nspans\nlines --> and ends.\n")
         assert [(s["line"], s["text"]) for s in segs] == [(1, "A line"), (3, "and ends.")]
@@ -56,7 +56,7 @@ class DescribeSegments:
         segs = segments("# Title <!-- note -->\n")
         assert [(s["kind"], s["text"]) for s in segs] == [("heading", "Title")]
 
-    @pytest.mark.spec("segments-cmd-gives-prose-only")
+    @pytest.mark.spec("segments-cmd-skips-protected-blocks")
     def it_does_not_take_a_heading_or_fence_inside_a_comment_for_one(self):
         """A fence opened inside a comment would otherwise swallow the rest of
         the document, and a heading would join the heading path.
@@ -89,7 +89,7 @@ class DescribeSegments:
         segs = segments("Write `<!--` to open one -->.\n")
         assert [s["text"] for s in segs] == ["Write `<!--` to open one -->."]
 
-    @pytest.mark.spec("segments-cmd-gives-prose-only")
+    @pytest.mark.spec("segments-cmd-skips-protected-blocks")
     def it_counts_the_lines_of_a_comment_as_protected(self, prose_repo, target_lines):
         code, envelope = prose_repo.run("segments", "target.md")
         assert code == prose.OK

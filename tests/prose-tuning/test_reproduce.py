@@ -142,7 +142,7 @@ class DescribeReproduce:
         assert (edit["change"], edit["reproduced"]) == ("replace", True)
         assert [m["line"] for m in edit["matches"]] == [3]
 
-    @pytest.mark.spec("repo:command-splits-output-streams")
+    @pytest.mark.spec("repo:command-splits-output-streams-without-json")
     def it_prints_each_edit_and_the_rules_left_to_reading(self, prose_repo, capsys):
         reproduce(prose_repo, BEFORE.replace("in order to", "to"))
         capsys.readouterr()
@@ -151,7 +151,7 @@ class DescribeReproduce:
         assert "target.md:3  reproduced  %s" % RULE in out
         assert "Checked by reading, no pattern: %s" % UNPATTERNED in out
 
-    @pytest.mark.spec("repo:command-splits-output-streams")
+    @pytest.mark.spec("repo:command-splits-output-streams-without-json")
     def it_prints_an_edit_no_pattern_reproduces(self, prose_repo, capsys):
         reproduce(prose_repo, BEFORE.replace("It keeps", "The rule keeps"))
         capsys.readouterr()

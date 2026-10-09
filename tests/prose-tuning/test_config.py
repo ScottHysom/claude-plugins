@@ -129,7 +129,9 @@ class DescribeFrontMatter:
         errors = config_from(source).errors
         assert [e for e in errors if message in e and ":%d " % line in e], errors
 
-    @pytest.mark.spec("lint-cmd-checks-front-matter", "repo:command-splits-output-streams")
+    @pytest.mark.spec(
+        "lint-cmd-checks-front-matter", "repo:command-splits-output-streams-without-json"
+    )
     def it_fails_lint_and_reports_on_stderr(self, prose_repo, capsys):
         (prose_repo.root / prose.CONFIG_PATH).write_text("---\nname T\n---\n")
         capsys.readouterr()
@@ -155,7 +157,9 @@ class DescribeRuleShape:
         )
         assert any("half an example" in e for e in cfg.errors)
 
-    @pytest.mark.spec("lint-cmd-checks-rule-shape", "repo:command-splits-output-streams")
+    @pytest.mark.spec(
+        "lint-cmd-checks-rule-shape", "repo:command-splits-output-streams-without-json"
+    )
     def it_warns_on_stderr_about_a_rule_with_no_example(self, prose_repo, capsys):
         (prose_repo.root / prose.CONFIG_PATH).write_text(
             self.HEAD + "### sentences-own-subject: Title\n\nBody.\n"
@@ -185,7 +189,7 @@ class DescribeRuleMetadata:
         )
         assert (cfg.errors, cfg.rules[0].meta["source"]) == ([], value)
 
-    @pytest.mark.spec("lint-cmd-names-unknown-keys")
+    @pytest.mark.spec("lint-cmd-names-unknown-comment-keys")
     def it_refuses_a_key_it_does_not_know(self, config_from):
         cfg = config_from(
             "---\nname: T\n---\n\n## Sentences\n\n"
@@ -208,7 +212,9 @@ class DescribeConfigList:
             "after": "The list is curated, not collected.",
         }
 
-    @pytest.mark.spec("list-cmd-gives-every-rule", "repo:command-splits-output-streams")
+    @pytest.mark.spec(
+        "list-cmd-gives-every-rule", "repo:command-splits-output-streams-without-json"
+    )
     def it_prints_one_line_per_rule_without_json(self, prose_repo, capsys):
         capsys.readouterr()
         code = prose.main(["config", "list", "-C", str(prose_repo.root)])
@@ -458,7 +464,7 @@ class DescribeConfigClassify:
         got = rules["sentences-own-subject"]
         assert (got["body"], got["target_body"]) == (self.SHARED, None)
 
-    @pytest.mark.spec("repo:command-splits-output-streams")
+    @pytest.mark.spec("repo:command-splits-output-streams-without-json")
     def it_prints_each_bucket_on_stdout_without_json(self, prose_repo):
         src, tgt = prose_repo.root / "source.md", prose_repo.root / "target-style.md"
         src.write_text(
@@ -580,7 +586,9 @@ class DescribeConfigAdopt:
         _, env = self.adopt(prose_repo, src, tgt, "--rule", "sentences-own-subject")
         assert env["data"]["commit_note"] == "Adopted from %s: sentences-own-subject" % src
 
-    @pytest.mark.spec("adopt-cmd-gives-commit-note", "repo:command-splits-output-streams")
+    @pytest.mark.spec(
+        "adopt-cmd-gives-commit-note", "repo:command-splits-output-streams-without-json"
+    )
     def it_prints_the_commit_note_without_json(self, prose_repo, capsys):
         src, tgt = self.files(prose_repo, "## Sentences\n\n" + self.OWN_SUBJECT, "")
         capsys.readouterr()
@@ -794,7 +802,7 @@ class DescribeConfigAdopt:
         assert "nowhere.md does not exist" in prose_repo.err
         assert not missing.exists()
 
-    @pytest.mark.spec("repo:command-splits-output-streams")
+    @pytest.mark.spec("repo:command-splits-output-streams-without-json")
     def it_prints_each_adopted_and_refused_id_on_stdout_without_json(self, prose_repo):
         src, tgt = self.files(
             prose_repo, "## Sentences\n\n" + self.OWN_SUBJECT, "## Sentences\n\n" + self.COUNT

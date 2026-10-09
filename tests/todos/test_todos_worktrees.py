@@ -23,7 +23,7 @@ def branch_of(tree):
     return tree.git("branch", "--show-current").decode().strip()
 
 
-@pytest.mark.spec("scan-cmd-names-other-worktrees")
+@pytest.mark.spec("scan-cmd-names-worktrees-with-todos")
 class DescribeOtherWorktrees:
     def it_names_a_worktree_holding_todos_and_exits_with_problems(self, repo, worktree):
         worktree.write("a.py", "# TODO: left in the other checkout\n")
@@ -105,7 +105,7 @@ class DescribeNothingPendingAnywhere:
         assert err == ""
 
 
-@pytest.mark.spec("command-reads-other-worktree")
+@pytest.mark.spec("command-reads-other-worktree-with-from")
 class DescribeFrom:
     def it_scans_the_worktree_named(self, repo, worktree):
         worktree.write("a.py", "# TODO: there\n")
@@ -170,7 +170,7 @@ class DescribeFrom:
         assert "here.py:1 does not hold a pending TODO" in env["errors"][0]
 
 
-@pytest.mark.spec("file-cmd-marks-in-other-worktree")
+@pytest.mark.spec("file-cmd-marks-other-worktree-with-from")
 class DescribeFileFrom:
     def it_marks_the_todo_in_the_worktree_named(self, repo, worktree, github):
         worktree.write("a.py", "x = 1\n")

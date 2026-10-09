@@ -209,7 +209,7 @@ class DescribeLocation:
         _, env = repo.run("scan")
         assert env["data"]["commit"]["on_remote"] is True
 
-    @pytest.mark.spec("repo:command-splits-output-streams")
+    @pytest.mark.spec("repo:command-splits-output-streams-without-json")
     def it_prints_each_todo_on_stdout_and_warnings_on_stderr(self, repo):
         repo.write("run.py", "def run():\n    pass\n")
         repo.commit()

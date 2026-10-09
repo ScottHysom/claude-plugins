@@ -102,7 +102,7 @@ turn. The owner's reply is the decision, and it names the token.
 On "file nothing", stop.
 
 ## Step 4: file the plan
-<!-- spec: planfile-cmd-requires-token, planfile-cmd-files-in-order, planfile-cmd-resumes-after-failure -->
+<!-- spec: planfile-cmd-requires-token, planfile-cmd-files-in-order, planfile-cmd-resumes-after-failed-call -->
 
 ```sh
 python3 .github/scripts/issues.py plan file --drafts "${TMPDIR:-/tmp}/plan.json" --token 3f9a1c0e7b2d4a68 --json

@@ -310,7 +310,9 @@ class DescribeStaleAnswers:
 
 
 class DescribeAllOrNone:
-    @pytest.mark.spec("resolve-cmd-writes-all-or-none", "repo:command-applies-rest-if-partial")
+    @pytest.mark.spec(
+        "resolve-cmd-writes-nothing-unless-partial", "repo:command-applies-rest-if-partial"
+    )
     def it_writes_nothing_when_one_answer_is_refused(self, prose_repo):
         src, tgt = files(prose_repo, OWN_SUBJECT, CARRIES)
         before = tgt.read_bytes()
@@ -321,7 +323,9 @@ class DescribeAllOrNone:
         assert env["errors"][-1] == "nothing was written; fix the answers named, or pass --partial"
         assert tgt.read_bytes() == before
 
-    @pytest.mark.spec("resolve-cmd-writes-all-or-none", "repo:command-applies-rest-if-partial")
+    @pytest.mark.spec(
+        "resolve-cmd-writes-nothing-unless-partial", "repo:command-applies-rest-if-partial"
+    )
     def it_writes_the_rest_with_partial(self, prose_repo):
         src, tgt = files(prose_repo, OWN_SUBJECT, CARRIES)
         good = answer(src, tgt, "sentences-own-subject", "sentences-carries-subject", "keep-both")
@@ -395,7 +399,9 @@ class DescribeTheCommitNote:
         _, env = resolve(prose_repo, src, tgt, [ans])
         assert env["data"]["commit_note"] is None
 
-    @pytest.mark.spec("resolve-cmd-gives-commit-note", "repo:command-splits-output-streams")
+    @pytest.mark.spec(
+        "resolve-cmd-gives-commit-note", "repo:command-splits-output-streams-without-json"
+    )
     def it_prints_each_answer_and_the_note_on_stdout_without_json(self, prose_repo):
         src, tgt = files(prose_repo, OWN_SUBJECT, CARRIES)
         good = answer(src, tgt, "sentences-own-subject", "sentences-carries-subject", "keep-both")

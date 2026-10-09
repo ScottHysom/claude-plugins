@@ -66,7 +66,7 @@ def edit(tree, rel="target.md", text="Rewritten by the author.\n"):
 class DescribeWorktrees:
     """Repo.worktrees, which evidence reads to name the other checkouts."""
 
-    @pytest.mark.spec("evidence-cmd-names-other-worktrees")
+    @pytest.mark.spec("evidence-cmd-names-other-worktrees-without-from")
     def it_lists_every_other_worktree_with_its_branch(self, checkouts, tmp_path):
         main, session = checkouts
         detached = tmp_path / "detached"
@@ -79,7 +79,7 @@ class DescribeWorktrees:
             ]
         )
 
-    @pytest.mark.spec("evidence-cmd-names-other-worktrees")
+    @pytest.mark.spec("evidence-cmd-names-other-worktrees-without-from")
     def it_leaves_out_a_worktree_whose_folder_is_gone(self, checkouts, tmp_path):
         main, session = checkouts
         gone = tmp_path / "gone"
@@ -88,7 +88,7 @@ class DescribeWorktrees:
         roots = [os.path.realpath(r) for r, _ in prose.Repo(str(session.root)).worktrees()]
         assert roots == [os.path.realpath(str(main.root))]
 
-    @pytest.mark.spec("evidence-cmd-names-other-worktrees")
+    @pytest.mark.spec("evidence-cmd-names-other-worktrees-without-from")
     def it_leaves_out_a_bare_repository(self, checkouts, tmp_path):
         main, _ = checkouts
         bare = tmp_path / "bare.git"
@@ -103,7 +103,7 @@ class DescribeWorktrees:
 
 
 class DescribeEvidenceAcrossWorktrees:
-    @pytest.mark.spec("evidence-cmd-names-other-worktrees")
+    @pytest.mark.spec("evidence-cmd-names-other-worktrees-without-from")
     def it_names_the_worktree_that_holds_the_edits_when_this_tree_holds_none(self, checkouts):
         main, session = checkouts
         edit(main.root)
@@ -116,7 +116,7 @@ class DescribeEvidenceAcrossWorktrees:
         assert "on %s," % MAIN_BRANCH in error
         assert "`evidence --from %s`" % tree["root"] in error
 
-    @pytest.mark.spec("evidence-cmd-names-other-worktrees")
+    @pytest.mark.spec("evidence-cmd-names-other-worktrees-without-from")
     def it_names_a_detached_worktree_without_a_branch(self, checkouts, tmp_path):
         main, session = checkouts
         detached = tmp_path / "detached"
@@ -127,7 +127,7 @@ class DescribeEvidenceAcrossWorktrees:
         [error] = env["errors"]
         assert " on " not in error.split(" holds them ")[0]
 
-    @pytest.mark.spec("evidence-cmd-names-other-worktrees")
+    @pytest.mark.spec("evidence-cmd-names-other-worktrees-without-from")
     def it_looks_no_further_when_this_tree_holds_edits(self, checkouts):
         main, session = checkouts
         edit(main.root)
@@ -136,7 +136,7 @@ class DescribeEvidenceAcrossWorktrees:
         assert code == prose.OK, env["errors"]
         assert env["data"]["other_worktrees"] == []
 
-    @pytest.mark.spec("evidence-cmd-names-other-worktrees")
+    @pytest.mark.spec("evidence-cmd-names-other-worktrees-without-from")
     def it_passes_when_no_worktree_holds_edits(self, checkouts):
         _, session = checkouts
         code, env = session.run("evidence")
@@ -187,7 +187,7 @@ def tree_state(root):
 
 
 class DescribeEvidenceFrom:
-    @pytest.mark.spec("evidence-cmd-reads-other-worktree")
+    @pytest.mark.spec("evidence-cmd-reads-other-worktree-with-from")
     def it_reads_the_edits_of_the_worktree_from_names(self, checkouts):
         main, session = checkouts
         edit(main.root)
@@ -200,7 +200,7 @@ class DescribeEvidenceFrom:
         assert checkout["branch"] == MAIN_BRANCH
         assert env["data"]["other_worktrees"] == []
 
-    @pytest.mark.spec("evidence-cmd-reads-other-worktree")
+    @pytest.mark.spec("evidence-cmd-reads-other-worktree-with-from")
     def it_diffs_against_the_other_worktrees_last_commit(self, checkouts):
         main, session = checkouts
         edit(session.root, text="Committed on the session's branch.\n")
@@ -211,7 +211,7 @@ class DescribeEvidenceFrom:
         [rec] = env["data"]["inferred"]
         assert "Committed on the session's branch." not in rec["old_lines"]
 
-    @pytest.mark.spec("evidence-cmd-reads-other-worktree")
+    @pytest.mark.spec("evidence-cmd-reads-other-worktree-with-from")
     def it_takes_the_branch_the_worktree_has_checked_out(self, checkouts):
         main, session = checkouts
         edit(main.root)
@@ -219,7 +219,7 @@ class DescribeEvidenceFrom:
         assert code == prose.OK, env["errors"]
         assert [r["file"] for r in env["data"]["inferred"]] == ["target.md"]
 
-    @pytest.mark.spec("evidence-cmd-reads-other-worktree")
+    @pytest.mark.spec("evidence-cmd-reads-other-worktree-with-from")
     def it_reads_the_explicit_markup_there(self, checkouts):
         main, session = checkouts
         edit(main.root, text="Kept <del>and cut</del> text.\n")
@@ -227,7 +227,7 @@ class DescribeEvidenceFrom:
         assert code == prose.OK, env["errors"]
         assert [r["kind"] for r in env["data"]["explicit"]] == ["del"]
 
-    @pytest.mark.spec("evidence-cmd-reads-other-worktree")
+    @pytest.mark.spec("evidence-cmd-reads-other-worktree-with-from")
     def it_takes_the_scope_from_this_trees_rules(self, checkouts):
         main, session = checkouts
         scoped = session.read(prose.CONFIG_PATH).replace(
@@ -240,7 +240,7 @@ class DescribeEvidenceFrom:
         assert code == prose.OK, env["errors"]
         assert env["data"]["inferred"] == []
 
-    @pytest.mark.spec("evidence-cmd-reads-other-worktree")
+    @pytest.mark.spec("evidence-cmd-reads-other-worktree-with-from")
     def it_names_a_pending_prose_style_md_there_and_does_not_read_it(self, checkouts):
         main, session = checkouts
         edit(main.root)
@@ -253,7 +253,7 @@ class DescribeEvidenceFrom:
         assert warning.startswith("%s has uncommitted changes in " % prose.CONFIG_PATH)
         assert "this run does not read them" in warning
 
-    @pytest.mark.spec("evidence-cmd-reads-other-worktree")
+    @pytest.mark.spec("evidence-cmd-reads-other-worktree-with-from")
     def it_keeps_the_other_worktrees_prose_style_md_out_of_scope(self, checkouts):
         main, session = checkouts
         scoped = session.read(prose.CONFIG_PATH).replace(
@@ -265,7 +265,7 @@ class DescribeEvidenceFrom:
         assert code == prose.OK, env["errors"]
         assert env["data"]["inferred"] == []
 
-    @pytest.mark.spec("evidence-cmd-reads-other-worktree")
+    @pytest.mark.spec("evidence-cmd-reads-other-worktree-with-from")
     def it_reads_this_tree_as_with_no_from(self, checkouts):
         main, session = checkouts
         edit(main.root)
@@ -277,7 +277,7 @@ class DescribeEvidenceFrom:
             assert env == plain
             assert env["data"]["checkout"] is None
 
-    @pytest.mark.spec("evidence-cmd-reads-other-worktree")
+    @pytest.mark.spec("evidence-cmd-reads-other-worktree-with-from")
     def it_tells_a_person_which_checkout_it_read(self, checkouts, capsys):
         main, session = checkouts
         edit(main.root)
@@ -286,7 +286,7 @@ class DescribeEvidenceFrom:
         out = capsys.readouterr().out
         assert out.startswith("reading %s, on %s\n" % (main.root, MAIN_BRANCH))
 
-    @pytest.mark.spec("evidence-cmd-reads-other-worktree")
+    @pytest.mark.spec("evidence-cmd-reads-other-worktree-with-from")
     def it_names_a_detached_checkout_by_its_folder_alone(self, checkouts, tmp_path, capsys):
         main, session = checkouts
         detached = tmp_path / "detached"
@@ -298,7 +298,7 @@ class DescribeEvidenceFrom:
 
 
 class DescribeReproduceFrom:
-    @pytest.mark.spec("reproduce-cmd-reads-other-worktree")
+    @pytest.mark.spec("reproduce-cmd-reads-other-worktree-with-from")
     def it_checks_the_other_worktrees_edits_against_this_trees_rules(self, notes):
         main, session = notes
         edit(main.root, rel="notes.md", text=UNREPRODUCED)
@@ -311,7 +311,7 @@ class DescribeReproduceFrom:
         assert env["data"]["edits"][0]["matches"][0]["rule"] == RULE
         assert env["data"]["checkout"]["branch"] == MAIN_BRANCH
 
-    @pytest.mark.spec("reproduce-cmd-reads-other-worktree")
+    @pytest.mark.spec("reproduce-cmd-reads-other-worktree-with-from")
     def it_diffs_against_the_other_worktrees_last_commit(self, notes):
         main, session = notes
         edit(session.root, rel="notes.md", text=UNREPRODUCED)
@@ -321,7 +321,7 @@ class DescribeReproduceFrom:
         assert code == prose.OK, env["errors"]
         assert [(e["start"], e["reproduced"]) for e in env["data"]["edits"]] == [(3, True)]
 
-    @pytest.mark.spec("reproduce-cmd-reads-other-worktree")
+    @pytest.mark.spec("reproduce-cmd-reads-other-worktree-with-from")
     def it_reads_this_trees_rules_not_the_other_worktrees(self, notes):
         main, session = notes
         edit(main.root, rel="notes.md", text=REPRODUCED)
@@ -330,7 +330,7 @@ class DescribeReproduceFrom:
         assert code == prose.OK, env["errors"]
         assert [e["reproduced"] for e in env["data"]["edits"]] == [True]
 
-    @pytest.mark.spec("reproduce-cmd-reads-other-worktree")
+    @pytest.mark.spec("reproduce-cmd-reads-other-worktree-with-from")
     def it_reads_this_tree_as_with_no_from(self, notes):
         main, session = notes
         edit(main.root, rel="notes.md", text=UNREPRODUCED)
@@ -340,7 +340,7 @@ class DescribeReproduceFrom:
         assert code == prose.OK, env["errors"]
         assert env == plain
 
-    @pytest.mark.spec("reproduce-cmd-reads-other-worktree")
+    @pytest.mark.spec("reproduce-cmd-reads-other-worktree-with-from")
     def it_tells_a_person_which_checkout_it_read(self, notes, capsys):
         main, session = notes
         edit(main.root, rel="notes.md", text=REPRODUCED)

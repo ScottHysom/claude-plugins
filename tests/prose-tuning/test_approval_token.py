@@ -137,7 +137,7 @@ class DescribeApprovalToken:
         assert "The closing paragraph." in prose_repo.read()
         assert prose_repo.read("other.md") == "Other text.\n"
 
-    @pytest.mark.spec("report-cmd-checks-only-named-files")
+    @pytest.mark.spec("report-cmd-only-searches-named-files")
     def it_applies_given_the_files_report_was_given(self, prose_repo, target_lines):
         findings = [closing(prose_repo, target_lines)]
         token = reported_token(prose_repo, findings, "target.md")
@@ -145,7 +145,7 @@ class DescribeApprovalToken:
         assert code == prose.OK, envelope["errors"]
         assert "The closing paragraph." in prose_repo.read()
 
-    @pytest.mark.spec("report-cmd-checks-only-named-files")
+    @pytest.mark.spec("report-cmd-only-searches-named-files")
     @pytest.mark.parametrize("given", [[], ["target.md", "other.md"]])
     def it_refuses_apply_given_other_files_than_report(self, prose_repo, target_lines, given):
         (prose_repo.root / "other.md").write_text("Other text.\n")
@@ -154,7 +154,7 @@ class DescribeApprovalToken:
         code, envelope = apply_with(prose_repo, token, *given)
         assert_refused(prose_repo, code, envelope, before)
 
-    @pytest.mark.spec("report-cmd-checks-only-named-files")
+    @pytest.mark.spec("report-cmd-only-searches-named-files")
     def it_refuses_after_a_file_report_was_given_changes(self, prose_repo, target_lines):
         (prose_repo.root / "other.md").write_text("Other text.\n")
         findings = [closing(prose_repo, target_lines)]

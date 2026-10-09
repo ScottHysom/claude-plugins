@@ -71,7 +71,7 @@ class DescribeTheProbeCommand:
         assert "gitify.py history" in result.stdout
         assert "files:" not in result.stdout
 
-    @pytest.mark.spec("repo:command-splits-output-streams")
+    @pytest.mark.spec("repo:command-splits-output-streams-without-json")
     def it_prints_the_command_on_stdout_in_plain_output(self, runner):
         code, _ = runner.run("probe", "--connected-folder", "/a/Projects", json_output=False)
         assert code == gitify.OK

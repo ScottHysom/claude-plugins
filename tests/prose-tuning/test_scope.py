@@ -40,7 +40,7 @@ class DescribeScopeCommand:
         lines = [line.split(None, 2) for line in capsys.readouterr().out.splitlines()]
         return {parts[1]: (parts[0], parts[2]) for parts in lines if parts[:1] in (["+"], ["-"])}
 
-    @pytest.mark.spec("scope-cmd-explains-each-file")
+    @pytest.mark.spec("scope-cmd-explains-each-file-with-all")
     def it_lists_every_markdown_file_with_the_pattern_behind_its_verdict(self, prose_repo, capsys):
         verdicts = self.scope(prose_repo, capsys)
         assert verdicts["target.md"] == ("+", "included by **/*.md")

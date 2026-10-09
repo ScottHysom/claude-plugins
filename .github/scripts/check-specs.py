@@ -207,14 +207,15 @@ REQUIREMENT_START_RE = re.compile(r"^- `[^`]*` \(")
 REQUIREMENT_RE = re.compile(r"^- `([^`]+)` \(([^)]*)\): \S")
 # A line that continues the bullet above it.
 CONTINUATION_RE = re.compile(r"^[ \t]+\S")
-ID_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+){0,5}$")
 # The form of an id a pull request adds, from SPEC-METHODOLOGY.md, under "Ids".
 # A need's id opens with one of the roles it defines under "Roles".
 ROLES = ("owner", "agent", "contributor", "model", "user")
 MODALS = ("can", "cannot", "may", "must")
 ADVERBS = ("never", "only")
-ID_WORDS = (2, 5)
+ID_WORDS = (2, 6)
 CMD = "cmd"
+# Any id's spelling: the most words an id may have, and `cmd` beside them.
+ID_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+){0,%d}$" % ID_WORDS[1])
 COMMAND = "command"
 ID_FORM = 'SPEC-METHODOLOGY.md, under "Ids", has the form.'
 TEST, STEP, CHECK, EVAL = "test", "step", "check", "eval"
@@ -422,8 +423,8 @@ def not_an_id(where, rid, errors):
     if ID_RE.match(rid):
         return False
     errors.append(
-        "%s: `%s` is not an id. An id is one to six lower-case words joined by "
-        "hyphens." % (where, rid)
+        "%s: `%s` is not an id. An id is one to %d lower-case words joined by "
+        "hyphens." % (where, rid, ID_WORDS[1] + 1)
     )
     return True
 

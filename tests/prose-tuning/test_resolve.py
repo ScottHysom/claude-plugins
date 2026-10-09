@@ -88,7 +88,7 @@ class DescribeTagsResolve:
         assert code == prose.OK, envelope
         assert prose_repo.read() == "One.\n\nThree.\n"
 
-    @pytest.mark.spec("resolve-cmd-warns-in-lists")
+    @pytest.mark.spec("resolve-cmd-warns-on-list-block-tags")
     def it_warns_when_it_resolves_a_block_tag_inside_a_list(self, prose_repo):
         """A tag between two list items can end the list, which the author
         has to look at, so the warning names the line.
@@ -108,7 +108,7 @@ class DescribeTagsResolve:
         assert any("never closed" in e for e in envelope["errors"])
         assert prose_repo.read("good.md") == "Keep <del>this</del>.\n"
 
-    @pytest.mark.spec("repo:command-splits-output-streams")
+    @pytest.mark.spec("repo:command-splits-output-streams-without-json")
     def it_prints_each_file_it_resolved_with_its_tag_count(self, prose_repo, capsys):
         (prose_repo.root / "target.md").write_text(CUT_MIDDLE)
         capsys.readouterr()

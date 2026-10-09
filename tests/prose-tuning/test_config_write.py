@@ -132,7 +132,9 @@ class DescribeConfigWrite:
         assert code == prose.OK
         assert NEW_RULE_BLOCK in style(prose_repo)
 
-    @pytest.mark.spec("write-cmd-writes-from-data", "repo:command-splits-output-streams")
+    @pytest.mark.spec(
+        "write-cmd-writes-from-data", "repo:command-splits-output-streams-without-json"
+    )
     def it_prints_each_rule_it_wrote_without_json(self, prose_repo, capsys):
         path = prose_repo.root / "batch.json"
         path.write_text(json.dumps([NEW_RULE]))
@@ -255,7 +257,7 @@ class DescribeNewRuleNames:
 
 
 class DescribeAllOrNone:
-    @pytest.mark.spec("write-cmd-writes-all-or-none")
+    @pytest.mark.spec("write-cmd-writes-nothing-unless-partial")
     def it_writes_nothing_while_any_record_is_refused(self, prose_repo):
         before = style(prose_repo)
         code, env = write(prose_repo, [NEW_RULE, new_rule(name="bad-01")])
@@ -264,14 +266,14 @@ class DescribeAllOrNone:
         assert env["errors"][-1] == "nothing was written; fix the records named, or pass --partial"
         assert style(prose_repo) == before
 
-    @pytest.mark.spec("write-cmd-writes-all-or-none")
+    @pytest.mark.spec("write-cmd-writes-nothing-unless-partial")
     def it_writes_the_valid_records_given_partial(self, prose_repo):
         code, env = write(prose_repo, [new_rule(name="bad-01"), NEW_RULE], "--partial")
         assert code == prose.PROBLEMS
         assert [w["id"] for w in env["data"]["written"]] == ["sentences-no-in-order-to"]
         assert NEW_RULE_BLOCK in style(prose_repo)
 
-    @pytest.mark.spec("write-cmd-writes-all-or-none")
+    @pytest.mark.spec("write-cmd-writes-nothing-unless-partial")
     def it_writes_nothing_on_a_dry_run(self, prose_repo, capsys):
         start = style(prose_repo)
         path = prose_repo.root / "batch.json"
@@ -493,7 +495,7 @@ class DescribeTheRulesPage:
         ]
 
 
-@pytest.mark.spec("write-cmd-requires-token")
+@pytest.mark.spec("write-cmd-requires-token-unless-dry-run")
 class DescribeTheApprovalToken:
     def dry_run_token(self, prose_repo, records):
         code, env = write(prose_repo, records, "--dry-run")

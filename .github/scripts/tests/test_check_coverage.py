@@ -149,7 +149,7 @@ class DescribeFloors:
         assert code == cc.PROBLEMS
         assert "%s has a floor" % OTHER in err
 
-    @pytest.mark.spec("floors-cmd-fails-lowered-floor")
+    @pytest.mark.spec("floors-cmd-fails-lowered-floor-with-base")
     def it_fails_a_floor_lowered_since_the_base(self, repo, run):
         git(repo, "checkout", "-q", "-b", "work")
         write(repo, {cc.FLOORS_FILE: floors({SCRIPT: 75.0})})
@@ -157,7 +157,7 @@ class DescribeFloors:
         assert code == cc.PROBLEMS
         assert json.loads(out)["data"]["lowered"] == [SCRIPT]
 
-    @pytest.mark.spec("floors-cmd-fails-lowered-floor")
+    @pytest.mark.spec("floors-cmd-fails-lowered-floor-with-base")
     def it_allows_a_floor_raised_since_the_base(self, repo, run):
         git(repo, "checkout", "-q", "-b", "work")
         write(

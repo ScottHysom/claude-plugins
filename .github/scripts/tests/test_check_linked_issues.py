@@ -243,13 +243,13 @@ class DescribeALookupThatFailed:
     message go unseen.
     """
 
-    @pytest.mark.spec("checklinkedissues-cmd-stops-on-failed-lookup")
+    @pytest.mark.spec("checklinkedissues-cmd-stops-on-failed-listing")
     def it_stops_when_it_cannot_read_the_commits(self):
         gh = FakeGitHub(issues={12: issue()}, missing={"commits"})
         with pytest.raises(cli.Fatal, match="commit messages"):
             cli.problems(event(), REPO, "tok", gh)
 
-    @pytest.mark.spec("checklinkedissues-cmd-stops-on-failed-lookup")
+    @pytest.mark.spec("checklinkedissues-cmd-stops-on-failed-listing")
     def it_stops_when_it_cannot_read_the_claim_branches(self):
         gh = FakeGitHub(issues={12: issue("approved"), 13: issue("approved")}, missing={"branches"})
         with pytest.raises(cli.Fatal, match="claim branches"):
@@ -296,7 +296,8 @@ class DescribeMain:
         assert out.err == ""
 
     @pytest.mark.spec(
-        "checklinkedissues-cmd-requires-approved-issues", "command-splits-output-streams"
+        "checklinkedissues-cmd-requires-approved-issues",
+        "command-splits-output-streams-without-json",
     )
     def it_exits_problems_with_the_reason_on_stderr(self, tmp_path, capsys):
         code, out = run(
@@ -306,7 +307,7 @@ class DescribeMain:
         assert "#12 linked" in out.out
         assert "not labeled approved" in out.err
 
-    @pytest.mark.spec("checklinkedissues-cmd-stops-on-failed-lookup")
+    @pytest.mark.spec("checklinkedissues-cmd-stops-on-failed-listing")
     def it_says_nothing_about_links_when_it_could_not_read_them(self, tmp_path, capsys):
         code, out = run(tmp_path, capsys, event(), FakeGitHub(missing={"commits"}))
         assert code == cli.CANNOT_RUN

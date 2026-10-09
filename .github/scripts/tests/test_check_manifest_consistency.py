@@ -92,7 +92,7 @@ class DescribeImport:
 
 
 class DescribeCheck:
-    @pytest.mark.spec("command-splits-output-streams")
+    @pytest.mark.spec("command-splits-output-streams-without-json")
     def it_passes_a_repo_whose_manifests_agree(self, make_repo, run):
         root = make_repo([entry()], {"foo": plugin()})
         code, out, err = run("check", "-C", str(root))

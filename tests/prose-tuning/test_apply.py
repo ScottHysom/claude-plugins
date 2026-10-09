@@ -43,7 +43,9 @@ class DescribeApply:
         assert envelope["errors"] == []
         assert "The closing paragraph." in prose_repo.read()
 
-    @pytest.mark.spec("apply-cmd-writes-approved", "repo:command-splits-output-streams")
+    @pytest.mark.spec(
+        "apply-cmd-writes-approved", "repo:command-splits-output-streams-without-json"
+    )
     def it_prints_the_edits_per_file_and_per_rule(self, prose_repo, target_lines, capsys):
         finding = prose_repo.finding(
             target_lines["last-paragraph"],
@@ -97,7 +99,7 @@ class DescribeApply:
 class DescribeGuards:
     """One malformed finding, one named rejection, and nothing on disk."""
 
-    @pytest.mark.spec("apply-cmd-refuses-non-prose")
+    @pytest.mark.spec("apply-cmd-refuses-protected-lines-and-comments")
     @pytest.mark.parametrize("kind", ["frontmatter", "blockquote", "fence", "comment"])
     def it_refuses_a_protected_line(self, prose_repo, target_lines, kind):
         before = prose_repo.read()
@@ -170,7 +172,7 @@ class DescribeGuards:
         assert "the text moved" in errors_of(envelope)[0]
         assert prose_repo.read() == before
 
-    @pytest.mark.spec("apply-cmd-keeps-table-structure")
+    @pytest.mark.spec("apply-cmd-never-splits-table-cells")
     @pytest.mark.parametrize(
         "replacement",
         [
@@ -191,7 +193,7 @@ class DescribeGuards:
             "target.md:%d  a table cell cannot contain | or a newline" % target_lines["table"]
         ]
 
-    @pytest.mark.spec("apply-cmd-keeps-table-structure")
+    @pytest.mark.spec("apply-cmd-never-splits-table-cells")
     def it_refuses_a_multi_line_replacement_outside_a_paragraph(self, prose_repo, target_lines):
         code, envelope = prose_repo.apply(
             [
@@ -205,7 +207,7 @@ class DescribeGuards:
             "target.md:%d  a heading replacement cannot span lines" % target_lines["heading"]
         ]
 
-    @pytest.mark.spec("apply-cmd-refuses-non-prose")
+    @pytest.mark.spec("apply-cmd-refuses-protected-lines-and-comments")
     @pytest.mark.parametrize(
         ("col_start", "text"),
         [
@@ -228,7 +230,7 @@ class DescribeGuards:
         ]
         assert prose_repo.read("notes.md") == before
 
-    @pytest.mark.spec("apply-cmd-refuses-non-prose")
+    @pytest.mark.spec("apply-cmd-refuses-protected-lines-and-comments")
     @pytest.mark.parametrize(
         ("col_start", "text", "after"),
         [
@@ -531,7 +533,7 @@ class DescribeSpansAcrossLines:
         assert code == prose.OK, envelope["errors"]
         assert prose_repo.read("doc.md") == "- First item starts here\n  and goes on.\n"
 
-    @pytest.mark.spec("apply-cmd-refuses-non-prose")
+    @pytest.mark.spec("apply-cmd-refuses-protected-lines-and-comments")
     def it_refuses_a_span_that_crosses_a_blank_line(self, prose_repo):
         self.write(prose_repo, "One.\n\nTwo.\n")
         before = prose_repo.read("doc.md")
@@ -543,7 +545,7 @@ class DescribeSpansAcrossLines:
         ]
         assert prose_repo.read("doc.md") == before
 
-    @pytest.mark.spec("apply-cmd-refuses-non-prose")
+    @pytest.mark.spec("apply-cmd-refuses-protected-lines-and-comments")
     def it_refuses_a_span_that_reaches_a_protected_line(self, prose_repo):
         self.write(prose_repo, "Some prose.\n> A quotation.\n")
         before = prose_repo.read("doc.md")
@@ -634,7 +636,7 @@ class DescribeNewLinesInListItems:
 
 
 class DescribeHelp:
-    @pytest.mark.spec("apply-cmd-describes-finding-fields")
+    @pytest.mark.spec("apply-cmd-describes-finding-fields-in-help")
     def it_describes_every_field_of_a_finding(self, capsys):
         with pytest.raises(SystemExit) as exit:
             prose.main(["apply", "--help"])
@@ -679,7 +681,9 @@ class DescribePartial:
         assert [a["line"] for a in envelope["data"]["applied"]] == [target_lines["last-paragraph"]]
         assert "The closing paragraph." in prose_repo.read()
 
-    @pytest.mark.spec("apply-cmd-refuses-non-prose", "repo:command-applies-rest-if-partial")
+    @pytest.mark.spec(
+        "apply-cmd-refuses-protected-lines-and-comments", "repo:command-applies-rest-if-partial"
+    )
     def it_still_leaves_the_protected_line_alone_with_partial(self, prose_repo, target_lines):
         prose_repo.apply(self.records(prose_repo, target_lines), "--partial")
         line = prose_repo.read().splitlines()[target_lines["fence"] - 1]

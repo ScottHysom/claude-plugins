@@ -245,7 +245,7 @@ class DescribeRepeats:
         code, _, _ = run("repeats", "-C", str(root))
         assert code == cs.OK
 
-    @pytest.mark.spec("checkskills-cmd-reads-worktree-files")
+    @pytest.mark.spec("checkskills-cmd-reads-unignored-files")
     def it_sees_a_skill_that_is_not_yet_tracked(self, make_repo, run):
         root = make_repo({A: skill("a", SHARED)})
         (root / "plugins/foo/skills/b").mkdir(parents=True)
@@ -287,7 +287,9 @@ class DescribeDescriptions:
         assert "1 skill description(s) clear" in out
         assert err == ""
 
-    @pytest.mark.spec("descriptions-cmd-fails-named-tags", "command-splits-output-streams")
+    @pytest.mark.spec(
+        "descriptions-cmd-fails-named-tags", "command-splits-output-streams-without-json"
+    )
     def it_fails_a_skill_whose_description_holds_a_tag(self, make_repo, run):
         root = make_repo({SKILL: described("Reads explicit <ins> markup.")})
         code, out, err = run("descriptions", "-C", str(root))
@@ -367,7 +369,7 @@ class DescribeDescriptions:
         code, _, err = run("descriptions", "-C", str(root))
         assert code == cs.OK, err
 
-    @pytest.mark.spec("checkskills-cmd-reads-worktree-files")
+    @pytest.mark.spec("checkskills-cmd-reads-unignored-files")
     def it_checks_a_committed_file(self, make_repo, run):
         root = make_repo({SKILL: described("Has <ins>.")})
         commit(root)
@@ -375,7 +377,7 @@ class DescribeDescriptions:
         assert code == cs.PROBLEMS
         assert SKILL in err
 
-    @pytest.mark.spec("checkskills-cmd-reads-worktree-files")
+    @pytest.mark.spec("checkskills-cmd-reads-unignored-files")
     def it_checks_a_file_git_is_not_yet_tracking(self, make_repo, run):
         root = make_repo({SKILL: described("Does foo.")})
         commit(root)
@@ -386,7 +388,7 @@ class DescribeDescriptions:
         assert code == cs.PROBLEMS
         assert new in err
 
-    @pytest.mark.spec("checkskills-cmd-reads-worktree-files")
+    @pytest.mark.spec("checkskills-cmd-reads-unignored-files")
     def it_skips_a_file_git_ignores(self, make_repo, run):
         ignored = "plugins/foo/skills/scratch/SKILL.md"
         root = make_repo(
@@ -479,7 +481,9 @@ class DescribeCommands:
         assert code == cs.OK, err
         assert "2 invocation(s) in 1 file(s)" in out
 
-    @pytest.mark.spec("commands-cmd-parses-invocations", "command-splits-output-streams")
+    @pytest.mark.spec(
+        "commands-cmd-parses-invocations", "command-splits-output-streams-without-json"
+    )
     def it_rejects_an_unknown_subcommand(self, make_repo, run):
         root = make_repo(uses(sh('python3 "$FOO" config nope')))
         code, out, err = run("commands", "-C", str(root))
@@ -737,7 +741,7 @@ class DescribeSteps:
         assert "marker is stale" not in err
         assert "outside any step" in err
 
-    @pytest.mark.spec("steps-cmd-fails-commands-outside-steps")
+    @pytest.mark.spec("steps-cmd-fails-stray-commands")
     def it_rejects_a_command_in_a_section_that_is_not_a_step(self, make_repo, run):
         files = steps(RUNS)
         files[SKILL] += "## Checking the template\n\n" + RUNS
@@ -746,7 +750,7 @@ class DescribeSteps:
         assert code == cs.PROBLEMS
         assert "%s:24 runs a script command outside any step" % SKILL in err
 
-    @pytest.mark.spec("steps-cmd-fails-commands-outside-steps")
+    @pytest.mark.spec("steps-cmd-fails-stray-commands")
     def it_rejects_a_command_above_the_first_section(self, make_repo, run):
         files = steps(RUNS)
         files[SKILL] = files[SKILL].replace("## Locate the script", RUNS + "\n## Locate the script")
@@ -755,7 +759,7 @@ class DescribeSteps:
         assert code == cs.PROBLEMS
         assert "outside any step" in err
 
-    @pytest.mark.spec("steps-cmd-fails-commands-outside-steps")
+    @pytest.mark.spec("steps-cmd-fails-stray-commands")
     def it_accepts_the_first_command_in_the_locate_section(self, make_repo, run):
         files = steps(RUNS)
         files[SKILL] = files[SKILL].replace(
@@ -905,7 +909,9 @@ class DescribeSteps:
 
 
 class DescribeFences:
-    @pytest.mark.spec("fences-cmd-rejects-other-commands", "command-splits-output-streams")
+    @pytest.mark.spec(
+        "fences-cmd-rejects-other-commands", "command-splits-output-streams-without-json"
+    )
     def it_rejects_python_dash_c(self, make_repo, run):
         root = make_repo(uses(sh('python3 "$FOO" lint', "python3 -c 'print(1)'")))
         code, out, err = run("fences", "-C", str(root))

@@ -327,7 +327,9 @@ class DescribePlanReportOrder:
 
 
 class DescribePlanReportFile:
-    @pytest.mark.spec("planreport-cmd-writes-report-file", "command-splits-output-streams")
+    @pytest.mark.spec(
+        "planreport-cmd-writes-report-file", "command-splits-output-streams-without-json"
+    )
     def it_writes_the_report_it_prints_and_ends_it_with_the_token(
         self, capsys, tmp_path, repo, hub
     ):
@@ -345,7 +347,9 @@ class DescribePlanReportFile:
         assert "- **Blocked by:** `A`" in written
         assert "> 1. #{A} issue A" in written
 
-    @pytest.mark.spec("planreport-cmd-writes-report-file", "command-splits-output-streams")
+    @pytest.mark.spec(
+        "planreport-cmd-writes-report-file", "command-splits-output-streams-without-json"
+    )
     def it_writes_a_refused_report_with_its_faults_and_no_token(self, capsys, tmp_path, repo, hub):
         hub()
         plan = write_plan(tmp_path, issue("A", labels=("bug",)))
@@ -393,7 +397,7 @@ class DescribePlanFile:
         assert gh.subs == {t: [a, b, c]}
         assert data["data"]["tracking"]["url"] == "https://github.com/o/r/issues/103"
 
-    @pytest.mark.spec("planfile-cmd-files-in-order", "command-splits-output-streams")
+    @pytest.mark.spec("planfile-cmd-files-in-order", "command-splits-output-streams-without-json")
     def it_names_each_number_and_address_on_stdout(self, capsys, tmp_path, repo, hub):
         hub()
         plan = write_plan(tmp_path, issue("A"))
@@ -497,7 +501,7 @@ class DescribePlanFileReadBack:
 
 
 class DescribePlanFileResume:
-    @pytest.mark.spec("planfile-cmd-resumes-after-failure")
+    @pytest.mark.spec("planfile-cmd-resumes-after-failed-call")
     def it_stops_at_a_failed_call_and_files_only_the_rest_when_run_again(
         self, capsys, tmp_path, repo, hub
     ):
@@ -523,7 +527,7 @@ class DescribePlanFileResume:
         assert gh.blocked == {101: [8, 100]}
         assert gh.subs == {103: [100, 101, 102]}
 
-    @pytest.mark.spec("planfile-cmd-resumes-after-failure")
+    @pytest.mark.spec("planfile-cmd-resumes-after-failed-call")
     def it_adds_only_the_links_and_sub_issues_github_lacks(self, capsys, tmp_path, repo, hub):
         gh = hub()
         plan = write_plan(tmp_path, issue("A"), issue("B", "A"))
@@ -547,7 +551,7 @@ class DescribePlanFileResume:
         assert gh.blocked == {101: [100]}
         assert gh.subs == {102: [100, 101]}
 
-    @pytest.mark.spec("planfile-cmd-resumes-after-failure")
+    @pytest.mark.spec("planfile-cmd-resumes-after-failed-call")
     def it_never_files_a_finished_plan_twice(self, capsys, tmp_path, repo, hub):
         gh = hub()
         plan = write_plan(tmp_path, issue("A"))
@@ -559,7 +563,7 @@ class DescribePlanFileResume:
         assert "this plan was filed already, under tracking issue #101" in data["errors"][0]
         assert len(gh.writes()) == before
 
-    @pytest.mark.spec("planfile-cmd-resumes-after-failure")
+    @pytest.mark.spec("planfile-cmd-resumes-after-failed-call")
     def it_warns_of_an_issue_filed_earlier_that_the_plan_dropped(self, capsys, tmp_path, repo, hub):
         gh = hub(fail_create=1)
         plan = write_plan(tmp_path, issue("A"), issue("B"))
@@ -574,7 +578,7 @@ class DescribePlanFileResume:
             "it stays as it is, outside the tracking issue"
         ]
 
-    @pytest.mark.spec("planfile-cmd-resumes-after-failure")
+    @pytest.mark.spec("planfile-cmd-resumes-after-failed-call")
     def it_starts_a_new_plan_afresh_once_the_last_one_is_finished(
         self, capsys, tmp_path, repo, hub
     ):

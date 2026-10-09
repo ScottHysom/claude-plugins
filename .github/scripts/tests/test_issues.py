@@ -250,7 +250,9 @@ class DescribeClaim:
         assert remote_branches(remote) == {cli.BASE}
         assert gh.writes() == []
 
-    @pytest.mark.spec("claim-cmd-adds-in-progress-label", "command-splits-output-streams")
+    @pytest.mark.spec(
+        "claim-cmd-adds-in-progress-label", "command-splits-output-streams-without-json"
+    )
     def it_warns_when_the_label_fails_after_the_push(self, capsys, remote, clone, github):
         github(make_issue(12, "approved"), fail=("--add-label",))
         code, out = run(capsys, clone("a"), "claim", "12")
@@ -258,7 +260,7 @@ class DescribeClaim:
         assert "warning: claimed, but could not add the in-progress label" in out.err
         assert "issue/12" in remote_branches(remote)
 
-    @pytest.mark.spec("claim-cmd-stops-on-refused-push")
+    @pytest.mark.spec("claim-cmd-stops-when-nobody-wins")
     def it_cannot_run_when_the_push_is_refused_for_another_reason(
         self, capsys, remote, clone, github
     ):
@@ -272,7 +274,9 @@ class DescribeClaim:
         assert out.err.startswith("issues.py: could not push issue/12")
         assert gh.writes() == []
 
-    @pytest.mark.spec("claim-cmd-switches-to-issue-branch", "command-splits-output-streams")
+    @pytest.mark.spec(
+        "claim-cmd-switches-to-issue-branch", "command-splits-output-streams-without-json"
+    )
     def it_warns_when_it_cannot_switch_to_the_branch(self, capsys, remote, clone, github):
         a = clone("a")
         git(a, "branch", "issue/12")
@@ -312,7 +316,7 @@ class DescribeNext:
         assert code == cli.OK
         assert out.out == "No approved issue is free.\n"
 
-    @pytest.mark.spec("next-cmd-offers-free-issue", "command-splits-output-streams")
+    @pytest.mark.spec("next-cmd-offers-free-issue", "command-splits-output-streams-without-json")
     def it_names_the_free_issue_on_stdout(self, capsys, clone, github):
         github(make_issue(13, "approved"))
         code, out = run(capsys, clone("a"), "next")
@@ -395,7 +399,9 @@ class DescribeNextTracking:
         assert data["data"]["issue"] == {"number": 16, "title": "issue 16"}
         assert data["data"]["blocked"] == [{"number": 14, "title": "issue 14", "blocked_by": [99]}]
 
-    @pytest.mark.spec("next-cmd-follows-tracking-issue", "command-splits-output-streams")
+    @pytest.mark.spec(
+        "next-cmd-follows-tracking-issue", "command-splits-output-streams-without-json"
+    )
     def it_fails_on_an_unapproved_sub_issue_rather_than_skip_it(self, capsys, clone, github):
         github(
             make_issue(20, "approved", "tracking"),
@@ -456,7 +462,7 @@ class DescribeNextTracking:
 
 
 class DescribeNextPlans:
-    @pytest.mark.spec("next-cmd-names-tracking-issue", "command-splits-output-streams")
+    @pytest.mark.spec("next-cmd-names-tracking-issue", "command-splits-output-streams-without-json")
     def it_names_an_approved_plan_at_its_lowest_open_sub_issue(self, capsys, clone, github):
         github(
             make_issue(20, "approved", "tracking"),
@@ -639,7 +645,7 @@ class DescribeStale:
         github(make_issue(12, "approved", "in-progress"), pulls=["issue/12"])
         assert run(capsys, a, "stale")[0] == cli.OK
 
-    @pytest.mark.spec("stale-cmd-reports-label-mismatch")
+    @pytest.mark.spec("stale-cmd-reports-claims-left-behind")
     def it_reports_a_branch_left_after_the_issue_closed(self, capsys, clone, github):
         a = claimed(capsys, clone, github)
         github(make_issue(12, "approved", state="CLOSED"))
@@ -647,14 +653,14 @@ class DescribeStale:
         assert code == cli.PROBLEMS
         assert "#12 is closed but issue/12 still exists" in out.err
 
-    @pytest.mark.spec("stale-cmd-reports-label-mismatch")
+    @pytest.mark.spec("stale-cmd-reports-claims-left-behind")
     def it_reports_a_label_without_a_branch(self, capsys, clone, github):
         github(make_issue(12, "approved", "in-progress"))
         code, out = run(capsys, clone("a"), "stale")
         assert code == cli.PROBLEMS
         assert "#12 is labeled in-progress but issue/12 does not exist" in out.err
 
-    @pytest.mark.spec("stale-cmd-reports-label-mismatch")
+    @pytest.mark.spec("stale-cmd-reports-claims-left-behind")
     def it_reports_a_closed_issue_that_kept_the_label(self, capsys, clone, github):
         github(make_issue(12, "approved", "in-progress", state="CLOSED"))
         code, out = run(capsys, clone("a"), "stale")

@@ -170,7 +170,7 @@ class DescribeCheckingFirst:
         assert env["errors"][0].startswith("draft 1: a.py:3 does not hold a pending TODO")
         assert creates(github) == []
 
-    @pytest.mark.spec("report-cmd-refuses-repeated-todos")
+    @pytest.mark.spec("report-cmd-refuses-drafts-sharing-todo")
     def it_refuses_a_repeated_todo_whatever_the_token(self, three, github, monkeypatch):
         found, _ = three.scan()
         drafts = three.drafts([three.draft(found[0]), three.draft(found[0])])

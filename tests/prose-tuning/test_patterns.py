@@ -120,7 +120,7 @@ class DescribePatternLines:
 
 
 class DescribePatternMatches:
-    @pytest.mark.spec("patterns-cmd-prints-each-match")
+    @pytest.mark.spec("patterns-cmd-prints-each-prose-match")
     def it_finds_a_match_on_one_line(self, tmp_path):
         got = matches(tmp_path, "We did it in order to ship.\n")
         assert got == [
@@ -134,18 +134,18 @@ class DescribePatternMatches:
             }
         ]
 
-    @pytest.mark.spec("patterns-cmd-prints-each-match")
+    @pytest.mark.spec("patterns-cmd-prints-each-prose-match")
     def it_finds_a_match_that_wraps_across_a_line_break(self, tmp_path):
         got = matches(tmp_path, "We did it in order\n  to ship.\n")
         assert [(m["line"], m["end_line"], m["text"]) for m in got] == [(1, 2, "in order\n  to")]
         assert (got[0]["col_start"], got[0]["col_end"]) == (10, 4)
 
-    @pytest.mark.spec("patterns-cmd-prints-each-match")
+    @pytest.mark.spec("patterns-cmd-prints-each-prose-match")
     def it_finds_a_match_that_wraps_within_a_list_item(self, tmp_path):
         got = matches(tmp_path, "- We did it in order\n  to ship.\n")
         assert [m["text"] for m in got] == ["in order\n  to"]
 
-    @pytest.mark.spec("segments-cmd-gives-prose-only")
+    @pytest.mark.spec("segments-cmd-skips-protected-blocks")
     @pytest.mark.parametrize(
         "doc",
         [
@@ -161,7 +161,7 @@ class DescribePatternMatches:
     def it_never_reads_what_segments_leaves_out(self, tmp_path, doc):
         assert matches(tmp_path, doc) == []
 
-    @pytest.mark.spec("patterns-cmd-prints-each-match")
+    @pytest.mark.spec("patterns-cmd-prints-each-prose-match")
     @pytest.mark.parametrize(
         "doc",
         [
@@ -175,7 +175,7 @@ class DescribePatternMatches:
     def it_does_not_read_on_past_the_end_of_a_passage(self, tmp_path, doc):
         assert matches(tmp_path, doc) == []
 
-    @pytest.mark.spec("patterns-cmd-prints-each-match")
+    @pytest.mark.spec("patterns-cmd-prints-each-prose-match")
     def it_leaves_a_line_break_at_the_edge_of_a_match_out_of_its_text(self, tmp_path):
         style = rule_with(r"**Pattern.** `\sto\s`")
         got = matches(tmp_path, "We did it in order to\n  ship.\n", style)
@@ -184,12 +184,12 @@ class DescribePatternMatches:
         got = matches(tmp_path, "We did it in order\n  to ship.\n", style)
         assert [(m["line"], m["col_start"], m["text"]) for m in got] == [(2, 2, "to")]
 
-    @pytest.mark.spec("patterns-cmd-prints-each-match")
+    @pytest.mark.spec("patterns-cmd-prints-each-prose-match")
     def it_reports_a_place_two_patterns_of_one_rule_share_once(self, tmp_path):
         style = rule_with("**Pattern.** `order`\n**Pattern.** `(?i)ORDER`")
         assert [m["text"] for m in matches(tmp_path, "In order.\n", style)] == ["order"]
 
-    @pytest.mark.spec("patterns-cmd-prints-each-match")
+    @pytest.mark.spec("patterns-cmd-prints-each-prose-match")
     def it_reports_nothing_for_a_match_of_only_the_break_between_two_lines(self, tmp_path):
         style = rule_with("**Pattern.** `(?<=ends)\\s`").replace(
             "> **Before.** In order to run it.\n> **After.** To run it.\n", ""
@@ -198,14 +198,14 @@ class DescribePatternMatches:
         assert config.by_id()[RULE].patterns[0][1] == "(?<=ends)\\s"
         assert matches(tmp_path, "One line ends\nand the next.\n", style) == []
 
-    @pytest.mark.spec("patterns-cmd-prints-each-match")
+    @pytest.mark.spec("patterns-cmd-prints-each-prose-match")
     def it_leaves_out_a_match_in_a_code_span_that_holds_a_shorter_backtick_run(self, tmp_path):
         got = matches(tmp_path, "Run ``a ` in order to`` then in order to ship.\n")
         assert [m["col_start"] for m in got] == [29]
 
 
 class DescribePatternsCommand:
-    @pytest.mark.spec("patterns-cmd-prints-each-match")
+    @pytest.mark.spec("patterns-cmd-prints-each-prose-match")
     def it_prints_each_match_with_its_address_rule_and_text(self, prose_repo, capsys):
         (prose_repo.root / prose.CONFIG_PATH).write_text(STYLE)
         (prose_repo.root / "doc.md").write_text("Intro — here.\n\nIt ran in order\n  to ship.\n")
@@ -218,7 +218,7 @@ class DescribePatternsCommand:
         ]
         assert out[-1].endswith("Checked by pattern: %s" % RULE)
 
-    @pytest.mark.spec("patterns-cmd-prints-each-match")
+    @pytest.mark.spec("patterns-cmd-prints-each-prose-match")
     def it_hands_out_a_text_that_apply_accepts_as_a_finding(self, prose_repo):
         (prose_repo.root / prose.CONFIG_PATH).write_text(STYLE)
         (prose_repo.root / "doc.md").write_text("It ran in order\n  to ship.\n")
@@ -247,7 +247,7 @@ class DescribePatternsCommand:
         assert envelope["errors"] == ["missing.md  no such file"]
         assert envelope["data"]["files"] == 2
 
-    @pytest.mark.spec("patterns-cmd-prints-each-match")
+    @pytest.mark.spec("patterns-cmd-prints-each-prose-match")
     def it_says_so_when_no_rule_carries_a_pattern(self, prose_repo):
         code, envelope = prose_repo.run("patterns")
         assert code == prose.OK
@@ -369,7 +369,7 @@ class DescribeReportOnPatterns:
         assert [m["file"] for m in envelope["data"]["uncovered"]] == ["other.md"]
         assert envelope["errors"][0].startswith("other.md:1:0-11  %s" % RULE)
 
-    @pytest.mark.spec("report-cmd-checks-only-named-files")
+    @pytest.mark.spec("report-cmd-only-searches-named-files")
     def it_checks_only_the_files_it_is_given(self, prose_repo):
         patterned_doc(prose_repo)
         (prose_repo.root / "other.md").write_text("In order to run it.\n")
@@ -379,7 +379,7 @@ class DescribeReportOnPatterns:
         assert envelope["data"]["uncovered"] == []
         assert envelope["data"]["token"]
 
-    @pytest.mark.spec("report-cmd-checks-only-named-files")
+    @pytest.mark.spec("report-cmd-only-searches-named-files")
     def it_fails_on_an_uncovered_match_in_a_file_it_is_given(self, prose_repo):
         patterned_doc(prose_repo)
         (prose_repo.root / "other.md").write_text("In order to run it.\n")
@@ -389,7 +389,7 @@ class DescribeReportOnPatterns:
         assert [m["file"] for m in envelope["data"]["uncovered"]] == ["other.md"]
         assert envelope["data"]["token"] is None
 
-    @pytest.mark.spec("report-cmd-checks-only-named-files")
+    @pytest.mark.spec("report-cmd-only-searches-named-files")
     def it_names_a_file_given_that_does_not_exist(self, prose_repo):
         patterned_doc(prose_repo)
         findings = [rewrite(prose_repo), dismissal(prose_repo)]
@@ -455,7 +455,7 @@ class DescribeShippedPatterns:
         rule = shipped.by_id()[rid]
         return [m["text"] for m in prose.pattern_matches(text, prose.Blocks(text), [rule])]
 
-    @pytest.mark.spec("template-catches-spelling-and-dashes")
+    @pytest.mark.spec("template-catches-british-spellings-and-emdashes")
     def it_lints_clean(self, shipped):
         assert shipped.errors == []
         assert [r.id for r in shipped.patterned()] == [
@@ -463,7 +463,7 @@ class DescribeShippedPatterns:
             "standing-us-spelling",
         ]
 
-    @pytest.mark.spec("template-catches-spelling-and-dashes")
+    @pytest.mark.spec("template-catches-british-spellings-and-emdashes")
     @pytest.mark.parametrize(
         ("doc", "want"),
         [
@@ -481,7 +481,7 @@ class DescribeShippedPatterns:
     def it_finds_a_dash_doing_an_em_dash_job(self, shipped, doc, want):
         assert self.found(shipped, "standing-no-em-dash", doc) == want
 
-    @pytest.mark.spec("template-catches-spelling-and-dashes")
+    @pytest.mark.spec("template-catches-british-spellings-and-emdashes")
     @pytest.mark.parametrize(
         "word",
         "behaviour Colourful favourite honour neighbour analyse organisation "
@@ -492,7 +492,7 @@ class DescribeShippedPatterns:
     def it_finds_a_british_spelling(self, shipped, word):
         assert self.found(shipped, "standing-us-spelling", "A %s here.\n" % word) == [word]
 
-    @pytest.mark.spec("template-catches-spelling-and-dashes")
+    @pytest.mark.spec("template-catches-british-spellings-and-emdashes")
     @pytest.mark.parametrize(
         "word",
         "behavior color hour contour glamour analyses analysis emphasis realism "
