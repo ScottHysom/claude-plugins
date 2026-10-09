@@ -290,13 +290,14 @@ class DescribeReportOnPatterns:
         assert code == prose.OK
         assert ("checked by pattern: %s. Every other rule was checked by reading." % RULE) in out
 
-    @pytest.mark.spec("report-cmd-fails-uncovered-matches")
+    @pytest.mark.spec("report-cmd-fails-uncovered-matches", "uncovered-names-remedy")
     def it_names_an_uncovered_match(self, prose_repo):
         patterned_doc(prose_repo)
         code, envelope = prose_repo.report([rewrite(prose_repo)])
         assert code == prose.PROBLEMS
         assert envelope["errors"] == [
-            'doc.md:3:0-11  %s  "In order to"  no finding or dismissal covers this match' % RULE
+            'doc.md:3:0-11  %s  "In order to"  no finding or dismissal covers this match; '
+            "add a finding that rewrites it, or a dismissal if it stays" % RULE
         ]
         assert [(m["file"], m["line"]) for m in envelope["data"]["uncovered"]] == [("doc.md", 3)]
         assert envelope["data"]["token"] is None
