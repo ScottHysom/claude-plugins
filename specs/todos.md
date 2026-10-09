@@ -64,9 +64,10 @@ Source: #311, which quotes the owner's request.
 - `file-cmd-creates-issues` (test): When `file` runs with a current token, it
   creates one issue for each draft routed to `issue`, with its title, body
   and labels, and prints each issue's number and address.
-- `dotodos-follows-project-rules` (step): When do-todos drafts an issue, it
-  follows the project's own rules for issues, from its CLAUDE.md and its
-  issue templates, and takes labels only from the list `scan` gives.
+- `dotodos-follows-project-rules` (step): When do-todos drafts an issue or a
+  comment, it follows the project's own rules for issues or for replies, from
+  its CLAUDE.md and its issue templates, and takes labels only from the list
+  `scan` gives.
 
 ## need user-sees-handled-todos: See which TODOs were handled
 
@@ -87,9 +88,9 @@ Source: the owner's ruling while planning, 2026-10-04, recorded in #333.
   it wraps the TODO, with its detail lines, in `<!--` and `-->`.
 - `scan-cmd-skips-handled-todos` (test): When an added line opens with
   `TODO-HANDLED(<target>):`, after its indent and any characters that are not
-  letters or digits, `scan` neither reports it nor warns, and does not read
-  it or its detail as another TODO's detail or as the line a TODO sits
-  above.
+  letters or digits, or holds one that `file` left after the line's other
+  text, `scan` neither reports it nor warns, and does not read an opening one
+  or its detail as another TODO's detail or as the line a TODO sits above.
 
 ## need user-collects-from-other-checkout: Collect TODOs left in another checkout
 

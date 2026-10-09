@@ -30,8 +30,9 @@ gitify-project description.
 
 - `preflight-cmd-names-template-problems` (test): When `gitify.py
   preflight` checks the shipped templates, it names each template missing from
-  disk or from `MANIFEST`, each unknown placeholder and each stray brace, and
-  exits 1.
+  disk or from `MANIFEST`, each unknown placeholder, each stray brace, each
+  line of `git-history.md` that would end `history`'s heredoc and a
+  `git-history.md` that lacks its `## Git history` line, and exits 1.
 - `render-cmd-refuses-leftover-placeholders` (test): When a placeholder or
   brace would survive into a rendered file, `render` names it and writes
   nothing.
