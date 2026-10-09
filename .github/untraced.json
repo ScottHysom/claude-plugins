@@ -1,7 +1,5 @@
 {
-  "steps": {
-    "plugins/prose-tuning/skills/apply-prose/SKILL.md::2": 196
-  },
+  "steps": {},
   "tests": {
     ".github/scripts/tests/test_check_linked_issues.py::DescribeTheApprovedLabelRule::it_compares_label_names_without_case": 227,
     ".github/scripts/tests/test_check_manifest_consistency.py::DescribeCheck::it_rejects_a_name_that_is_not_kebab_case": 247,

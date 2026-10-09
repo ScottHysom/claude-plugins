@@ -369,6 +369,35 @@ class DescribeReportOnPatterns:
         assert [m["file"] for m in envelope["data"]["uncovered"]] == ["other.md"]
         assert envelope["errors"][0].startswith("other.md:1:0-11  %s" % RULE)
 
+    @pytest.mark.spec("report-cmd-checks-only-named-files")
+    def it_checks_only_the_files_it_is_given(self, prose_repo):
+        patterned_doc(prose_repo)
+        (prose_repo.root / "other.md").write_text("In order to run it.\n")
+        findings = [rewrite(prose_repo), dismissal(prose_repo)]
+        code, envelope = prose_repo.report(findings, "doc.md")
+        assert code == prose.OK, envelope["errors"]
+        assert envelope["data"]["uncovered"] == []
+        assert envelope["data"]["token"]
+
+    @pytest.mark.spec("report-cmd-checks-only-named-files")
+    def it_fails_on_an_uncovered_match_in_a_file_it_is_given(self, prose_repo):
+        patterned_doc(prose_repo)
+        (prose_repo.root / "other.md").write_text("In order to run it.\n")
+        findings = [rewrite(prose_repo), dismissal(prose_repo)]
+        code, envelope = prose_repo.report(findings, "doc.md", "other.md")
+        assert code == prose.PROBLEMS
+        assert [m["file"] for m in envelope["data"]["uncovered"]] == ["other.md"]
+        assert envelope["data"]["token"] is None
+
+    @pytest.mark.spec("report-cmd-checks-only-named-files")
+    def it_names_a_file_given_that_does_not_exist(self, prose_repo):
+        patterned_doc(prose_repo)
+        findings = [rewrite(prose_repo), dismissal(prose_repo)]
+        code, envelope = prose_repo.report(findings, "doc.md", "missing.md")
+        assert code == prose.PROBLEMS
+        assert envelope["errors"] == ["missing.md  no such file"]
+        assert envelope["data"]["token"] is None
+
     @pytest.mark.spec("patterns-cmd-refuses-unlinted-rules")
     def it_refuses_to_report_on_a_rule_file_lint_refuses(self, prose_repo):
         patterned_doc(prose_repo)

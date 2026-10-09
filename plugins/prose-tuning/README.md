@@ -161,7 +161,8 @@ A rewrite changes how a sentence reads and never what it says. Numbers,
 names, dates and claims stay as they are.
 
 The `scope:` list at the top of `prose-style.md` decides which files are
-checked. If a file you expected was skipped, ask Claude why.
+checked. If a file you expected was skipped, ask Claude why. To check only
+some documents, name them when you ask.
 
 ## Sharing rules between projects
 
