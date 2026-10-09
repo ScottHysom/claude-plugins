@@ -24,12 +24,15 @@ set -e
 cd "$(dirname "$0")"
 chmod +x setup.sh commit.sh
 
+usage() {
+    echo "usage: sh setup.sh [commit]" >&2
+    exit 2
+}
+
+[ $# -le 1 ] || usage
 case "${1:-}" in
     "" | commit) ;;
-    *)
-        echo "usage: sh setup.sh [commit]" >&2
-        exit 2
-        ;;
+    *) usage ;;
 esac
 
 if [ -d .git ] && git rev-parse --verify --quiet HEAD >/dev/null; then

@@ -135,6 +135,13 @@ class DescribeSetup:
         assert result.returncode == 2
         assert not (folder / ".git").exists()
 
+    @pytest.mark.spec("setupsh-rejects-unknown-arguments")
+    def it_rejects_a_second_argument_after_commit(self, folder):
+        result = sh(folder, "setup.sh", "commit", "extra")
+        assert result.returncode == 2
+        assert "usage: sh setup.sh [commit]" in result.stderr
+        assert not (folder / ".git").exists()
+
 
 class DescribeCommit:
     @pytest.mark.spec("commitsh-refuses-before-setup")

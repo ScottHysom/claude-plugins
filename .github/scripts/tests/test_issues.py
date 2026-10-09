@@ -651,7 +651,7 @@ class DescribeStale:
         github(make_issue(12, "approved", state="CLOSED"))
         code, out = run(capsys, a, "stale")
         assert code == cli.PROBLEMS
-        assert "#12 is closed but issue/12 still exists" in out.err
+        assert "#12 is closed but issue/12 still exists; run release 12" in out.err
 
     @pytest.mark.spec("stale-cmd-reports-claims-left-behind")
     def it_reports_a_label_without_a_branch(self, capsys, clone, github):

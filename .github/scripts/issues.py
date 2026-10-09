@@ -826,7 +826,7 @@ def cmd_stale(args, repo):
             continue
         item = issue(repo, n)
         if item.get("state") != "OPEN":
-            errors.append("#%d is closed but %s still exists" % (n, branch(n)))
+            errors.append("#%d is closed but %s still exists; run release %d" % (n, branch(n), n))
             continue
         if row["pull_request"]:
             continue
