@@ -38,7 +38,7 @@ detail, up to a blank line:
 # It retries a 404 too, which will never succeed.
 ```
 
-A block comment holds its detail inside it:
+A `/* */` or `<!-- -->` comment holds its detail inside it:
 
 ```markdown
 <!-- TODO(docs): the layout leaves out .github/workflows/
@@ -56,8 +56,10 @@ Claude reads it only when the TODO is all you changed on that line. If you
 changed the code on the line too, Claude warns about the TODO and leaves it in
 place.
 
-Any text file works, whatever its language, because the TODO uses the file's
-own comment syntax, so the file still runs, compiles and renders as before.
+Any text file works whose comment marker is made of symbols, such as `#`,
+`//`, `--` or `<!--`. A marker made of letters, such as `REM`, is not read.
+The TODO uses the file's own comment syntax, so the file still runs, compiles
+and renders as before.
 In a markdown file, a TODO inside a code block or a code span is left alone,
 so a document can show the syntax.
 
