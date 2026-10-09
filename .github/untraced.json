@@ -16,7 +16,6 @@
     ".github/scripts/tests/test_issues.py::DescribeStale::it_passes_a_recent_claim_on_an_old_main": 219,
     ".github/scripts/tests/test_issues.py::DescribeStale::it_reports_an_idle_claim": 219,
     "tests/prose-tuning/test_apply.py::DescribeApply::it_reads_the_findings_from_stdin_given_a_dash": 195,
-    "tests/prose-tuning/test_apply.py::DescribeGuards::it_refuses_columns_outside_the_line": 191,
     "tests/prose-tuning/test_config_location.py::DescribeConfigCommandsBeforeTheMove::it_points_to_config_move_when_only_the_root_file_exists": 203,
     "tests/prose-tuning/test_config_location.py::DescribeConfigMove::it_copies_the_root_file_byte_for_byte": 203,
     "tests/prose-tuning/test_config_location.py::DescribeConfigMove::it_leaves_the_root_file_for_the_author_to_delete": 203,
@@ -29,7 +28,6 @@
     "tests/prose-tuning/test_config_location.py::DescribePreflightWithARootFile::it_blocks_while_both_copies_exist": 203,
     "tests/prose-tuning/test_config_location.py::DescribePreflightWithARootFile::it_passes_once_the_root_copy_is_gone": 203,
     "tests/prose-tuning/test_cowork.py::DescribeStage::it_warns_when_the_stage_is_where_device_commit_files_cannot_read": 209,
-    "tests/prose-tuning/test_report.py::DescribeReport::it_takes_the_current_text_from_the_file_when_the_finding_gives_only_columns": 191,
     "tests/prose-tuning/test_segments.py::DescribeTheSegmentsCommand::it_leaves_the_segments_out_of_the_json_summary": 197,
     "tests/prose-tuning/test_segments.py::DescribeTheSegmentsCommand::it_prints_one_summary_line_per_file_and_the_totals": 197
   },

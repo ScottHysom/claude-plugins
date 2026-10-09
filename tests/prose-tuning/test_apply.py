@@ -34,8 +34,6 @@ class DescribeApply:
             [
                 prose_repo.finding(
                     target_lines["last-paragraph"],
-                    col_start=0,
-                    col_end=16,
                     text="Final paragraph.",
                     replacement="The closing paragraph.",
                 ),
@@ -85,8 +83,6 @@ class DescribeApply:
     def it_reads_the_findings_from_stdin_given_a_dash(self, prose_repo, target_lines, monkeypatch):
         finding = prose_repo.finding(
             target_lines["last-paragraph"],
-            col_start=0,
-            col_end=16,
             text="Final paragraph.",
             replacement="The closing paragraph.",
         )
@@ -166,7 +162,6 @@ class DescribeGuards:
                 prose_repo.finding(
                     target_lines["last-paragraph"],
                     col_start=0,
-                    col_end=16,
                     text="Something else entirely.",
                 ),
             ]
@@ -188,9 +183,7 @@ class DescribeGuards:
     ):
         code, envelope = prose_repo.apply(
             [
-                prose_repo.finding(
-                    target_lines["table"], col_start=2, col_end=7, replacement=replacement
-                ),
+                prose_repo.finding(target_lines["table"], text="model", replacement=replacement),
             ]
         )
         assert code == prose.PROBLEMS
@@ -198,36 +191,12 @@ class DescribeGuards:
             "target.md:%d  a table cell cannot contain | or a newline" % target_lines["table"]
         ]
 
-    @pytest.mark.parametrize(
-        "cols",
-        [
-            pytest.param((0, 900), id="past-the-end"),
-            pytest.param((-4, 6), id="negative"),
-            pytest.param((9, 3), id="inverted"),
-        ],
-    )
-    def it_refuses_columns_outside_the_line(self, prose_repo, target_lines, cols):
-        """Text.offset checks the line and then adds the column blind, so an
-        out-of-range column lands somewhere else in the file. col_end=900 on a
-        short line put a rewrite at the end of the document.
-        """
-        line = target_lines["paragraph"]
-        before = prose_repo.read()
-        code, envelope = prose_repo.apply(
-            [
-                prose_repo.finding(line, col_start=cols[0], col_end=cols[1]),
-            ]
-        )
-        assert code == prose.PROBLEMS
-        assert "are outside the line" in errors_of(envelope)[0]
-        assert prose_repo.read() == before
-
     @pytest.mark.spec("apply-cmd-never-splits-table-cells")
     def it_refuses_a_multi_line_replacement_outside_a_paragraph(self, prose_repo, target_lines):
         code, envelope = prose_repo.apply(
             [
                 prose_repo.finding(
-                    target_lines["heading"], col_start=2, col_end=9, replacement="two\nlines"
+                    target_lines["heading"], text="Heading", replacement="two\nlines"
                 ),
             ]
         )
@@ -238,42 +207,47 @@ class DescribeGuards:
 
     @pytest.mark.spec("apply-cmd-refuses-protected-lines")
     @pytest.mark.parametrize(
-        "cols",
+        ("col_start", "text"),
         [
-            pytest.param((10, 25), id="the-whole-comment"),
-            pytest.param((0, 12), id="prose-and-the-opening-marker"),
+            pytest.param(10, "<!-- a note -->", id="the-whole-comment"),
+            pytest.param(0, "Some text <!", id="prose-and-the-opening-marker"),
         ],
     )
-    def it_refuses_a_finding_that_touches_an_inline_comment(self, prose_repo, cols):
+    def it_refuses_a_finding_that_touches_an_inline_comment(self, prose_repo, col_start, text):
         (prose_repo.root / "notes.md").write_text("Some text <!-- a note --> more text.\n")
         before = prose_repo.read("notes.md")
         code, envelope = prose_repo.apply(
             [
-                prose_repo.finding(1, file="notes.md", col_start=cols[0], col_end=cols[1]),
+                prose_repo.finding(1, file="notes.md", col_start=col_start, text=text),
             ]
         )
         assert code == prose.PROBLEMS
         assert errors_of(envelope) == [
-            "notes.md:1  columns %d-%d touch an HTML comment; prose rules do not apply there" % cols
+            "notes.md:1  columns %d-%d touch an HTML comment; prose rules do not apply there"
+            % (col_start, col_start + len(text))
         ]
         assert prose_repo.read("notes.md") == before
 
     @pytest.mark.spec("apply-cmd-refuses-protected-lines")
     @pytest.mark.parametrize(
-        ("cols", "after"),
+        ("col_start", "text", "after"),
         [
-            pytest.param((0, 9), "rewritten <!-- a note --> more text.\n", id="the-prose-before"),
-            pytest.param((5, 10), "Some rewritten<!-- a note --> more text.\n", id="up-to-it"),
             pytest.param(
-                (25, 26), "Some text <!-- a note -->rewrittenmore text.\n", id="just-after"
+                0, "Some text", "rewritten <!-- a note --> more text.\n", id="the-prose-before"
+            ),
+            pytest.param(5, "text ", "Some rewritten<!-- a note --> more text.\n", id="up-to-it"),
+            pytest.param(
+                25, " ", "Some text <!-- a note -->rewrittenmore text.\n", id="just-after"
             ),
         ],
     )
-    def it_applies_a_finding_on_the_prose_beside_an_inline_comment(self, prose_repo, cols, after):
+    def it_applies_a_finding_on_the_prose_beside_an_inline_comment(
+        self, prose_repo, col_start, text, after
+    ):
         (prose_repo.root / "notes.md").write_text("Some text <!-- a note --> more text.\n")
         code, _ = prose_repo.apply(
             [
-                prose_repo.finding(1, file="notes.md", col_start=cols[0], col_end=cols[1]),
+                prose_repo.finding(1, file="notes.md", col_start=col_start, text=text),
             ]
         )
         assert code == prose.OK
@@ -289,10 +263,8 @@ class DescribeGuards:
         """
         line = target_lines["paragraph"]
         before = prose_repo.read()
-        first = prose_repo.finding(line, col_start=0, col_end=10)
-        code, envelope = prose_repo.apply(
-            [first, prose_repo.finding(line, col_start=5, col_end=15)]
-        )
+        first = prose_repo.finding(line, text="used for")
+        code, envelope = prose_repo.apply([first, prose_repo.finding(line, text="for something")])
         assert code == prose.PROBLEMS
         assert errors_of(envelope) == [
             "target.md  finding 1 (target.md:%d, %s) overlaps finding 2 (target.md:%d, %s)"
@@ -301,11 +273,11 @@ class DescribeGuards:
         assert prose_repo.read() == before
 
 
-def cut(prose_repo, line, text, **overrides):
-    """A finding that deletes `text`, which starts `line` of doc.md."""
-    record = dict(file="doc.md", col_start=0, col_end=len(text), text=text, replacement="")
-    record.update(overrides)
-    return prose_repo.finding(line, **record)
+def anchored(prose_repo, line, text, replacement="", **overrides):
+    """A finding on doc.md addressed by its line and text. The default
+    replacement cuts the text.
+    """
+    return prose_repo.finding(line, file="doc.md", text=text, replacement=replacement, **overrides)
 
 
 class DescribeWholeLineCuts:
@@ -321,7 +293,7 @@ class DescribeWholeLineCuts:
     def it_removes_a_cut_passage_and_keeps_one_blank_line(self, prose_repo):
         self.write(prose_repo, "Keep this.\n\nCut this line.\nAnd this one.\n\nKeep this too.\n")
         code, _ = prose_repo.apply(
-            [cut(prose_repo, 3, "Cut this line."), cut(prose_repo, 4, "And this one.")]
+            [anchored(prose_repo, 3, "Cut this line."), anchored(prose_repo, 4, "And this one.")]
         )
         assert code == prose.OK
         assert prose_repo.read("doc.md") == "Keep this.\n\nKeep this too.\n"
@@ -329,7 +301,7 @@ class DescribeWholeLineCuts:
     @pytest.mark.spec("apply-cmd-leaves-one-blank-line")
     def it_joins_the_lines_around_one_cut_from_a_paragraph(self, prose_repo):
         self.write(prose_repo, "One.\nTwo.\nThree.\n")
-        code, _ = prose_repo.apply([cut(prose_repo, 2, "Two.")])
+        code, _ = prose_repo.apply([anchored(prose_repo, 2, "Two.")])
         assert code == prose.OK
         assert prose_repo.read("doc.md") == "One.\nThree.\n"
 
@@ -338,8 +310,8 @@ class DescribeWholeLineCuts:
         self.write(prose_repo, "One.\nFirst half, second half.\nThree.\n")
         code, _ = prose_repo.apply(
             [
-                cut(prose_repo, 2, "First half,", col_end=11),
-                cut(prose_repo, 2, " second half.", col_start=11, col_end=24),
+                anchored(prose_repo, 2, "First half,"),
+                anchored(prose_repo, 2, " second half."),
             ]
         )
         assert code == prose.OK
@@ -348,7 +320,7 @@ class DescribeWholeLineCuts:
     @pytest.mark.spec("apply-cmd-leaves-one-blank-line")
     def it_leaves_the_rest_of_a_partly_cut_line_alone(self, prose_repo):
         self.write(prose_repo, "One.\nKeep, cut.\nThree.\n")
-        code, _ = prose_repo.apply([cut(prose_repo, 2, " cut.", col_start=5, col_end=10)])
+        code, _ = prose_repo.apply([anchored(prose_repo, 2, " cut.")])
         assert code == prose.OK
         assert prose_repo.read("doc.md") == "One.\nKeep,\nThree.\n"
 
@@ -357,8 +329,8 @@ class DescribeWholeLineCuts:
         self.write(prose_repo, "One.\nOld words.\nThree.\n")
         code, _ = prose_repo.apply(
             [
-                cut(prose_repo, 2, "Old", col_end=3, replacement="New"),
-                cut(prose_repo, 2, " words.", col_start=3, col_end=10),
+                anchored(prose_repo, 2, "Old", "New"),
+                anchored(prose_repo, 2, " words."),
             ]
         )
         assert code == prose.OK
@@ -378,7 +350,7 @@ class DescribeWholeLineCuts:
         self, prose_repo, content, line, text, after
     ):
         self.write(prose_repo, content)
-        code, _ = prose_repo.apply([cut(prose_repo, line, text)])
+        code, _ = prose_repo.apply([anchored(prose_repo, line, text)])
         assert code == prose.OK
         assert prose_repo.read("doc.md") == after
 
@@ -389,15 +361,10 @@ class DescribeWholeLineCuts:
         """
         self.write(prose_repo, "Keep.\n\nCut.\n\nOld.\n")
         code, _ = prose_repo.apply(
-            [cut(prose_repo, 3, "Cut."), cut(prose_repo, 5, "Old.", replacement="New.")]
+            [anchored(prose_repo, 3, "Cut."), anchored(prose_repo, 5, "Old.", "New.")]
         )
         assert code == prose.OK
         assert prose_repo.read("doc.md") == "Keep.\n\nNew.\n"
-
-
-def anchored(prose_repo, line, text, replacement="", **overrides):
-    """A finding on doc.md addressed by its line and text, with no columns."""
-    return prose_repo.finding(line, file="doc.md", text=text, replacement=replacement, **overrides)
 
 
 class DescribeAnchoredFindings:
@@ -459,13 +426,41 @@ class DescribeAnchoredFindings:
         assert code == prose.PROBLEMS
         assert errors_of(envelope) == ["doc.md:1  column 11 is outside the line (6 characters)"]
 
+    @pytest.mark.spec("report-cmd-locates-findings-by-text")
+    @pytest.mark.parametrize("command", ["report", "apply"])
+    def it_refuses_a_finding_without_text(self, prose_repo, command):
+        """A finding with no text used to be applied to its whole line, so it
+        was never checked against the text the model saw.
+        """
+        self.write(prose_repo, "One line.\n")
+        record = anchored(prose_repo, 1, "One line.", "x")
+        del record["text"]
+        code, envelope = getattr(prose_repo, command)([record])
+        assert code == prose.PROBLEMS
+        assert errors_of(envelope) == [
+            "doc.md:1  finding 1 has no text; copy it from the segment it rewrites"
+        ]
+        assert prose_repo.read("doc.md") == "One line.\n"
+
+    @pytest.mark.spec("report-cmd-locates-findings-by-text")
+    @pytest.mark.parametrize("command", ["report", "apply"])
+    def it_refuses_a_finding_with_col_end(self, prose_repo, command):
+        self.write(prose_repo, "One line.\n")
+        record = anchored(prose_repo, 1, "One", "Single", col_start=0, col_end=3)
+        code, envelope = getattr(prose_repo, command)([record])
+        assert code == prose.PROBLEMS
+        assert errors_of(envelope) == [
+            "doc.md:1  finding 1 has col_end; leave it out, and give col_start only when "
+            "the text starts at more than one place on the line"
+        ]
+        assert prose_repo.read("doc.md") == "One line.\n"
+
     @pytest.mark.spec("report-cmd-refuses-empty-spans")
     @pytest.mark.parametrize(
         "where",
         [
             pytest.param({"text": ""}, id="an-empty-text"),
             pytest.param({"text": "", "col_start": 3}, id="an-empty-text-at-a-column"),
-            pytest.param({"col_start": 3, "col_end": 3}, id="columns-that-meet"),
         ],
     )
     def it_refuses_a_finding_with_an_empty_span(self, prose_repo, where):
@@ -645,7 +640,7 @@ class DescribeHelp:
             prose.main(["apply", "--help"])
         assert exit.value.code == prose.OK
         out = capsys.readouterr().out
-        for field in ("file", "line", "rule", "text", "replacement", "col_start", "col_end"):
+        for field in ("file", "line", "rule", "text", "replacement", "col_start"):
             assert "  %s " % field in out, field
         assert "newline" in out
         assert "apply what is valid" in out
@@ -663,8 +658,6 @@ class DescribePartial:
         return [
             prose_repo.finding(
                 target_lines["last-paragraph"],
-                col_start=0,
-                col_end=16,
                 replacement="The closing paragraph.",
             ),
             prose_repo.finding(target_lines["fence"]),
@@ -701,8 +694,6 @@ class DescribeDryRun:
             [
                 prose_repo.finding(
                     target_lines["last-paragraph"],
-                    col_start=0,
-                    col_end=16,
                     replacement="The closing paragraph.",
                 ),
             ],
@@ -741,8 +732,6 @@ class DescribeFilters:
                 prose_repo.finding(
                     target_lines["last-paragraph"],
                     file=rel,
-                    col_start=0,
-                    col_end=16,
                     text="Final paragraph.",
                     replacement="The closing paragraph.",
                 )
@@ -752,8 +741,6 @@ class DescribeFilters:
                     target_lines["paragraph"],
                     file=rel,
                     rule=OTHER_RULE,
-                    col_start=0,
-                    col_end=4,
                     text="used",
                     replacement="put to use",
                 )

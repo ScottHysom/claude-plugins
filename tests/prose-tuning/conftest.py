@@ -160,10 +160,15 @@ class ProseRepo:
 
     def finding(self, line, **overrides):
         """One approved rewrite. Defaults to a rewrite that would succeed, so
-        a test names only the field whose guard it is aiming at.
+        a test names only the field whose guard it is aiming at. The text is
+        the whole line as the file holds it, or "" for a line outside the file.
         """
         record = {"rule": RULE_ID, "file": "target.md", "line": line, "replacement": "rewritten"}
         record.update(overrides)
+        if "text" not in record:
+            path = self.root / record["file"]
+            lines = path.read_text().splitlines() if path.is_file() else []
+            record["text"] = lines[line - 1] if 1 <= line <= len(lines) else ""
         return record
 
     def commit(self):

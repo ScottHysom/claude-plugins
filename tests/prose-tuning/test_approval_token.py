@@ -13,8 +13,6 @@ import prose
 
 def closing(prose_repo, target_lines, **overrides):
     record = dict(
-        col_start=0,
-        col_end=16,
         text="Final paragraph.",
         replacement="The closing paragraph.",
     )

@@ -58,21 +58,20 @@ def batches(draw):
             removed.update((n, n + 1))
         elif how == "halves":
             mid = draw(st.integers(1, len(bare) - 1))
-            findings.append(finding(n, 0, mid, bare[:mid], ""))
-            findings.append(finding(n, mid, len(bare), bare[mid:], ""))
+            findings.append(finding(n, 0, bare[:mid], ""))
+            findings.append(finding(n, mid, bare[mid:], ""))
             removed.add(n)
         elif how == "rewrite":
-            findings.append(finding(n, 0, 1, bare[0], "z"))
+            findings.append(finding(n, 0, bare[0], "z"))
     return source, findings, removed
 
 
-def finding(line, col_start, col_end, text, replacement):
+def finding(line, col_start, text, replacement):
     return {
         "file": "doc.md",
         "rule": RULE,
         "line": line,
         "col_start": col_start,
-        "col_end": col_end,
         "text": text,
         "replacement": replacement,
     }
