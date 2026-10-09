@@ -354,6 +354,18 @@ label", so `claim-cmd-adds-label` is clearer.
 
 An id has two to five words, not counting `cmd`.
 
+The words after the verb name what the requirement covers, and no more.
+`report-cmd-refuses-insertions` names a class wider than the empty spans its
+requirement refuses. A finding whose replacement is longer than its text
+inserts too, and `apply` accepts it, so a report that names the id claims a
+refusal that the code does not make. `report-cmd-refuses-empty-spans` names
+only what the requirement refuses.
+
+`trace` checks the rest of this section, and cannot check this rule. Only a
+reader who holds the id against its sentence can tell whether the id covers
+more, so the rule takes judgment. The agent applies it when naming a
+requirement, and the owner when reviewing one.
+
 ## Citing requirements
 
 A test cites the requirements it verifies with a tag its runner can read. In
