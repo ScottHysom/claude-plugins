@@ -246,6 +246,9 @@ description.
   text, `report` and `apply` look for it among the places that start on its
   line, and refuse it when it starts at none of them, or at more than one and
   no `col_start` says which.
+- `report-cmd-refuses-empty-spans` (test): When a finding's span is empty,
+  because its text is empty or its columns meet, `report` and `apply` refuse
+  it and say to rewrite the text beside the gap instead.
 - `apply-cmd-rewrites-wrapped-findings` (test): When a finding's text
   holds a newline, `report` shows it whole and `apply` rewrites the span as
   one finding, keeping a newline its rewrite carries.

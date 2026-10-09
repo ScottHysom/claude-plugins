@@ -226,8 +226,8 @@ python3 "$PROSE" report --findings "${TMPDIR:-/tmp}/prose-findings.json" --json
 writes the report to the markdown file at `data.report`: each finding with its
 `file:line`, rule id, current text, proposed text and why, then the rules
 `patterns` checked in the files step 2 read. Each line of a text sits between
-`|` marks, so a space at either end shows. `(cut)` and `(nothing: this inserts)` stand
-for an empty text. A dismissal shows its reason in place of a proposed text.
+`|` marks, so a space at either end shows. `(cut)` stands for an empty
+proposed text. A dismissal shows its reason in place of a proposed text.
 When `report` exits 0, `data.token` is the approval token, and the file ends
 with it. Step 7 takes the token from the report the author approved.
 
