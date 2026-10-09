@@ -427,7 +427,7 @@ class DescribeTrace:
         assert "already the id of the requirement at line 11" in err
 
     @pytest.mark.spec("trace-cmd-checks-spec-grammar")
-    @pytest.mark.parametrize("rid", ["Does_Y", "foo-cmd-can-do-y-and-z"])
+    @pytest.mark.parametrize("rid", ["Does_Y", "foo-cmd-can-do-y-and-z-too"])
     def it_fails_an_id_that_breaks_the_grammar(self, make_repo, run, rid):
         spec = FOO_SPEC + "- `%s` (test): When asked, foo does y.\n" % rid
         code, _, err = run("trace", "-C", str(make_repo({"specs/foo.md": spec})))
@@ -482,8 +482,8 @@ class DescribeTrace:
         )
 
     @pytest.mark.spec("trace-cmd-checks-spec-grammar")
-    def it_traces_an_id_of_six_words(self, make_repo, run):
-        rid = "steps-cmd-does-x-when-asked"
+    def it_traces_an_id_of_six_words_and_cmd(self, make_repo, run):
+        rid = "steps-cmd-does-x-when-asked-twice"
         root = make_repo(
             {
                 "specs/foo.md": FOO_SPEC + "- `%s` (test): When asked, foo does x.\n" % rid,
@@ -497,7 +497,7 @@ class DescribeTrace:
     @pytest.mark.parametrize(
         ("rid", "says"),
         [
-            ("foo", "it has 1 word(s), and an id has 2 to 5"),
+            ("foo", "it has 1 word(s), and an id has 2 to 6"),
             ("receipt-late-fee", "`late` is not a verb ending in `s`"),
             ("steps-cmd", "it has 1 word(s)"),
             ("steps-cmd-late-x", "`late` is not a verb ending in `s`"),
@@ -505,7 +505,7 @@ class DescribeTrace:
                 "claim-command-adds-y",
                 "`command` sits where a command's marker goes, and the marker is `cmd`",
             ),
-            ("foo-does-x-and-y-too", "it has 6 word(s)"),
+            ("foo-does-x-and-y-too-now", "it has 7 word(s)"),
             ("foo-cannot", "`cannot` is followed by no verb"),
             ("foo-never-drop-x", "`never` is followed by `drop`"),
         ],
