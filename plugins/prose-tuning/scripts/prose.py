@@ -4333,8 +4333,6 @@ findings:
   col_start    optional: the 0-indexed column the text starts at, when it
                starts at more than one place on the line. It is the only
                column a finding takes; apply refuses a col_end
-  why          optional: one clause saying why, which report shows and
-               apply ignores
 
   A replacement may hold a newline when the finding starts in a paragraph,
   or when its span already crosses a line. A span can cross lines only
@@ -4572,8 +4570,6 @@ def report_markdown(data, rejected):
             out += ["", "Dismissed: %s" % r["reason"]]
             continue
         out += ["", "Proposed:", "", fenced(report_text(r["proposed"]))]
-        if r["why"]:
-            out += ["", "Why: %s" % r["why"]]
     rows = data["findings"]
     out += ["", "%d finding(s) in %d file(s)." % (len(rows), len(set(r["file"] for r in rows)))]
     if data["dismissed"]:
@@ -4629,7 +4625,6 @@ def cmd_report(args):
                     "rule": f["rule"],
                     "current": text.s[a:b],
                     "proposed": f.get("replacement", ""),
-                    "why": f.get("why", ""),
                 }
             )
         for x, y in staged.engine.conflicts():
@@ -4677,8 +4672,6 @@ def cmd_report(args):
             print("%s:%d  %s  (finding %d)" % (r["file"], r["line"], r["rule"], r["finding"]))
             print(report_field("current", report_text(r["current"])))
             print(report_field("proposed", report_text(r["proposed"])))
-            if r["why"]:
-                print(report_field("why", r["why"]))
             print()
         for r in dismissed:
             print("%s:%d  %s  (finding %d)" % (r["file"], r["line"], r["rule"], r["finding"]))
