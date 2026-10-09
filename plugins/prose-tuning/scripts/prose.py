@@ -982,8 +982,6 @@ class Config:
                     rule.line,
                     "rule %s has half an example; Before and After come as a pair" % rule.id,
                 )
-        if self.exists and "name" not in self.front:
-            self._warn(1, "front matter has no name:")
 
     def _check_patterns(self, rule):
         """A rule's patterns against its own worked example.
@@ -2878,7 +2876,6 @@ def cmd_reproduce(args):
 
 
 CONFIG_SKELETON = """---
-name: {name} prose style
 scope:
   include:
 {include}
@@ -3128,7 +3125,7 @@ REWRITE_FIELDS = frozenset(("id", "expect", *WRITE_PARTS))
 WRITTEN_NEW = "new"
 WRITTEN_REWRITE = "rewritten"
 # What config write prefixes to a block to lint it on its own.
-LINT_FRONT = "---\nname: one rule\n---\n\n"
+LINT_FRONT = "---\n---\n\n"
 
 
 def pattern_line(source):

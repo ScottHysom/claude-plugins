@@ -88,7 +88,13 @@ class DescribeConfigInit:
         fresh_repo.run("config", "init")
         text = fresh_repo.read(prose.CONFIG_PATH)
         assert prose.PROJECT_NAME_SLOT not in text
-        assert "name: %s prose style" % fresh_repo.root.name in text
+        assert "# %s: prose style" % fresh_repo.root.name in text
+
+    @pytest.mark.spec("init-cmd-copies-or-starts-empty")
+    @pytest.mark.parametrize("flags", [[], ["--empty"]])
+    def it_writes_front_matter_without_a_name(self, fresh_repo, flags):
+        fresh_repo.run("config", "init", *flags)
+        assert "\nname:" not in fresh_repo.read(prose.CONFIG_PATH)
 
     @pytest.mark.spec("init-cmd-writes-shipped-rules")
     def it_writes_a_file_that_lints_clean(self, fresh_repo):
@@ -138,14 +144,14 @@ class DescribeConfigInitInAWorktree:
         code, env = worktree_repo.run("config", "init")
         assert code == prose.OK, env["errors"]
         text = worktree_repo.read(prose.CONFIG_PATH)
-        assert "name: repo prose style" in text
+        assert "# repo: prose style" in text
         assert "issue-42-7fdf82" not in text
 
     @pytest.mark.spec("init-cmd-finds-project-name")
     def it_names_the_empty_skeleton_after_the_main_working_tree(self, worktree_repo):
         worktree_repo.run("config", "init", "--empty")
         text = worktree_repo.read(prose.CONFIG_PATH)
-        assert "name: repo prose style" in text
+        assert "# repo: prose style" in text
         assert "issue-42-7fdf82" not in text
 
     @pytest.mark.spec("init-cmd-finds-project-name")
@@ -157,7 +163,7 @@ class DescribeConfigInitInAWorktree:
         git(bare, "worktree", "add", "-q", str(checkout))
         code, env = type(fresh_repo)(checkout, fresh_repo._capsys).run("config", "init")
         assert code == prose.OK, env["errors"]
-        assert "name: shared prose style" in (checkout / prose.CONFIG_PATH).read_text()
+        assert "# shared: prose style" in (checkout / prose.CONFIG_PATH).read_text()
 
 
 class DescribeConfigInitOnTheDevice:
