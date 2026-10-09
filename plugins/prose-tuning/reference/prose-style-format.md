@@ -15,7 +15,6 @@ in every session, so `config lint` rejects it.
 
 ```yaml
 ---
-name: AI Learning Plan prose style
 scope:
   include:
     - "**/*.md"

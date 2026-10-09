@@ -129,6 +129,12 @@ class DescribeFrontMatter:
         errors = config_from(source).errors
         assert [e for e in errors if message in e and ":%d " % line in e], errors
 
+    @pytest.mark.spec("lint-cmd-checks-front-matter")
+    @pytest.mark.parametrize("front", ["---\n---\n", "---\nname: T\n---\n"])
+    def it_lints_front_matter_clean_with_or_without_a_name(self, config_from, front):
+        cfg = config_from(front)
+        assert (cfg.errors, cfg.warnings) == ([], [])
+
     @pytest.mark.spec(
         "lint-cmd-checks-front-matter", "repo:command-splits-output-streams-without-json"
     )
