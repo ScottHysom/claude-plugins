@@ -6,6 +6,7 @@ why that copy has to stay out of the project's commits.
 
 import hashlib
 import json
+import os
 import shutil
 import subprocess
 
@@ -24,8 +25,11 @@ def stage(capsys, *argv):
     return code, json.loads(captured.out) if captured.out else None, captured.err
 
 
-def entry(env, rel):
-    return next(f for f in env["data"]["files"] if f["file"] == rel)
+def staged_path(env, rel):
+    """Where stage wrote the file the project holds at rel."""
+    return next(
+        c["stagedPath"] for c in env["data"]["commit_files"] if c["devicePath"].endswith("/" + rel)
+    )
 
 
 class DescribeStage:
@@ -40,12 +44,10 @@ class DescribeStage:
     def it_stages_a_byte_identical_copy_of_the_running_script(self, capsys):
         code, env, _ = stage(capsys, "--folder", FOLDER)
         assert code == prose.OK
-        staged = entry(env, prose.COPY_SCRIPT)
         with open(prose.SCRIPT_PATH, "rb") as fh:
             original = fh.read()
-        with open(staged["staged_path"], "rb") as fh:
+        with open(staged_path(env, prose.COPY_SCRIPT), "rb") as fh:
             assert fh.read() == original
-        assert staged["sha256"] == hashlib.sha256(original).hexdigest()
 
     @pytest.mark.spec("stage-cmd-copies-for-device")
     def it_addresses_the_copy_to_the_project_folder_on_the_device(self, capsys):
@@ -56,7 +58,8 @@ class DescribeStage:
             FOLDER + "/.prose-tuning/prose-style.template.md",
         ]
         assert [c["stagedPath"] for c in env["data"]["commit_files"]] == [
-            f["staged_path"] for f in env["data"]["files"]
+            os.path.join(prose.DEFAULT_STAGE, *rel.split("/"))
+            for rel in (prose.COPY_SCRIPT, prose.COPY_IGNORE, prose.COPY_TEMPLATE)
         ]
 
     @pytest.mark.spec("setup-cmd-ignores-its-copy")
@@ -95,19 +98,18 @@ class DescribeStage:
         _, env, _ = stage(capsys, "--folder", FOLDER)
         with open(prose.shipped_template(), "rb") as fh:
             shipped = fh.read()
-        with open(entry(env, prose.COPY_TEMPLATE)["staged_path"], "rb") as fh:
+        with open(staged_path(env, prose.COPY_TEMPLATE), "rb") as fh:
             assert fh.read() == shipped
 
     @pytest.mark.spec("stage-cmd-gives-checksum-command")
     def it_checks_every_staged_file_by_checksum_on_the_device(self, capsys):
         _, env, _ = stage(capsys, "--folder", FOLDER)
         lines = env["data"]["check_command"].split("\n")
-        assert lines[1:-1] == ["%s  %s" % (f["sha256"], f["file"]) for f in env["data"]["files"]]
-        assert [f["file"] for f in env["data"]["files"]] == [
-            prose.COPY_SCRIPT,
-            prose.COPY_IGNORE,
-            prose.COPY_TEMPLATE,
-        ]
+        sums = []
+        for rel in (prose.COPY_SCRIPT, prose.COPY_IGNORE, prose.COPY_TEMPLATE):
+            with open(staged_path(env, rel), "rb") as fh:
+                sums.append("%s  %s" % (hashlib.sha256(fh.read()).hexdigest(), rel))
+        assert lines[1:-1] == sums
 
     @pytest.mark.spec("repo:command-never-writes-in-preview")
     def it_writes_nothing_on_a_dry_run(self, staged_in, capsys):
@@ -197,8 +199,7 @@ class DescribeSetup:
     def it_leaves_the_copying_to_stage_inside_coworks_container(
         self, prose_repo, monkeypatch, tmp_path
     ):
-        _, env = self.setup(prose_repo, monkeypatch, tmp_path)
-        assert env["data"]["files"] == []
+        self.setup(prose_repo, monkeypatch, tmp_path)
         assert not (prose_repo.root / prose.COPY_DIR).exists()
 
     @pytest.mark.spec("setup-cmd-names-its-surface")

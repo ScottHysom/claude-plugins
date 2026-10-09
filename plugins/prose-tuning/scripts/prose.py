@@ -126,7 +126,7 @@ import shlex
 import subprocess
 import sys
 
-ENVELOPE_VERSION = 4
+ENVELOPE_VERSION = 5
 
 # Opens each part of pass's output: the rules, the segments, the matches.
 PASS_HEADING = "== %s =="
@@ -2391,12 +2391,7 @@ def cmd_scope(args):
     repo, config, scope = load(args)
     verdicts = scope.verdicts()
     shown = verdicts if args.all else [v for v in verdicts if v["included"]]
-    data = {
-        "include": scope.include,
-        "exclude": scope.exclude,
-        "files": shown,
-        "count": sum(1 for v in verdicts if v["included"]),
-    }
+    count = sum(1 for v in verdicts if v["included"])
 
     def human():
         for v in shown:
@@ -2404,9 +2399,9 @@ def cmd_scope(args):
                 print("%s %-62s %s" % ("+" if v["included"] else "-", v["path"], v["reason"]))
             else:
                 print(v["path"])
-        print("\n%d file(s) in scope of %d markdown file(s)" % (data["count"], len(verdicts)))
+        print("\n%d file(s) in scope of %d markdown file(s)" % (count, len(verdicts)))
 
-    return emit(args, "scope", repo.root, data, human=human)
+    return emit(args, "scope", repo.root, {}, human=human)
 
 
 def unignored_copy(repo):
@@ -2471,14 +2466,6 @@ def cmd_preflight(args):
                     "%s  uncommitted (%s); commit or stash before conforming prose" % (rel, status)
                 )
 
-    data = {
-        "for": want,
-        "blockers": blockers,
-        "markup": markup,
-        "config_exists": config.exists,
-        "scope_count": len(files),
-    }
-
     def human():
         if not blockers:
             print("ok: nothing blocks %s" % want)
@@ -2495,7 +2482,7 @@ def cmd_preflight(args):
             if not markup:
                 print("markup  none")
 
-    return emit(args, "preflight", repo.root, data, errors=blockers, human=human)
+    return emit(args, "preflight", repo.root, {}, errors=blockers, human=human)
 
 
 def segment_line(rel, seg):
@@ -3723,7 +3710,7 @@ def cmd_config(args):
             args,
             "config init",
             repo.root,
-            {"path": config.path},
+            {},
             human=lambda: print("wrote %s" % config.path),
         )
 
@@ -3745,7 +3732,7 @@ def cmd_config(args):
             args,
             "config check-id",
             repo.root,
-            {"id": rid, "section": args.section, "name": args.name, "free": problem is None},
+            {},
             errors=([problem] if problem else []),
             # The id goes to stdout only when it is usable, so that
             # ID=$(... check-id ...) cannot capture a refused one.
@@ -3784,14 +3771,14 @@ def cmd_config(args):
             args,
             "config lint",
             repo.root,
-            {"rules": len(config.rules)},
+            {},
             errors=config.errors,
             warnings=config.warnings,
             human=human,
         )
 
     rules = config.rules
-    data = {"path": config.rel(), "front": config.front, "rules": [r.as_dict() for r in rules]}
+    data = {"rules": [r.as_dict() for r in rules]}
 
     def human():
         w = max([len(r.id) for r in rules] + [16])
@@ -4800,11 +4787,10 @@ def cmd_setup(args):
     variables of the last, and the plugin's own path is too long to repeat.
     """
     if os.path.isdir(OUTPUTS_ROOT):
-        data = {"surface": "cowork", "files": [], "prefix": None, "dry_run": args.dry_run}
+        data = {"surface": "cowork", "prefix": None}
         return emit(args, "setup", None, data, human=lambda: print("cowork"))
 
     repo = Repo(args.repo)
-    files = []
     for rel, content in copy_sources():
         path = repo.abspath(rel)
         if not args.dry_run:
@@ -4812,8 +4798,7 @@ def cmd_setup(args):
             # In place, on purpose. See the module docstring.
             with open(path, "wb") as fh:
                 fh.write(content)
-        files.append({"file": rel, "sha256": hashlib.sha256(content).hexdigest()})
-    data = {"surface": "local", "files": files, "prefix": COPY_PREFIX, "dry_run": args.dry_run}
+    data = {"surface": "local", "prefix": COPY_PREFIX}
 
     def human():
         print("local")
@@ -4873,9 +4858,6 @@ def cmd_stage(args):
     check += ["%s  %s" % (f["sha256"], f["file"]) for f in files]
     check.append("SUMS")
     data = {
-        "dry_run": args.dry_run,
-        "stage": stage,
-        "files": files,
         "commit_files": [
             {"stagedPath": f["staged_path"], "devicePath": f["device_path"]} for f in files
         ],

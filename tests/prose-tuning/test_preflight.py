@@ -85,13 +85,13 @@ class DescribePreflightProgress:
         return code, capsys.readouterr().out
 
     @pytest.mark.spec("preflight-shows-progress")
-    def it_counts_the_markup_in_each_file(self, committed):
+    def it_counts_the_markup_in_each_file(self, committed, capsys):
         (committed.root / "target.md").write_text(
             "A <del>old</del><ins>new</ins> <ins>word</ins>.\n"
         )
-        code, env = committed.run("preflight", "--for", "config")
-        assert code == prose.OK, env["errors"]
-        assert env["data"]["markup"] == {"target.md": {"del": 1, "ins": 2}}
+        code, out = self.human(committed, capsys)
+        assert code == prose.OK
+        assert "markup  target.md  1 del, 2 ins\n" in out
 
     @pytest.mark.spec("preflight-shows-progress")
     def it_prints_the_rules_file_and_the_markup(self, committed, capsys):

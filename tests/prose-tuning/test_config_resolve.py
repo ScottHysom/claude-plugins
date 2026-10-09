@@ -349,8 +349,9 @@ class DescribeTheResult:
             ),
         ]
         code, _ = resolve(prose_repo, src, tgt, answers)
-        lint, env = prose_repo.run("config", "lint", "--file", str(tgt))
-        assert (code, lint, env["data"]["rules"]) == (prose.OK, prose.OK, 3)
+        lint, _ = prose_repo.run("config", "lint", "--file", str(tgt))
+        _, env = prose_repo.run("config", "list", "--file", str(tgt))
+        assert (code, lint, len(env["data"]["rules"])) == (prose.OK, prose.OK, 3)
 
     @pytest.mark.spec("resolve-cmd-lints-result")
     def it_writes_nothing_when_the_result_would_not_lint(self, prose_repo, monkeypatch):

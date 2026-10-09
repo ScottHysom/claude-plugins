@@ -747,8 +747,9 @@ class DescribeConfigAdopt:
             "--rule",
             "register-plain-words",
         )
-        code, env = prose_repo.run("config", "lint", "--file", str(tgt))
-        assert (code, env["data"]["rules"]) == (prose.OK, 3)
+        lint, _ = prose_repo.run("config", "lint", "--file", str(tgt))
+        _, env = prose_repo.run("config", "list", "--file", str(tgt))
+        assert (lint, len(env["data"]["rules"])) == (prose.OK, 3)
 
     @pytest.mark.spec("adopt-cmd-refuses-unlinted")
     def it_refuses_a_source_that_does_not_lint(self, prose_repo):
@@ -796,8 +797,9 @@ class DescribeConfigAdopt:
         code, _ = self.adopt(prose_repo, src, tgt, "--rule", "register-plain-words")
         assert code == prose.OK
         assert "These rules apply:\n\n## Register\n\n### register-plain-words" in tgt.read_text()
-        code, env = prose_repo.run("config", "lint", "--file", str(tgt))
-        assert (code, env["data"]["rules"]) == (prose.OK, 2)
+        lint, _ = prose_repo.run("config", "lint", "--file", str(tgt))
+        _, env = prose_repo.run("config", "list", "--file", str(tgt))
+        assert (lint, len(env["data"]["rules"])) == (prose.OK, 2)
 
     @pytest.mark.spec("classify-cmd-names-missing-target")
     def it_refuses_a_missing_target_file(self, prose_repo):
