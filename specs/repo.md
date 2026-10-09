@@ -162,10 +162,16 @@ Source: README.md, under "Issues" and "Keeping `approved` meaningful".
   request closes was edited after `approved` was last added to it, `changes`
   fails the pull request and says to re-add the label.
 - `guard-blocks-approved-label` (test): When Claude Code runs a Bash command
-  that would add `approved` through `gh`, issue_guard.py exits 2 with the
-  reason on stderr. The command counts bare, after a variable assignment,
-  after `env` or `xargs`, inside `sh -c` or `bash -c`, and through a full path
-  to `gh`.
+  that names `approved` in one of the `gh` commands below, issue_guard.py
+  exits 2 with the reason on stderr. The command counts bare, after a variable
+  assignment, after `env` or `xargs`, inside `sh -c` or `bash -c`, and through
+  a full path to `gh`. The `gh` commands it blocks are:
+  - `gh issue create`, `gh issue edit`, `gh pr create` or `gh pr edit`, with
+    `approved` in the value of `--label`, `-l` or `--add-label`.
+  - `gh label create` naming a label `approved`, or `gh label edit` renaming
+    one to it.
+  - `gh api`, with an argument that mentions labels and one that names
+    `approved`.
 - `guard-allows-quoted-text` (test): When a command only quotes such a
   command, in an argument or a heredoc body, or reads or removes the label,
   issue_guard.py exits 0 and prints nothing.
@@ -290,8 +296,9 @@ Source: README.md, under "Claiming an issue", and #33.
 - `issueclosed-clears-in-progress-label` (check): When an issue carrying
   `in-progress` closes, issue-closed.yml removes the label.
 - `stale-cmd-reports-claims-left-behind` (test): When a label has no branch, a
-  closed issue keeps its label, or a closed issue keeps its branch, `issues.py
-  stale` fails and names the remedy.
+  closed issue keeps its label, a closed issue keeps its branch, or an open
+  issue has its branch and lacks the label, `issues.py stale` fails and names
+  the remedy.
 
 ## need owner-frees-abandoned-claims: Free an abandoned claim without losing work
 
