@@ -126,7 +126,7 @@ import shlex
 import subprocess
 import sys
 
-ENVELOPE_VERSION = 3
+ENVELOPE_VERSION = 4
 
 # Opens each part of pass's output: the rules, the segments, the matches.
 PASS_HEADING = "== %s =="
@@ -1070,7 +1070,6 @@ class Scope:
         self.config = config
         self.include = config.scope_include or list(DEFAULT_INCLUDE)
         self.exclude = config.scope_exclude or list(DEFAULT_EXCLUDE)
-        self.overridden = bool(config.scope_include or config.scope_exclude)
         self._inc = Matcher(self.include)
         self._exc = Matcher(self.exclude)
         self._config_rel = config_rel or (
@@ -2404,7 +2403,6 @@ def cmd_scope(args):
     data = {
         "include": scope.include,
         "exclude": scope.exclude,
-        "overridden": scope.overridden,
         "files": shown,
         "count": sum(1 for v in verdicts if v["included"]),
     }
