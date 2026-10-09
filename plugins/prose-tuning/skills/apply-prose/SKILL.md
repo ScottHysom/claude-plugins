@@ -60,8 +60,6 @@ resolved inside a list is the one case worth eyeballing, because a tag between
 two list items ends the list. Then stop. Tell the author to commit the
 resolved files and run this skill again to conform them.
 
-`--force` exists. Use it only when the author has asked for it by name.
-
 ## Step 2: the rules, the prose and the pattern matches
 <!-- spec: applyprose-passes-named-documents, applyprose-judges-each-match, applyprose-reads-segments-only -->
 <!-- seam: platform: the author asks why a file was skipped, and scope --all answers -->

@@ -35,7 +35,6 @@ PROSE=.prose-tuning/prose.py && python3 "$PROSE" preflight --for apply
   and every path the skill gives are relative to it.
 - **If preflight says `.prose-tuning/prose.py` is not ignored,** the
   `.gitignore` beside it is missing. Run the "Locate the script" step again.
-  Never pass `--force` past this blocker.
 
 ## On Cowork: copy the script across
 
@@ -77,8 +76,7 @@ cd "$HOME/mnt"/Notes && PROSE=.prose-tuning/prose.py && python3 "$PROSE" preflig
   moves into the project, so a path the skill gives relative to the project
   root works as written, and `$TMPDIR` is the device's.
 - **If preflight says `.prose-tuning/prose.py` is not ignored,** the
-  `.gitignore` beside it didn't arrive. Stage and copy again. Never pass
-  `--force` past this blocker.
+  `.gitignore` beside it didn't arrive. Stage and copy again.
 
 ## Rules still at the project root
 

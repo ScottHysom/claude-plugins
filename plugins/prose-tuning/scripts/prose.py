@@ -2494,7 +2494,6 @@ def cmd_preflight(args):
             markup[rel] = scanner.counts()
     blockers += markup_errors
 
-    hints = []
     if want == "apply":
         # Only documents the rules govern. An uncommitted prose-style.md is
         # the expected output of an update-prose-config run, not a reason to
@@ -2510,13 +2509,10 @@ def cmd_preflight(args):
                 blockers.append(
                     "%s  uncommitted (%s); commit or stash before conforming prose" % (rel, status)
                 )
-        if blockers and not args.force:
-            hints.append("pass --force only if the author asked for it by name")
 
     data = {
         "for": want,
         "blockers": blockers,
-        "hints": hints,
         "markup": markup,
         "config_exists": config.exists,
         "scope_count": len(files),
@@ -2538,9 +2534,7 @@ def cmd_preflight(args):
             if not markup:
                 print("markup  none")
 
-    if args.force and want == "apply":
-        blockers = []
-    return emit(args, "preflight", repo.root, data, errors=blockers, warnings=hints, human=human)
+    return emit(args, "preflight", repo.root, data, errors=blockers, human=human)
 
 
 def segment_line(rel, seg):
@@ -5022,7 +5016,6 @@ def build_parser():
 
     p = sub.add_parser("preflight", parents=[common], help="refuse-to-run check for one skill")
     p.add_argument("--for", dest="for_target", required=True, choices=["config", "apply", "adopt"])
-    p.add_argument("--force", action="store_true", help="apply only: proceed despite blockers")
     p.set_defaults(func=cmd_preflight)
 
     p = sub.add_parser("scope", parents=[common], help="which files the prose rules govern")
