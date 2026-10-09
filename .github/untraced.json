@@ -1,7 +1,6 @@
 {
   "steps": {
     "plugins/prose-tuning/skills/apply-prose/SKILL.md::2": 196,
-    "plugins/prose-tuning/skills/apply-prose/SKILL.md::7": 190,
     "plugins/prose-tuning/skills/update-prose-config/SKILL.md::2": 182
   },
   "tests": {
