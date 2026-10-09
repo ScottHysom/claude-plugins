@@ -1,5 +1,4 @@
 ---
-name: {{PROJECT_NAME}} prose style
 scope:
   include:
     - "**/*.md"
