@@ -459,7 +459,7 @@ class DescribeAnchoredFindings:
         assert code == prose.PROBLEMS
         assert errors_of(envelope) == ["doc.md:1  column 11 is outside the line (6 characters)"]
 
-    @pytest.mark.spec("report-cmd-refuses-insertions")
+    @pytest.mark.spec("report-cmd-refuses-empty-spans")
     @pytest.mark.parametrize(
         "where",
         [
@@ -468,7 +468,7 @@ class DescribeAnchoredFindings:
             pytest.param({"col_start": 3, "col_end": 3}, id="columns-that-meet"),
         ],
     )
-    def it_refuses_a_finding_that_would_insert(self, prose_repo, where):
+    def it_refuses_a_finding_with_an_empty_span(self, prose_repo, where):
         self.write(prose_repo, "One line.\n")
         record = prose_repo.finding(1, file="doc.md", replacement="x", **where)
         for code, envelope in (prose_repo.report([record]), prose_repo.apply([record])):
