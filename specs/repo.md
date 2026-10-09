@@ -290,8 +290,9 @@ Source: README.md, under "Claiming an issue", and #33.
 - `issueclosed-clears-in-progress-label` (check): When an issue carrying
   `in-progress` closes, issue-closed.yml removes the label.
 - `stale-cmd-reports-claims-left-behind` (test): When a label has no branch, a
-  closed issue keeps its label, or a closed issue keeps its branch, `issues.py
-  stale` fails and names the remedy.
+  closed issue keeps its label, a closed issue keeps its branch, or an open
+  issue has its branch and lacks the label, `issues.py stale` fails and names
+  the remedy.
 
 ## need owner-frees-abandoned-claims: Free an abandoned claim without losing work
 
