@@ -4061,9 +4061,15 @@ def stage_findings(text, blocks, rel, findings, numbers=None):
     and no blank line at either end. A blank line that is protected or carries
     a finding of its own is left alone.
 
+    A finding may cover a code span whole, so a sentence can be rewritten
+    around one, but it may not start or end inside one, and its replacement
+    has to hold every code span it covers, unchanged and in order. A code span
+    quotes code, which a prose rule has nothing to say about.
+
     A dismissal passes the same checks on where it is, and then makes no edit.
     """
     engine = EditEngine(text)
+    code_spans = blocks.code_span_offsets(blocks.protected_offsets())
     applied, rejected, accepted, placed, dismissed = [], [], [], [], []
     for n, f in zip(numbers or range(1, len(findings) + 1), findings):
         line = int(f.get("line", 0))
@@ -4122,6 +4128,16 @@ def stage_findings(text, blocks, rel, findings, numbers=None):
                 "%s:%d  %s an HTML comment; prose rules do not apply there" % (rel, line, where)
             )
             continue
+        if any(x < b and a < y and not (a <= x and y <= b) for x, y in code_spans):
+            where = (
+                "finding %d cuts" % n
+                if crossing
+                else "columns %d-%d cut" % (a - text.offset(line), b - text.offset(line))
+            )
+            rejected.append(
+                "%s:%d  %s into a code span; prose rules do not apply there" % (rel, line, where)
+            )
+            continue
         if dismiss is not None:
             dismissed.append((n, f, a, b))
             continue
@@ -4139,6 +4155,13 @@ def stage_findings(text, blocks, rel, findings, numbers=None):
         item = blocks.item(line)
         if item:
             new = indent_new_lines(new, item[1])
+        lost = dropped_code_span(text.s, new, [(x, y) for x, y in code_spans if a <= x < y <= b])
+        if lost:
+            rejected.append(
+                "%s:%d  finding %d's replacement does not keep the code span %s as it was"
+                % (rel, line, n, lost)
+            )
+            continue
         touched = set(range(line, (text.line_of(b - 1) if b > a else line) + 1))
         ref = {"finding": n, "file": rel, "line": line, "rule": f["rule"]}
         accepted.append((a, b, new, touched, ref))
@@ -4154,6 +4177,22 @@ def stage_findings(text, blocks, rel, findings, numbers=None):
         inside = [x[4] for x in accepted if x[3] <= cut and start <= x[0] and x[1] <= end]
         engine.replace(start, end, "", FindingLabel(inside) if inside else None)
     return Staged(engine, placed, applied, rejected, dismissed)
+
+
+def dropped_code_span(s, new, covered):
+    """The first of the code spans `covered` that `new` does not hold, or None.
+
+    Each span has to turn up in `new` after the one before it, so a
+    replacement that reorders two spans, or holds one span twice in place of
+    two, loses one.
+    """
+    pos = 0
+    for x, y in covered:
+        at = new.find(s[x:y], pos)
+        if at < 0:
+            return s[x:y]
+        pos = at + (y - x)
+    return None
 
 
 def indent_new_lines(new, column):

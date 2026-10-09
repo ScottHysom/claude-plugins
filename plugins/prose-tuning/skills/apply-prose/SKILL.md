@@ -317,6 +317,8 @@ The engine rejects a finding rather than trusting it when:
   block, a blockquote or an HTML comment
 - the text crosses a line that is not part of a paragraph or a list item, such
   as a blank line or a heading
+- the text starts or ends inside a code span, or the replacement does not
+  keep each code span the text covers, unchanged and in order
 - a `table-cell` replacement contains a `|` or a newline, which would silently
   restructure the table
 - two findings overlap, which `report` names in step 6
