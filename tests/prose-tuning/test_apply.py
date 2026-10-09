@@ -454,6 +454,38 @@ class DescribeAnchoredFindings:
 
     @pytest.mark.spec("report-cmd-locates-findings-by-text")
     @pytest.mark.parametrize("command", ["report", "apply"])
+    @pytest.mark.parametrize(
+        "col_start",
+        [
+            pytest.param("x", id="a-word"),
+            pytest.param("4", id="a-numeral-in-a-string"),
+            pytest.param(4.5, id="a-fraction"),
+            pytest.param(True, id="a-boolean"),
+        ],
+    )
+    def it_refuses_a_col_start_that_is_not_a_whole_number(self, prose_repo, command, col_start):
+        """The findings are the model's JSON, so col_start can arrive as any
+        value. int() would read "4", 4.5 and true as columns the finding did
+        not give. The rest of the batch is checked as usual.
+        """
+        self.write(prose_repo, "The colour is red.\nThe cat sat.\n")
+        bad = anchored(prose_repo, 1, "colour", "color", col_start=col_start)
+        good = anchored(prose_repo, 2, "cat", "dog")
+        if command == "report":
+            code, envelope = prose_repo.report([bad, good])
+        else:
+            code, envelope = prose_repo.apply([bad, good], "--partial")
+        assert code == prose.PROBLEMS
+        assert errors_of(envelope) == [
+            "doc.md:1  finding 1: col_start %s is not a whole number" % json.dumps(col_start)
+        ]
+        if command == "report":
+            assert [r["finding"] for r in envelope["data"]["findings"]] == [2]
+        else:
+            assert prose_repo.read("doc.md") == "The colour is red.\nThe dog sat.\n"
+
+    @pytest.mark.spec("report-cmd-locates-findings-by-text")
+    @pytest.mark.parametrize("command", ["report", "apply"])
     def it_refuses_a_finding_without_text(self, prose_repo, command):
         """A finding with no text used to be applied to its whole line, so it
         was never checked against the text the model saw.

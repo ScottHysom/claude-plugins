@@ -3924,7 +3924,10 @@ def locate(text, line, f, label):
         return None, EMPTY_SPAN % label
     col_start = f.get("col_start")
     if col_start is not None:
-        col_start = int(col_start)
+        # The column is the model's JSON, so as with finding_line, only a JSON
+        # integer is a column: int() would read "4", 4.5 and true as one.
+        if type(col_start) is not int:
+            return None, "%s: col_start %s is not a whole number" % (label, json.dumps(col_start))
         # Text.offset validates the line and then adds the column blind, so
         # a column past the end of its line resolves somewhere further down
         # the file and this would rewrite a passage nobody approved.
