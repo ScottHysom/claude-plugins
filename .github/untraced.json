@@ -14,8 +14,7 @@
     ".github/scripts/tests/test_check_tests.py::DescribePlacement::it_warns_when_a_plugin_script_has_no_suite": 239,
     ".github/scripts/tests/test_issues.py::DescribeStale::it_passes_a_claim_with_an_open_pull_request": 219,
     ".github/scripts/tests/test_issues.py::DescribeStale::it_passes_a_recent_claim_on_an_old_main": 219,
-    ".github/scripts/tests/test_issues.py::DescribeStale::it_reports_an_idle_claim": 219,
-    "tests/prose-tuning/test_config_location.py::DescribeDefaultScope::it_leaves_out_everything_under_the_claude_folder": 212
+    ".github/scripts/tests/test_issues.py::DescribeStale::it_reports_an_idle_claim": 219
   },
   "surface": {
     ".github/scripts/check-coverage.py::diff --report": 243,
