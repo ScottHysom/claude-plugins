@@ -1,7 +1,6 @@
 {
   "steps": {
-    "plugins/prose-tuning/skills/apply-prose/SKILL.md::2": 196,
-    "plugins/prose-tuning/skills/update-prose-config/SKILL.md::2": 182
+    "plugins/prose-tuning/skills/apply-prose/SKILL.md::2": 196
   },
   "tests": {
     ".github/scripts/tests/test_check_linked_issues.py::DescribeTheApprovedLabelRule::it_compares_label_names_without_case": 227,

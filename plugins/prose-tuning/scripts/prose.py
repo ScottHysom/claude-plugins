@@ -2679,6 +2679,16 @@ def cmd_evidence(args):
     data = {
         "explicit": explicit,
         "inferred": inferred,
+        # Every candidate is checked against these, so a rule that says the
+        # same thing is rewritten rather than added under a second id.
+        "rules": [
+            {
+                "id": r.id,
+                "body": r.body_text(),
+                "patterns": [source for _line, source in r.patterns],
+            }
+            for r in config.rules
+        ],
         "checkout": checkout,
         "other_worktrees": elsewhere,
     }

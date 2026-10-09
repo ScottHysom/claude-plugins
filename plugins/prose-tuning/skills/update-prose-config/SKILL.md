@@ -49,18 +49,7 @@ evidence from this run is often what fills them. To start from another
 project's rules instead, pass `--from <path to its .claude/rules/prose-style.md>`. To start
 with no rules at all, pass `--empty`.
 
-## Step 2: read the rules that already exist
-
-```sh
-python3 "$PROSE" config list --json
-```
-
-**Do this before inferring anything.** A second run that has not read the first
-run's rules invents parallel rules that say the same thing in different words,
-and neither can then be pointed at. Every candidate below is checked against
-this list.
-
-## Step 3: gather the evidence
+## Step 2: gather the evidence
 <!-- spec: updateproseconfig-asks-about-signals, updateproseconfig-reads-named-checkout, updateproseconfig-asks-which-checkout, updateproseconfig-takes-handed-notes, updateproseconfig-reads-notes-as-whys, updateproseconfig-runs-on-notes-alone -->
 <!-- seam: judgment: the author picks which checkout to learn from, when two or more hold edits -->
 
@@ -68,19 +57,25 @@ this list.
 python3 "$PROSE" evidence --json
 ```
 
-One command returns everything: explicit markup, untagged edits, and any open
-questions. The explicit and inferred halves matter differently.
+One command returns everything: explicit markup, untagged edits, and the
+rules `prose-style.md` already holds. The explicit and inferred halves matter
+differently.
+
+**`rules`** gives each existing rule's `id`, `body` and `patterns`. Check
+every candidate below against them before inferring anything. A run that does
+not invents parallel rules that say the same thing in different words, and
+neither can then be pointed at.
 
 **When the author named a checkout,** by its folder or its branch, or the run
 was handed one with its notes, add `--from "<that checkout>"` to `evidence`
-here and to `reproduce` in step 8, and do not ask which checkout to read.
+here and to `reproduce` in step 7, and do not ask which checkout to read.
 
 **When `data.other_worktrees` is not empty,** this tree does not hold any
 edits and another checkout of the repo does. With one entry, read that one.
 With two or more, put one `AskUserQuestion` to the author, with an option for
 each entry giving its `root`, `branch` and `files`, and an option to read
 none. Gather the evidence again from the one read, and pass the same `--from`
-to `reproduce` in step 8:
+to `reproduce` in step 7:
 
 ```sh
 python3 "$PROSE" evidence --from "<root>" --json
@@ -126,7 +121,7 @@ handed notes, carry on with the notes alone.
 apart at all. A plain `git diff` on a tagged tree reports the tags themselves
 as edits.
 
-## Step 4: the threshold for calling something a rule
+## Step 3: the threshold for calling something a rule
 <!-- spec: updateproseconfig-makes-rules-at-threshold -->
 
 <!-- no-command: judgment. The model weighs each candidate against the threshold. -->
@@ -142,7 +137,7 @@ Anything else becomes a question, not a rule. A rule inferred from one sentence
 with no commentary is a rule about one sentence, and it will fire on every
 document in the project forever.
 
-## Step 5: the interview, once
+## Step 4: the interview, once
 <!-- spec: updateproseconfig-asks-in-one-batch, updateproseconfig-asks-on-page, updateproseconfig-asks-about-vague-notes -->
 
 **Budget: one round of questions, plus one approval at the end.** A second
@@ -182,14 +177,14 @@ Claude. Then end the turn.
 A comment sent to Claude starts a new turn. Read the threads with
 `ArtifactComments`, and reply in each question's thread with the answer you
 took from it. When a comment does not settle its question, reply asking what
-it left open. Go on to step 6 once every question has an answer, and end the
+it left open. Go on to step 5 once every question has an answer, and end the
 turn until then.
 
 When the Artifact tool is not available, or refuses to publish, ask in
 `AskUserQuestion` calls of up to four questions each, in the order the
 questions were written.
 
-## Step 6: draft the rules for approval
+## Step 5: draft the rules for approval
 <!-- spec: updateproseconfig-writes-note-examples, updateproseconfig-shows-rules-whole, updateproseconfig-revises-on-comment -->
 
 Name each rule. The name is one to four words saying what the rule means, and
@@ -218,7 +213,7 @@ the identity, the body is current truth, and
 `git log -p .claude/rules/prose-style.md` holds what it used to say.
 
 **The script cannot detect a contradiction** and does not try. That is why
-step 2 is mandatory and why a candidate touching covered ground goes to the
+every candidate is checked against `rules` from step 2, and why a candidate touching covered ground goes to the
 author instead of into the file. Never reconcile two rules unilaterally.
 
 Do not edit `prose-style.md` yourself. Write every new rule and rewrite to
@@ -231,7 +226,7 @@ cat > "${TMPDIR:-/tmp}/prose-rules.json" <<'END'
   "body":"The two extra words carry nothing.",
   "example":{"before":"Run it in order to check.","after":"Run it to check."},
   "patterns":["\\bin order to\\b"]},
- {"id":"standing-us-spelling","expect":"<its body from config list --json>",
+ {"id":"standing-us-spelling","expect":"<its body from evidence --json>",
   "patterns":["(?i)\\bcolour\\b","(?i)\\bwhilst\\b"]}]
 END
 ```
@@ -248,7 +243,7 @@ A new rule gives:
 | `heading` | only for the first rule of a section the file does not have: the `##` heading to open it under |
 
 A rewrite gives `id`, `expect` (the rule's `body` exactly as
-`config list --json` printed it in step 2), and only the parts that change, of
+`evidence --json` printed it in step 2), and only the parts that change, of
 `title`, `body`, `example` and `patterns`. A part it gives replaces the old
 one whole, so a pattern list carries the old patterns it keeps. `"example": null`
 drops the example.
@@ -267,7 +262,7 @@ so a refusal like that is fixed in the pattern, not the example.
 The dry run writes the rules to the markdown file at `data.rules`, each as
 `prose-style.md` will hold it, and a rewrite with the rule it replaces above
 it. When it exits 0, `data.token` is the approval token, and the file ends
-with it. Step 7 takes the token from the page the author approved.
+with it. Step 6 takes the token from the page the author approved.
 
 Publish the file at `data.rules` as a private artifact with the Artifact
 tool, as markdown, with the icon `checklist`. After every later dry run,
@@ -293,7 +288,7 @@ When the Artifact tool is not available, or refuses to publish, read the file
 at `data.rules` and give it whole in your reply, as it stands, then end the
 turn. The author's reply is the decision, and it names the token.
 
-## Step 7: write the rules
+## Step 6: write the rules
 <!-- spec: updateproseconfig-writes-through-cmd -->
 
 Hand the batch the author approved to `config write`, with the token they
@@ -305,14 +300,14 @@ python3 "$PROSE" config write --batch "${TMPDIR:-/tmp}/prose-rules.json" --token
 
 `config write` writes all or none.
 
-## Step 8: validate by reproduction
+## Step 7: validate by reproduction
 <!-- spec: updateproseconfig-fixes-the-rule -->
 
 ```sh
 python3 "$PROSE" reproduce --json
 ```
 
-Add the `--from` that step 3 used, if any. `reproduce` runs every rule's pattern over each file as it was at HEAD. It
+Add the `--from` that step 2 used, if any. `reproduce` runs every rule's pattern over each file as it was at HEAD. It
 reads the author's markup as resolved, and reports each edit made since HEAD
 as one entry in `edits`:
 
@@ -326,10 +321,10 @@ as one entry in `edits`:
 An edit that no pattern reproduces and no unpatterned rule accounts for shows
 a rule that is wrong or incomplete. Say which, and fix the rule rather than
 the document: extend its pattern, or write the rule it is missing. Hand the fix
-to the author and `config write` as steps 6 and 7 do, then run `reproduce`
+to the author and `config write` as steps 5 and 6 do, then run `reproduce`
 again.
 
-## Step 9: hand off
+## Step 8: hand off
 <!-- spec: updateproseconfig-never-commits, updateproseconfig-names-unreproduced-edits, updateproseconfig-never-writes-documents -->
 
 <!-- no-command: hand-off to the author. The run ends with the working tree dirty. -->
@@ -339,7 +334,7 @@ writes is `prose-style.md`. Never write markup into a document, and never run
 `tags resolve`. The author's markup and edits stay as they left them, and
 `apply-prose` resolves the markup once the author says the rules are learned.
 
-List each edit that step 8 last reported with `reproduced: false`, by its
+List each edit that step 7 last reported with `reproduced: false`, by its
 `file` and `start`. If the author discards their edits and runs `apply-prose`
 instead, these are the edits it may not make again.
 **Never commit.** The project's own maintenance skill owns commit types,
