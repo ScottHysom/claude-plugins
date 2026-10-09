@@ -211,7 +211,6 @@ class DescribeGuards:
         [
             pytest.param(10, "<!-- a note -->", id="the-whole-comment"),
             pytest.param(0, "Some text <!", id="prose-and-the-opening-marker"),
-            pytest.param(15, "", id="an-insertion-inside-it"),
         ],
     )
     def it_refuses_a_finding_that_touches_an_inline_comment(self, prose_repo, col_start, text):
@@ -236,9 +235,9 @@ class DescribeGuards:
             pytest.param(
                 0, "Some text", "rewritten <!-- a note --> more text.\n", id="the-prose-before"
             ),
-            pytest.param(10, "", "Some text rewritten<!-- a note --> more text.\n", id="up-to-it"),
+            pytest.param(5, "text ", "Some rewritten<!-- a note --> more text.\n", id="up-to-it"),
             pytest.param(
-                25, "", "Some text <!-- a note -->rewritten more text.\n", id="just-after"
+                25, " ", "Some text <!-- a note -->rewrittenmore text.\n", id="just-after"
             ),
         ],
     )
@@ -456,13 +455,24 @@ class DescribeAnchoredFindings:
         ]
         assert prose_repo.read("doc.md") == "One line.\n"
 
-    def it_refuses_an_empty_text_without_col_start(self, prose_repo):
+    @pytest.mark.spec("report-cmd-refuses-empty-spans")
+    @pytest.mark.parametrize(
+        "where",
+        [
+            pytest.param({"text": ""}, id="an-empty-text"),
+            pytest.param({"text": "", "col_start": 3}, id="an-empty-text-at-a-column"),
+        ],
+    )
+    def it_refuses_a_finding_with_an_empty_span(self, prose_repo, where):
         self.write(prose_repo, "One line.\n")
-        code, envelope = prose_repo.apply([anchored(prose_repo, 1, "", "x")])
-        assert code == prose.PROBLEMS
-        assert errors_of(envelope) == [
-            "doc.md:1  finding 1: an empty text needs col_start to say where it goes"
-        ]
+        record = prose_repo.finding(1, file="doc.md", replacement="x", **where)
+        for code, envelope in (prose_repo.report([record]), prose_repo.apply([record])):
+            assert code == prose.PROBLEMS
+            assert errors_of(envelope) == [
+                "doc.md:1  finding 1: the text is empty, so this would insert;"
+                " rewrite the text beside the gap instead"
+            ]
+        assert prose_repo.read("doc.md") == "One line.\n"
 
     @pytest.mark.spec("report-cmd-refuses-stale-findings")
     def it_names_each_finding_by_its_place_in_the_batch(self, prose_repo):

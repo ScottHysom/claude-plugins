@@ -542,4 +542,4 @@ class DescribeTheApprovalToken:
         raw = b"[]"
         repo = prose.Repo(str(prose_repo.root))
         config = prose.Config(str(prose_repo.root / prose.CONFIG_PATH))
-        assert prose.rules_token(config, raw) != prose.approval_token(repo, config, raw, [])
+        assert prose.rules_token(config, raw) != prose.approval_token(repo, config, raw, [], [])

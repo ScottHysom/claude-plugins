@@ -63,13 +63,20 @@ resolved files and run this skill again to conform them.
 `--force` exists. Use it only when the author has asked for it by name.
 
 ## Step 2: the rules and the files
+<!-- spec: applyprose-passes-named-documents -->
 
 ```sh
 python3 "$PROSE" config list --json
 python3 "$PROSE" segments --summary
 ```
 
-`segments --summary` prints one line per file in scope, with its segment count
+When the author named the documents to check, name the same files after
+`segments --summary` here, and after `patterns`, `segments`, `report` and
+`apply` in the steps below, as in `segments --summary notes.md`. With no file,
+each of them reads every file in scope. `apply` refuses the token unless it is
+given the files `report` was.
+
+`segments --summary` prints one line per file, with its segment count
 and the characters of prose in them, then the totals. State the totals before
 reading anything, so the size of the pass is known up front. When the author
 asks why a file was skipped:
@@ -89,8 +96,8 @@ python3 "$PROSE" patterns
 
 A rule can carry a regular expression that finds its breaches, such as a
 spaced hyphen for `standing-no-em-dash`. `patterns` runs every one over the
-same spans `segments` returns, in every file in scope, and prints one line per
-match:
+same spans `segments` returns, in the files step 2 read, and prints one line
+per match:
 
 ```text
 notes.md:12:40-42  standing-no-em-dash  " -"
@@ -127,8 +134,7 @@ missed it, since the pattern is theirs to extend.
 python3 "$PROSE" segments
 ```
 
-With no path, `segments` reads every file in scope, so one run covers the
-whole pass. Name files after it to read only those.
+One run covers the whole pass.
 
 **Never read the raw file to judge conformance.** `segments` returns only the
 spans a prose rule may touch, one per line:
@@ -219,9 +225,9 @@ python3 "$PROSE" report --findings "${TMPDIR:-/tmp}/prose-findings.json" --json
 `report` reads each finding's current text from the file as it is now, and
 writes the report to the markdown file at `data.report`: each finding with its
 `file:line`, rule id, current text, proposed text and why, then the rules
-`patterns` checked in every file. Each line of a text sits between `|` marks,
-so a space at either end shows. `(cut)` and `(nothing: this inserts)` stand
-for an empty text. A dismissal shows its reason in place of a proposed text.
+`patterns` checked in the files step 2 read. Each line of a text sits between
+`|` marks, so a space at either end shows. `(cut)` stands for an empty
+proposed text. A dismissal shows its reason in place of a proposed text.
 When `report` exits 0, `data.token` is the approval token, and the file ends
 with it. Step 7 takes the token from the report the author approved.
 
@@ -286,6 +292,9 @@ Run it once. The report the author approved is the preview.
 python3 "$PROSE" apply --findings "${TMPDIR:-/tmp}/prose-findings.json" \
   --token 3f9a1c0e7b2d4a68 --only sentences-own-subject --file landscape.md
 ```
+
+The `--file` flags select from the approved findings. Any files the author
+named in step 2 go after the flags, as they did for `report`.
 
 A rule id or file that does not match any finding is an error, not an empty run.
 

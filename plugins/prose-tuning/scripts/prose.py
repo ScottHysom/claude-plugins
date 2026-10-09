@@ -136,6 +136,7 @@ TOKEN_LENGTH = 16
 TOKEN_LABEL = "approval token: "
 TOKEN_STALE = (
     "the findings, a document they name or %s changed since report ran, "
+    "apply was not given the files report was, "
     "or the token is not the one it printed; run report again and show it to the author"
 )
 RULES_TOKEN_STALE = (
@@ -146,6 +147,8 @@ RULES_TOKEN_MISSING = (
     "config write needs --token: run config write --dry-run, show the author the page it "
     "writes, and pass the token it prints"
 )
+# What a report token hashes before the files report was given.
+TOKEN_CHECKED = b"checked files"
 # What the rules token hashes first, so it can never equal a report token.
 RULES_TOKEN_DOMAIN = b"config write"
 
@@ -2679,6 +2682,16 @@ def cmd_evidence(args):
     data = {
         "explicit": explicit,
         "inferred": inferred,
+        # Every candidate is checked against these, so a rule that says the
+        # same thing is rewritten rather than added under a second id.
+        "rules": [
+            {
+                "id": r.id,
+                "body": r.body_text(),
+                "patterns": [source for _line, source in r.patterns],
+            }
+            for r in config.rules
+        ],
         "checkout": checkout,
         "other_worktrees": elsewhere,
     }
@@ -3811,6 +3824,8 @@ SPANNING_KINDS = ("paragraph", "list-item")
 DISMISS_KEY = "dismiss"
 # What to run again when a finding's text is no longer where it was addressed.
 REPORT_RERUN = "Re-run the report."
+# The refusal of an empty span, which would insert rather than rewrite.
+EMPTY_SPAN = "%s: the text is empty, so this would insert; rewrite the text beside the gap instead"
 
 
 def locate(text, line, f, label):
@@ -3819,7 +3834,9 @@ def locate(text, line, f, label):
     The text in f["text"] is looked for among the places that start on its
     line, and it has to start at exactly one of them. col_start says which,
     and the span runs as far as the text does, onto a later line if the text
-    holds a newline. label names the finding in a refusal.
+    holds a newline. An empty text is refused: a finding rewrites text, and
+    the text beside a gap is what to rewrite. label names the finding in a
+    refusal.
     """
     width = len(text.bare(line))
     base = text.offset(line)
@@ -3831,6 +3848,8 @@ def locate(text, line, f, label):
             "%s has col_end; leave it out, and give col_start only when the text "
             "starts at more than one place on the line" % label
         )
+    if want == "":
+        return None, EMPTY_SPAN % label
     col_start = f.get("col_start")
     if col_start is not None:
         col_start = int(col_start)
@@ -3841,8 +3860,6 @@ def locate(text, line, f, label):
             return None, "column %d is outside the line (%d characters)" % (col_start, width)
         a = base + col_start
         b = a + len(want)
-    elif not want:
-        return None, "%s: an empty text needs col_start to say where it goes" % label
     else:
         # Up to and including the line's end, so a text that starts with the
         # newline, to join this line to the next, still has a place to start.
@@ -4154,7 +4171,9 @@ findings:
                line and refuses a finding with no text, or whose text
                starts at none of them, or at more than one. A
                text holding a newline ends on a later line, so a wrapped
-               sentence is one finding
+               sentence is one finding. A finding with an empty text
+               would insert, so apply refuses it. Rewrite the text beside
+               the gap instead
   replacement  the rewrite; "" cuts the text, and a line cut whole goes
                with its newline. Defaults to ""
   dismiss      in place of replacement: why a pattern's match stays as it
@@ -4211,14 +4230,16 @@ class TokenHash:
         return self.digest.hexdigest()[:TOKEN_LENGTH]
 
 
-def approval_token(repo, config, raw, findings):
+def approval_token(repo, config, raw, findings, paths):
     """The token report prints and apply requires, for this batch as it is now.
 
     A sha256 over the findings' bytes, the path and bytes of every document any
     finding names, and prose-style.md's bytes. report takes no filter, so the
     token covers every finding it printed. apply's --only and --file are left
     out: they select within the approved set, so they must not change what
-    was approved.
+    was approved. The files report was given are what it checked for
+    uncovered matches, so the token covers their paths and bytes too, and
+    apply has to be given the same ones.
     """
     digest = TokenHash()
     digest.part(raw)
@@ -4231,6 +4252,14 @@ def approval_token(repo, config, raw, findings):
         digest.part(rel.encode("utf-8"))
         digest.document(repo.abspath(rel))
     digest.document(config.path)
+    checked = sorted(set(os.path.normpath(p) for p in paths))
+    if checked:
+        # A marker part, so the named files cannot hash the same as more
+        # documents the findings name.
+        digest.part(TOKEN_CHECKED)
+    for rel in checked:
+        digest.part(rel.encode("utf-8"))
+        digest.document(repo.abspath(rel))
     return digest.token()
 
 
@@ -4296,9 +4325,8 @@ def selected_files(repo, by_file, rejected):
     return out
 
 
-# What the report shows for an empty text, which would otherwise print as
-# nothing at all and read as a finding with its text missing.
-REPORT_NOTHING = "(nothing: this inserts)"
+# What the report shows for an empty proposed text, which would otherwise
+# print as nothing at all and read as a finding with its rewrite missing.
 REPORT_CUT = "(cut)"
 REPORT_LABEL_WIDTH = len("proposed") + 2
 # Each line of a current or proposed text is printed between these, so a
@@ -4307,15 +4335,16 @@ REPORT_LABEL_WIDTH = len("proposed") + 2
 REPORT_FENCE = "|"
 
 
-def report_text(value, placeholder):
+def report_text(value):
     """A current or proposed text as the report prints it: each line fenced,
-    or the unfenced placeholder when the text is empty.
+    or the unfenced REPORT_CUT when the text is empty. Only a proposed text
+    can be, since locate refuses an empty span.
 
     The placeholder stays unfenced so it cannot be read as a text, even one
     that says "(cut)".
     """
     if not value:
-        return placeholder
+        return REPORT_CUT
     return "\n".join(REPORT_FENCE + ln + REPORT_FENCE for ln in value.split("\n"))
 
 
@@ -4336,12 +4365,12 @@ def edit_refs(edit):
     return label.refs if isinstance(label, FindingLabel) else []
 
 
-def uncovered_matches(repo, config, scope, findings):
-    """Every pattern match in scope that no finding of the same rule contains.
+def uncovered_matches(repo, config, targets, findings):
+    """Every pattern match in these files that no finding of the same rule contains.
 
-    The files are the ones `patterns` reads with no paths. Every finding in
-    the batch counts, dismissals included. A finding that does not locate
-    covers nothing.
+    The files are the ones `patterns` reads when given the same paths, and
+    must exist. Every finding in the batch counts, dismissals included. A
+    finding that does not locate covers nothing.
     """
     by_file = {}
     for n, f in enumerate(findings, 1):
@@ -4349,7 +4378,7 @@ def uncovered_matches(repo, config, scope, findings):
             by_file.setdefault(os.path.normpath(f["file"]), []).append((n, f))
     rules = config.patterned()
     out = []
-    for rel in scope.files():
+    for rel in targets:
         text = Text.read(repo.abspath(rel))
         matches = pattern_matches(text, Blocks(text), rules)
         if not matches:
@@ -4388,11 +4417,11 @@ def report_markdown(data, rejected):
             "",
             "## Finding %d: `%s:%d`, `%s`" % (r["finding"], r["file"], r["line"], r["rule"]),
         ]
-        out += ["", "Current:", "", fenced(report_text(r["current"], REPORT_NOTHING))]
+        out += ["", "Current:", "", fenced(report_text(r["current"]))]
         if "reason" in r:
             out += ["", "Dismissed: %s" % r["reason"]]
             continue
-        out += ["", "Proposed:", "", fenced(report_text(r["proposed"], REPORT_CUT))]
+        out += ["", "Proposed:", "", fenced(report_text(r["proposed"]))]
         if r["why"]:
             out += ["", "Why: %s" % r["why"]]
     rows = data["findings"]
@@ -4417,10 +4446,11 @@ def cmd_report(args):
     change another. A finding apply would refuse is an error here too, and so
     is each pair of findings apply could not do both of.
 
-    It runs every rule's pattern itself, as `patterns` does, and each match no
-    finding or dismissal covers is an error, so a match the model left out
-    fails the report rather than going unmentioned. It ends by naming those
-    rules, so the author can tell them from the rules checked by reading.
+    It runs every rule's pattern itself, as `patterns` does over the same
+    paths, and each match no finding or dismissal covers is an error, so a
+    match the model left out fails the report rather than going unmentioned.
+    It ends by naming those rules, so the author can tell them from the rules
+    checked by reading.
     """
     repo, config, scope = load(args)
     raw, findings = read_json_bytes(args.findings, "findings")
@@ -4467,7 +4497,13 @@ def cmd_report(args):
         rejected.extend(config.errors)
         rejected.append("%s  fix it first; see: prose.py config lint" % config.rel())
     else:
-        uncovered = uncovered_matches(repo, config, scope, findings)
+        targets = []
+        for rel in args.paths or scope.files():
+            if os.path.exists(repo.abspath(rel)):
+                targets.append(rel)
+            else:
+                rejected.append("%s  no such file" % rel)
+        uncovered = uncovered_matches(repo, config, targets, findings)
     rejected.extend(
         "%s  no finding or dismissal covers this match" % match_line(m["file"], m)
         for m in uncovered
@@ -4475,7 +4511,7 @@ def cmd_report(args):
     patterned = [r.id for r in config.patterned()]
     # No token for a report that failed: the author cannot approve a batch
     # apply would refuse.
-    token = None if rejected else approval_token(repo, config, raw, findings)
+    token = None if rejected else approval_token(repo, config, raw, findings, args.paths)
     data = {
         "findings": rows,
         "dismissed": dismissed,
@@ -4489,14 +4525,14 @@ def cmd_report(args):
     def human():
         for r in rows:
             print("%s:%d  %s  (finding %d)" % (r["file"], r["line"], r["rule"], r["finding"]))
-            print(report_field("current", report_text(r["current"], REPORT_NOTHING)))
-            print(report_field("proposed", report_text(r["proposed"], REPORT_CUT)))
+            print(report_field("current", report_text(r["current"])))
+            print(report_field("proposed", report_text(r["proposed"])))
             if r["why"]:
                 print(report_field("why", r["why"]))
             print()
         for r in dismissed:
             print("%s:%d  %s  (finding %d)" % (r["file"], r["line"], r["rule"], r["finding"]))
-            print(report_field("current", report_text(r["current"], REPORT_NOTHING)))
+            print(report_field("current", report_text(r["current"])))
             print(report_field("dismissed", r["reason"]))
             print()
         print("%d finding(s) in %d file(s)" % (len(rows), len(set(r["file"] for r in rows))))
@@ -4515,7 +4551,7 @@ def cmd_report(args):
 def cmd_apply(args):
     repo, config, _ = load(args)
     raw, findings = read_json_bytes(args.findings, "findings")
-    if args.token != approval_token(repo, config, raw, findings):
+    if args.token != approval_token(repo, config, raw, findings, args.paths):
         stale = TOKEN_STALE % config.rel()
         return emit(args, "apply", repo.root, {"applied": []}, errors=[stale])
     by_file, rejected = select_findings(config, findings, args.only, args.file)
@@ -4968,9 +5004,13 @@ def build_parser():
         help="the findings, for approval",
         description="Print the findings for approval, read against the files as they are now, "
         "and name every pair of them that overlaps. Also write them to %s, for the author "
-        "to read whole." % REPORT_FILE,
+        "to read whole. Fail on every pattern match in the files given that no finding "
+        "covers. With no path, every file in scope." % REPORT_FILE,
         epilog=FINDINGS_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p.add_argument(
+        "paths", nargs="*", help="files to check for matches (default: every file in scope)"
     )
     p.set_defaults(func=cmd_report)
 
@@ -4982,6 +5022,7 @@ def build_parser():
         epilog=FINDINGS_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
+    p.add_argument("paths", nargs="*", help="the files report was given, which its token covers")
     p.add_argument("--only", metavar="ID,ID", help="only these rule ids")
     p.add_argument(
         "--file",
