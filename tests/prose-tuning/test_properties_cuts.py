@@ -47,6 +47,9 @@ def batches(draw):
         how = draw(st.sampled_from(["keep", "cut", "halves", "span", "rewrite"]))
         if how == "span" and not spans:
             how = "cut"
+        # Each half has to hold a character, since apply refuses an empty span.
+        if how == "halves" and len(bare) < 2:
+            how = "cut"
         if how == "cut":
             findings.append(anchored(n, bare, ""))
             removed.add(n)
@@ -54,7 +57,7 @@ def batches(draw):
             findings.append(anchored(n, bare + "\n" + text.bare(n + 1), ""))
             removed.update((n, n + 1))
         elif how == "halves":
-            mid = draw(st.integers(0, len(bare)))
+            mid = draw(st.integers(1, len(bare) - 1))
             findings.append(finding(n, 0, mid, bare[:mid], ""))
             findings.append(finding(n, mid, len(bare), bare[mid:], ""))
             removed.add(n)

@@ -3811,6 +3811,8 @@ SPANNING_KINDS = ("paragraph", "list-item")
 DISMISS_KEY = "dismiss"
 # What to run again when a finding's text is no longer where it was addressed.
 REPORT_RERUN = "Re-run the report."
+# The refusal of an empty span, which would insert rather than rewrite.
+EMPTY_SPAN = "%s: the text is empty, so this would insert; rewrite the text beside the gap instead"
 
 
 def locate(text, line, f, label):
@@ -3821,12 +3823,16 @@ def locate(text, line, f, label):
     alone says which, and the span runs as far as the text does, onto a later
     line if the text holds a newline. col_end pins the end on the same line,
     which is the one form that needs no text; without text, the columns
-    default to the whole line. label names the finding in a refusal.
+    default to the whole line. An empty span is refused, whether its text is
+    empty or its columns meet: a finding rewrites text, and the text beside
+    a gap is what to rewrite. label names the finding in a refusal.
     """
     width = len(text.bare(line))
     base = text.offset(line)
     want = f.get("text")
     col_start, col_end = f.get("col_start"), f.get("col_end")
+    if want == "":
+        return None, EMPTY_SPAN % label
     if want is None or col_end is not None:
         col_start = int(col_start if col_start is not None else 0)
         col_end = int(col_end if col_end is not None else width)
@@ -3840,14 +3846,14 @@ def locate(text, line, f, label):
                 width,
             )
         a, b = base + col_start, base + col_end
+        if a == b:
+            return None, EMPTY_SPAN % label
     elif col_start is not None:
         col_start = int(col_start)
         if not 0 <= col_start <= width:
             return None, "column %d is outside the line (%d characters)" % (col_start, width)
         a = base + col_start
         b = a + len(want)
-    elif not want:
-        return None, "%s: an empty text needs col_start to say where it goes" % label
     else:
         # Up to and including the line's end, so a text that starts with the
         # newline, to join this line to the next, still has a place to start.
@@ -4158,7 +4164,9 @@ findings:
                the places that start on the line and refuses a finding
                whose text starts at none of them, or at more than one. A
                text holding a newline ends on a later line, so a wrapped
-               sentence is one finding
+               sentence is one finding. A finding with an empty text, or
+               with columns that meet, would insert, so apply refuses it.
+               Rewrite the text beside the gap instead
   replacement  the rewrite; "" cuts the text, and a line cut whole goes
                with its newline. Defaults to ""
   dismiss      in place of replacement: why a pattern's match stays as it
@@ -4302,9 +4310,8 @@ def selected_files(repo, by_file, rejected):
     return out
 
 
-# What the report shows for an empty text, which would otherwise print as
-# nothing at all and read as a finding with its text missing.
-REPORT_NOTHING = "(nothing: this inserts)"
+# What the report shows for an empty proposed text, which would otherwise
+# print as nothing at all and read as a finding with its rewrite missing.
 REPORT_CUT = "(cut)"
 REPORT_LABEL_WIDTH = len("proposed") + 2
 # Each line of a current or proposed text is printed between these, so a
@@ -4313,15 +4320,16 @@ REPORT_LABEL_WIDTH = len("proposed") + 2
 REPORT_FENCE = "|"
 
 
-def report_text(value, placeholder):
+def report_text(value):
     """A current or proposed text as the report prints it: each line fenced,
-    or the unfenced placeholder when the text is empty.
+    or the unfenced REPORT_CUT when the text is empty. Only a proposed text
+    can be, since locate refuses an empty span.
 
     The placeholder stays unfenced so it cannot be read as a text, even one
     that says "(cut)".
     """
     if not value:
-        return placeholder
+        return REPORT_CUT
     return "\n".join(REPORT_FENCE + ln + REPORT_FENCE for ln in value.split("\n"))
 
 
@@ -4394,11 +4402,11 @@ def report_markdown(data, rejected):
             "",
             "## Finding %d: `%s:%d`, `%s`" % (r["finding"], r["file"], r["line"], r["rule"]),
         ]
-        out += ["", "Current:", "", fenced(report_text(r["current"], REPORT_NOTHING))]
+        out += ["", "Current:", "", fenced(report_text(r["current"]))]
         if "reason" in r:
             out += ["", "Dismissed: %s" % r["reason"]]
             continue
-        out += ["", "Proposed:", "", fenced(report_text(r["proposed"], REPORT_CUT))]
+        out += ["", "Proposed:", "", fenced(report_text(r["proposed"]))]
         if r["why"]:
             out += ["", "Why: %s" % r["why"]]
     rows = data["findings"]
@@ -4495,14 +4503,14 @@ def cmd_report(args):
     def human():
         for r in rows:
             print("%s:%d  %s  (finding %d)" % (r["file"], r["line"], r["rule"], r["finding"]))
-            print(report_field("current", report_text(r["current"], REPORT_NOTHING)))
-            print(report_field("proposed", report_text(r["proposed"], REPORT_CUT)))
+            print(report_field("current", report_text(r["current"])))
+            print(report_field("proposed", report_text(r["proposed"])))
             if r["why"]:
                 print(report_field("why", r["why"]))
             print()
         for r in dismissed:
             print("%s:%d  %s  (finding %d)" % (r["file"], r["line"], r["rule"], r["finding"]))
-            print(report_field("current", report_text(r["current"], REPORT_NOTHING)))
+            print(report_field("current", report_text(r["current"])))
             print(report_field("dismissed", r["reason"]))
             print()
         print("%d finding(s) in %d file(s)" % (len(rows), len(set(r["file"] for r in rows))))
