@@ -637,6 +637,84 @@ class DescribeNewLinesInListItems:
         assert prose_repo.read("doc.md") == "- An item.\n\nOne.\nTwo.\n"
 
 
+class DescribeCodeSpans:
+    """A code span quotes code. A finding may rewrite the prose around one,
+    but not the code inside it."""
+
+    LINE = "Run `issues.py claim 64` and wait.\n"
+    RUNS = (
+        pytest.param(("report",), id="report"),
+        pytest.param(("apply",), id="apply"),
+        pytest.param(("apply", "--partial"), id="apply-partial"),
+    )
+
+    def write(self, prose_repo, body=LINE):
+        (prose_repo.root / "doc.md").write_text(body)
+
+    @pytest.mark.spec("apply-cmd-keeps-code-spans")
+    @pytest.mark.parametrize("run", RUNS)
+    @pytest.mark.parametrize(
+        ("text", "col_start"),
+        [
+            pytest.param("claim 64", 15, id="inside-it"),
+            pytest.param("Run `issues.py", 0, id="into-its-start"),
+            pytest.param("64` and", 21, id="out-of-its-end"),
+        ],
+    )
+    def it_refuses_a_finding_that_cuts_into_a_code_span(self, prose_repo, run, text, col_start):
+        self.write(prose_repo)
+        before = prose_repo.read("doc.md")
+        finding = anchored(prose_repo, 1, text, "changed", col_start=col_start)
+        code, envelope = getattr(prose_repo, run[0])([finding], *run[1:])
+        assert code == prose.PROBLEMS
+        assert errors_of(envelope) == [
+            "doc.md:1  columns %d-%d cut into a code span; prose rules do not apply there"
+            % (col_start, col_start + len(text))
+        ]
+        assert prose_repo.read("doc.md") == before
+
+    @pytest.mark.spec("apply-cmd-keeps-code-spans")
+    @pytest.mark.parametrize("run", RUNS)
+    @pytest.mark.parametrize(
+        "replacement",
+        [
+            pytest.param("Wait.", id="dropped"),
+            pytest.param("Run `issues.py claim 65` and wait.", id="changed"),
+        ],
+    )
+    def it_refuses_a_replacement_that_loses_a_code_span(self, prose_repo, run, replacement):
+        self.write(prose_repo)
+        before = prose_repo.read("doc.md")
+        finding = anchored(prose_repo, 1, self.LINE.strip(), replacement)
+        code, envelope = getattr(prose_repo, run[0])([finding], *run[1:])
+        assert code == prose.PROBLEMS
+        assert errors_of(envelope) == [
+            "doc.md:1  finding 1's replacement does not keep the code span "
+            "`issues.py claim 64` as it was"
+        ]
+        assert prose_repo.read("doc.md") == before
+
+    @pytest.mark.spec("apply-cmd-keeps-code-spans")
+    def it_refuses_a_replacement_that_swaps_two_code_spans(self, prose_repo):
+        self.write(prose_repo, "Run `a` then `b`.\n")
+        code, envelope = prose_repo.apply(
+            [anchored(prose_repo, 1, "Run `a` then `b`.", "Run `b` then `a`.")]
+        )
+        assert code == prose.PROBLEMS
+        assert errors_of(envelope) == [
+            "doc.md:1  finding 1's replacement does not keep the code span `b` as it was"
+        ]
+
+    @pytest.mark.spec("apply-cmd-keeps-code-spans")
+    def it_rewrites_a_sentence_around_a_code_span_it_keeps(self, prose_repo):
+        self.write(prose_repo)
+        code, envelope = prose_repo.apply(
+            [anchored(prose_repo, 1, self.LINE.strip(), "Wait after `issues.py claim 64`.")]
+        )
+        assert code == prose.OK, envelope["errors"]
+        assert prose_repo.read("doc.md") == "Wait after `issues.py claim 64`.\n"
+
+
 class DescribeHelp:
     @pytest.mark.spec("apply-cmd-describes-finding-fields-in-help")
     def it_describes_every_field_of_a_finding(self, capsys):

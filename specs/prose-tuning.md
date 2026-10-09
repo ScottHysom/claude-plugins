@@ -382,6 +382,10 @@ ruling on #133.
   reaches a line of a block that `segments` leaves out, touches an HTML
   comment, or crosses a line that is not part of a paragraph or a list item,
   `report` and `apply` refuse it, with or without `--partial`.
+- `apply-cmd-keeps-code-spans` (test): When a finding starts or ends inside a
+  code span, or its replacement does not hold each code span it covers,
+  unchanged and in order, `report` and `apply` refuse it, with or without
+  `--partial`.
 - `apply-cmd-never-splits-table-cells` (test): When a rewrite would put a `|`
   or a newline in a table cell, or a newline in a line it does not already
   cross outside a paragraph, `apply` refuses it.
