@@ -4142,8 +4142,10 @@ def stage_findings(text, blocks, rel, findings, numbers=None):
             dismissed.append((n, f, a, b))
             continue
         new = f.get("replacement", "")
-        if blocks.kind(line) == "table" and ("|" in new or "\n" in new):
-            rejected.append("%s:%d  a table cell cannot contain | or a newline" % (rel, line))
+        if blocks.kind(line) == "table" and ("|" in text.s[a:b] + new or "\n" in new):
+            rejected.append(
+                "%s:%d  a table rewrite cannot add or remove a | or add a newline" % (rel, line)
+            )
             continue
         if "\n" in new and blocks.kind(line) != "paragraph" and not crossing:
             rejected.append(

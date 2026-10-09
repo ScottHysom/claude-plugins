@@ -386,9 +386,10 @@ ruling on #133.
   code span, or its replacement does not hold each code span it covers,
   unchanged and in order, `report` and `apply` refuse it, with or without
   `--partial`.
-- `apply-cmd-never-splits-table-cells` (test): When a rewrite would put a `|`
-  or a newline in a table cell, or a newline in a line it does not already
-  cross outside a paragraph, `apply` refuses it.
+- `apply-cmd-never-splits-table-cells` (test): When a rewrite on a table line
+  would add or remove a `|`, or add a newline, `apply` refuses it. It also
+  refuses a newline in a line the rewrite does not already cross outside a
+  paragraph.
 - `apply-cmd-indents-list-items` (test): When a rewrite in a list item
   holds a newline, `apply` indents each new line to the item's text, unless it
   is indented that far already.

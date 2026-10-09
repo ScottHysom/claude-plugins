@@ -176,24 +176,28 @@ class DescribeGuards:
 
     @pytest.mark.spec("apply-cmd-never-splits-table-cells")
     @pytest.mark.parametrize(
-        "replacement",
+        ("text", "replacement"),
         [
-            pytest.param("a | b", id="pipe"),
-            pytest.param("a\nb", id="newline"),
+            pytest.param("model", "a | b", id="adds-a-pipe"),
+            pytest.param("model", "a\nb", id="adds-a-newline"),
+            pytest.param("model | a large", "model a large", id="removes-a-pipe"),
         ],
     )
-    def it_refuses_a_replacement_that_would_break_a_table(
-        self, prose_repo, target_lines, replacement
+    def it_refuses_a_rewrite_that_would_break_a_table(
+        self, prose_repo, target_lines, text, replacement
     ):
+        before = prose_repo.read()
         code, envelope = prose_repo.apply(
             [
-                prose_repo.finding(target_lines["table"], text="model", replacement=replacement),
+                prose_repo.finding(target_lines["table"], text=text, replacement=replacement),
             ]
         )
         assert code == prose.PROBLEMS
         assert errors_of(envelope) == [
-            "target.md:%d  a table cell cannot contain | or a newline" % target_lines["table"]
+            "target.md:%d  a table rewrite cannot add or remove a | or add a newline"
+            % target_lines["table"]
         ]
+        assert prose_repo.read() == before
 
     @pytest.mark.spec("apply-cmd-never-splits-table-cells")
     def it_refuses_a_multi_line_replacement_outside_a_paragraph(self, prose_repo, target_lines):
