@@ -205,12 +205,6 @@ BARE_LINE = "bare"
 FROM_COMMAND = "evidence --from %s"
 
 DEFAULT_INCLUDE = ["**/*.md"]
-DEFAULT_EXCLUDE = [
-    ".claude/**",
-    "CLAUDE.md",
-    "**/README.md",
-    "skills/**",
-]
 
 
 class Fatal(Exception):
@@ -1057,9 +1051,8 @@ def config_path(repo, override=None):
 class Scope:
     """File selection, with the config's scope: block overriding the defaults.
 
-    include/exclude replace the defaults wholesale when present. Partial
-    override was considered and rejected: "which of the four defaults am I
-    still getting" is not a question anyone should answer by reading a script.
+    include replaces the default wholesale when present. exclude has no
+    default: without one, nothing the include matches is left out.
 
     prose-style.md is excluded unconditionally, override or not. apply-prose
     rewriting its own rulebook is not a thing anyone wants to debug.
@@ -1069,7 +1062,7 @@ class Scope:
         self.repo = repo
         self.config = config
         self.include = config.scope_include or list(DEFAULT_INCLUDE)
-        self.exclude = config.scope_exclude or list(DEFAULT_EXCLUDE)
+        self.exclude = config.scope_exclude
         self._inc = Matcher(self.include)
         self._exc = Matcher(self.exclude)
         self._config_rel = config_rel or (
@@ -2889,8 +2882,6 @@ name: {name} prose style
 scope:
   include:
 {include}
-  exclude:
-{exclude}
 ---
 
 # {name}: prose style
@@ -3729,7 +3720,6 @@ def cmd_config(args):
                 CONFIG_SKELETON.format(
                     name=repo.project_name(),
                     include=fmt(DEFAULT_INCLUDE),
-                    exclude=fmt(DEFAULT_EXCLUDE),
                 )
             ).write(config.path)
         return emit(
