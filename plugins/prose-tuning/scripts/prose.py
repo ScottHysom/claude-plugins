@@ -2441,7 +2441,7 @@ def cmd_preflight(args):
     if sys.version_info < (3, 9):  # noqa: UP036 - the message a user on an older Python sees
         blockers.append("python3 is %d.%d; this script needs 3.9 or newer" % sys.version_info[:2])
     if not config.exists:
-        if want in ("apply", "adopt"):
+        if want == "apply":
             blockers.append("%s  no config; run: prose.py config init" % config.rel())
     else:
         blockers += config.errors
@@ -4956,7 +4956,7 @@ def build_parser():
     sub = ap.add_subparsers(dest="command", required=True)
 
     p = sub.add_parser("preflight", parents=[common], help="refuse-to-run check for one skill")
-    p.add_argument("--for", dest="for_target", required=True, choices=["config", "apply", "adopt"])
+    p.add_argument("--for", dest="for_target", required=True, choices=["config", "apply"])
     p.set_defaults(func=cmd_preflight)
 
     p = sub.add_parser("scope", parents=[common], help="which files the prose rules govern")
