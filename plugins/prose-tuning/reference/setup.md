@@ -17,6 +17,8 @@ The `setup` call at the end of that step reports `data.surface`:
   can see it, can't read the plugin. Copy the script into the project and run
   every command there, as the two sections on Cowork say.
 
+When a command stops, its message names what to do next. Do that.
+
 ## Locally: run each command from the project root
 
 Each Bash call in Claude Code starts a fresh shell. The working directory
@@ -33,8 +35,6 @@ PROSE=.prose-tuning/prose.py && python3 "$PROSE" preflight --for apply
   script.
 - **Run from the project root,** the `repo` in the `setup` result. The prefix
   and every path the skill gives are relative to it.
-- **If preflight says `.prose-tuning/prose.py` is not ignored,** the
-  `.gitignore` beside it is missing. Run the "Locate the script" step again.
 
 ## On Cowork: copy the script across
 
@@ -49,8 +49,7 @@ PROSE=.prose-tuning/prose.py && python3 "$PROSE" preflight --for apply
    ```
 
    Add `--connected "<connected folder>"` when the project sits inside the
-   connected folder rather than being it. Exit 0: staged.
-   Exit 2: the message names the path that was wrong.
+   connected folder rather than being it.
 
 3. Call `device_commit_files` with `files` set to `data.commit_files`. If it
    rejects anything, stop and tell the author.
@@ -75,5 +74,3 @@ cd "$HOME/mnt"/Notes && PROSE=.prose-tuning/prose.py && python3 "$PROSE" preflig
 - **Use the prefix on every call,** including one that only writes a file. It
   moves into the project, so a path the skill gives relative to the project
   root works as written, and `$TMPDIR` is the device's.
-- **If preflight says `.prose-tuning/prose.py` is not ignored,** the
-  `.gitignore` beside it didn't arrive. Stage and copy again.
