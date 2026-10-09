@@ -3965,6 +3965,17 @@ REPORT_RERUN = "Re-run the report."
 EMPTY_SPAN = "%s: the text is empty, so this would insert; rewrite the text beside the gap instead"
 
 
+def finding_line(f):
+    """A finding's line, or None when it is not a whole number.
+
+    The findings are the model's JSON, so the line can be any value. int()
+    would read "2" as a line, cut 1.5 to 1 and take true for 1, so a finding
+    would land on a line it did not name; only a JSON integer is a line.
+    """
+    line = f.get("line")
+    return line if type(line) is int else None
+
+
 def locate(text, line, f, label):
     """The absolute (start, end) that a finding covers, or (None, why not).
 
@@ -4109,7 +4120,13 @@ def stage_findings(text, blocks, rel, findings, numbers=None):
     code_spans = blocks.code_span_offsets(blocks.protected_offsets())
     applied, rejected, accepted, placed, dismissed = [], [], [], [], []
     for n, f in zip(numbers or range(1, len(findings) + 1), findings):
-        line = int(f.get("line", 0))
+        line = finding_line(f)
+        if line is None:
+            rejected.append(
+                "%s  finding %d: line %s is not a whole number"
+                % (rel, n, json.dumps(f.get("line")))
+            )
+            continue
         if line < 1 or line > text.line_count():
             rejected.append("%s:%s  line is outside the file" % (rel, line))
             continue
@@ -4561,11 +4578,8 @@ def uncovered_matches(repo, config, targets, findings):
             continue
         spans = []
         for n, f in by_file.get(os.path.normpath(rel), []):
-            try:
-                line = int(f.get("line", 0))
-            except (TypeError, ValueError):
-                continue
-            if not 1 <= line <= text.line_count():
+            line = finding_line(f)
+            if line is None or not 1 <= line <= text.line_count():
                 continue
             span, problem = locate(text, line, f, "finding %d" % n)
             if not problem:
