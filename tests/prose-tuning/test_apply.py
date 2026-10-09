@@ -10,6 +10,8 @@ Each guard refuses rather than writes, because a refusal the author can read
 beats a rewrite they have to find later.
 """
 
+import json
+
 import pytest
 
 import prose
@@ -115,6 +117,38 @@ class DescribeGuards:
         assert code == prose.PROBLEMS
         assert errors_of(envelope) == ["target.md:%d  line is outside the file" % line]
         assert prose_repo.read() == before
+
+    @pytest.mark.spec("report-cmd-refuses-stale-findings")
+    @pytest.mark.parametrize("command", ["report", "apply"])
+    @pytest.mark.parametrize(
+        "line",
+        [
+            pytest.param("x", id="a-word"),
+            pytest.param(None, id="null"),
+            pytest.param("2", id="a-numeral-in-a-string"),
+            pytest.param(1.5, id="a-fraction"),
+            pytest.param(True, id="a-boolean"),
+        ],
+    )
+    def it_refuses_a_line_that_is_not_a_whole_number(self, prose_repo, target_lines, command, line):
+        """The findings are the model's JSON, so a line can arrive as any
+        value. One that is not a whole number names no line, and the rest of
+        the batch is checked as usual.
+        """
+        good = prose_repo.finding(target_lines["last-paragraph"], text="Final paragraph.")
+        bad = dict(good, line=line)
+        if command == "report":
+            code, envelope = prose_repo.report([bad, good])
+        else:
+            code, envelope = prose_repo.apply([bad, good], "--partial")
+        assert code == prose.PROBLEMS
+        assert errors_of(envelope) == [
+            "target.md  finding 1: line %s is not a whole number" % json.dumps(line)
+        ]
+        if command == "report":
+            assert [r["finding"] for r in envelope["data"]["findings"]] == [2]
+        else:
+            assert "Final paragraph." not in prose_repo.read()
 
     @pytest.mark.spec("report-cmd-refuses-stale-findings")
     def it_refuses_a_missing_file(self, prose_repo):
