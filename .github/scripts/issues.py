@@ -232,6 +232,10 @@ class Fatal(Exception):
     """Cannot run at all. Exits 2."""
 
 
+class UnreadableAddress(Fatal):
+    """gh created an issue and printed something that is not its address."""
+
+
 # --------------------------------------------------------------------------
 # output
 # --------------------------------------------------------------------------
@@ -1310,7 +1314,7 @@ def cmd_plan_report(args, repo):
 def issue_number(url):
     m = ISSUE_URL_RE.search(url.strip())
     if not m:
-        raise Fatal("gh issue create printed %r, not an issue's address" % url.strip())
+        raise UnreadableAddress("gh issue create printed %r, not an issue's address" % url.strip())
     return int(m.group(1))
 
 
@@ -1456,14 +1460,20 @@ def cmd_plan_file(args, repo):
             )
             data["sub_issues"].append({"issue": n, "tracking": t["number"]})
     except Fatal as exc:
+        if isinstance(exc, UnreadableAddress):
+            remedy = (
+                "that issue may exist on GitHub and is not recorded, so check the "
+                "repository for it before running plan file again, which would file it again"
+            )
+        else:
+            remedy = "run plan file again with the same plan and token to file the rest"
         return emit(
             args,
             "plan file",
             data,
             [
                 "%s. plan file stopped there. What it filed is listed above and recorded in "
-                "%s; run plan file again with the same plan and token to file the rest"
-                % (exc, PLAN_LEDGER)
+                "%s; %s" % (exc, PLAN_LEDGER, remedy)
             ],
             warnings,
             human=human,

@@ -512,6 +512,7 @@ class DescribePlanFileResume:
         assert code == cli.PROBLEMS
         assert out.out == "filed #100 issue A  https://github.com/o/r/issues/100\n"
         assert "gh issue create failed. plan file stopped there" in out.err
+        assert "run plan file again with the same plan and token to file the rest" in out.err
         assert list(gh.filed()) == [100]
 
         code, out = run(capsys, repo, "plan", "report", "--drafts", str(plan))
@@ -526,6 +527,29 @@ class DescribePlanFileResume:
         assert sorted(gh.filed()) == [100, 101, 102, 103]
         assert gh.blocked == {101: [8, 100]}
         assert gh.subs == {103: [100, 101, 102]}
+
+    @pytest.mark.spec("script-names-remedy-on-stop")
+    def it_says_to_check_the_repository_when_it_cannot_read_an_address(
+        self, capsys, tmp_path, repo, hub
+    ):
+        gh = hub()
+        plan = write_plan(tmp_path, issue("A"), issue("B"))
+        token = token_for(capsys, repo, plan)
+        real = gh.__call__
+
+        def garbled(repo_, *args, stdin=None):
+            out = real(repo_, *args, stdin=stdin)
+            if args[:2] == ("issue", "create") and gh.creates == 2:
+                return "Creating issue in o/r\n"
+            return out
+
+        cli.gh = garbled
+        code, out = run(capsys, repo, "plan", "file", "--drafts", str(plan), "--token", token)
+        assert code == cli.PROBLEMS
+        assert sorted(gh.filed()) == [100, 101]
+        assert "not an issue's address. plan file stopped there" in out.err
+        assert "check the repository for it before running plan file again" in out.err
+        assert "to file the rest" not in out.err
 
     @pytest.mark.spec("planfile-cmd-resumes-after-failed-call")
     def it_adds_only_the_links_and_sub_issues_github_lacks(self, capsys, tmp_path, repo, hub):
