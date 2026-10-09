@@ -382,9 +382,10 @@ ruling on #133.
   reaches a line of a block that `segments` leaves out, touches an HTML
   comment, or crosses a line that is not part of a paragraph or a list item,
   `report` and `apply` refuse it, with or without `--partial`.
-- `apply-cmd-never-splits-table-cells` (test): When a rewrite would put a `|`
-  or a newline in a table cell, or a newline in a line it does not already
-  cross outside a paragraph, `apply` refuses it.
+- `apply-cmd-never-splits-table-cells` (test): When a rewrite on a table line
+  would add or remove a `|`, or add a newline, `apply` refuses it. It also
+  refuses a newline in a line the rewrite does not already cross outside a
+  paragraph.
 - `apply-cmd-indents-list-items` (test): When a rewrite in a list item
   holds a newline, `apply` indents each new line to the item's text, unless it
   is indented that far already.
