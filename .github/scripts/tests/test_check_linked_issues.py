@@ -296,7 +296,8 @@ class DescribeMain:
         assert out.err == ""
 
     @pytest.mark.spec(
-        "checklinkedissues-cmd-requires-approved-issues", "command-splits-output-streams"
+        "checklinkedissues-cmd-requires-approved-issues",
+        "command-splits-output-streams-without-json",
     )
     def it_exits_problems_with_the_reason_on_stderr(self, tmp_path, capsys):
         code, out = run(

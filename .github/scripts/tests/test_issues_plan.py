@@ -327,7 +327,9 @@ class DescribePlanReportOrder:
 
 
 class DescribePlanReportFile:
-    @pytest.mark.spec("planreport-cmd-writes-report-file", "command-splits-output-streams")
+    @pytest.mark.spec(
+        "planreport-cmd-writes-report-file", "command-splits-output-streams-without-json"
+    )
     def it_writes_the_report_it_prints_and_ends_it_with_the_token(
         self, capsys, tmp_path, repo, hub
     ):
@@ -345,7 +347,9 @@ class DescribePlanReportFile:
         assert "- **Blocked by:** `A`" in written
         assert "> 1. #{A} issue A" in written
 
-    @pytest.mark.spec("planreport-cmd-writes-report-file", "command-splits-output-streams")
+    @pytest.mark.spec(
+        "planreport-cmd-writes-report-file", "command-splits-output-streams-without-json"
+    )
     def it_writes_a_refused_report_with_its_faults_and_no_token(self, capsys, tmp_path, repo, hub):
         hub()
         plan = write_plan(tmp_path, issue("A", labels=("bug",)))
@@ -393,7 +397,7 @@ class DescribePlanFile:
         assert gh.subs == {t: [a, b, c]}
         assert data["data"]["tracking"]["url"] == "https://github.com/o/r/issues/103"
 
-    @pytest.mark.spec("planfile-cmd-files-in-order", "command-splits-output-streams")
+    @pytest.mark.spec("planfile-cmd-files-in-order", "command-splits-output-streams-without-json")
     def it_names_each_number_and_address_on_stdout(self, capsys, tmp_path, repo, hub):
         hub()
         plan = write_plan(tmp_path, issue("A"))

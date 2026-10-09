@@ -105,7 +105,7 @@ class DescribeNothingPendingAnywhere:
         assert err == ""
 
 
-@pytest.mark.spec("command-reads-other-worktree")
+@pytest.mark.spec("command-reads-other-worktree-with-from")
 class DescribeFrom:
     def it_scans_the_worktree_named(self, repo, worktree):
         worktree.write("a.py", "# TODO: there\n")
@@ -170,7 +170,7 @@ class DescribeFrom:
         assert "here.py:1 does not hold a pending TODO" in env["errors"][0]
 
 
-@pytest.mark.spec("file-cmd-marks-in-other-worktree")
+@pytest.mark.spec("file-cmd-marks-other-worktree-with-from")
 class DescribeFileFrom:
     def it_marks_the_todo_in_the_worktree_named(self, repo, worktree, github):
         worktree.write("a.py", "x = 1\n")

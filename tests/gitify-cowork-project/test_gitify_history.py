@@ -168,7 +168,7 @@ class DescribeTheHistorySection:
 
 
 class DescribeTheHistoryArguments:
-    @pytest.mark.spec("repo:command-splits-output-streams")
+    @pytest.mark.spec("repo:command-splits-output-streams-without-json")
     def it_prints_the_command_on_stdout_in_plain_output(self, runner):
         code, _ = runner.run("history", "--connected-folder", CONNECTED, json_output=False)
         assert code == gitify.OK

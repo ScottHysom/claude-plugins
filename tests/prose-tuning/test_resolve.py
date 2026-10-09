@@ -108,7 +108,7 @@ class DescribeTagsResolve:
         assert any("never closed" in e for e in envelope["errors"])
         assert prose_repo.read("good.md") == "Keep <del>this</del>.\n"
 
-    @pytest.mark.spec("repo:command-splits-output-streams")
+    @pytest.mark.spec("repo:command-splits-output-streams-without-json")
     def it_prints_each_file_it_resolved_with_its_tag_count(self, prose_repo, capsys):
         (prose_repo.root / "target.md").write_text(CUT_MIDDLE)
         capsys.readouterr()

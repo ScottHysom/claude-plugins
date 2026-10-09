@@ -105,12 +105,12 @@ Source: #315, and #301, which found the same split for update-prose-config.
   any pending TODO and another worktree of the repo does, `scan` names each
   such worktree with its branch and files, and exits 1 naming `scan --from`
   with its path.
-- `command-reads-other-worktree` (test): When `scan`, `report`, `file` or
-  `questions` is given `--from` with a worktree of this repo, named by its
-  folder or by the branch it has checked out, it reads that worktree's TODOs.
-  Given this tree, it behaves as with no `--from`.
-- `file-cmd-marks-in-other-worktree` (test): When `file` is given `--from`, it
-  marks the finished TODOs in that worktree's files.
+- `command-reads-other-worktree-with-from` (test): When `scan`, `report`,
+  `file` or `questions` is given `--from` with a worktree of this repo, named
+  by its folder or by the branch it has checked out, it reads that worktree's
+  TODOs. Given this tree, it behaves as with no `--from`.
+- `file-cmd-marks-other-worktree-with-from` (test): When `file` is given
+  `--from`, it marks the finished TODOs in that worktree's files.
 - `command-refuses-unknown-worktree` (test): When `--from` names neither a
   worktree of this repo nor a branch one has checked out, the command names
   it, lists every worktree with its branch, and exits 2.

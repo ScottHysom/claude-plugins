@@ -287,7 +287,9 @@ class DescribeDescriptions:
         assert "1 skill description(s) clear" in out
         assert err == ""
 
-    @pytest.mark.spec("descriptions-cmd-fails-named-tags", "command-splits-output-streams")
+    @pytest.mark.spec(
+        "descriptions-cmd-fails-named-tags", "command-splits-output-streams-without-json"
+    )
     def it_fails_a_skill_whose_description_holds_a_tag(self, make_repo, run):
         root = make_repo({SKILL: described("Reads explicit <ins> markup.")})
         code, out, err = run("descriptions", "-C", str(root))
@@ -479,7 +481,9 @@ class DescribeCommands:
         assert code == cs.OK, err
         assert "2 invocation(s) in 1 file(s)" in out
 
-    @pytest.mark.spec("commands-cmd-parses-invocations", "command-splits-output-streams")
+    @pytest.mark.spec(
+        "commands-cmd-parses-invocations", "command-splits-output-streams-without-json"
+    )
     def it_rejects_an_unknown_subcommand(self, make_repo, run):
         root = make_repo(uses(sh('python3 "$FOO" config nope')))
         code, out, err = run("commands", "-C", str(root))
@@ -905,7 +909,9 @@ class DescribeSteps:
 
 
 class DescribeFences:
-    @pytest.mark.spec("fences-cmd-rejects-other-commands", "command-splits-output-streams")
+    @pytest.mark.spec(
+        "fences-cmd-rejects-other-commands", "command-splits-output-streams-without-json"
+    )
     def it_rejects_python_dash_c(self, make_repo, run):
         root = make_repo(uses(sh('python3 "$FOO" lint', "python3 -c 'print(1)'")))
         code, out, err = run("fences", "-C", str(root))

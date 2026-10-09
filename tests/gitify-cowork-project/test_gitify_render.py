@@ -82,7 +82,9 @@ class DescribeACleanRender:
         assert "never write project documents anywhere else" in pointer
         assert "\n" not in pointer
 
-    @pytest.mark.spec("render-cmd-prints-field-pointer", "repo:command-splits-output-streams")
+    @pytest.mark.spec(
+        "render-cmd-prints-field-pointer", "repo:command-splits-output-streams-without-json"
+    )
     def it_prints_the_pointer_in_its_plain_output(self, runner, make_answers, project):
         path = runner.tmp / "answers.json"
         path.write_text(json.dumps(make_answers()))
@@ -99,7 +101,7 @@ class DescribeACleanRender:
         assert len(env["data"]["commit_files"]) == len(gitify.MANIFEST)
         assert not runner.stage.exists()
 
-    @pytest.mark.spec("repo:command-splits-output-streams")
+    @pytest.mark.spec("repo:command-splits-output-streams-without-json")
     def it_sends_human_output_to_stdout_and_warnings_to_stderr(self, runner, make_answers):
         path = runner.tmp / "answers.json"
         path.write_text(json.dumps(make_answers()))
@@ -293,7 +295,7 @@ class DescribeValidatingAValue:
         assert "values must be an object" in errors_of(env)
         assert_nothing_staged(runner)
 
-    @pytest.mark.spec("repo:command-splits-output-streams")
+    @pytest.mark.spec("repo:command-splits-output-streams-without-json")
     def it_writes_its_rejections_to_stderr_in_plain_output(self, runner, make_answers):
         path = runner.tmp / "answers.json"
         path.write_text(json.dumps(make_answers(values={})))

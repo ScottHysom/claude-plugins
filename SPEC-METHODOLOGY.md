@@ -340,7 +340,8 @@ Word 1 is the subject, in one word:
   A script run as a whole is a command too.
 - `command` is an ordinary word, which the marker does not claim. It can be
   the subject of a requirement about every command, as in
-  `command-splits-output-streams`, and it cannot stand in for `cmd`.
+  `command-splits-output-streams-without-json`, and it cannot stand in for
+  `cmd`.
 - A name of several words is joined into one, so a `booking-assistant` skill
   gives `bookingassistant` and `CLAUDE.md` gives `claudemd`.
 
@@ -361,10 +362,20 @@ inserts too, and `apply` accepts it, so a report that names the id claims a
 refusal that the code does not make. `report-cmd-refuses-empty-spans` names
 only what the requirement refuses.
 
-`trace` checks the rest of this section, and cannot check this rule. Only a
-reader who holds the id against its sentence can tell whether the id covers
-more, so the rule takes judgment. The agent applies it when naming a
-requirement, and the owner when reviewing one.
+When its sentence makes the behavior hold only with an option the user
+passes, or only without it, the id names the option, as
+`command-splits-output-streams-without-json` and
+`write-cmd-writes-nothing-unless-partial` do. An id that names the option in
+other words is enough: `-in-preview` names `--dry-run`. A required option is
+an input that every run passes, so the id leaves it out. The rest of a
+condition, such as a fallback or the state of the files, stays in the
+sentence.
+
+`trace` checks the rest of this section, and cannot check these two rules.
+Only a reader who holds the id against its sentence can tell whether the id
+covers more, or leaves out an option the behavior turns on, so the rules
+take judgment. The agent applies them when naming a requirement, and the
+owner when reviewing one.
 
 ## Citing requirements
 

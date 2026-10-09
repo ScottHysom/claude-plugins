@@ -28,14 +28,14 @@ class DescribePreflight:
         assert env["errors"] == []
         assert env["command"] == "preflight"
 
-    @pytest.mark.spec("repo:command-splits-output-streams")
+    @pytest.mark.spec("repo:command-splits-output-streams-without-json")
     def it_writes_human_output_to_stdout(self, runner):
         code, _ = runner.run("preflight", json_output=False)
         assert code == gitify.OK
         assert "ok" in runner.out
         assert runner.err == ""
 
-    @pytest.mark.spec("repo:command-splits-output-streams")
+    @pytest.mark.spec("repo:command-splits-output-streams-without-json")
     def it_writes_its_problems_to_stderr_in_plain_output(self, runner):
         templates = runner.templates_copy()
         (templates / "commit.sh").unlink()

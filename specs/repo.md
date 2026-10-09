@@ -49,9 +49,9 @@ Source: CLAUDE.md, under "Script conventions".
 
 - `command-never-writes-in-preview` (test): When a command that writes is given
   `--dry-run`, it reports what it would write and writes nothing.
-- `command-splits-output-streams` (test): When a command runs without
-  `--json`, it prints its result on stdout, and its warnings and errors on
-  stderr.
+- `command-splits-output-streams-without-json` (test): When a command runs
+  without `--json`, it prints its result on stdout, and its warnings and
+  errors on stderr.
 - `command-applies-rest-if-partial` (test): When a command that writes a batch
   refuses part of it, it writes nothing and exits 1, and with `--partial` it
   writes the rest and still exits 1.
@@ -539,8 +539,8 @@ Source: #128, README.md, under "Coverage", and SPEC-METHODOLOGY.md, under
 - `floors-cmd-warns-to-raise-floor` (test): When a script's figure passes
   its floor, `floors` warns with the figure, to two decimals, to raise the
   floor to.
-- `floors-cmd-fails-lowered-floor` (test): When a floor is lower than at
-  `--base`, `floors` fails it.
+- `floors-cmd-fails-lowered-floor-with-base` (test): When a floor is lower
+  than at `--base`, `floors` fails it.
 - `floors-cmd-requires-new-script-floor` (test): When a plugin script has
   no floor, `floors` fails it and prints the figure to use.
 - `floors-cmd-fails-stray-floor` (test): When the floors file holds a

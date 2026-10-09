@@ -121,13 +121,13 @@ class DescribeNoRulesFile:
         (prose_repo.root / prose.CONFIG_PATH).unlink()
         return prose_repo
 
-    @pytest.mark.spec("preflight-cmd-points-to-init")
+    @pytest.mark.spec("preflight-cmd-points-to-init-for-apply")
     def it_blocks_apply_and_names_config_init(self, bare):
         code, env = bare.run("preflight", "--for", "apply")
         assert code == prose.PROBLEMS
         assert errors_with(env, "run: prose.py config init")
 
-    @pytest.mark.spec("preflight-cmd-points-to-init")
+    @pytest.mark.spec("preflight-cmd-points-to-init-for-apply")
     @pytest.mark.parametrize(
         "argv",
         [

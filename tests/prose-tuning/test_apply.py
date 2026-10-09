@@ -43,7 +43,9 @@ class DescribeApply:
         assert envelope["errors"] == []
         assert "The closing paragraph." in prose_repo.read()
 
-    @pytest.mark.spec("apply-cmd-writes-approved", "repo:command-splits-output-streams")
+    @pytest.mark.spec(
+        "apply-cmd-writes-approved", "repo:command-splits-output-streams-without-json"
+    )
     def it_prints_the_edits_per_file_and_per_rule(self, prose_repo, target_lines, capsys):
         finding = prose_repo.finding(
             target_lines["last-paragraph"],
@@ -634,7 +636,7 @@ class DescribeNewLinesInListItems:
 
 
 class DescribeHelp:
-    @pytest.mark.spec("apply-cmd-describes-finding-fields")
+    @pytest.mark.spec("apply-cmd-describes-finding-fields-in-help")
     def it_describes_every_field_of_a_finding(self, capsys):
         with pytest.raises(SystemExit) as exit:
             prose.main(["apply", "--help"])
