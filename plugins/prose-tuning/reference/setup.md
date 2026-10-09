@@ -77,16 +77,3 @@ cd "$HOME/mnt"/Notes && PROSE=.prose-tuning/prose.py && python3 "$PROSE" preflig
   root works as written, and `$TMPDIR` is the device's.
 - **If preflight says `.prose-tuning/prose.py` is not ignored,** the
   `.gitignore` beside it didn't arrive. Stage and copy again.
-
-## Rules still at the project root
-
-A project's rules live in `.claude/rules/prose-style.md`, where every session
-loads them. If preflight reports a `prose-style.md` at the project root, the
-project predates that. Offer to move it, and with the author's yes run:
-
-```sh
-python3 "$PROSE" config move
-```
-
-It copies the file and never deletes one. Ask the author to delete the root
-copy, then run preflight again. It blocks while both copies are there.

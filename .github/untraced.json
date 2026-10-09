@@ -15,17 +15,7 @@
     ".github/scripts/tests/test_issues.py::DescribeStale::it_passes_a_claim_with_an_open_pull_request": 219,
     ".github/scripts/tests/test_issues.py::DescribeStale::it_passes_a_recent_claim_on_an_old_main": 219,
     ".github/scripts/tests/test_issues.py::DescribeStale::it_reports_an_idle_claim": 219,
-    "tests/prose-tuning/test_config_location.py::DescribeConfigCommandsBeforeTheMove::it_points_to_config_move_when_only_the_root_file_exists": 203,
-    "tests/prose-tuning/test_config_location.py::DescribeConfigMove::it_copies_the_root_file_byte_for_byte": 203,
-    "tests/prose-tuning/test_config_location.py::DescribeConfigMove::it_leaves_the_root_file_for_the_author_to_delete": 203,
-    "tests/prose-tuning/test_config_location.py::DescribeConfigMove::it_refuses_to_overwrite_rules_already_in_place": 203,
-    "tests/prose-tuning/test_config_location.py::DescribeConfigMove::it_refuses_when_there_is_no_root_file": 203,
-    "tests/prose-tuning/test_config_location.py::DescribeConfigMove::it_writes_nothing_on_a_dry_run": 203,
-    "tests/prose-tuning/test_config_location.py::DescribeDefaultScope::it_leaves_out_a_root_copy_awaiting_deletion": 203,
     "tests/prose-tuning/test_config_location.py::DescribeDefaultScope::it_leaves_out_everything_under_the_claude_folder": 212,
-    "tests/prose-tuning/test_config_location.py::DescribePreflightWithARootFile::it_blocks_every_skill_until_the_rules_are_moved": 203,
-    "tests/prose-tuning/test_config_location.py::DescribePreflightWithARootFile::it_blocks_while_both_copies_exist": 203,
-    "tests/prose-tuning/test_config_location.py::DescribePreflightWithARootFile::it_passes_once_the_root_copy_is_gone": 203,
     "tests/prose-tuning/test_cowork.py::DescribeStage::it_warns_when_the_stage_is_where_device_commit_files_cannot_read": 209
   },
   "surface": {
@@ -35,7 +25,6 @@
     ".github/scripts/issues.py::release --reason": 218,
     ".github/scripts/issues.py::stale --days": 219,
     "plugins/prose-tuning/scripts/prose.py::config list --ids": 206,
-    "plugins/prose-tuning/scripts/prose.py::config move": 203,
     "plugins/prose-tuning/scripts/prose.py::preflight --for adopt": 205,
     "plugins/prose-tuning/scripts/prose.py::stage --stage": 209
   }
