@@ -309,8 +309,8 @@ description.
   passage. It leaves out a match in a code span, and one made only of a line
   break.
 - `patterns-cmd-refuses-unlinted-rules` (test): When `prose-style.md` does
-  not lint clean, `patterns` and `report` name the fault and exit 1 before
-  reading any document.
+  not lint clean, `patterns`, `pass` and `report` name the fault and exit 1
+  before reading any document.
 - `report-cmd-fails-uncovered-matches` (test): When a pattern matches text
   in a file in scope that no finding or dismissal of the same rule contains,
   `report` names the match and exits 1.
@@ -319,7 +319,10 @@ description.
 - `apply-cmd-honors-dismissals` (test): When a finding carries `dismiss`,
   `report` prints its reason and `apply` leaves its text alone. A dismissal
   with no reason, or with a `replacement`, is refused.
-- `applyprose-judges-each-match` (step): When `patterns` prints a match,
+- `pass-cmd-gives-rules-segments-matches` (test): When `pass` runs, it prints the rules,
+  the segments of every file it reads and every pattern match in them, in one
+  output.
+- `applyprose-judges-each-match` (step): When `pass` prints a match,
   apply-prose makes it a finding or a dismissal, and never searches the prose
   with a command of its own.
 - `applyprose-shows-report-whole` (step): When `report` exits 0, apply-prose
@@ -402,7 +405,8 @@ ruling on #133.
   blocks either side and none at either end of the file, and keeps a line that
   also takes a rewrite.
 - `applyprose-reads-segments-only` (step): When apply-prose judges whether
-  prose conforms, it reads only what `segments` returns, never the raw file.
+  prose conforms, it reads only the segments `pass` prints, never the raw
+  file.
 - `script-keeps-every-byte` (test): When the script reads a file into lines and
   writes it back, every byte (including line endings) comes back as it was.
 
@@ -432,8 +436,8 @@ file was skipped, so the check covers the documents they meant.
 Source: README.md, under "Checking your documents", and the apply-prose
 description.
 
-- `segments-cmd-reads-scope-by-default` (test): When `segments` or
-  `patterns` is not given a file, it reads every file in scope, and names a file
+- `segments-cmd-reads-scope-by-default` (test): When `segments`, `patterns`
+  or `pass` is not given a file, it reads every file in scope, and names a file
   given that does not exist.
 - `report-cmd-only-searches-named-files` (test): When `report` is given
   files, it fails only on uncovered pattern matches in those files, and names
