@@ -3816,32 +3816,27 @@ REPORT_RERUN = "Re-run the report."
 def locate(text, line, f, label):
     """The absolute (start, end) that a finding covers, or (None, why not).
 
-    With no columns, the text in f["text"] is looked for among the places that
-    start on its line, and it has to start at exactly one of them. col_start
-    alone says which, and the span runs as far as the text does, onto a later
-    line if the text holds a newline. col_end pins the end on the same line,
-    which is the one form that needs no text; without text, the columns
-    default to the whole line. label names the finding in a refusal.
+    The text in f["text"] is looked for among the places that start on its
+    line, and it has to start at exactly one of them. col_start says which,
+    and the span runs as far as the text does, onto a later line if the text
+    holds a newline. label names the finding in a refusal.
     """
     width = len(text.bare(line))
     base = text.offset(line)
     want = f.get("text")
-    col_start, col_end = f.get("col_start"), f.get("col_end")
-    if want is None or col_end is not None:
-        col_start = int(col_start if col_start is not None else 0)
-        col_end = int(col_end if col_end is not None else width)
+    if want is None:
+        return None, "%s has no text; copy it from the segment it rewrites" % label
+    if "col_end" in f:
+        return None, (
+            "%s has col_end; leave it out, and give col_start only when the text "
+            "starts at more than one place on the line" % label
+        )
+    col_start = f.get("col_start")
+    if col_start is not None:
+        col_start = int(col_start)
         # Text.offset validates the line and then adds the column blind, so
         # a column past the end of its line resolves somewhere further down
         # the file and this would rewrite a passage nobody approved.
-        if not 0 <= col_start <= col_end <= width:
-            return None, "columns %d-%d are outside the line (%d characters)" % (
-                col_start,
-                col_end,
-                width,
-            )
-        a, b = base + col_start, base + col_end
-    elif col_start is not None:
-        col_start = int(col_start)
         if not 0 <= col_start <= width:
             return None, "column %d is outside the line (%d characters)" % (col_start, width)
         a = base + col_start
@@ -3862,7 +3857,7 @@ def locate(text, line, f, label):
         a = base + starts[0]
         b = a + len(want)
     current = text.s[a:b]
-    if want is not None and current != want:
+    if current != want:
         return None, "the text moved; expected %r, found %r. %s" % (
             want[:60],
             current[:60],
@@ -4154,9 +4149,10 @@ findings:
   file         the document, relative to the repository root
   line         the 1-indexed line the finding starts on
   rule         the one rule id it applies, from prose-style.md
-  text         the text as it stands, copied exactly. apply finds it among
-               the places that start on the line and refuses a finding
-               whose text starts at none of them, or at more than one. A
+  text         the text as it stands, copied exactly; every finding needs
+               one. apply finds it among the places that start on the
+               line and refuses a finding with no text, or whose text
+               starts at none of them, or at more than one. A
                text holding a newline ends on a later line, so a wrapped
                sentence is one finding
   replacement  the rewrite; "" cuts the text, and a line cut whole goes
@@ -4166,10 +4162,8 @@ findings:
                text alone, report lists the reason, and a finding with both
                dismiss and replacement is refused
   col_start    optional: the 0-indexed column the text starts at, when it
-               starts at more than one place on the line
-  col_end      optional: the column the span ends at, on the same line.
-               With both columns, text may be left out, and without text
-               the columns default to the whole line
+               starts at more than one place on the line. It is the only
+               column a finding takes; apply refuses a col_end
   why          optional: one clause saying why, which report shows and
                apply ignores
 

@@ -243,7 +243,8 @@ description.
 - `report-cmd-locates-findings-by-text` (test): When a finding gives its
   text, `report` and `apply` look for it among the places that start on its
   line, and refuse it when it starts at none of them, or at more than one and
-  no `col_start` says which.
+  no `col_start` says which. They refuse a finding that does not give a text,
+  or that gives a `col_end`.
 - `apply-cmd-rewrites-wrapped-findings` (test): When a finding's text
   holds a newline, `report` shows it whole and `apply` rewrites the span as
   one finding, keeping a newline its rewrite carries.
