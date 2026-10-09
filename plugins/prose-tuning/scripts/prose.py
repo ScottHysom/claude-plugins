@@ -2367,14 +2367,23 @@ def read_json_bytes(source, what):
     The bytes are what an approval token hashes, so they are read once and
     parsed from the same read. stdin cannot be read twice.
     """
-    if source == "-":
-        raw = sys.stdin.read().encode("utf-8")
-    else:
-        try:
-            with open(source, "rb") as fh:
-                raw = fh.read()
-        except OSError as exc:
-            raise Fatal("cannot read %s: %s" % (what, exc)) from exc
+    if source != "-":
+        return read_json_file_bytes(source, what)
+    return parse_json_bytes(sys.stdin.read().encode("utf-8"), what)
+
+
+def read_json_file_bytes(path, what):
+    """(raw bytes, parsed JSON) from a file, where - is a file of that name."""
+    try:
+        with open(path, "rb") as fh:
+            raw = fh.read()
+    except OSError as exc:
+        raise Fatal("cannot read %s: %s" % (what, exc)) from exc
+    return parse_json_bytes(raw, what)
+
+
+def parse_json_bytes(raw, what):
+    """(raw, parsed JSON), or Fatal naming what is not valid JSON."""
     try:
         return raw, json.loads(raw.decode("utf-8"))
     except ValueError as exc:
@@ -4594,7 +4603,7 @@ def cmd_report(args):
     checked by reading.
     """
     repo, config, scope = load(args)
-    raw, findings = read_json_bytes(args.findings, "findings")
+    raw, findings = read_json_file_bytes(args.findings, "findings")
     by_file, rejected = select_findings(config, findings)
     rows, overlaps, dismissed = [], [], []
     for _path, rel, text, numbers, mine in selected_files(repo, by_file, rejected):
@@ -4691,7 +4700,7 @@ def cmd_report(args):
 
 def cmd_apply(args):
     repo, config, _ = load(args)
-    raw, findings = read_json_bytes(args.findings, "findings")
+    raw, findings = read_json_file_bytes(args.findings, "findings")
     if args.token != approval_token(repo, config, raw, findings, args.paths):
         stale = TOKEN_STALE % config.rel()
         return emit(args, "apply", repo.root, {"applied": []}, errors=[stale])
@@ -5136,7 +5145,7 @@ def build_parser():
         "--findings",
         required=True,
         metavar="FILE",
-        help="JSON array of findings, described below, or - for stdin",
+        help="a file holding the JSON array of findings described below",
     )
 
     p = sub.add_parser(
