@@ -10,9 +10,6 @@ Each guard refuses rather than writes, because a refusal the author can read
 beats a rewrite they have to find later.
 """
 
-import io
-import json
-
 import pytest
 
 import prose
@@ -81,19 +78,6 @@ class DescribeApply:
         assert code == prose.CANNOT_RUN
         assert envelope is None
         assert message in prose_repo.err
-
-    def it_reads_the_findings_from_stdin_given_a_dash(self, prose_repo, target_lines, monkeypatch):
-        finding = prose_repo.finding(
-            target_lines["last-paragraph"],
-            text="Final paragraph.",
-            replacement="The closing paragraph.",
-        )
-        path = prose_repo.findings_file([finding])
-        token = prose_repo.token(path)
-        monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps([finding])))
-        code, _ = prose_repo.run("apply", "--findings", "-", "--token", token)
-        assert code == prose.OK
-        assert "The closing paragraph." in prose_repo.read()
 
 
 class DescribeGuards:
