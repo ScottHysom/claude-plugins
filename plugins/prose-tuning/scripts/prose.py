@@ -5023,12 +5023,13 @@ def build_parser():
         ("init", "start one from the shipped rules"),
     ]:
         c = csub.add_parser(name, parents=[common], help=helptext)
-        c.add_argument(
-            "--file",
-            dest="config_file",
-            metavar="PATH",
-            help="a prose-style.md other than this repo's",
-        )
+        if name not in ("check-id", "init"):
+            c.add_argument(
+                "--file",
+                dest="config_file",
+                metavar="PATH",
+                help="a prose-style.md other than this repo's",
+            )
         if name == "list":
             c.add_argument("--rule", metavar="ID")
             c.add_argument("--ids", action="store_true")
