@@ -1118,10 +1118,48 @@ COMMENT_OPEN = "<!--"
 COMMENT_CLOSE = "-->"
 COMMENT_BLOCK = re.compile(r"^\s{0,3}" + re.escape(COMMENT_OPEN))
 
+# An indented code block is indented this many columns past its container.
+CODE_INDENT = 4
+# The kinds after which an indented line is code rather than more of a
+# paragraph.
+CODE_FOLLOWS = ("blank", "heading", "fence", "frontmatter", "comment", "html-block", "code-block")
+
+# CommonMark's HTML blocks other than comments, which COMMENT_BLOCK handles.
+# Each start pattern pairs with the pattern that ends the block on the line
+# holding it, or None for a block that ends at a blank line.
+HTML_RAW_TAGS = ("pre", "script", "style", "textarea")
+HTML_BLOCK_TAGS = (
+    "address|article|aside|base|basefont|blockquote|body|caption|center|col|colgroup|dd|"
+    "details|dialog|dir|div|dl|dt|fieldset|figcaption|figure|footer|form|frame|frameset|"
+    "h1|h2|h3|h4|h5|h6|head|header|hr|html|iframe|legend|li|link|main|menu|menuitem|nav|"
+    "noframes|ol|optgroup|option|p|param|search|section|summary|table|tbody|td|tfoot|th|"
+    "thead|title|tr|track|ul"
+)
+HTML_STARTS = (
+    (
+        re.compile(r"^\s{0,3}<(?:%s)(?:\s|>|$)" % "|".join(HTML_RAW_TAGS), re.I),
+        re.compile(r"</(?:%s)>" % "|".join(HTML_RAW_TAGS), re.I),
+    ),
+    (re.compile(r"^\s{0,3}<\?"), re.compile(re.escape("?>"))),
+    (re.compile(r"^\s{0,3}<![A-Za-z]"), re.compile(">")),
+    (re.compile(r"^\s{0,3}<!\[CDATA\["), re.compile(re.escape("]]>"))),
+    (re.compile(r"^\s{0,3}</?(?:%s)(?:\s|/?>|$)" % HTML_BLOCK_TAGS, re.I), None),
+)
+# A whole line of one open or closing tag, which opens an HTML block only
+# where it does not interrupt a paragraph.
+HTML_LONE_TAG = re.compile(
+    r"""^\s{0,3}(?:<([A-Za-z][A-Za-z0-9-]*)"""
+    r"""(?:\s+[A-Za-z_:][\w.:-]*(?:\s*=\s*(?:[^\s"'=<>`]+|'[^']*'|"[^"]*"))?)*\s*/?>"""
+    r"""|</([A-Za-z][A-Za-z0-9-]*)\s*>)\s*$"""
+)
+
 # Kinds that prose rules must never be applied inside. An HTML comment is a
 # note for people - a FILL marker in the shipped rules is one - and not
-# the document's prose.
-PROTECTED_KINDS = {"frontmatter", "fence", "blockquote", "comment"}
+# the document's prose. Code and HTML blocks are what a preview shows as
+# code and as raw HTML.
+PROTECTED_KINDS = {"frontmatter", "fence", "blockquote", "comment", "code-block", "html-block"}
+# The protected kinds whose text the tag scanner skips as well.
+SHIELDED_KINDS = ("frontmatter", "fence", "code-block", "html-block")
 
 # Kinds whose text can carry an inline comment, `prose <!-- note --> prose`.
 INLINE_COMMENT_KINDS = ("heading", "paragraph", "list-item", "table")
@@ -1147,6 +1185,11 @@ class Blocks:
     A paragraph line can belong to a list item without being its first line.
     self.items holds, for each line, the (line, content column) of the list
     item it belongs to, or None. _items says how a line is placed.
+
+    An indented code block and an HTML block follow CommonMark too, and
+    _items and _html_block say how each is found. A line holding only one of
+    the markup's own tags, such as `<del>`, is the author's markup and opens
+    no HTML block.
     """
 
     def __init__(self, text):
@@ -1157,6 +1200,9 @@ class Blocks:
         self.headings = []
         self.comments = []
         self._classify()
+        # Finding an indented code block needs each line's list item, and
+        # the inline comments need the code blocks found first.
+        self._items(find_code=True)
         self._inline_comments()
         self.items = self._items()
 
@@ -1212,6 +1258,13 @@ class Blocks:
                 i = j + 1
                 continue
 
+            end = self._html_block(lines, i)
+            if end is not None:
+                for k in range(i, end + 1):
+                    self.kinds[k] = "html-block"
+                i = end + 1
+                continue
+
             head = HEADING_RE.match(line)
             if head:
                 self.kinds[i] = "heading"
@@ -1245,7 +1298,7 @@ class Blocks:
             self.kinds[i] = "paragraph"
             i += 1
 
-    def _items(self):
+    def _items(self, find_code=False):
         """The list item each line belongs to, as (line, content column) or None.
 
         A list item's line belongs to that item. A paragraph line straight
@@ -1255,6 +1308,12 @@ class Blocks:
         reaches, and closes the items it does not reach. Inside a fence,
         comment or front matter only the first line counts, because what it
         holds is not markdown and its indent says nothing about the list.
+
+        With find_code, a line that does not carry on a paragraph and is
+        indented CODE_INDENT columns past its item's content column, or past
+        the margin outside a list, becomes a "code-block" line. That has to
+        happen during the walk: a line taken for a list item opens an item
+        that later lines would wrongly belong to.
         """
         out = [None] * len(self.kinds)
         stack = []
@@ -1270,11 +1329,51 @@ class Blocks:
             else:
                 while stack and stack[-1][1] > lead:
                     stack.pop()
+                margin = stack[-1][1] if stack else 0
+                width = len(raw.expandtabs(CODE_INDENT)) - len(raw.expandtabs(CODE_INDENT).lstrip())
+                if (
+                    find_code
+                    and kind in ("paragraph", "list-item", "table")
+                    and prev in CODE_FOLLOWS
+                    and width - margin >= CODE_INDENT
+                ):
+                    kind = self.kinds[i] = "code-block"
                 if kind == "list-item":
                     stack.append((i + 1, len(LIST_ITEM.match(raw).group(0))))
                 out[i] = stack[-1] if stack else None
             prev = kind
         return out
+
+    def _html_block(self, lines, i):
+        """The index of the last line of the HTML block line i opens, or None.
+
+        A block with an end marker ends on the line holding it, or at the end
+        of the file. One without ends on the line before the next blank line.
+        A lone tag cannot interrupt a paragraph.
+        """
+        found = [end for start, end in HTML_STARTS if start.match(lines[i])]
+        if found:
+            end = found[0]
+        else:
+            lone = HTML_LONE_TAG.match(lines[i])
+            if not lone:
+                return None
+            name = (lone.group(1) or lone.group(2)).lower()
+            if (
+                name in HTML_RAW_TAGS
+                or name in TAG_KINDS
+                or (i and self.kinds[i - 1] in ("paragraph", "list-item"))
+            ):
+                return None
+            end = None
+        j = i
+        if end is None:
+            while j + 1 < len(lines) and lines[j + 1].strip():
+                j += 1
+            return j
+        while j + 1 < len(lines) and not end.search(lines[j]):
+            j += 1
+        return j
 
     def item(self, line):
         """The (line, content column) of the list item `line` belongs to, or None."""
@@ -1376,10 +1475,11 @@ class Blocks:
         return fences + self.code_span_offsets(fences) + self.comments
 
     def protected_offsets(self):
-        """[(start, end)] absolute ranges of front matter and fenced blocks."""
+        """[(start, end)] absolute ranges of front matter, fences, and code
+        and HTML blocks."""
         out, start = [], None
         for i, kind in enumerate(self.kinds):
-            if kind in ("frontmatter", "fence"):
+            if kind in SHIELDED_KINDS:
                 if start is None:
                     start = i
             elif start is not None:

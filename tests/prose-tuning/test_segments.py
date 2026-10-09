@@ -90,6 +90,11 @@ class DescribeSegments:
         assert [s["text"] for s in segs] == ["Write `<!--` to open one -->."]
 
     @pytest.mark.spec("segments-cmd-skips-protected-blocks")
+    def it_leaves_out_an_indented_code_block_and_an_html_block(self):
+        segs = segments("Before.\n\n    code\n\n<div>\nraw\n</div>\n\nAfter.\n")
+        assert [s["text"] for s in segs] == ["Before.", "After."]
+
+    @pytest.mark.spec("segments-cmd-skips-protected-blocks")
     def it_counts_the_lines_of_a_comment_as_protected(self, prose_repo, target_lines):
         code, envelope = prose_repo.run("segments", "target.md")
         assert code == prose.OK
@@ -98,8 +103,8 @@ class DescribeSegments:
         blocks = prose.Blocks(prose.Text(prose_repo.read()))
         comment_lines = [i + 1 for i, k in enumerate(blocks.kinds) if k == "comment"]
         assert comment_lines == [22, 23, 24]
-        # front matter 3, blockquote 1, fence 3, comment 3
-        assert got["protected_lines"] == 10
+        # front matter 3, blockquote 1, fence 3, comment 3, code 1, HTML 3
+        assert got["protected_lines"] == 14
 
 
 # One of each kind segments hands out, for the tests that read its output.

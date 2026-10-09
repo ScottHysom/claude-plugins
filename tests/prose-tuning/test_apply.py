@@ -100,7 +100,9 @@ class DescribeGuards:
     """One malformed finding, one named rejection, and nothing on disk."""
 
     @pytest.mark.spec("apply-cmd-refuses-protected-lines-and-comments")
-    @pytest.mark.parametrize("kind", ["frontmatter", "blockquote", "fence", "comment"])
+    @pytest.mark.parametrize(
+        "kind", ["frontmatter", "blockquote", "fence", "comment", "code-block", "html-block"]
+    )
     def it_refuses_a_protected_line(self, prose_repo, target_lines, kind):
         before = prose_repo.read()
         code, envelope = prose_repo.apply(

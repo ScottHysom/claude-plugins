@@ -186,8 +186,11 @@ description.
 - `scanner-names-markup-faults` (test): When markup breaks the grammar in
   `reference/tag-vocabulary.md`, the scanner reports each fault once, with its
   file and line.
-- `scanner-ignores-tags-in-backticks` (test): When a tag sits inside a code
-  fence or a code span, the scanner reads it as prose.
+- `scanner-ignores-tags-in-code` (test): When a tag sits inside a code
+  fence, an indented code block or a code span, the scanner reads it as prose.
+- `scanner-ignores-tags-in-html-blocks` (test): When a tag sits inside an
+  HTML block, the scanner reads it as prose. A line that holds only one of the
+  markup's own tags, such as `<del>`, does not open an HTML block.
 - `scanner-ignores-tags-in-comments` (test): When a tag sits inside an HTML
   comment, the scanner does not read it as markup.
 - `scanner-pairs-del-and-ins` (test): When a `<del>` is followed directly by an
@@ -360,8 +363,13 @@ Source: the apply-prose description. The owner confirmed the need in the
 ruling on #133.
 
 - `segments-cmd-skips-protected-blocks` (test): When `segments` or `patterns`
-  reads a file, it gives headings and table cells, and leaves out front
-  matter, fences, blockquotes, HTML comments and a table's delimiter row.
+  reads a file, it gives headings and table cells, and leaves out these:
+  - front matter.
+  - fences and indented code blocks.
+  - HTML blocks, which a preview shows as raw HTML.
+  - blockquotes.
+  - HTML comments.
+  - a table's delimiter row.
 - `segments-cmd-cuts-out-comments` (test): When an HTML comment opens part
   way along a line of prose, `segments` gives the prose either side as
   separate segments. A comment that never closes is read as prose.
@@ -371,9 +379,9 @@ ruling on #133.
   item, by its indent or lazily, `segments` reports it as the item's, and a
   paragraph after the list as a paragraph.
 - `apply-cmd-refuses-protected-lines-and-comments` (test): When a finding
-  reaches a protected line, touches an HTML comment, or crosses a line that is
-  not part of a paragraph or a list item, `report` and `apply` refuse it, with
-  or without `--partial`.
+  reaches a line of a block that `segments` leaves out, touches an HTML
+  comment, or crosses a line that is not part of a paragraph or a list item,
+  `report` and `apply` refuse it, with or without `--partial`.
 - `apply-cmd-never-splits-table-cells` (test): When a rewrite would put a `|`
   or a newline in a table cell, or a newline in a line it does not already
   cross outside a paragraph, `apply` refuses it.

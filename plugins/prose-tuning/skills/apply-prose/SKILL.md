@@ -1,6 +1,6 @@
 ---
 name: apply-prose
-description: Conform a project's markdown to the rules in its prose-style.md. Reports findings first - file, line, rule id, proposed rewrite - and changes nothing until the author approves. Uses scripts/prose.py to resolve scope, to skip code fences, mermaid blocks, front matter, table structure and quoted material, to find the breaches a rule's pattern can, and to apply approved rewrites in place. Use when asked to apply the house style, conform documents to prose-style.md, run a style pass over the docs, check a document against the prose rules, or clean up the prose across a project. Resolves the author's own ins, del and repl markup first, once the author says update-prose-config has learned from it, then stops for the commit. Never commits.
+description: Conform a project's markdown to the rules in its prose-style.md. Reports findings first - file, line, rule id, proposed rewrite - and changes nothing until the author approves. Uses scripts/prose.py to resolve scope, to skip code fences, mermaid blocks, indented code, HTML blocks, front matter, table structure and quoted material, to find the breaches a rule's pattern can, and to apply approved rewrites in place. Use when asked to apply the house style, conform documents to prose-style.md, run a style pass over the docs, check a document against the prose rules, or clean up the prose across a project. Resolves the author's own ins, del and repl markup first, once the author says update-prose-config has learned from it, then stops for the commit. Never commits.
 ---
 
 # Conform the documents to prose-style.md
@@ -156,7 +156,8 @@ kind and the text, each after two spaces. The text runs to the end of the line.
 
 What never appears, and why:
 
-- Fenced code and mermaid blocks are code.
+- Fenced code, indented code and mermaid blocks are code.
+- HTML blocks are raw HTML, which a preview shows as markup.
 - Front matter is structured data.
 - Blockquotes are usually somebody else's words.
 - HTML comments are notes for people rather than the document's prose.
@@ -312,7 +313,8 @@ The engine rejects a finding rather than trusting it when:
 - the `text` starts at more than one place on its line and no `col_start` says
   which
 - the rule id is not in `prose-style.md`
-- the text reaches front matter, a fence, a blockquote or an HTML comment
+- the text reaches front matter, a fence, an indented code block, an HTML
+  block, a blockquote or an HTML comment
 - the text crosses a line that is not part of a paragraph or a list item, such
   as a blank line or a heading
 - a `table-cell` replacement contains a `|` or a newline, which would silently

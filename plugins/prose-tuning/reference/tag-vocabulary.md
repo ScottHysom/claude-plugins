@@ -81,8 +81,10 @@ Keep markup out of a code fence, a heading, a table and front matter, since it
 breaks the thing it sits in. A block-form tag between two list items ends the
 list, which `tags resolve` warns about.
 
-Tags inside a fenced code block are ignored, so a document that discusses this
-vocabulary can quote it without being parsed as marked up.
+Tags inside a code block, fenced or indented, or inside an HTML block such as
+`<div>`, are ignored, so a document that discusses this vocabulary can quote
+it without being parsed as marked up. A line holding only one of these tags
+is markup, not an HTML block.
 
 ## What the parser rejects
 

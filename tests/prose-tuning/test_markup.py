@@ -17,12 +17,12 @@ def scan(src):
 
 
 class DescribeTagScanner:
-    @pytest.mark.spec("scanner-ignores-tags-in-backticks")
+    @pytest.mark.spec("scanner-ignores-tags-in-code")
     def it_leaves_markup_inside_a_code_fence_as_prose(self, sample):
         """The sample's python fence contains a <del> that must stay prose."""
         assert scan(sample).all == []
 
-    @pytest.mark.spec("scanner-ignores-tags-in-backticks")
+    @pytest.mark.spec("scanner-ignores-tags-in-code")
     def it_leaves_markup_inside_a_code_span_as_prose(self):
         src = (
             "A `<del>` in prose is a quotation.\n\n"
@@ -32,6 +32,50 @@ class DescribeTagScanner:
         scanner = scan(src)
         assert scanner.errors == []
         assert [n.kind for n in scanner.roots] == ["del"]
+
+    @pytest.mark.spec("scanner-ignores-tags-in-code")
+    @pytest.mark.parametrize(
+        "code",
+        [
+            pytest.param("    x = '<del>a</del>'", id="top-level"),
+            pytest.param("- Item.\n\n      x = '<del>a</del>'", id="in-a-list-item"),
+        ],
+    )
+    def it_leaves_markup_inside_an_indented_code_block_as_prose(self, code):
+        scanner = scan("Para.\n\n" + code + "\n\n<del>this one is real</del>\n")
+        assert scanner.errors == []
+        assert [n.line for n in scanner.all] == [code.count("\n") + 5]
+
+    @pytest.mark.spec("scanner-ignores-tags-in-code")
+    def it_reads_markup_on_an_indented_line_that_carries_on_a_paragraph(self):
+        """CommonMark's lazy continuation: an indented line straight after
+        prose is more of the paragraph, not code."""
+        assert [n.kind for n in scan("Para.\n    <del>a</del>\n").all] == ["del"]
+
+    @pytest.mark.spec("scanner-ignores-tags-in-html-blocks")
+    @pytest.mark.parametrize(
+        "block",
+        [
+            pytest.param("<div>\n<del>a</del>\n</div>", id="block-tag"),
+            pytest.param("<pre>\n\n<del>a</del>\n</pre>", id="raw-tag-across-a-blank"),
+            pytest.param("<span>\n<del>a</del>", id="lone-tag"),
+        ],
+    )
+    def it_leaves_markup_inside_an_html_block_as_prose(self, block):
+        scanner = scan("Para.\n\n" + block + "\n\n<del>this one is real</del>\n")
+        assert scanner.errors == []
+        assert [n.line for n in scanner.all] == [block.count("\n") + 5]
+
+    @pytest.mark.spec("scanner-ignores-tags-in-html-blocks")
+    def it_reads_a_line_of_its_own_markup_as_markup(self):
+        scanner = scan("Para.\n\n<del>\nGone.\n</del>\n")
+        assert scanner.errors == []
+        assert [n.kind for n in scanner.all] == ["del"]
+
+    @pytest.mark.spec("scanner-ignores-tags-in-html-blocks")
+    def it_reads_markup_after_a_lone_tag_that_interrupts_a_paragraph(self):
+        """A lone tag cannot interrupt a paragraph, so it is inline HTML."""
+        assert [n.kind for n in scan("Para.\n<span>\n<del>a</del>\n").all] == ["del"]
 
     @pytest.mark.spec("scanner-ignores-tags-in-comments")
     @pytest.mark.parametrize(

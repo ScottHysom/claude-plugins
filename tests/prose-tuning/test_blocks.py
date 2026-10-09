@@ -10,7 +10,7 @@ import pytest
 
 import prose
 
-PROTECTED = ["frontmatter", "blockquote", "fence", "comment"]
+PROTECTED = ["frontmatter", "blockquote", "fence", "comment", "code-block", "html-block"]
 
 
 class DescribeBlocks:
@@ -38,6 +38,66 @@ class DescribeBlocks:
     def it_leaves_a_line_of_prose_unprotected(self, target, target_lines, kind):
         blocks = prose.Blocks(prose.Text(target))
         assert blocks.is_protected(target_lines[kind]) is False
+
+
+def kinds(src):
+    return prose.Blocks(prose.Text(src)).kinds
+
+
+class DescribeCodeAndHtmlBlocks:
+    """Indented code and HTML blocks as CommonMark finds them.
+
+    The protected-kind tests above check that both are protected. These check
+    where each starts and ends, which is what decides how much is protected.
+    """
+
+    @pytest.mark.spec("segments-cmd-skips-protected-blocks")
+    def it_takes_a_line_indented_four_columns_past_its_list_item_for_code(self):
+        src = "- Item.\n\n    more of the item.\n\n      code\n"
+        assert kinds(src) == ["list-item", "blank", "paragraph", "blank", "code-block"]
+
+    @pytest.mark.spec("segments-cmd-skips-protected-blocks")
+    def it_takes_an_indented_list_marker_for_code(self):
+        """Taken for a list item, it would open an item that the next line
+        belonged to."""
+        src = "Para.\n\n    - not an item\n    more code\n\nAfter.\n"
+        assert kinds(src)[2:4] == ["code-block", "code-block"]
+        assert prose.Blocks(prose.Text(src)).item(6) is None
+
+    @pytest.mark.spec("segments-cmd-skips-protected-blocks")
+    def it_counts_a_tab_as_four_columns_of_indent(self):
+        assert kinds("Para.\n\n\tcode\n")[2] == "code-block"
+
+    @pytest.mark.spec("segments-cmd-skips-protected-blocks")
+    def it_ends_an_html_block_at_a_blank_line(self):
+        src = "<div>\nraw\n\nProse.\n"
+        assert kinds(src) == ["html-block", "html-block", "blank", "paragraph"]
+
+    @pytest.mark.spec("segments-cmd-skips-protected-blocks")
+    @pytest.mark.parametrize(
+        ("block", "end"),
+        [
+            pytest.param("<script>\n\nx\n</script>", 4, id="raw-tag"),
+            pytest.param("<?php\n\n?>", 3, id="processing-instruction"),
+            pytest.param("<!DOCTYPE\n\nhtml>", 3, id="declaration"),
+            pytest.param("<![CDATA[\n\n]]>", 3, id="cdata"),
+        ],
+    )
+    def it_ends_an_html_block_with_an_end_marker_on_that_line(self, block, end):
+        got = kinds(block + "\nProse.\n")
+        assert got == ["html-block"] * end + ["paragraph"]
+
+    @pytest.mark.spec("segments-cmd-skips-protected-blocks")
+    def it_runs_an_html_block_without_its_end_marker_to_the_end_of_the_file(self):
+        assert kinds("<pre>never closed\n\nProse.\n") == ["html-block"] * 3
+
+    @pytest.mark.spec("segments-cmd-skips-protected-blocks")
+    def it_lets_a_block_tag_interrupt_a_paragraph(self):
+        assert kinds("Para.\n<div>\n") == ["paragraph", "html-block"]
+
+    @pytest.mark.spec("segments-cmd-skips-protected-blocks")
+    def it_does_not_take_a_tag_and_more_for_a_lone_tag(self):
+        assert kinds("<span>text</span>\n") == ["paragraph"]
 
 
 def items(src):

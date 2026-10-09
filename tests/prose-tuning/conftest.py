@@ -110,6 +110,12 @@ Final paragraph.
 <!--
 A note for whoever edits this document next.
 -->
+
+    indented = "code"
+
+<div>
+Raw HTML.
+</div>
 """
 
 TARGET_LINES = {
@@ -121,6 +127,8 @@ TARGET_LINES = {
     "fence": 17,
     "last-paragraph": 20,
     "comment": 23,
+    "code-block": 26,
+    "html-block": 29,
 }
 
 # The one rule the throwaway repo's rule file defines. apply rejects a finding
