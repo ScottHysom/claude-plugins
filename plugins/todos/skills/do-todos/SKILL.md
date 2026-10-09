@@ -212,7 +212,7 @@ step 1, copied exactly. `route` is `issue`, with `title`, `body` and `labels`,
 author wants left in place does not get a draft.
 
 ## Step 4: report, approve, file
-<!-- spec: dotodos-shows-report-whole, dotodos-revises-on-comment -->
+<!-- spec: dotodos-shows-report-whole, dotodos-revises-on-report-comment -->
 
 <!-- seam: judgment: the author approves the report, or a part of it, before file runs -->
 

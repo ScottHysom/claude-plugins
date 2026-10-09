@@ -23,7 +23,7 @@ def branch_of(tree):
     return tree.git("branch", "--show-current").decode().strip()
 
 
-@pytest.mark.spec("scan-cmd-names-other-worktrees")
+@pytest.mark.spec("scan-cmd-names-worktrees-with-todos")
 class DescribeOtherWorktrees:
     def it_names_a_worktree_holding_todos_and_exits_with_problems(self, repo, worktree):
         worktree.write("a.py", "# TODO: left in the other checkout\n")

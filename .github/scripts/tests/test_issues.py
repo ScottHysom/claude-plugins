@@ -258,7 +258,7 @@ class DescribeClaim:
         assert "warning: claimed, but could not add the in-progress label" in out.err
         assert "issue/12" in remote_branches(remote)
 
-    @pytest.mark.spec("claim-cmd-stops-on-refused-push")
+    @pytest.mark.spec("claim-cmd-stops-when-nobody-wins")
     def it_cannot_run_when_the_push_is_refused_for_another_reason(
         self, capsys, remote, clone, github
     ):
@@ -639,7 +639,7 @@ class DescribeStale:
         github(make_issue(12, "approved", "in-progress"), pulls=["issue/12"])
         assert run(capsys, a, "stale")[0] == cli.OK
 
-    @pytest.mark.spec("stale-cmd-reports-label-mismatch")
+    @pytest.mark.spec("stale-cmd-reports-claims-left-behind")
     def it_reports_a_branch_left_after_the_issue_closed(self, capsys, clone, github):
         a = claimed(capsys, clone, github)
         github(make_issue(12, "approved", state="CLOSED"))
@@ -647,14 +647,14 @@ class DescribeStale:
         assert code == cli.PROBLEMS
         assert "#12 is closed but issue/12 still exists" in out.err
 
-    @pytest.mark.spec("stale-cmd-reports-label-mismatch")
+    @pytest.mark.spec("stale-cmd-reports-claims-left-behind")
     def it_reports_a_label_without_a_branch(self, capsys, clone, github):
         github(make_issue(12, "approved", "in-progress"))
         code, out = run(capsys, clone("a"), "stale")
         assert code == cli.PROBLEMS
         assert "#12 is labeled in-progress but issue/12 does not exist" in out.err
 
-    @pytest.mark.spec("stale-cmd-reports-label-mismatch")
+    @pytest.mark.spec("stale-cmd-reports-claims-left-behind")
     def it_reports_a_closed_issue_that_kept_the_label(self, capsys, clone, github):
         github(make_issue(12, "approved", "in-progress", state="CLOSED"))
         code, out = run(capsys, clone("a"), "stale")

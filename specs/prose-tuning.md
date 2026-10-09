@@ -26,9 +26,9 @@ Source: README.md, under "When to use it" and "What it adds to your project".
   `prose-style.md` carries a `paths:` key, `config lint` refuses it.
 - `lint-cmd-accepts-any-source` (test): When a rule's `prose-rule` comment
   carries `source=` with any value, `config lint` accepts it.
-- `lint-cmd-names-unknown-keys` (test): When a rule's `prose-rule` comment
-  carries a key other than `origin` or `source`, `config lint` names it and
-  exits 1.
+- `lint-cmd-names-unknown-comment-keys` (test): When a rule's `prose-rule`
+  comment carries a key other than `origin` or `source`, `config lint` names
+  it and exits 1.
 
 ## need user-teaches-by-editing: Teach the style by editing
 
@@ -185,8 +185,8 @@ description.
 - `scanner-names-markup-faults` (test): When markup breaks the grammar in
   `reference/tag-vocabulary.md`, the scanner reports each fault once, with its
   file and line.
-- `scanner-ignores-tags-in-code` (test): When a tag sits inside a code fence
-  or a code span, the scanner reads it as prose.
+- `scanner-ignores-tags-in-backticks` (test): When a tag sits inside a code
+  fence or a code span, the scanner reads it as prose.
 - `scanner-ignores-tags-in-comments` (test): When a tag sits inside an HTML
   comment, the scanner does not read it as markup.
 - `scanner-pairs-del-and-ins` (test): When a `<del>` is followed directly by an
@@ -197,7 +197,7 @@ description.
 - `resolve-cmd-tidies-cuts` (test): When a resolved cut removes whole
   paragraphs, one blank line is left where they were, none at either end of
   the file, and no newline is added to a file that had none.
-- `resolve-cmd-warns-in-lists` (test): When `tags resolve` removes a
+- `resolve-cmd-warns-on-list-blocks` (test): When `tags resolve` removes a
   block-form tag inside a list, it warns with the tag's file and line.
 - `applyprose-resolves-author-markup` (step): When `preflight --for apply`
   names markup, apply-prose asks the author whether update-prose-config has
@@ -295,11 +295,12 @@ description.
   its rule's After example or finds nothing in its Before example, `config
   lint` names it and exits 1. A rule with no example leaves its patterns
   unchecked.
-- `patterns-cmd-prints-each-match` (test): When a rule carries a pattern,
-  `patterns` prints each place it matches in the segments' spans once, with
-  its address, its rule and its text as a JSON string that `apply` accepts as
-  a finding's `text`, including a match that wraps within a passage. It leaves
-  out a match in a code span, and one made only of a line break.
+- `patterns-cmd-prints-each-prose-match` (test): When a rule carries a
+  pattern, `patterns` prints each place it matches in the segments' spans
+  once, with its address, its rule and its text as a JSON string that `apply`
+  accepts as a finding's `text`, including a match that wraps within a
+  passage. It leaves out a match in a code span, and one made only of a line
+  break.
 - `patterns-cmd-refuses-unlinted-rules` (test): When `prose-style.md` does
   not lint clean, `patterns` and `report` name the fault and exit 1 before
   reading any document.
@@ -356,7 +357,7 @@ prose.
 Source: the apply-prose description. The owner confirmed the need in the
 ruling on #133.
 
-- `segments-cmd-gives-prose-only` (test): When `segments` or `patterns`
+- `segments-cmd-skips-protected-blocks` (test): When `segments` or `patterns`
   reads a file, it gives headings and table cells, and leaves out front
   matter, fences, blockquotes, HTML comments and a table's delimiter row.
 - `segments-cmd-cuts-out-comments` (test): When an HTML comment opens part
@@ -367,11 +368,11 @@ ruling on #133.
 - `segments-cmd-maps-list-items` (test): When a line continues a list
   item, by its indent or lazily, `segments` reports it as the item's, and a
   paragraph after the list as a paragraph.
-- `apply-cmd-refuses-non-prose` (test): When a finding reaches a protected
-  line, touches an HTML comment, or crosses a line that is not part of a
-  paragraph or a list item, `report` and `apply` refuse it, with or without
-  `--partial`.
-- `apply-cmd-keeps-table-structure` (test): When a rewrite would put a `|`
+- `apply-cmd-refuses-protected-lines` (test): When a finding reaches a
+  protected line, touches an HTML comment, or crosses a line that is not part
+  of a paragraph or a list item, `report` and `apply` refuse it, with or
+  without `--partial`.
+- `apply-cmd-never-splits-table-cells` (test): When a rewrite would put a `|`
   or a newline in a table cell, or a newline in a line it does not already
   cross outside a paragraph, `apply` refuses it.
 - `apply-cmd-indents-list-items` (test): When a rewrite in a list item
@@ -415,7 +416,7 @@ description.
 - `segments-cmd-reads-scope-by-default` (test): When `segments` or
   `patterns` is not given a file, it reads every file in scope, and names a file
   given that does not exist.
-- `report-cmd-checks-only-named-files` (test): When `report` is given
+- `report-cmd-only-searches-named-files` (test): When `report` is given
   files, it fails only on uncovered pattern matches in those files, and names
   a file given that does not exist. Its token covers the files it was given,
   so `apply` refuses the token unless it is given the same files.
@@ -449,8 +450,8 @@ Source: README.md, under "Setting up".
 - `updateproseconfig-offers-init` (step): When `preflight --for config`
   reports that `prose-style.md` is missing, update-prose-config offers
   `config init`, and runs it only once the author says yes.
-- `template-catches-spelling-and-dashes` (test): When a project starts from
-  the shipped rules, they lint clean, and their patterns find a British
+- `template-catches-british-spellings-emdashes` (test): When a project starts
+  from the shipped rules, they lint clean, and their patterns find a British
   spelling and a dash doing an em-dash's job, and leave a US spelling alone.
 - `init-cmd-writes-shipped-rules` (test): When `config init` runs with no
   option, it writes the shipped rules to `.claude/rules/prose-style.md`,
@@ -685,9 +686,9 @@ plugin knows only itself", for the hand-off convention.
 - `updateproseconfig-takes-handed-notes` (step): When update-prose-config is
   handed a note on a passage that has not changed since the last commit, it
   takes the note as it takes an `<alt>` on that passage.
-- `updateproseconfig-reads-notes-as-whys` (step): When update-prose-config is
-  handed a note on a passage that has changed since the last commit, it takes
-  the note as the `why` of those changes.
+- `updateproseconfig-reads-notes-on-edits` (step): When update-prose-config
+  is handed a note on a passage that has changed since the last commit, it
+  takes the note as the `why` of those changes.
 - `updateproseconfig-asks-about-vague-notes` (step): When a note on an
   unchanged passage does not state a rule, update-prose-config asks about it
   in the interview.

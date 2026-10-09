@@ -185,7 +185,7 @@ class DescribeRuleMetadata:
         )
         assert (cfg.errors, cfg.rules[0].meta["source"]) == ([], value)
 
-    @pytest.mark.spec("lint-cmd-names-unknown-keys")
+    @pytest.mark.spec("lint-cmd-names-unknown-comment-keys")
     def it_refuses_a_key_it_does_not_know(self, config_from):
         cfg = config_from(
             "---\nname: T\n---\n\n## Sentences\n\n"

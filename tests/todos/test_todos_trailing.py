@@ -25,7 +25,7 @@ def file_all(repo, rel, base, now):
     return repo.read(rel)
 
 
-@pytest.mark.spec("scan-cmd-reads-trailing-todos")
+@pytest.mark.spec("scan-cmd-reads-appended-trailing-todos")
 class DescribeReadingATrailingTodo:
     def it_reads_the_title_and_kind_after_the_code(self, repo):
         (todo,), warnings = changed(

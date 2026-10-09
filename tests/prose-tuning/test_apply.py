@@ -101,7 +101,7 @@ class DescribeApply:
 class DescribeGuards:
     """One malformed finding, one named rejection, and nothing on disk."""
 
-    @pytest.mark.spec("apply-cmd-refuses-non-prose")
+    @pytest.mark.spec("apply-cmd-refuses-protected-lines")
     @pytest.mark.parametrize("kind", ["frontmatter", "blockquote", "fence", "comment"])
     def it_refuses_a_protected_line(self, prose_repo, target_lines, kind):
         before = prose_repo.read()
@@ -175,7 +175,7 @@ class DescribeGuards:
         assert "the text moved" in errors_of(envelope)[0]
         assert prose_repo.read() == before
 
-    @pytest.mark.spec("apply-cmd-keeps-table-structure")
+    @pytest.mark.spec("apply-cmd-never-splits-table-cells")
     @pytest.mark.parametrize(
         "replacement",
         [
@@ -222,7 +222,7 @@ class DescribeGuards:
         assert "are outside the line" in errors_of(envelope)[0]
         assert prose_repo.read() == before
 
-    @pytest.mark.spec("apply-cmd-keeps-table-structure")
+    @pytest.mark.spec("apply-cmd-never-splits-table-cells")
     def it_refuses_a_multi_line_replacement_outside_a_paragraph(self, prose_repo, target_lines):
         code, envelope = prose_repo.apply(
             [
@@ -236,7 +236,7 @@ class DescribeGuards:
             "target.md:%d  a heading replacement cannot span lines" % target_lines["heading"]
         ]
 
-    @pytest.mark.spec("apply-cmd-refuses-non-prose")
+    @pytest.mark.spec("apply-cmd-refuses-protected-lines")
     @pytest.mark.parametrize(
         "cols",
         [
@@ -258,7 +258,7 @@ class DescribeGuards:
         ]
         assert prose_repo.read("notes.md") == before
 
-    @pytest.mark.spec("apply-cmd-refuses-non-prose")
+    @pytest.mark.spec("apply-cmd-refuses-protected-lines")
     @pytest.mark.parametrize(
         ("cols", "after"),
         [
@@ -536,7 +536,7 @@ class DescribeSpansAcrossLines:
         assert code == prose.OK, envelope["errors"]
         assert prose_repo.read("doc.md") == "- First item starts here\n  and goes on.\n"
 
-    @pytest.mark.spec("apply-cmd-refuses-non-prose")
+    @pytest.mark.spec("apply-cmd-refuses-protected-lines")
     def it_refuses_a_span_that_crosses_a_blank_line(self, prose_repo):
         self.write(prose_repo, "One.\n\nTwo.\n")
         before = prose_repo.read("doc.md")
@@ -548,7 +548,7 @@ class DescribeSpansAcrossLines:
         ]
         assert prose_repo.read("doc.md") == before
 
-    @pytest.mark.spec("apply-cmd-refuses-non-prose")
+    @pytest.mark.spec("apply-cmd-refuses-protected-lines")
     def it_refuses_a_span_that_reaches_a_protected_line(self, prose_repo):
         self.write(prose_repo, "Some prose.\n> A quotation.\n")
         before = prose_repo.read("doc.md")
@@ -686,7 +686,7 @@ class DescribePartial:
         assert [a["line"] for a in envelope["data"]["applied"]] == [target_lines["last-paragraph"]]
         assert "The closing paragraph." in prose_repo.read()
 
-    @pytest.mark.spec("apply-cmd-refuses-non-prose", "repo:command-applies-rest-if-partial")
+    @pytest.mark.spec("apply-cmd-refuses-protected-lines", "repo:command-applies-rest-if-partial")
     def it_still_leaves_the_protected_line_alone_with_partial(self, prose_repo, target_lines):
         prose_repo.apply(self.records(prose_repo, target_lines), "--partial")
         line = prose_repo.read().splitlines()[target_lines["fence"] - 1]

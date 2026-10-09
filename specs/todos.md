@@ -57,8 +57,8 @@ Source: #311, which quotes the owner's request.
 - `report-cmd-refuses-stale-drafts` (test): When a draft's file and line do
   not hold a pending TODO whose first line is the draft's `text`, `report`
   and `file` refuse it and name it by its place in the batch.
-- `report-cmd-refuses-repeated-todos` (test): When two drafts name one TODO,
-  `report` and `file` refuse both and name their places.
+- `report-cmd-refuses-drafts-sharing-todo` (test): When two drafts name one
+  TODO, `report` and `file` refuse both and name their places.
 - `report-cmd-refuses-unknown-labels` (test): When a draft names a label the
   repository does not have, `report` and `file` refuse it.
 - `file-cmd-creates-issues` (test): When `file` runs with a current token, it
@@ -100,10 +100,10 @@ they can review wherever they review.
 
 Source: #315, and #301, which found the same split for update-prose-config.
 
-- `scan-cmd-names-other-worktrees` (test): When this tree does not hold any
-  pending TODO and another worktree of the repo does, `scan` names each such
-  worktree with its branch and files, and exits 1 naming `scan --from` with
-  its path.
+- `scan-cmd-names-worktrees-with-todos` (test): When this tree does not hold
+  any pending TODO and another worktree of the repo does, `scan` names each
+  such worktree with its branch and files, and exits 1 naming `scan --from`
+  with its path.
 - `command-reads-other-worktree` (test): When `scan`, `report`, `file` or
   `questions` is given `--from` with a worktree of this repo, named by its
   folder or by the branch it has checked out, it reads that worktree's TODOs.
@@ -131,21 +131,21 @@ so the file runs, compiles and renders as it did.
 Source: #311, which quotes the owner's request, and the owner's rulings
 recorded there.
 
-- `scan-cmd-reads-any-marker` (test): When an added line in any text file
-  opens with a TODO, after its indent and a comment marker of characters that
-  are not letters, digits or spaces if it has one, `scan` gives the rest of
-  the line as the title.
+- `scan-cmd-reads-any-symbol-marker` (test): When an added line in any text
+  file opens with a TODO, after its indent and a comment marker of characters
+  that are not letters, digits or spaces if it has one, `scan` gives the rest
+  of the line as the title.
 - `scan-cmd-reads-line-detail` (test): When a TODO's marker is not empty and
   is not `-`, `*`, `+`, `>` or `|`, `scan` gives as its detail the added lines
   directly below it that open with the same marker at the same indent, up to
   a blank line or the next TODO, marked handled or not.
-- `scan-cmd-reads-block-comments` (test): When a TODO's marker contains `/*`
+- `scan-cmd-reads-c-html-comments` (test): When a TODO's marker contains `/*`
   or `<!--`, and every line to the comment's `*/` or `-->` was added since
   the last commit, `scan` runs the TODO to there and gives the rest of the
   comment as the detail.
-- `scan-cmd-skips-quoted-todos` (test): When a TODO sits in a code fence or a
-  code span of a file ending `.md` or `.markdown`, `scan` neither reads it nor
-  warns.
+- `scan-cmd-skips-markdown-code-todos` (test): When a TODO sits in a code
+  fence or a code span of a file ending `.md` or `.markdown`, `scan` neither
+  reads it nor warns.
 - `scan-cmd-skips-binary-files` (test): When git reads a file as binary,
   `scan` skips it.
 - `scan-cmd-warns-on-unread-todos` (test): When an added line holds `TODO:` or
@@ -154,9 +154,9 @@ recorded there.
   line and the reason.
 - `scan-cmd-skips-its-copy` (test): When `scan` lists files, it leaves out
   `.todos/`, whatever git ignores.
-- `scan-cmd-reads-trailing-todos` (test): When a line differs from the last
-  commit only by text at its end that opens with a TODO after any comment
-  marker, `scan` reads that text as a TODO that has a title and no
+- `scan-cmd-reads-appended-trailing-todos` (test): When a line differs from
+  the last commit only by text at its end that opens with a TODO after any
+  comment marker, `scan` reads that text as a TODO that has a title and no
   detail.
 - `file-cmd-marks-trailing-todos` (test): When `file` has finished a TODO at
   the end of a line, it marks the TODO there, and leaves the text before it
@@ -271,10 +271,10 @@ not have to be retyped in chat.
 
 Source: the owner's ruling while planning, 2026-10-04, recorded in #334.
 
-- `dotodos-revises-on-comment` (step): When the author sends a comment on the
-  published report to Claude, do-todos revises the drafts, runs `report`
-  again, republishes the report to the same address and answers in the
-  comment's thread.
+- `dotodos-revises-on-report-comment` (step): When the author sends a comment
+  on the published report to Claude, do-todos revises the drafts, runs
+  `report` again, republishes the report to the same address and answers in
+  the comment's thread.
 
 ## need user-reviews-then-commits: Commit each change the user's usual way
 

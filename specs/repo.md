@@ -153,7 +153,7 @@ Source: README.md, under "Issues" and "Keeping `approved` meaningful".
   without looking it up.
 - `checklinkedissues-cmd-passes-unlinked-requests` (test): When a pull
   request does not close an issue, check-linked-issues.py passes it from any branch.
-- `checklinkedissues-cmd-stops-on-failed-lookup` (test): When
+- `checklinkedissues-cmd-stops-on-failed-listing` (test): When
   check-linked-issues.py cannot read a pull request's commits or the claim
   branches, it exits 2 and does not print any links.
 - `ci-runs-checklinkedissues` (check): When a pull request is opened, edited
@@ -193,7 +193,7 @@ Source: README.md, under "Claiming an issue".
   other exits 1, names the holder and writes nothing.
 - `claim-cmd-switches-to-issue-branch` (test): When `issues.py claim N`
   wins, it switches the clone to `issue/N`, and warns when the switch fails.
-- `claim-cmd-stops-on-refused-push` (test): When the push fails and
+- `claim-cmd-stops-when-nobody-wins` (test): When the push fails and
   `issue/N` does not exist, `issues.py claim` exits 2 and writes nothing to
   the issue.
 - `checklinkedissues-cmd-requires-claim-branch` (test): When a pull
@@ -287,9 +287,9 @@ Source: README.md, under "Claiming an issue", and #33.
 - `claim-cmd-adds-in-progress-label` (test): When `issues.py claim` wins,
   it adds `in-progress` and a claim comment, and if either fails, it warns and
   still exits 0.
-- `issueclosed-clears-label` (check): When an issue carrying `in-progress`
-  closes, issue-closed.yml removes the label.
-- `stale-cmd-reports-label-mismatch` (test): When a label has no branch, a
+- `issueclosed-clears-in-progress-label` (check): When an issue carrying
+  `in-progress` closes, issue-closed.yml removes the label.
+- `stale-cmd-reports-claims-left-behind` (test): When a label has no branch, a
   closed issue keeps its label, or a closed issue keeps its branch, `issues.py
   stale` fails and names the remedy.
 
@@ -397,7 +397,7 @@ Source: CLAUDE.md, under "Skills and scripts", and #98.
 - `steps-cmd-checks-no-command-markers` (test): When a no-command marker
   has no reason, shares its line with other text, sits outside a step, or sits
   on a step that runs a command, `steps` fails it.
-- `steps-cmd-fails-commands-outside-steps` (test): When a SKILL.md runs
+- `steps-cmd-fails-stray-commands` (test): When a SKILL.md runs
   an invocation `commands` accepts outside every `## Step` section and outside
   "Locate the script", `steps` fails it.
 - `steps-cmd-scans-something` (test): When no SKILL.md has a step, `steps`
@@ -492,7 +492,7 @@ checks read files git does not track yet.
 Source: README.md, under "Adding a plugin", step 4: "Validate, then push",
 and #284.
 
-- `checkskills-cmd-reads-worktree-files` (test): When a skill file is
+- `checkskills-cmd-reads-unignored-files` (test): When a skill file is
   committed, or new and not yet added, each check-skills.py command reads it,
   and skips a file git ignores.
 - `floors-cmd-names-floor-version` (test): When the Python running
@@ -630,7 +630,7 @@ asked for, and no requirement loses the last thing that verifies it.
 
 Source: #114, #129, and SPEC-METHODOLOGY.md, under "The chain".
 
-- `trace-cmd-fails-uncited-verifiers` (test): When a test or a skill step
+- `trace-cmd-fails-uncited-tests-skills` (test): When a test or a skill step
   does not cite a requirement, and `.github/untraced.json` does not list it,
   `check-specs.py trace` fails it.
 - `trace-cmd-fails-unknown-ids` (test): When a test, a skill step or a
@@ -639,7 +639,7 @@ Source: #114, #129, and SPEC-METHODOLOGY.md, under "The chain".
 - `trace-cmd-fails-unverified-requirements` (test): When nothing of a
   requirement's kind cites it, a test for `test`, a skill step for `step` and
   a workflow step for `check`, `trace` fails the requirement.
-- `trace-cmd-warns-on-listed-items` (test): When `.github/untraced.json`
+- `trace-cmd-warns-on-waiting-items` (test): When `.github/untraced.json`
   lists a test or a step that cites nothing, and the issue it waits on is
   open, `trace` passes it with a warning naming that issue.
 - `trace-cmd-fails-closed-issue-entries` (test): When an entry in
@@ -690,9 +690,9 @@ Source: #114, #129, and SPEC-METHODOLOGY.md, under "The chain".
   with a `build_parser()`, it fails.
 - `ci-runs-surface` (check): When a pull request is opened or updated, CI runs
   `surface`.
-- `changes-cmd-lists-ids` (test): When a pull request adds, changes or
-  removes a requirement, and its description does not name the id in
-  backticks, `check-specs.py changes` fails it.
+- `changes-cmd-fails-unnamed-requirement-changes` (test): When a pull request
+  adds, changes or removes a requirement, and its description does not name
+  the id in backticks, `check-specs.py changes` fails it.
 - `changes-cmd-requires-issue-for-section` (test): When a pull request
   adds a need or a constraint that no issue it closes names, `changes`
   fails it.
@@ -755,9 +755,10 @@ nothing. This is the repo's own copy of the constraint in `specs/todos.md`.
 
 Source: GitHub's documentation, "Deleting an issue".
 
-- `planfile-cmd-resumes-after-failure` (test): When a GitHub call fails, `plan
-  file` stops, lists what it filed and exits 1, and a later run of the same
-  plan files only what is missing. It refuses a plan it has finished filing.
+- `planfile-cmd-resumes-after-failed-call` (test): When a GitHub call fails,
+  `plan file` stops, lists what it filed and exits 1, and a later run of the
+  same plan files only what is missing. It refuses a plan it has finished
+  filing.
 
 ## constraint bash-hides-output: A command's output does not reliably reach the user
 

@@ -216,28 +216,28 @@ def cited_as(rid):
 
 
 class DescribeTrace:
-    @pytest.mark.spec("trace-cmd-fails-uncited-verifiers")
+    @pytest.mark.spec("trace-cmd-fails-uncited-tests-skills")
     def it_passes_a_clone_where_every_link_holds(self, make_repo, run):
         code, out, err = run("trace", "-C", str(make_repo()))
         assert code == cp.OK, err
         assert "4 requirement(s) verified" in out
         assert err == ""
 
-    @pytest.mark.spec("trace-cmd-fails-uncited-verifiers")
+    @pytest.mark.spec("trace-cmd-fails-uncited-tests-skills")
     def it_fails_a_test_that_cites_nothing(self, make_repo, run):
         root = make_repo({TEST: suite_file(method_marker="")})
         code, _, err = run("trace", "-C", str(root))
         assert code == cp.PROBLEMS
         assert "%s:5: DescribeFoo::it_does_x cites no requirement" % TEST in err
 
-    @pytest.mark.spec("trace-cmd-fails-uncited-verifiers")
+    @pytest.mark.spec("trace-cmd-fails-uncited-tests-skills")
     def it_fails_a_step_that_cites_nothing(self, make_repo, run):
         root = make_repo({SKILL: skill(step_two_marker="")})
         code, _, err = run("trace", "-C", str(root))
         assert code == cp.PROBLEMS
         assert '"Step 2: ask" cites no requirement' in err
 
-    @pytest.mark.spec("trace-cmd-fails-uncited-verifiers")
+    @pytest.mark.spec("trace-cmd-fails-uncited-tests-skills")
     def it_reads_a_marker_on_the_class_for_each_test_in_it(self, make_repo, run):
         root = make_repo(
             {TEST: suite_file(class_marker='@pytest.mark.spec("foo-does-x")\n', method_marker="")}
@@ -245,13 +245,13 @@ class DescribeTrace:
         code, _, err = run("trace", "-C", str(root))
         assert code == cp.OK, err
 
-    @pytest.mark.spec("trace-cmd-fails-uncited-verifiers")
+    @pytest.mark.spec("trace-cmd-fails-uncited-tests-skills")
     def it_ignores_a_method_pytest_does_not_collect(self, make_repo, run):
         code, _, err = run("trace", "-C", str(make_repo()))
         assert code == cp.OK
         assert "helper" not in err
 
-    @pytest.mark.spec("trace-cmd-fails-uncited-verifiers")
+    @pytest.mark.spec("trace-cmd-fails-uncited-tests-skills")
     def it_fails_a_step_marker_that_shares_its_line(self, make_repo, run):
         root = make_repo({SKILL: skill(step_two_marker="Ask. <!-- spec: foo-does-x -->\n")})
         code, _, err = run("trace", "-C", str(root))
@@ -352,7 +352,7 @@ class DescribeTrace:
         assert code == cp.PROBLEMS
         assert "directly above a step's `- name:`" in err
 
-    @pytest.mark.spec("trace-cmd-warns-on-listed-items")
+    @pytest.mark.spec("trace-cmd-warns-on-waiting-items")
     def it_passes_a_listed_test_with_a_warning_naming_its_issue(self, make_repo, run):
         root = make_repo(
             {
@@ -369,7 +369,7 @@ class DescribeTrace:
         assert code == cp.OK, err
         assert "warning: 1 test(s) cite no requirement yet; #130 will trace them." in err
 
-    @pytest.mark.spec("trace-cmd-warns-on-listed-items")
+    @pytest.mark.spec("trace-cmd-warns-on-waiting-items")
     def it_passes_a_listed_step_with_a_warning_naming_its_issue(self, make_repo, run):
         root = make_repo(
             {
@@ -591,7 +591,7 @@ class DescribeTrace:
         assert code == cp.PROBLEMS
         assert "found no step;" in err
 
-    @pytest.mark.spec("trace-cmd-fails-uncited-verifiers")
+    @pytest.mark.spec("trace-cmd-fails-uncited-tests-skills")
     def it_prints_one_envelope_on_stdout_with_json(self, make_repo, run):
         code, out, err = run("trace", "--json", "-C", str(make_repo()))
         assert code == cp.OK
@@ -602,7 +602,7 @@ class DescribeTrace:
         tests = {t["id"]: t["cites"] for t in result["data"]["tests"]}
         assert tests[TEST_ID] == ["foo-does-x"]
 
-    @pytest.mark.spec("trace-cmd-warns-on-listed-items")
+    @pytest.mark.spec("trace-cmd-warns-on-waiting-items")
     def it_accepts_the_repo_as_it_stands(self, run):
         code, _, err = run("trace", "-C", str(REPO_ROOT))
         assert code == cp.OK, err
@@ -818,7 +818,7 @@ class DescribeTraceOnClosedIssues:
         assert code == cp.PROBLEMS
         assert "KNOWN_SEAMS lists step %d of %s for #" % (SEAM_STEP, SEAM_SKILL) in err
 
-    @pytest.mark.spec("trace-cmd-fails-closed-issue-entries", "trace-cmd-warns-on-listed-items")
+    @pytest.mark.spec("trace-cmd-fails-closed-issue-entries", "trace-cmd-warns-on-waiting-items")
     def it_passes_a_listed_test_whose_issue_is_open(self, make_repo, run):
         github = FakeGitHub({130: {"state": "OPEN"}})
         code, _, err = run(
@@ -1012,13 +1012,13 @@ def check_changes(run, root, environ, github=None):
 
 
 class DescribeChanges:
-    @pytest.mark.spec("changes-cmd-lists-ids")
+    @pytest.mark.spec("changes-cmd-fails-unnamed-requirement-changes")
     def it_passes_a_pull_request_that_changes_no_spec(self, pull_request, run):
         code, out, err = check_changes(run, *pull_request())
         assert code == cp.OK, err
         assert "0 requirement change(s) and 0 new need(s) or constraint(s)" in out
 
-    @pytest.mark.spec("changes-cmd-lists-ids")
+    @pytest.mark.spec("changes-cmd-fails-unnamed-requirement-changes")
     @pytest.mark.parametrize(
         ("spec", "how"),
         [
@@ -1037,7 +1037,7 @@ class DescribeChanges:
             "in specs/foo.md was %s, and the pull request description does not name it" % how in err
         )
 
-    @pytest.mark.spec("changes-cmd-lists-ids")
+    @pytest.mark.spec("changes-cmd-fails-unnamed-requirement-changes")
     def it_passes_each_id_the_description_names(self, pull_request, run):
         spec = FOO_SPEC.replace("foo does x", "foo does x twice") + (
             "- `foo-does-y` (test): When asked, foo does y.\n"
@@ -1047,7 +1047,7 @@ class DescribeChanges:
         assert code == cp.OK, err
         assert "2 requirement change(s)" in out
 
-    @pytest.mark.spec("changes-cmd-lists-ids")
+    @pytest.mark.spec("changes-cmd-fails-unnamed-requirement-changes")
     def it_does_not_count_rewrapping_as_a_change(self, pull_request, run):
         spec = FOO_SPEC.replace(
             "skill asks them\n  in one batch", "skill\n  asks them in one batch"
@@ -1055,7 +1055,7 @@ class DescribeChanges:
         code, _, err = check_changes(run, *pull_request({"specs/foo.md": spec}))
         assert code == cp.OK, err
 
-    @pytest.mark.spec("changes-cmd-lists-ids")
+    @pytest.mark.spec("changes-cmd-fails-unnamed-requirement-changes")
     def it_reads_every_requirement_of_a_new_spec_file(self, pull_request, run):
         bar = "# bar\n\n## constraint bar-is-slow: Bar is slow\n\nIt is.\n\n- `bar-waits` (test): Bar waits.\n"
         code, _, err = check_changes(run, *pull_request({"specs/bar.md": bar}))
@@ -1150,7 +1150,7 @@ class DescribeChanges:
         assert code == cp.CANNOT_RUN
         assert err.startswith("check-specs.py: cannot read #7")
 
-    @pytest.mark.spec("changes-cmd-lists-ids")
+    @pytest.mark.spec("changes-cmd-fails-unnamed-requirement-changes")
     def it_stops_outside_a_pull_request_event(self, make_repo, run):
         code, _, err = run("changes", "--base", "HEAD", "-C", str(make_repo()), environ=GITHUB_ENV)
         assert code == cp.CANNOT_RUN

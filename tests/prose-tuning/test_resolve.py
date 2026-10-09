@@ -88,7 +88,7 @@ class DescribeTagsResolve:
         assert code == prose.OK, envelope
         assert prose_repo.read() == "One.\n\nThree.\n"
 
-    @pytest.mark.spec("resolve-cmd-warns-in-lists")
+    @pytest.mark.spec("resolve-cmd-warns-on-list-blocks")
     def it_warns_when_it_resolves_a_block_tag_inside_a_list(self, prose_repo):
         """A tag between two list items can end the list, which the author
         has to look at, so the warning names the line.

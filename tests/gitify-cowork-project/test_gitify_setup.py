@@ -84,7 +84,7 @@ class DescribeSetup:
         assert "film.mov" not in files
         assert {"notes.md", "drafts/plan.md", "CLAUDE.md", ".gitignore"} <= files
 
-    @pytest.mark.spec("render-cmd-excludes-system-files")
+    @pytest.mark.spec("render-cmd-excludes-macos-editor-files")
     def it_keeps_shared_editor_settings_in_history(self, folder):
         (folder / ".vscode").mkdir()
         (folder / ".vscode" / "settings.json").write_text("{}\n")
@@ -92,7 +92,7 @@ class DescribeSetup:
         files = committed(folder)
         assert ".vscode/settings.json" in files
 
-    @pytest.mark.spec("render-cmd-excludes-system-files", "render-cmd-ignores-chat-outputs")
+    @pytest.mark.spec("render-cmd-excludes-macos-editor-files", "render-cmd-ignores-chat-outputs")
     def it_leaves_system_editor_and_chat_files_out_of_history(self, folder):
         kept_out = [
             ".DS_Store",

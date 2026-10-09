@@ -14,7 +14,7 @@ PROTECTED = ["frontmatter", "blockquote", "fence", "comment"]
 
 
 class DescribeBlocks:
-    @pytest.mark.spec("segments-cmd-gives-prose-only")
+    @pytest.mark.spec("segments-cmd-skips-protected-blocks")
     def it_classifies_each_line_as_the_map_says(self, target, target_lines):
         """conftest's TARGET_LINES is load-bearing - other tests address spans in
         that document by kind. Editing the document without editing the map would
@@ -27,13 +27,13 @@ class DescribeBlocks:
         assert got == {kind: kind for kind in named}
         assert blocks.kind(last) == "paragraph"
 
-    @pytest.mark.spec("segments-cmd-gives-prose-only")
+    @pytest.mark.spec("segments-cmd-skips-protected-blocks")
     @pytest.mark.parametrize("kind", PROTECTED)
     def it_protects_a_line_of_a_protected_kind(self, target, target_lines, kind):
         blocks = prose.Blocks(prose.Text(target))
         assert blocks.is_protected(target_lines[kind]) is True
 
-    @pytest.mark.spec("segments-cmd-gives-prose-only")
+    @pytest.mark.spec("segments-cmd-skips-protected-blocks")
     @pytest.mark.parametrize("kind", ["heading", "paragraph", "table"])
     def it_leaves_a_line_of_prose_unprotected(self, target, target_lines, kind):
         blocks = prose.Blocks(prose.Text(target))

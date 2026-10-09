@@ -50,7 +50,7 @@ project's rules instead, pass `--from <path to its .claude/rules/prose-style.md>
 with no rules at all, pass `--empty`.
 
 ## Step 2: gather the evidence
-<!-- spec: updateproseconfig-asks-about-signals, updateproseconfig-reads-named-checkout, updateproseconfig-asks-which-checkout, updateproseconfig-takes-handed-notes, updateproseconfig-reads-notes-as-whys, updateproseconfig-runs-on-notes-alone -->
+<!-- spec: updateproseconfig-asks-about-signals, updateproseconfig-reads-named-checkout, updateproseconfig-asks-which-checkout, updateproseconfig-takes-handed-notes, updateproseconfig-reads-notes-on-edits, updateproseconfig-runs-on-notes-alone -->
 <!-- seam: judgment: the author picks which checkout to learn from, when two or more hold edits -->
 
 ```sh
