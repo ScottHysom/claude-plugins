@@ -2576,38 +2576,12 @@ def cmd_segments(args):
     texts, errors = read_targets(repo, args.paths or scope.files())
     data = {}
     for rel, text in texts:
-        blocks = Blocks(text)
-        segs = segments_for(text, blocks)
-        protected = sum(1 for k in blocks.kinds if k in PROTECTED_KINDS)
-        data[rel] = {
-            "segment_count": len(segs),
-            "chars": sum(len(s["text"]) for s in segs),
-            "protected_lines": protected,
-            "lines": text.line_count(),
-        }
-        if not args.summary:
-            data[rel]["segments"] = segs
+        data[rel] = {"segments": segments_for(text, Blocks(text))}
 
     def human():
-        if not args.summary:
-            for rel in sorted(data):
-                for seg in data[rel]["segments"]:
-                    print(segment_line(rel, seg))
-            return
         for rel in sorted(data):
-            d = data[rel]
-            print(
-                "%s  %d segment(s), %d character(s), %d protected line(s) of %d"
-                % (rel, d["segment_count"], d["chars"], d["protected_lines"], d["lines"])
-            )
-        print(
-            "\n%d file(s), %d segment(s), %d character(s)"
-            % (
-                len(data),
-                sum(d["segment_count"] for d in data.values()),
-                sum(d["chars"] for d in data.values()),
-            )
-        )
+            for seg in data[rel]["segments"]:
+                print(segment_line(rel, seg))
 
     return emit(args, "segments", repo.root, data, errors=errors, human=human)
 
@@ -5065,11 +5039,6 @@ def build_parser():
         "FILE:LINE:COL_START-COL_END  KIND  TEXT. With no path, every file in scope.",
     )
     p.add_argument("paths", nargs="*", help="files to read (default: every file in scope)")
-    p.add_argument(
-        "--summary",
-        action="store_true",
-        help="one line per file: segments, characters and protected lines, then the totals",
-    )
     p.set_defaults(func=cmd_segments)
 
     p = sub.add_parser(

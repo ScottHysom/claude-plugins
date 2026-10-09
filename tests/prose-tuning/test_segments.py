@@ -103,8 +103,7 @@ class DescribeSegments:
         blocks = prose.Blocks(prose.Text(prose_repo.read()))
         comment_lines = [i + 1 for i, k in enumerate(blocks.kinds) if k == "comment"]
         assert comment_lines == [22, 23, 24]
-        # front matter 3, blockquote 1, fence 3, comment 3, code 1, HTML 3
-        assert got["protected_lines"] == 14
+        assert all(blocks.is_protected(line) for line in comment_lines)
 
 
 # One of each kind segments hands out, for the tests that read its output.
@@ -160,23 +159,6 @@ class DescribeTheSegmentsCommand:
         assert code == prose.PROBLEMS
         assert out.startswith("target.md:")
         assert "missing.md  no such file" in err
-
-    def it_prints_one_summary_line_per_file_and_the_totals(self, prose_repo, capsys):
-        (prose_repo.root / "target.md").write_text(KINDS)
-        code, out, _ = run_text(prose_repo, capsys, "--summary")
-        assert code == prose.OK
-        chars = len("TitleA paragraph thatwraps.A list item.TermMeaningmodelnumbers")
-        assert out == (
-            "target.md  8 segment(s), %d character(s), 0 protected line(s) of 10\n"
-            "\n"
-            "1 file(s), 8 segment(s), %d character(s)\n" % (chars, chars)
-        )
-
-    def it_leaves_the_segments_out_of_the_json_summary(self, prose_repo):
-        code, envelope = prose_repo.run("segments", "--summary", "target.md")
-        assert code == prose.OK
-        assert "segments" not in envelope["data"]["target.md"]
-        assert envelope["data"]["target.md"]["segment_count"] > 0
 
 
 class DescribeListContinuations:
