@@ -18,11 +18,6 @@ in every session, so `config lint` rejects it.
 scope:
   include:
     - "**/*.md"
-  exclude:
-    - ".claude/**"
-    - "project-instructions.md"
-    - "**/README.md"
-    - "skills/**"
 ---
 ```
 
@@ -30,7 +25,8 @@ scope:
 one `scope:` block holding `include:` and `exclude:` lists. `config lint`
 reports anything else as an error.
 
-`include` and `exclude` replace the defaults wholesale when present.
+`include` replaces the default, `**/*.md`, when present. Without an
+`exclude` list, nothing that `include` matches is left out.
 
 The rules file is excluded whatever the override says.
 

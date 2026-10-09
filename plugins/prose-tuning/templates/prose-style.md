@@ -2,11 +2,6 @@
 scope:
   include:
     - "**/*.md"
-  exclude:
-    - ".claude/**"
-    - "CLAUDE.md"
-    - "**/README.md"
-    - "skills/**"
 ---
 
 # {{PROJECT_NAME}}: prose style

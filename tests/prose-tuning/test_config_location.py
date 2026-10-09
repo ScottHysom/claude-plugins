@@ -27,13 +27,3 @@ class DescribePathsKey:
     def it_rejects_a_paths_key_that_would_stop_the_file_loading(self, config_from, line):
         config = config_from("---\nname: X\n%s\n---\n" % line)
         assert any("loading in every session" in e for e in config.errors)
-
-
-class DescribeDefaultScope:
-    def it_leaves_out_everything_under_the_claude_folder(self, prose_repo):
-        other = prose_repo.root / prose.CONFIG_DIR / "other.md"
-        other.write_text("# Another rule file\n")
-        _, env = prose_repo.run("scope", "--all")
-        verdict = {v["path"]: v for v in env["data"]["files"]}[".claude/rules/other.md"]
-        assert verdict["included"] is False
-        assert verdict["reason"] == "excluded by .claude/**"
