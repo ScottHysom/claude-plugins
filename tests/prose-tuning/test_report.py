@@ -37,7 +37,6 @@ def wrapped(prose_repo, **overrides):
         file="doc.md",
         text=WRAPPED,
         replacement="A reader can state what is inside the file.",
-        why="it borrows its subject",
     )
     record.update(overrides)
     return prose_repo.finding(3, **record)
@@ -77,7 +76,6 @@ class DescribeReport:
                 "rule": wrapped(prose_repo)["rule"],
                 "current": WRAPPED,
                 "proposed": "A reader can state what is inside the file.",
-                "why": "it borrows its subject",
             }
         ]
         assert envelope["data"]["overlaps"] == []
@@ -96,7 +94,7 @@ class DescribeReport:
             "  current   |Able to state|\n"
             "            |  what is inside the file.|\n"
             "  proposed  |A reader can state what is inside the file.|\n"
-            "  why       it borrows its subject\n" % wrapped(prose_repo)["rule"]
+            % wrapped(prose_repo)["rule"]
         ) in out
 
     @pytest.mark.spec("report-cmd-shows-current-text")
@@ -188,7 +186,7 @@ class DescribeTheReportFile:
             "```text\n|Able to state|\n|  what is inside the file.|\n```\n\n"
             "Proposed:\n\n"
             "```text\n|A reader can state what is inside the file.|\n```\n\n"
-            "Why: it borrows its subject\n" % wrapped(prose_repo)["rule"]
+            "1 finding(s)" % wrapped(prose_repo)["rule"]
         ) in text
         assert "1 finding(s) in 1 file(s).\n" in text
         assert text.endswith("Approval token: `%s`\n" % envelope["data"]["token"])
