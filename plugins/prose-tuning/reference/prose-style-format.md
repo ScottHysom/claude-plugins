@@ -11,11 +11,6 @@ documents.
 The front matter never carries `paths:`. That key would stop the file loading
 in every session, so `config lint` rejects it.
 
-A project whose `prose-style.md` is still at its root, where nothing loads it,
-runs `config move`. It copies the file across, byte for byte, and leaves the
-root copy for the author to delete. Preflight refuses to run while the root
-copy is there.
-
 ## Front matter
 
 ```yaml

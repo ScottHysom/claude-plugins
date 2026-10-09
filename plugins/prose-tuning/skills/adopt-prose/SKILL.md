@@ -29,8 +29,7 @@ Run the block as one command, because the next command's shell will not have
 `$PROSE`. Then follow `$ROOT/reference/setup.md`. It says where every command below
 runs. On Cowork, both files have to be in connected folders, and a `--file`
 outside this project is given as
-`"$HOME/mnt"/<folder>/.claude/rules/prose-style.md`, or the `prose-style.md` at
-the folder's root for a project that has not moved its rules yet.
+`"$HOME/mnt"/<folder>/.claude/rules/prose-style.md`.
 Promoting a rule into the shipped rules is repo work, done in Claude Code
 against a checkout of `claude-plugins`.
 

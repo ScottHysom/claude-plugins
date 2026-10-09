@@ -69,11 +69,6 @@ The first time you run `update-prose-config` in a project, Claude offers to
 start the rules file from a default set the plugin ships. You can also start
 from another project's rules, or from an empty file.
 
-A project set up with an earlier version of this plugin keeps
-`prose-style.md` at its top level, where nothing loads it. The skills stop
-there and offer to copy it into `.claude/rules/`. They leave the old copy for
-you to delete.
-
 ## The skills
 
 | Skill | What it does | Ask Claude to |
