@@ -256,8 +256,8 @@ python3 "$PROSE" config write --batch "${TMPDIR:-/tmp}/prose-rules.json" --dry-r
 
 The script checks every name, and every rewrite against the file as it is now.
 It refuses a record whose rule would not lint: for instance, a pattern that
-misses its Before example or matches its After. On a refusal, fix what it
-names, since the example is the evidence, and run the dry run again.
+misses its Before example or matches its After. The example is the evidence,
+so a refusal like that is fixed in the pattern, not the example.
 
 The dry run writes the rules to the markdown file at `data.rules`, each as
 `prose-style.md` will hold it, and a rewrite with the rule it replaces above
@@ -298,9 +298,7 @@ approved:
 python3 "$PROSE" config write --batch "${TMPDIR:-/tmp}/prose-rules.json" --token 3f9a1c0e7b2d4a68 --json
 ```
 
-`config write` writes all or none. It exits 1 and writes nothing when the
-batch or `prose-style.md` changed since the dry run that printed the token.
-Run the dry run again, publish it again and ask again before writing anything.
+`config write` writes all or none.
 
 ## Step 7: validate by reproduction
 <!-- spec: updateproseconfig-fixes-the-rule -->
