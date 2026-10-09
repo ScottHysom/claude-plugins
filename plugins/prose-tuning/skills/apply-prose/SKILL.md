@@ -231,17 +231,9 @@ proposed text. A dismissal shows its reason in place of a proposed text.
 When `report` exits 0, `data.token` is the approval token, and the file ends
 with it. Step 7 takes the token from the report the author approved.
 
-`report` exits 1 when a finding cannot apply, and its errors say why:
-
-- **a finding `apply` would refuse**, such as one whose text has moved. Fix
-  the finding and run `report` again.
-- **two findings that overlap**, named as `finding 3 (notes.md:96,
-  standing-no-em-dash) overlaps finding 7 (notes.md:94,
-  sentences-no-restating-close)`. Each can apply alone, and the pair cannot.
-  The author chooses which one to keep. Never drop one yourself.
-- **a pattern's match that nothing covers**, named by its address, rule and
-  text, as `patterns` prints it. Add a finding that rewrites it, or a
-  dismissal when it stays, and run `report` again.
+`report` exits 1 when a finding cannot apply. Each error names the finding
+or match, and says what to do about it. Never drop a side of an overlap
+yourself.
 
 Publish the file at `data.report` as a private artifact with the Artifact
 tool, as markdown, with the icon `checklist`. After every later run of
@@ -297,30 +289,6 @@ The `--file` flags select from the approved findings. Any files the author
 named in step 2 go after the flags, as they did for `report`.
 
 A rule id or file that does not match any finding is an error, not an empty run.
-
-`apply` exits 1 and writes nothing when the findings file, a document a finding
-names or `prose-style.md` has changed since that `report`. Run `report` again,
-publish it again and ask again before applying anything.
-
-`apply` is all-or-nothing by default, so a partial pass cannot leave half the addresses
-stale. `--partial` applies what is valid and reports the rest.
-
-The engine rejects a finding rather than trusting it when:
-
-- the `text` starts nowhere on its line, or no longer matches what is at its
-  columns, which means the report is stale and must be regenerated
-- the `text` starts at more than one place on its line and no `col_start` says
-  which
-- the rule id is not in `prose-style.md`
-- the text reaches front matter, a fence, an indented code block, an HTML
-  block, a blockquote or an HTML comment
-- the text crosses a line that is not part of a paragraph or a list item, such
-  as a blank line or a heading
-- the text starts or ends inside a code span, or the replacement does not
-  keep each code span the text covers, unchanged and in order
-- a `table-cell` replacement contains a `|` or a newline, which would silently
-  restructure the table
-- two findings overlap, which `report` names in step 6
 
 ## Step 8: report and stop
 <!-- spec: applyprose-never-commits -->

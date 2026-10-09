@@ -4630,7 +4630,8 @@ def cmd_report(args):
         for x, y in staged.engine.conflicts():
             overlaps.append({"first": edit_refs(x), "second": edit_refs(y)})
             rejected.append(
-                "%s  %s overlaps %s; they cannot both apply"
+                "%s  %s overlaps %s, and they cannot both apply; "
+                "put the pair to the author and keep the side they choose"
                 % (rel, EditEngine.describe(x), EditEngine.describe(y))
             )
     rows.sort(key=lambda r: (r["file"], r["line"], r["finding"]))
@@ -4650,7 +4651,8 @@ def cmd_report(args):
                 rejected.append("%s  no such file" % rel)
         uncovered = uncovered_matches(repo, config, targets, findings)
     rejected.extend(
-        "%s  no finding or dismissal covers this match" % match_line(m["file"], m)
+        "%s  no finding or dismissal covers this match; add a finding that rewrites it, "
+        "or a dismissal if it stays" % match_line(m["file"], m)
         for m in uncovered
     )
     patterned = [r.id for r in config.patterned()]

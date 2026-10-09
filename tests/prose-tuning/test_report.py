@@ -120,7 +120,7 @@ class DescribeReport:
         out = human_report(prose_repo, capsys, [cut(prose_repo)])
         assert "  proposed  %s\n" % prose.REPORT_CUT in out
 
-    @pytest.mark.spec("report-cmd-names-overlaps")
+    @pytest.mark.spec("report-cmd-names-overlaps", "overlap-names-remedy")
     def it_names_both_findings_of_an_overlapping_pair(self, prose_repo):
         write_doc(prose_repo)
         findings = [wrapped(prose_repo), dash(prose_repo), cut(prose_repo)]
@@ -128,8 +128,9 @@ class DescribeReport:
         code, envelope = prose_repo.report(findings)
         assert code == prose.PROBLEMS
         assert envelope["errors"] == [
-            "doc.md  finding 3 (doc.md:6, %s) overlaps finding 2 (doc.md:6, %s); "
-            "they cannot both apply" % (rule, rule)
+            "doc.md  finding 3 (doc.md:6, %s) overlaps finding 2 (doc.md:6, %s), "
+            "and they cannot both apply; put the pair to the author and keep the side they choose"
+            % (rule, rule)
         ]
         ref = {"file": "doc.md", "line": 6, "rule": rule}
         assert envelope["data"]["overlaps"] == [

@@ -284,6 +284,8 @@ description.
   writes nothing.
 - `report-cmd-names-overlaps` (test): When two findings overlap, `report`
   and `apply` name both, and `apply` writes neither.
+- `overlap-names-remedy` (test): When two findings overlap, `report` names
+  both and says to put the pair to the author.
 - `apply-cmd-plans-one-snapshot` (test): When `apply` writes several
   findings to one file, it plans them against one snapshot of it, so the
   result does not depend on the order they came in.
@@ -312,6 +314,8 @@ description.
 - `report-cmd-fails-uncovered-matches` (test): When a pattern matches text
   in a file in scope that no finding or dismissal of the same rule contains,
   `report` names the match and exits 1.
+- `uncovered-names-remedy` (test): When a pattern match is covered by no
+  finding, `report` names it and says to add a finding or a dismissal.
 - `apply-cmd-honors-dismissals` (test): When a finding carries `dismiss`,
   `report` prints its reason and `apply` leaves its text alone. A dismissal
   with no reason, or with a `replacement`, is refused.
