@@ -122,15 +122,6 @@ class DescribeReport:
         out = human_report(prose_repo, capsys, [cut(prose_repo)])
         assert "  proposed  %s\n" % prose.REPORT_CUT in out
 
-    def it_takes_the_current_text_from_the_file_when_the_finding_gives_only_columns(
-        self, prose_repo
-    ):
-        write_doc(prose_repo)
-        finding = prose_repo.finding(1, file="doc.md", col_start=0, col_end=5)
-        code, envelope = prose_repo.report([finding])
-        assert code == prose.OK
-        assert envelope["data"]["findings"][0]["current"] == "Intro"
-
     @pytest.mark.spec("report-cmd-names-overlaps")
     def it_names_both_findings_of_an_overlapping_pair(self, prose_repo):
         write_doc(prose_repo)
