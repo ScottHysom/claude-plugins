@@ -334,14 +334,21 @@ Word 1 is the subject, in one word:
 - A requirement's id opens with its actor, which is a command, a file, a
   workflow or a skill. A command of two words gives its last word, so
   `rentals close` gives `close`.
+- Word 1 names the actor and not a kind it belongs to. `hook` names every
+  file in `.claude/hooks/`, so a requirement about `ruff.py`, which the
+  sentence calls the ruff hook, opens with `ruffhook`.
 - A command's name, singular or plural, takes the marker `cmd` after it,
   so a reader can tell the command from a file or a skill of the same name:
   `sync-cmd-stays-under-limit`, `reports-cmd-lists-open-rentals`.
   A script run as a whole is a command too.
-- `command` is an ordinary word, which the marker does not claim. It can be
-  the subject of a requirement about every command, as in
-  `command-splits-output-streams-without-json`, and it cannot stand in for
-  `cmd`.
+- `command` is an ordinary word, which the marker does not claim, and it
+  cannot stand in for `cmd`. It can be the subject of a requirement about
+  more than one command:
+  - every command, as in `command-splits-output-streams-without-json`.
+  - some of a script's commands, when the id names what they share and the
+    sentence names the commands. `command-reads-other-worktree-with-from`
+    names `--from`, which todos.py's `scan`, `report`, `file` and
+    `questions` take and its `setup` does not.
 - A name of several words is joined into one, so a `booking-assistant` skill
   gives `bookingassistant` and `CLAUDE.md` gives `claudemd`.
 

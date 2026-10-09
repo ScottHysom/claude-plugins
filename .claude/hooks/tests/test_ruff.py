@@ -61,31 +61,31 @@ def ruff_on_path(monkeypatch):
 
 
 class DescribeFindRuff:
-    @pytest.mark.spec("hook-borrows-main-venv")
+    @pytest.mark.spec("ruffhook-borrows-main-venv")
     def it_uses_the_main_checkouts_venv_from_a_worktree(self, repo):
         main, worktree = repo
         expected = install_ruff(main)
         assert os.path.realpath(ruff_hook.find_ruff(str(worktree))) == os.path.realpath(expected)
 
-    @pytest.mark.spec("hook-prefers-own-venv")
+    @pytest.mark.spec("ruffhook-prefers-own-venv")
     def it_prefers_the_worktrees_own_venv(self, repo):
         main, worktree = repo
         install_ruff(main)
         expected = install_ruff(worktree)
         assert ruff_hook.find_ruff(str(worktree)) == expected
 
-    @pytest.mark.spec("hook-borrows-main-venv")
+    @pytest.mark.spec("ruffhook-borrows-main-venv")
     def it_uses_the_venv_in_the_main_checkout_itself(self, repo):
         main, _ = repo
         expected = install_ruff(main)
         assert ruff_hook.find_ruff(str(main)) == expected
 
-    @pytest.mark.spec("hook-falls-back-to-path")
+    @pytest.mark.spec("ruffhook-falls-back-to-path")
     def it_falls_back_to_ruff_on_path_when_no_venv_exists(self, repo):
         _, worktree = repo
         assert ruff_hook.find_ruff(str(worktree)) == ON_PATH
 
-    @pytest.mark.spec("hook-falls-back-to-path")
+    @pytest.mark.spec("ruffhook-falls-back-to-path")
     def it_falls_back_to_ruff_on_path_outside_a_git_repo(self, tmp_path):
         assert ruff_hook.find_ruff(str(tmp_path)) == ON_PATH
 
@@ -114,32 +114,32 @@ def edit(tmp_path, monkeypatch, capsys):
 
 
 class DescribeMain:
-    @pytest.mark.spec("hook-formats-edit")
+    @pytest.mark.spec("ruffhook-formats-edit")
     def it_sorts_imports_and_formats_a_python_file(self, edit):
         code, err, after = edit("x.py", "import sys\nimport os\nx=[os,sys]\n")
         assert (code, err) == (0, "")
         assert after == "import os\nimport sys\n\nx = [os, sys]\n"
 
-    @pytest.mark.spec("hook-formats-edit")
+    @pytest.mark.spec("ruffhook-formats-edit")
     def it_leaves_a_file_that_is_not_python_alone(self, edit):
         code, err, after = edit("notes.txt", "import sys\nimport os\nx=[os,sys]\n")
         assert (code, err) == (0, "")
         assert after == "import sys\nimport os\nx=[os,sys]\n"
 
-    @pytest.mark.spec("hook-reports-lint")
+    @pytest.mark.spec("ruffhook-reports-lint")
     def it_hands_back_what_the_linter_found(self, edit):
         code, err, _ = edit("x.py", "import os\n")
         assert code == 2
         assert "ruff check found problems" in err
         assert "F401" in err
 
-    @pytest.mark.spec("hook-reports-parse-error")
+    @pytest.mark.spec("ruffhook-reports-parse-error")
     def it_hands_back_ruffs_error_on_a_file_that_does_not_parse(self, edit):
         code, err, _ = edit("x.py", "def (:\n")
         assert code == 2
         assert "ruff format failed" in err
 
-    @pytest.mark.spec("hook-names-ruff-install")
+    @pytest.mark.spec("ruffhook-names-ruff-install")
     def it_names_the_install_command_when_no_ruff_is_found(self, edit, monkeypatch):
         monkeypatch.setattr(ruff_hook, "find_ruff", lambda root: None)
         code, err, _ = edit("x.py", "x = 1\n")
