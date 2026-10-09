@@ -17,6 +17,8 @@ Commands:
     scope       which files the prose rules govern
     segments    the prose-eligible spans of each file, one per line
     patterns    where each rule's pattern matches those spans
+    pass        the rules, segments and patterns together, which apply-prose
+                reads to start a pass
     evidence    explicit tags + inferred edits
     reproduce   whether the rules' patterns reproduce the edits since HEAD
     config      list | lint | check-id | classify | adopt | resolve | write |
@@ -127,6 +129,9 @@ import subprocess
 import sys
 
 ENVELOPE_VERSION = 3
+
+# Opens each part of pass's output: the rules, the segments, the matches.
+PASS_HEADING = "== %s =="
 
 OK, PROBLEMS, CANNOT_RUN = 0, 1, 2
 
@@ -2545,16 +2550,23 @@ def segment_line(rel, seg):
     )
 
 
-def cmd_segments(args):
-    repo, config, scope = load(args)
-    targets = args.paths or scope.files()
-    data, errors = {}, []
+def read_targets(repo, targets):
+    """([(rel, Text)] for each target that exists, an error for each that does not)."""
+    texts, errors = [], []
     for rel in targets:
         path = repo.abspath(rel)
         if not os.path.exists(path):
             errors.append("%s  no such file" % rel)
             continue
-        text = Text.read(path)
+        texts.append((rel, Text.read(path)))
+    return texts, errors
+
+
+def cmd_segments(args):
+    repo, config, scope = load(args)
+    texts, errors = read_targets(repo, args.paths or scope.files())
+    data = {}
+    for rel, text in texts:
         blocks = Blocks(text)
         segs = segments_for(text, blocks)
         protected = sum(1 for k in blocks.kinds if k in PROTECTED_KINDS)
@@ -2612,6 +2624,27 @@ def match_line(rel, m):
     )
 
 
+def all_matches(texts, rules):
+    """Every match of rules' patterns in texts, [(rel, Text)], in address order."""
+    matches = []
+    for rel, text in texts:
+        for m in pattern_matches(text, Blocks(text), rules):
+            matches.append(dict(m, file=rel))
+    matches.sort(key=lambda m: (m["file"], m["line"], m["col_start"], m["rule"]))
+    return matches
+
+
+def unlinted(args, command, repo, config):
+    """The refusal a command that runs the patterns gives on a rule file lint refuses."""
+    return emit(
+        args,
+        command,
+        repo.root,
+        {},
+        errors=[*config.errors, "%s  fix it first; see: prose.py config lint" % config.rel()],
+    )
+
+
 def cmd_patterns(args):
     """Every match of every rule's pattern, over the same spans segments gives.
 
@@ -2622,36 +2655,69 @@ def cmd_patterns(args):
     """
     repo, config, scope = load(args)
     if config.errors:
-        return emit(
-            args,
-            "patterns",
-            repo.root,
-            {},
-            errors=[*config.errors, "%s  fix it first; see: prose.py config lint" % config.rel()],
-        )
+        return unlinted(args, "patterns", repo, config)
     rules = config.patterned()
     targets = args.paths or scope.files()
-    matches, errors = [], []
-    for rel in targets:
-        path = repo.abspath(rel)
-        if not os.path.exists(path):
-            errors.append("%s  no such file" % rel)
-            continue
-        text = Text.read(path)
-        for m in pattern_matches(text, Blocks(text), rules):
-            matches.append(dict(m, file=rel))
-    matches.sort(key=lambda m: (m["file"], m["line"], m["col_start"], m["rule"]))
+    texts, errors = read_targets(repo, targets)
+    matches = all_matches(texts, rules)
     data = {"rules": [r.id for r in rules], "files": len(targets), "matches": matches}
 
     def human():
-        for m in matches:
-            print(match_line(m["file"], m))
-        print(
-            "\n%d match(es) in %d file(s). Checked by pattern: %s"
-            % (len(matches), len(targets), ", ".join(data["rules"]) or "no rule carries one")
-        )
+        print_matches(matches, len(targets), data["rules"])
 
     return emit(args, "patterns", repo.root, data, errors=errors, human=human)
+
+
+def print_matches(matches, files, ids):
+    """patterns' output: a line per match, then the count and the rules checked."""
+    for m in matches:
+        print(match_line(m["file"], m))
+    print(
+        "\n%d match(es) in %d file(s). Checked by pattern: %s"
+        % (len(matches), files, ", ".join(ids) or "no rule carries one")
+    )
+
+
+def rule_text(rule):
+    """A rule as prose-style.md words it: its heading, then its body."""
+    return "\n\n".join(x for x in ("### %s: %s" % (rule.id, rule.title), rule.body_text()) if x)
+
+
+def cmd_pass(args):
+    """What an apply-prose pass reads, in one output: config list, segments, patterns.
+
+    The three commands ran one after another with nothing decided between
+    them, so the model only carried their output across (#196). Each stays a
+    command of its own; this one composes them over one read of each file.
+    """
+    repo, config, scope = load(args)
+    if config.errors:
+        return unlinted(args, "pass", repo, config)
+    patterned = config.patterned()
+    targets = args.paths or scope.files()
+    texts, errors = read_targets(repo, targets)
+    segments = {rel: segments_for(text, Blocks(text)) for rel, text in texts}
+    matches = all_matches(texts, patterned)
+    data = {
+        "rules": [r.as_dict() for r in config.rules],
+        "files": len(targets),
+        "segments": segments,
+        "matches": matches,
+        "patterned": [r.id for r in patterned],
+    }
+
+    def human():
+        print(PASS_HEADING % "rules")
+        for rule in config.rules:
+            print(rule_text(rule) + "\n")
+        print(PASS_HEADING % "segments")
+        for rel in sorted(segments):
+            for seg in segments[rel]:
+                print(segment_line(rel, seg))
+        print("\n" + PASS_HEADING % "matches")
+        print_matches(matches, len(targets), data["patterned"])
+
+    return emit(args, "pass", repo.root, data, errors=errors, human=human)
 
 
 def pending_files(repo):
@@ -2832,13 +2898,7 @@ def cmd_reproduce(args):
     """
     repo, config, source, checkout, scope = load_from(args)
     if config.errors:
-        return emit(
-            args,
-            "reproduce",
-            repo.root,
-            {},
-            errors=[*config.errors, "%s  fix it first; see: prose.py config lint" % config.rel()],
-        )
+        return unlinted(args, "reproduce", repo, config)
     rules = config.patterned()
     edits = []
     for rel in scope.files():
@@ -5019,6 +5079,17 @@ def build_parser():
     )
     p.add_argument("paths", nargs="*", help="files to read (default: every file in scope)")
     p.set_defaults(func=cmd_patterns)
+
+    p = sub.add_parser(
+        "pass",
+        parents=[common],
+        help="the rules, the segments and the pattern matches, for an apply-prose pass",
+        description="Print every rule as prose-style.md words it, then what segments prints, "
+        "then what patterns prints, each part under its own == heading ==. With no path, "
+        "every file in scope.",
+    )
+    p.add_argument("paths", nargs="*", help="files to read (default: every file in scope)")
+    p.set_defaults(func=cmd_pass)
 
     p = sub.add_parser(
         "evidence", parents=[common, source], help="explicit tags and inferred edits"
