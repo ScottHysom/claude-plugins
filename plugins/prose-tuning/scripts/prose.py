@@ -136,6 +136,7 @@ TOKEN_LENGTH = 16
 TOKEN_LABEL = "approval token: "
 TOKEN_STALE = (
     "the findings, a document they name or %s changed since report ran, "
+    "apply was not given the files report was, "
     "or the token is not the one it printed; run report again and show it to the author"
 )
 RULES_TOKEN_STALE = (
@@ -146,6 +147,8 @@ RULES_TOKEN_MISSING = (
     "config write needs --token: run config write --dry-run, show the author the page it "
     "writes, and pass the token it prints"
 )
+# What a report token hashes before the files report was given.
+TOKEN_CHECKED = b"checked files"
 # What the rules token hashes first, so it can never equal a report token.
 RULES_TOKEN_DOMAIN = b"config write"
 
@@ -4227,14 +4230,16 @@ class TokenHash:
         return self.digest.hexdigest()[:TOKEN_LENGTH]
 
 
-def approval_token(repo, config, raw, findings):
+def approval_token(repo, config, raw, findings, paths):
     """The token report prints and apply requires, for this batch as it is now.
 
     A sha256 over the findings' bytes, the path and bytes of every document any
     finding names, and prose-style.md's bytes. report takes no filter, so the
     token covers every finding it printed. apply's --only and --file are left
     out: they select within the approved set, so they must not change what
-    was approved.
+    was approved. The files report was given are what it checked for
+    uncovered matches, so the token covers their paths and bytes too, and
+    apply has to be given the same ones.
     """
     digest = TokenHash()
     digest.part(raw)
@@ -4247,6 +4252,14 @@ def approval_token(repo, config, raw, findings):
         digest.part(rel.encode("utf-8"))
         digest.document(repo.abspath(rel))
     digest.document(config.path)
+    checked = sorted(set(os.path.normpath(p) for p in paths))
+    if checked:
+        # A marker part, so the named files cannot hash the same as more
+        # documents the findings name.
+        digest.part(TOKEN_CHECKED)
+    for rel in checked:
+        digest.part(rel.encode("utf-8"))
+        digest.document(repo.abspath(rel))
     return digest.token()
 
 
@@ -4352,12 +4365,12 @@ def edit_refs(edit):
     return label.refs if isinstance(label, FindingLabel) else []
 
 
-def uncovered_matches(repo, config, scope, findings):
-    """Every pattern match in scope that no finding of the same rule contains.
+def uncovered_matches(repo, config, targets, findings):
+    """Every pattern match in these files that no finding of the same rule contains.
 
-    The files are the ones `patterns` reads with no paths. Every finding in
-    the batch counts, dismissals included. A finding that does not locate
-    covers nothing.
+    The files are the ones `patterns` reads when given the same paths, and
+    must exist. Every finding in the batch counts, dismissals included. A
+    finding that does not locate covers nothing.
     """
     by_file = {}
     for n, f in enumerate(findings, 1):
@@ -4365,7 +4378,7 @@ def uncovered_matches(repo, config, scope, findings):
             by_file.setdefault(os.path.normpath(f["file"]), []).append((n, f))
     rules = config.patterned()
     out = []
-    for rel in scope.files():
+    for rel in targets:
         text = Text.read(repo.abspath(rel))
         matches = pattern_matches(text, Blocks(text), rules)
         if not matches:
@@ -4433,10 +4446,11 @@ def cmd_report(args):
     change another. A finding apply would refuse is an error here too, and so
     is each pair of findings apply could not do both of.
 
-    It runs every rule's pattern itself, as `patterns` does, and each match no
-    finding or dismissal covers is an error, so a match the model left out
-    fails the report rather than going unmentioned. It ends by naming those
-    rules, so the author can tell them from the rules checked by reading.
+    It runs every rule's pattern itself, as `patterns` does over the same
+    paths, and each match no finding or dismissal covers is an error, so a
+    match the model left out fails the report rather than going unmentioned.
+    It ends by naming those rules, so the author can tell them from the rules
+    checked by reading.
     """
     repo, config, scope = load(args)
     raw, findings = read_json_bytes(args.findings, "findings")
@@ -4483,7 +4497,13 @@ def cmd_report(args):
         rejected.extend(config.errors)
         rejected.append("%s  fix it first; see: prose.py config lint" % config.rel())
     else:
-        uncovered = uncovered_matches(repo, config, scope, findings)
+        targets = []
+        for rel in args.paths or scope.files():
+            if os.path.exists(repo.abspath(rel)):
+                targets.append(rel)
+            else:
+                rejected.append("%s  no such file" % rel)
+        uncovered = uncovered_matches(repo, config, targets, findings)
     rejected.extend(
         "%s  no finding or dismissal covers this match" % match_line(m["file"], m)
         for m in uncovered
@@ -4491,7 +4511,7 @@ def cmd_report(args):
     patterned = [r.id for r in config.patterned()]
     # No token for a report that failed: the author cannot approve a batch
     # apply would refuse.
-    token = None if rejected else approval_token(repo, config, raw, findings)
+    token = None if rejected else approval_token(repo, config, raw, findings, args.paths)
     data = {
         "findings": rows,
         "dismissed": dismissed,
@@ -4531,7 +4551,7 @@ def cmd_report(args):
 def cmd_apply(args):
     repo, config, _ = load(args)
     raw, findings = read_json_bytes(args.findings, "findings")
-    if args.token != approval_token(repo, config, raw, findings):
+    if args.token != approval_token(repo, config, raw, findings, args.paths):
         stale = TOKEN_STALE % config.rel()
         return emit(args, "apply", repo.root, {"applied": []}, errors=[stale])
     by_file, rejected = select_findings(config, findings, args.only, args.file)
@@ -4984,9 +5004,13 @@ def build_parser():
         help="the findings, for approval",
         description="Print the findings for approval, read against the files as they are now, "
         "and name every pair of them that overlaps. Also write them to %s, for the author "
-        "to read whole." % REPORT_FILE,
+        "to read whole. Fail on every pattern match in the files given that no finding "
+        "covers. With no path, every file in scope." % REPORT_FILE,
         epilog=FINDINGS_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p.add_argument(
+        "paths", nargs="*", help="files to check for matches (default: every file in scope)"
     )
     p.set_defaults(func=cmd_report)
 
@@ -4998,6 +5022,7 @@ def build_parser():
         epilog=FINDINGS_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
+    p.add_argument("paths", nargs="*", help="the files report was given, which its token covers")
     p.add_argument("--only", metavar="ID,ID", help="only these rule ids")
     p.add_argument(
         "--file",

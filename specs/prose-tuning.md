@@ -412,6 +412,13 @@ description.
 - `segments-cmd-reads-scope-by-default` (test): When `segments` or
   `patterns` is not given a file, it reads every file in scope, and names a file
   given that does not exist.
+- `report-cmd-checks-only-named-files` (test): When `report` is given
+  files, it fails only on uncovered pattern matches in those files, and names
+  a file given that does not exist. Its token covers the files it was given,
+  so `apply` refuses the token unless it is given the same files.
+- `applyprose-passes-named-documents` (step): When the author names
+  documents, apply-prose passes only those to every command that reads the
+  prose.
 - `lint-cmd-checks-front-matter` (test): When the front matter holds
   anything but `key: value` pairs and one `scope:` block of `include:` and
   `exclude:` lists, or is not opened and closed by `---`, `config lint` names
