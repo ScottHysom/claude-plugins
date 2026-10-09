@@ -170,7 +170,6 @@ Each finding is one JSON object in a findings file:
 | `text` | the text as it stands |
 | `replacement` | the rewrite |
 | `dismiss` | in place of `replacement`, for a pattern's match that stays: one clause saying why |
-| `why` | one clause, in the rule's own terms |
 
 **A finding names exactly one rule.** A passage breaking two rules is two
 findings, because the author may accept one and reject the other.
@@ -185,7 +184,7 @@ Write the findings file outside the project, so no stray file is left in it:
 cat > "${TMPDIR:-/tmp}/prose-findings.json" <<'END'
 [{"file":"landscape.md","line":42,"rule":"sentences-own-subject",
   "text":"<the current text, copied from the segment>",
-  "replacement":"<the rewrite>","why":"<one clause>"}]
+  "replacement":"<the rewrite>"}]
 END
 ```
 
@@ -215,7 +214,7 @@ python3 "$PROSE" report --findings "${TMPDIR:-/tmp}/prose-findings.json" --json
 
 `report` reads each finding's current text from the file as it is now, and
 writes the report to the markdown file at `data.report`: each finding with its
-`file:line`, rule id, current text, proposed text and why, then the rules
+`file:line`, rule id, current text and proposed text, then the rules
 checked by pattern in the files step 2 read. Each line of a text sits between
 `|` marks, so a space at either end shows. `(cut)` stands for an empty
 proposed text. A dismissal shows its reason in place of a proposed text.

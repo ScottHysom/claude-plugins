@@ -15,7 +15,6 @@
     ".github/scripts/tests/test_issues.py::DescribeStale::it_passes_a_claim_with_an_open_pull_request": 219,
     ".github/scripts/tests/test_issues.py::DescribeStale::it_passes_a_recent_claim_on_an_old_main": 219,
     ".github/scripts/tests/test_issues.py::DescribeStale::it_reports_an_idle_claim": 219,
-    "tests/prose-tuning/test_apply.py::DescribeApply::it_reads_the_findings_from_stdin_given_a_dash": 195,
     "tests/prose-tuning/test_config_location.py::DescribeConfigCommandsBeforeTheMove::it_points_to_config_move_when_only_the_root_file_exists": 203,
     "tests/prose-tuning/test_config_location.py::DescribeConfigMove::it_copies_the_root_file_byte_for_byte": 203,
     "tests/prose-tuning/test_config_location.py::DescribeConfigMove::it_leaves_the_root_file_for_the_author_to_delete": 203,

@@ -2372,14 +2372,23 @@ def read_json_bytes(source, what):
     The bytes are what an approval token hashes, so they are read once and
     parsed from the same read. stdin cannot be read twice.
     """
-    if source == "-":
-        raw = sys.stdin.read().encode("utf-8")
-    else:
-        try:
-            with open(source, "rb") as fh:
-                raw = fh.read()
-        except OSError as exc:
-            raise Fatal("cannot read %s: %s" % (what, exc)) from exc
+    if source != "-":
+        return read_json_file_bytes(source, what)
+    return parse_json_bytes(sys.stdin.read().encode("utf-8"), what)
+
+
+def read_json_file_bytes(path, what):
+    """(raw bytes, parsed JSON) from a file, where - is a file of that name."""
+    try:
+        with open(path, "rb") as fh:
+            raw = fh.read()
+    except OSError as exc:
+        raise Fatal("cannot read %s: %s" % (what, exc)) from exc
+    return parse_json_bytes(raw, what)
+
+
+def parse_json_bytes(raw, what):
+    """(raw, parsed JSON), or Fatal naming what is not valid JSON."""
     try:
         return raw, json.loads(raw.decode("utf-8"))
     except ValueError as exc:
@@ -4384,8 +4393,6 @@ findings:
   col_start    optional: the 0-indexed column the text starts at, when it
                starts at more than one place on the line. It is the only
                column a finding takes; apply refuses a col_end
-  why          optional: one clause saying why, which report shows and
-               apply ignores
 
   A replacement may hold a newline when the finding starts in a paragraph,
   or when its span already crosses a line. A span can cross lines only
@@ -4623,8 +4630,6 @@ def report_markdown(data, rejected):
             out += ["", "Dismissed: %s" % r["reason"]]
             continue
         out += ["", "Proposed:", "", fenced(report_text(r["proposed"]))]
-        if r["why"]:
-            out += ["", "Why: %s" % r["why"]]
     rows = data["findings"]
     out += ["", "%d finding(s) in %d file(s)." % (len(rows), len(set(r["file"] for r in rows)))]
     if data["dismissed"]:
@@ -4654,7 +4659,7 @@ def cmd_report(args):
     checked by reading.
     """
     repo, config, scope = load(args)
-    raw, findings = read_json_bytes(args.findings, "findings")
+    raw, findings = read_json_file_bytes(args.findings, "findings")
     by_file, rejected = select_findings(config, findings)
     rows, overlaps, dismissed = [], [], []
     for _path, rel, text, numbers, mine in selected_files(repo, by_file, rejected):
@@ -4680,7 +4685,6 @@ def cmd_report(args):
                     "rule": f["rule"],
                     "current": text.s[a:b],
                     "proposed": f.get("replacement", ""),
-                    "why": f.get("why", ""),
                 }
             )
         for x, y in staged.engine.conflicts():
@@ -4728,8 +4732,6 @@ def cmd_report(args):
             print("%s:%d  %s  (finding %d)" % (r["file"], r["line"], r["rule"], r["finding"]))
             print(report_field("current", report_text(r["current"])))
             print(report_field("proposed", report_text(r["proposed"])))
-            if r["why"]:
-                print(report_field("why", r["why"]))
             print()
         for r in dismissed:
             print("%s:%d  %s  (finding %d)" % (r["file"], r["line"], r["rule"], r["finding"]))
@@ -4751,7 +4753,7 @@ def cmd_report(args):
 
 def cmd_apply(args):
     repo, config, _ = load(args)
-    raw, findings = read_json_bytes(args.findings, "findings")
+    raw, findings = read_json_file_bytes(args.findings, "findings")
     if args.token != approval_token(repo, config, raw, findings, args.paths):
         stale = TOKEN_STALE % config.rel()
         return emit(args, "apply", repo.root, {"applied": []}, errors=[stale])
@@ -5207,7 +5209,7 @@ def build_parser():
         "--findings",
         required=True,
         metavar="FILE",
-        help="JSON array of findings, described below, or - for stdin",
+        help="a file holding the JSON array of findings described below",
     )
 
     p = sub.add_parser(
