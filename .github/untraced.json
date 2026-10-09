@@ -15,15 +15,13 @@
     ".github/scripts/tests/test_issues.py::DescribeStale::it_passes_a_claim_with_an_open_pull_request": 219,
     ".github/scripts/tests/test_issues.py::DescribeStale::it_passes_a_recent_claim_on_an_old_main": 219,
     ".github/scripts/tests/test_issues.py::DescribeStale::it_reports_an_idle_claim": 219,
-    "tests/prose-tuning/test_config_location.py::DescribeDefaultScope::it_leaves_out_everything_under_the_claude_folder": 212,
-    "tests/prose-tuning/test_cowork.py::DescribeStage::it_warns_when_the_stage_is_where_device_commit_files_cannot_read": 209
+    "tests/prose-tuning/test_config_location.py::DescribeDefaultScope::it_leaves_out_everything_under_the_claude_folder": 212
   },
   "surface": {
     ".github/scripts/check-coverage.py::diff --report": 243,
     ".github/scripts/check-coverage.py::floors --report": 243,
     ".github/scripts/check-specs.py::inventory --report": 257,
     ".github/scripts/issues.py::release --reason": 218,
-    ".github/scripts/issues.py::stale --days": 219,
-    "plugins/prose-tuning/scripts/prose.py::stage --stage": 209
+    ".github/scripts/issues.py::stale --days": 219
   }
 }

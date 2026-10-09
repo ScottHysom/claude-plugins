@@ -29,9 +29,16 @@ def entry(env, rel):
 
 
 class DescribeStage:
+    @pytest.fixture(autouse=True)
+    def staged_in(self, tmp_path, monkeypatch):
+        """Where stage writes, in place of Cowork's outputs folder."""
+        stage = tmp_path / "stage"
+        monkeypatch.setattr(prose, "DEFAULT_STAGE", str(stage))
+        return stage
+
     @pytest.mark.spec("stage-cmd-copies-for-device")
-    def it_stages_a_byte_identical_copy_of_the_running_script(self, tmp_path, capsys):
-        code, env, _ = stage(capsys, "--folder", FOLDER, "--stage", str(tmp_path))
+    def it_stages_a_byte_identical_copy_of_the_running_script(self, capsys):
+        code, env, _ = stage(capsys, "--folder", FOLDER)
         assert code == prose.OK
         staged = entry(env, prose.COPY_SCRIPT)
         with open(prose.SCRIPT_PATH, "rb") as fh:
@@ -41,8 +48,8 @@ class DescribeStage:
         assert staged["sha256"] == hashlib.sha256(original).hexdigest()
 
     @pytest.mark.spec("stage-cmd-copies-for-device")
-    def it_addresses_the_copy_to_the_project_folder_on_the_device(self, tmp_path, capsys):
-        _, env, _ = stage(capsys, "--folder", FOLDER + "/", "--stage", str(tmp_path))
+    def it_addresses_the_copy_to_the_project_folder_on_the_device(self, capsys):
+        _, env, _ = stage(capsys, "--folder", FOLDER + "/")
         assert [c["devicePath"] for c in env["data"]["commit_files"]] == [
             FOLDER + "/.prose-tuning/prose.py",
             FOLDER + "/.prose-tuning/.gitignore",
@@ -53,13 +60,12 @@ class DescribeStage:
         ]
 
     @pytest.mark.spec("setup-cmd-ignores-its-copy")
-    def it_keeps_the_copied_folder_out_of_the_projects_commits(self, tmp_path, capsys):
-        project = tmp_path / "project"
-        subprocess.run(["git", "init", "-q", str(project)], check=True, capture_output=True)
+    def it_keeps_the_copied_folder_out_of_the_projects_commits(self, staged_in, capsys):
+        subprocess.run(["git", "init", "-q", str(staged_in)], check=True, capture_output=True)
         # Staging straight into a repo stands in for the copy device_commit_files makes.
-        stage(capsys, "--folder", FOLDER, "--stage", str(project))
+        stage(capsys, "--folder", FOLDER)
         status = subprocess.run(
-            ["git", "-C", str(project), "status", "--porcelain", "--untracked-files=all"],
+            ["git", "-C", str(staged_in), "status", "--porcelain", "--untracked-files=all"],
             check=True,
             capture_output=True,
             text=True,
@@ -67,36 +73,34 @@ class DescribeStage:
         assert status.stdout == ""
 
     @pytest.mark.spec("stage-cmd-gives-checksum-command")
-    def it_starts_device_commands_in_the_mounted_project(self, tmp_path, capsys):
-        _, env, _ = stage(capsys, "--folder", FOLDER, "--stage", str(tmp_path))
+    def it_starts_device_commands_in_the_mounted_project(self, capsys):
+        _, env, _ = stage(capsys, "--folder", FOLDER)
         assert env["data"]["device_setup"] == (
             'cd "$HOME/mnt"/Notes && PROSE=.prose-tuning/prose.py'
         )
 
     @pytest.mark.spec("stage-cmd-gives-checksum-command")
-    def it_mounts_a_project_below_the_connected_folder_under_its_path(self, tmp_path, capsys):
+    def it_mounts_a_project_below_the_connected_folder_under_its_path(self, capsys):
         _, env, _ = stage(
             capsys,
             "--connected",
             "/Users/someone/Claude Projects",
             "--folder",
             FOLDER,
-            "--stage",
-            str(tmp_path),
         )
         assert env["data"]["device_setup"].startswith("cd \"$HOME/mnt\"/'Claude Projects/Notes' ")
 
     @pytest.mark.spec("stage-cmd-copies-for-device")
-    def it_stages_the_shipped_rules_beside_the_script(self, tmp_path, capsys):
-        _, env, _ = stage(capsys, "--folder", FOLDER, "--stage", str(tmp_path))
+    def it_stages_the_shipped_rules_beside_the_script(self, capsys):
+        _, env, _ = stage(capsys, "--folder", FOLDER)
         with open(prose.shipped_template(), "rb") as fh:
             shipped = fh.read()
         with open(entry(env, prose.COPY_TEMPLATE)["staged_path"], "rb") as fh:
             assert fh.read() == shipped
 
     @pytest.mark.spec("stage-cmd-gives-checksum-command")
-    def it_checks_every_staged_file_by_checksum_on_the_device(self, tmp_path, capsys):
-        _, env, _ = stage(capsys, "--folder", FOLDER, "--stage", str(tmp_path / "s"))
+    def it_checks_every_staged_file_by_checksum_on_the_device(self, capsys):
+        _, env, _ = stage(capsys, "--folder", FOLDER)
         lines = env["data"]["check_command"].split("\n")
         assert lines[1:-1] == ["%s  %s" % (f["sha256"], f["file"]) for f in env["data"]["files"]]
         assert [f["file"] for f in env["data"]["files"]] == [
@@ -106,50 +110,42 @@ class DescribeStage:
         ]
 
     @pytest.mark.spec("repo:command-never-writes-in-preview")
-    def it_writes_nothing_on_a_dry_run(self, tmp_path, capsys):
-        code, _, _ = stage(capsys, "--folder", FOLDER, "--stage", str(tmp_path / "s"), "--dry-run")
+    def it_writes_nothing_on_a_dry_run(self, staged_in, capsys):
+        code, _, _ = stage(capsys, "--folder", FOLDER, "--dry-run")
         assert code == prose.OK
-        assert not (tmp_path / "s").exists()
-
-    def it_warns_when_the_stage_is_where_device_commit_files_cannot_read(self, tmp_path, capsys):
-        _, env, _ = stage(capsys, "--folder", FOLDER, "--stage", str(tmp_path))
-        assert any(prose.OUTPUTS_ROOT in w for w in env["warnings"])
+        assert not staged_in.exists()
 
     @pytest.mark.spec("stage-cmd-checks-folder-paths")
-    def it_refuses_a_project_outside_the_connected_folder(self, tmp_path, capsys):
+    def it_refuses_a_project_outside_the_connected_folder(self, capsys):
         code, env, err = stage(
             capsys,
             "--connected",
             "/Users/someone/Other",
             "--folder",
             FOLDER,
-            "--stage",
-            str(tmp_path),
         )
         assert code == prose.CANNOT_RUN
         assert env is None
         assert "is not inside" in err
 
     @pytest.mark.spec("stage-cmd-checks-folder-paths")
-    def it_refuses_a_relative_folder(self, tmp_path, capsys):
-        code, _, err = stage(capsys, "--folder", "Notes", "--stage", str(tmp_path))
+    def it_refuses_a_relative_folder(self, capsys):
+        code, _, err = stage(capsys, "--folder", "Notes")
         assert code == prose.CANNOT_RUN
         assert "absolute path" in err
 
     @pytest.mark.spec("stage-cmd-checks-folder-paths")
-    def it_refuses_a_relative_connected_folder(self, tmp_path, capsys):
-        code, _, err = stage(
-            capsys, "--connected", "Claude Projects", "--folder", FOLDER, "--stage", str(tmp_path)
-        )
+    def it_refuses_a_relative_connected_folder(self, capsys):
+        code, _, err = stage(capsys, "--connected", "Claude Projects", "--folder", FOLDER)
         assert code == prose.CANNOT_RUN
         assert "--connected must be an absolute path" in err
 
     @pytest.mark.spec(
         "stage-cmd-gives-checksum-command", "repo:command-splits-output-streams-without-json"
     )
-    def it_prints_the_check_and_the_prefix_without_json(self, tmp_path, capsys):
+    def it_prints_the_check_and_the_prefix_without_json(self, capsys):
         capsys.readouterr()
-        code = prose.main(["stage", "--folder", FOLDER, "--stage", str(tmp_path)])
+        code = prose.main(["stage", "--folder", FOLDER])
         out = capsys.readouterr().out
         assert code == prose.OK
         assert FOLDER + "/.prose-tuning/prose.py" in out

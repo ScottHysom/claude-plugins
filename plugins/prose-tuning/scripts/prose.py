@@ -4862,14 +4862,7 @@ def cmd_stage(args):
 
     sources = copy_sources()
 
-    stage = os.path.abspath(args.stage)
-    warnings = []
-    if not (stage + "/").startswith(OUTPUTS_ROOT + "/"):
-        warnings.append(
-            "stage %s is outside %s; device_commit_files will reject it" % (stage, OUTPUTS_ROOT)
-        )
-    if os.path.exists(stage) and not os.path.isdir(stage):
-        raise Fatal("stage %s exists and is not a directory" % stage)
+    stage = DEFAULT_STAGE
 
     files = []
     for rel, content in sources:
@@ -4909,7 +4902,7 @@ def cmd_stage(args):
         print("\ncheck after copying, through device_bash:\n%s" % data["check_command"])
         print("\nstart every device command with:\n%s && " % data["device_setup"])
 
-    return emit(args, "stage", None, data, warnings=warnings, human=human)
+    return emit(args, "stage", None, data, human=human)
 
 
 # --------------------------------------------------------------------------
@@ -5189,7 +5182,6 @@ def build_parser():
         metavar="PATH",
         help="the connected folder holding --folder, when that is not the project itself",
     )
-    p.add_argument("--stage", default=DEFAULT_STAGE, metavar="DIR", help="default: %(default)s")
     p.add_argument("--dry-run", action="store_true")
     p.set_defaults(func=cmd_stage)
 
