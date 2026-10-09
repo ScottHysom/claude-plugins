@@ -597,21 +597,21 @@ review.
 
 Source: README.md, under "Formatting and linting" and "Shell scripts".
 
-- `hook-prefers-own-venv` (test): When the project has its own `.venv` holding
-  ruff, the ruff hook uses it.
-- `hook-borrows-main-venv` (test): When the ruff hook runs in a worktree with
-  no `.venv` of its own, it uses the main checkout's.
-- `hook-falls-back-to-path` (test): When no `.venv` holds ruff, the ruff hook
-  uses the ruff on PATH.
-- `hook-formats-edit` (test): When Claude Code writes or edits a `.py` file,
-  the ruff hook sorts its imports and formats it, and leaves every other file
-  alone.
-- `hook-reports-lint` (test): When lint problems remain after formatting, the
-  ruff hook exits 2 with the findings on stderr.
-- `hook-reports-parse-error` (test): When ruff cannot format the file, the
+- `ruffhook-prefers-own-venv` (test): When the project has its own `.venv`
+  holding ruff, the ruff hook uses it.
+- `ruffhook-borrows-main-venv` (test): When the ruff hook runs in a worktree
+  with no `.venv` of its own, it uses the main checkout's.
+- `ruffhook-falls-back-to-path` (test): When no `.venv` holds ruff, the ruff
+  hook uses the ruff on PATH.
+- `ruffhook-formats-edit` (test): When Claude Code writes or edits a `.py`
+  file, the ruff hook sorts its imports and formats it, and leaves every other
+  file alone.
+- `ruffhook-reports-lint` (test): When lint problems remain after formatting,
+  the ruff hook exits 2 with the findings on stderr.
+- `ruffhook-reports-parse-error` (test): When ruff cannot format the file, the
   ruff hook exits 2 with ruff's error.
-- `hook-names-ruff-install` (test): When no ruff is found, the ruff hook exits
-  2 and names the command that installs it.
+- `ruffhook-names-ruff-install` (test): When no ruff is found, the ruff hook
+  exits 2 and names the command that installs it.
 - `settingsjson-registers-ruff-hook` (test): When Claude Code writes or edits
   a file in this repo, `.claude/settings.json` runs the ruff hook, with 30
   seconds to answer.

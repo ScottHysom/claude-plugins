@@ -188,7 +188,7 @@ class DescribeFileFrom:
         assert repo.git("status", "--porcelain") == b""
 
 
-@pytest.mark.spec("command-refuses-unknown-worktree")
+@pytest.mark.spec("command-refuses-unknown-from-worktree")
 class DescribeUnknownWorktree:
     @pytest.mark.parametrize("command", ["scan", "report", "file"])
     def it_names_a_folder_that_is_not_a_worktree_and_cannot_run(
