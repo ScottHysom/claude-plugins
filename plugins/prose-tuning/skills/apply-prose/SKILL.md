@@ -110,15 +110,6 @@ kind and the text, each after two spaces. The text runs to the end of the line.
 | `heading` | the text after the `#`s. Headings have rules too |
 | `table-cell` | one cell's text, without its pipes |
 
-What never appears, and why:
-
-- Fenced code, indented code and mermaid blocks are code.
-- HTML blocks are raw HTML, which a preview shows as markup.
-- Front matter is structured data.
-- Blockquotes are usually somebody else's words.
-- HTML comments are notes for people rather than the document's prose.
-- A table's delimiter row is structure.
-
 A comment part way along a line is cut out, and
 the prose either side of it comes back as separate segments.
 
