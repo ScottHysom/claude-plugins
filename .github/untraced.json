@@ -26,9 +26,7 @@
     "tests/prose-tuning/test_config_location.py::DescribePreflightWithARootFile::it_blocks_every_skill_until_the_rules_are_moved": 203,
     "tests/prose-tuning/test_config_location.py::DescribePreflightWithARootFile::it_blocks_while_both_copies_exist": 203,
     "tests/prose-tuning/test_config_location.py::DescribePreflightWithARootFile::it_passes_once_the_root_copy_is_gone": 203,
-    "tests/prose-tuning/test_cowork.py::DescribeStage::it_warns_when_the_stage_is_where_device_commit_files_cannot_read": 209,
-    "tests/prose-tuning/test_segments.py::DescribeTheSegmentsCommand::it_leaves_the_segments_out_of_the_json_summary": 197,
-    "tests/prose-tuning/test_segments.py::DescribeTheSegmentsCommand::it_prints_one_summary_line_per_file_and_the_totals": 197
+    "tests/prose-tuning/test_cowork.py::DescribeStage::it_warns_when_the_stage_is_where_device_commit_files_cannot_read": 209
   },
   "surface": {
     ".github/scripts/check-coverage.py::diff --report": 243,
@@ -40,7 +38,6 @@
     "plugins/prose-tuning/scripts/prose.py::config move": 203,
     "plugins/prose-tuning/scripts/prose.py::preflight --for adopt": 205,
     "plugins/prose-tuning/scripts/prose.py::preflight --force": 204,
-    "plugins/prose-tuning/scripts/prose.py::segments --summary": 197,
     "plugins/prose-tuning/scripts/prose.py::stage --stage": 209
   }
 }

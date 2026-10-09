@@ -67,19 +67,14 @@ resolved files and run this skill again to conform them.
 
 ```sh
 python3 "$PROSE" config list --json
-python3 "$PROSE" segments --summary
 ```
 
 When the author named the documents to check, name the same files after
-`segments --summary` here, and after `patterns`, `segments`, `report` and
-`apply` in the steps below, as in `segments --summary notes.md`. With no file,
-each of them reads every file in scope. `apply` refuses the token unless it is
-given the files `report` was.
+`patterns`, `segments`, `report` and `apply` in the steps below, as in
+`patterns notes.md`. With no file, each of them reads every file in scope.
+`apply` refuses the token unless it is given the files `report` was.
 
-`segments --summary` prints one line per file, with its segment count
-and the characters of prose in them, then the totals. State the totals before
-reading anything, so the size of the pass is known up front. When the author
-asks why a file was skipped:
+When the author asks why a file was skipped:
 
 ```sh
 python3 "$PROSE" scope --all
