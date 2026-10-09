@@ -351,7 +351,7 @@ class DescribeReproduceFrom:
 
 
 class DescribeUnknownWorktree:
-    @pytest.mark.spec("command-refuses-unknown-worktree")
+    @pytest.mark.spec("command-refuses-unknown-from-worktree")
     @pytest.mark.parametrize("command", ["evidence", "reproduce"])
     def it_refuses_a_folder_or_branch_that_no_worktree_has(self, checkouts, tmp_path, command):
         main, session = checkouts
@@ -364,7 +364,7 @@ class DescribeUnknownWorktree:
             assert "%s on %s" % (main.root, MAIN_BRANCH) in session.err
             assert "(this tree)" in session.err
 
-    @pytest.mark.spec("command-refuses-unknown-worktree")
+    @pytest.mark.spec("command-refuses-unknown-from-worktree")
     def it_lists_a_detached_worktree_as_detached(self, checkouts, tmp_path):
         main, session = checkouts
         detached = tmp_path / "detached"
@@ -375,7 +375,7 @@ class DescribeUnknownWorktree:
 
 
 class DescribeSourceCheckout:
-    @pytest.mark.spec("command-never-writes-other-worktree")
+    @pytest.mark.spec("command-never-writes-from-worktree")
     def it_leaves_the_other_worktree_as_it_was(self, notes):
         main, session = notes
         edit(main.root, rel="notes.md", text="We run it <del>in order </del>to check.\n")

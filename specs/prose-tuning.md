@@ -672,9 +672,10 @@ checkout holds edits.
   given `--from` with a worktree of this repo, it checks that worktree's edits
   against the patterns in this tree's `prose-style.md`. Given this tree, it
   behaves as with no `--from`.
-- `command-refuses-unknown-worktree` (test): When `--from` names neither a
-  worktree of this repo nor a branch one has checked out, the command names
-  it, lists every worktree with its branch, and exits 2.
+- `command-refuses-unknown-from-worktree` (test): When `evidence` or
+  `reproduce` is given `--from` that names neither a worktree of this repo
+  nor a branch one has checked out, the command names it, lists every
+  worktree with its branch, and exits 2.
 - `updateproseconfig-reads-named-checkout` (step): When the author names a
   checkout, by its folder or its branch, or a hand-off carries one,
   update-prose-config passes it to `evidence --from` and `reproduce --from`,
@@ -791,6 +792,6 @@ the checkout that holds the edits.
 Source: #301, which quotes the refusal. It comes from Claude Code itself, not
 from a hook in the repo or in the user's settings.
 
-- `command-never-writes-other-worktree` (test): When `evidence` or
+- `command-never-writes-from-worktree` (test): When `evidence` or
   `reproduce` runs with `--from`, the worktree it reads is left byte for byte
   as it was, and git reports the same changes there.

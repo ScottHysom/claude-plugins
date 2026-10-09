@@ -111,9 +111,10 @@ Source: #315, and #301, which found the same split for update-prose-config.
   TODOs. Given this tree, it behaves as with no `--from`.
 - `file-cmd-marks-other-worktree-with-from` (test): When `file` is given
   `--from`, it marks the finished TODOs in that worktree's files.
-- `command-refuses-unknown-worktree` (test): When `--from` names neither a
-  worktree of this repo nor a branch one has checked out, the command names
-  it, lists every worktree with its branch, and exits 2.
+- `command-refuses-unknown-from-worktree` (test): When `scan`, `report`,
+  `file` or `questions` is given `--from` that names neither a worktree of
+  this repo nor a branch one has checked out, the command names it, lists
+  every worktree with its branch, and exits 2.
 - `dotodos-takes-named-checkout` (step): When the author names a checkout in
   the skill's arguments, by its folder or its branch, do-todos passes it to
   `scan --from` as given, and to `report` and `file`, and does not ask which
