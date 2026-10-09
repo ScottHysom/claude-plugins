@@ -101,16 +101,17 @@ is the title. The comment marker is the run of characters before `TODO` that
 are not letters, digits or spaces, such as `#`, `//`, `<!--`, or nothing. It
 is read off the TODO's own line, so there is no table of comment syntax by
 file type, and nothing checks that a marker suits its file. specs/todos.md, in
-the claude-plugins repo, has the full rules. Two forms:
+the claude-plugins repo, has the full rules. The forms:
 
 - Line form. A marker that is not empty and not a list or quote mark
   (TITLE_ONLY_MARKERS) carries detail: the added lines directly below that
   open with the same marker at the same indent, up to a blank line or the
   next TODO.
 - Block form. A marker holding an opener in BLOCK_COMMENTS runs to its closer,
-  and the rest of the comment is the detail. Every line up to the closer has
-  to be new since the last commit, so a TODO never takes in a committed
-  line.
+  and the rest of the comment is the detail. A TODO opening a line inside the
+  comment, marked handled or not, ends the one before and is read the same
+  way. Every line up to the closer has to be new since the last commit, so a
+  TODO never takes in a committed line.
 - Trailing form. Text at the end of a line, from the space before its marker,
   where the line without it is a line of the last commit, such as
   `x = 3  # TODO: allow 5`. It has a title only. A block comment's closer has
@@ -956,9 +957,9 @@ class FileScan:
                 i += 1
                 continue
             line = self.masked[i]
-            handled = HANDLED_RE.match(line)
-            if handled:
-                last = self._handled(i, handled)
+            m = HANDLED_RE.match(line)
+            if m:
+                last = self._handled(i, m)
                 self.spans.update(range(i, last + 1))
                 i = last + 1
                 continue
@@ -979,23 +980,35 @@ class FileScan:
         """Read the TODO opening line i. Its last line's index, or None when
         it cannot be read, with a warning saying why."""
         indent, marker, word = m.group(1), m.group(2), m.group(4)
-        rest = self.lines[i][m.end() :]
         closer = next((c for o, c in BLOCK_COMMENTS if o in marker), None)
         if closer is not None:
-            got = self._block(i, rest, closer)
-            if got is None:
-                return None
-            title, detail, last = got
-            if marker.endswith(b"/*"):
+            return self._read_block(i, m, closer)
+        last = self._detail_end(i, indent, marker)
+        detail = [
+            self.lines[j][MARKER_RE.match(self.lines[j]).end() :] for j in range(i + 1, last + 1)
+        ]
+        self._add(i, last, marker, word, self.lines[i][m.end() :], detail, m.span(3), m.end(1))
+        return last
+
+    def _read_block(self, i, m, closer):
+        """Read the TODOs in the block comment that m opens on line i, each
+        up to the next one or the closer. The comment's last line's index, or
+        None when it cannot be read. A comment that holds only TODOs marked
+        handled is read without a warning."""
+        parts, last, problem = self._block(i, m, closer)
+        if problem is not None and any(p.re is TODO_RE for _, p, _, _ in parts):
+            self.warn(*problem)
+            return None
+        if last is None:
+            return None
+        stars = m.group(2).rstrip().endswith(b"/*")
+        for k, (j, p, title, detail) in enumerate(parts):
+            if p.re is not TODO_RE:
+                continue
+            if stars:
                 detail = [d.strip().lstrip(b"*") for d in detail]
-        else:
-            last = self._detail_end(i, indent, marker)
-            title = rest
-            detail = [
-                self.lines[j][MARKER_RE.match(self.lines[j]).end() :]
-                for j in range(i + 1, last + 1)
-            ]
-        self._add(i, last, marker, word, title, detail, m.span(3), m.end(1))
+            end = parts[k + 1][0] - 1 if k + 1 < len(parts) else last
+            self._add(j, end, p.group(2), p.group(4), title, detail, p.span(3), p.end(1))
         return last
 
     def _detail_end(self, i, indent, marker):
@@ -1017,18 +1030,14 @@ class FileScan:
 
     def _handled(self, i, m):
         """The index of the last line of the TODO marked handled on line i.
-        It is read as `_read` reads a TODO, without a title or a warning."""
+        It is read as `_read` reads a TODO, without a title or a warning. A
+        TODO after it in its block comment is read as a TODO."""
         indent, before = m.group(1), m.group(2)
         closer = next((c for o, c in BLOCK_COMMENTS if o in before), None)
         if closer is None:
             return self._detail_end(i, indent, before.rstrip())
-        j, text = i, self.masked[i][m.end() :]
-        while closer not in text:
-            j += 1
-            if j not in self.added:
-                return i
-            text = self.masked[j]
-        return j
+        last = self._read_block(i, m, closer)
+        return i if last is None else last
 
     def _read_trailing(self, i):
         """Read the TODO at the end of line i, whose closer, if it has one,
@@ -1072,36 +1081,39 @@ class FileScan:
             }
         )
 
-    def _block(self, i, rest, closer):
-        """(title, detail lines, last index) for a block comment, or None."""
-        at = rest.find(closer)
-        if at >= 0:
-            title, detail, last, tail = rest[:at], [], i, rest[at + len(closer) :]
-        else:
-            title, detail = rest, []
-            j = i + 1
-            while True:
-                if j >= len(self.lines):
-                    self.warn(i, "the comment does not close with `%s`" % decode(closer))
-                    return None
-                if j not in self.added:
-                    self.warn(
-                        i,
-                        "the comment runs on to line %d, which was there at the last commit"
-                        % (j + 1),
-                    )
-                    return None
-                at = self.lines[j].find(closer)
-                if at >= 0:
-                    detail.append(self.lines[j][:at])
-                    last, tail = j, self.lines[j][at + len(closer) :]
-                    break
-                detail.append(self.lines[j])
-                j += 1
+    def _block(self, i, m, closer):
+        """The parts of the block comment that m opens on line i, its last
+        line's index, and what stops it being read. A part is (line index,
+        match, title, detail lines). A TODO, or one marked handled, at the
+        start of a line inside the comment opens a part. What stops it is
+        (line index, reason) or None. The last line's index is None when
+        the comment does not close in lines added since the last commit."""
+        parts = [(i, m, self.lines[i][m.end() :], [])]
+        j, text = i, parts[0][2]
+        while True:
+            at = text.find(closer)
+            if at >= 0:
+                text, tail = text[:at], text[at + len(closer) :]
+            if j == parts[-1][0]:
+                parts[-1] = (*parts[-1][:2], text, [])
+            else:
+                parts[-1][3].append(text)
+            if at >= 0:
+                break
+            j += 1
+            if j >= len(self.lines):
+                return parts, None, (i, "the comment does not close with `%s`" % decode(closer))
+            if j not in self.added:
+                reason = "the comment runs on to line %d, which was there at the last commit"
+                return parts, None, (i, reason % (j + 1))
+            text = self.lines[j]
+            p = TODO_RE.match(self.masked[j]) or HANDLED_RE.match(self.masked[j])
+            if p:
+                parts.append((j, p, None, []))
+                text = text[p.end() :]
         if tail.strip():
-            self.warn(last, "text follows the comment's `%s`" % decode(closer))
-            return None
-        return title, detail, last
+            return parts, j, (j, "text follows the comment's `%s`" % decode(closer))
+        return parts, j, None
 
     def _own(self, i):
         """A line, with any trailing TODO taken off, as {line, text, base_line}."""

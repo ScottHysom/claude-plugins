@@ -142,8 +142,9 @@ recorded there.
   a blank line or the next TODO, marked handled or not.
 - `scan-cmd-reads-c-and-html-comments` (test): When a TODO's marker contains
   `/*` or `<!--`, and every line to the comment's `*/` or `-->` was added
-  since the last commit, `scan` runs the TODO to there and gives the rest of
-  the comment as the detail.
+  since the last commit, `scan` runs the TODO to there, or to the line above
+  the next TODO that opens a line inside the comment, marked handled or not.
+  It gives the rest as the detail, and reads that next TODO the same way.
 - `scan-cmd-skips-markdown-code-todos` (test): When a TODO sits in a code
   fence or a code span of a file ending `.md` or `.markdown`, `scan` neither
   reads it nor warns.
