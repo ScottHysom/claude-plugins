@@ -39,7 +39,7 @@ Commands:
                 label, comment.
     stale       claims idle for --days with no open pull request, and labels
                 and branches that disagree, including a closed issue that
-                still has the label.
+                still has the label and a held issue that lacks it.
     clear N     once issue N is closed, delete the local issue/N if a merged
                 pull request or main has everything on it, first moving any
                 worktree on it to a detached origin/main.
@@ -828,6 +828,13 @@ def cmd_stale(args, repo):
         if item.get("state") != "OPEN":
             errors.append("#%d is closed but %s still exists; run release %d" % (n, branch(n), n))
             continue
+        if IN_PROGRESS not in labels(item):
+            # claim warns and exits 0 when adding the label fails, so a held
+            # issue can be left unlabeled however recent the claim.
+            errors.append(
+                "#%d has %s but is not labeled %s; run gh issue edit %d --add-label %s"
+                % (n, branch(n), IN_PROGRESS, n, IN_PROGRESS)
+            )
         if row["pull_request"]:
             continue
         last = parse_time(git(repo, "log", "-1", "--format=%cI", held[n]).stdout.strip())
