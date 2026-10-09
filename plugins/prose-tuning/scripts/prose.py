@@ -5015,12 +5015,13 @@ def build_parser():
         ("init", "start one from the shipped rules"),
     ]:
         c = csub.add_parser(name, parents=[common], help=helptext)
-        c.add_argument(
-            "--file",
-            dest="config_file",
-            metavar="PATH",
-            help="a prose-style.md other than this repo's",
-        )
+        if name not in ("check-id", "init"):
+            c.add_argument(
+                "--file",
+                dest="config_file",
+                metavar="PATH",
+                help="a prose-style.md other than this repo's",
+            )
         if name == "check-id":
             c.add_argument("--section", required=True)
             c.add_argument("--name", required=True, help="one to four lower-case words joined by -")
