@@ -667,6 +667,17 @@ class DescribeStale:
         assert code == cli.PROBLEMS
         assert "#12 is closed but still labeled in-progress; run release 12" in out.err
 
+    @pytest.mark.spec("stale-cmd-reports-claims-left-behind")
+    def it_reports_a_recent_claim_that_lacks_the_label(self, capsys, clone, github):
+        a = claimed(capsys, clone, github)
+        github(make_issue(12, "approved", comments=[claim_comment("2026-02-28T00:00:00Z")]))
+        code, out = run(capsys, a, "stale")
+        assert code == cli.PROBLEMS
+        assert (
+            "#12 has issue/12 but is not labeled in-progress; "
+            "run gh issue edit 12 --add-label in-progress" in out.err
+        )
+
 
 def commit_file(repo, name, text, message=None):
     (repo / name).write_text(text)
