@@ -523,11 +523,11 @@ class DescribeRelease:
         github(make_issue(12, "approved"))
         run(capsys, a, "claim", "12")
         gh = github(make_issue(12, "approved", "in-progress"))
-        code, out = run(capsys, a, "release", "12", "--reason", "blocked on #9")
+        code, out = run(capsys, a, "release", "12")
         assert code == cli.OK
         assert remote_branches(remote) == {cli.BASE}
         assert ("issue", "edit", "12", "--remove-label", cli.IN_PROGRESS) in gh.calls
-        assert ("issue", "comment", "12", "--body", "Released issue/12. blocked on #9") in gh.calls
+        assert ("issue", "comment", "12", "--body", "Released issue/12.") in gh.calls
 
     @pytest.mark.spec("release-cmd-keeps-work")
     def it_never_deletes_work(self, capsys, remote, clone, github):

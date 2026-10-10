@@ -22,7 +22,7 @@ Run from anywhere in a clone, with git and an authenticated gh on PATH:
     python3 .github/scripts/issues.py next
     python3 .github/scripts/issues.py next --tracking 347
     python3 .github/scripts/issues.py claim 12
-    python3 .github/scripts/issues.py release 12 --reason "blocked on #9"
+    python3 .github/scripts/issues.py release 12
     python3 .github/scripts/issues.py stale
     python3 .github/scripts/issues.py clear 12
     python3 .github/scripts/issues.py sweep --dry-run
@@ -620,10 +620,7 @@ def cmd_release(args, repo):
             )
     if labeled:
         gh(repo, "issue", "edit", str(n), "--remove-label", IN_PROGRESS)
-    body = "Released %s." % branch(n)
-    if args.reason:
-        body += " " + args.reason
-    gh(repo, "issue", "comment", str(n), "--body", body)
+    gh(repo, "issue", "comment", str(n), "--body", "Released %s." % branch(n))
     data["released"] = True
     return emit(args, "release", data, human=human)
 
@@ -1521,7 +1518,6 @@ def build_parser():
 
     p = sub.add_parser("release", parents=[common], help="give an issue up")
     p.add_argument("number", type=int)
-    p.add_argument("--reason", default="", help="appended to the release comment")
     p.add_argument("--dry-run", action="store_true")
     p.set_defaults(func=cmd_release)
 
