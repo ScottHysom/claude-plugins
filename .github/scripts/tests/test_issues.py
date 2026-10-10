@@ -4,7 +4,6 @@ may throw away work. Both run against real git, with a bare repository standing 
 GitHub's; only gh is faked.
 """
 
-import datetime
 import importlib.util
 import json
 import subprocess
@@ -18,7 +17,6 @@ cli = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(cli)
 
 MAIN_DATE = "2026-01-01T00:00:00+00:00"
-NOW = datetime.datetime(2026, 3, 1, tzinfo=datetime.timezone.utc)
 
 
 def git(cwd, *args):
@@ -36,7 +34,6 @@ def isolated_git(monkeypatch):
         monkeypatch.setenv("GIT_%s_NAME" % who, "Test")
         monkeypatch.setenv("GIT_%s_EMAIL" % who, "test@example.com")
         monkeypatch.setenv("GIT_%s_DATE" % who, MAIN_DATE)
-    monkeypatch.setattr(cli, "now", lambda: NOW)
 
 
 @pytest.fixture
@@ -70,11 +67,10 @@ def remote_branches(remote):
 class FakeGitHub:
     """gh, answering from a dict of issues. Records every call."""
 
-    def __init__(self, issues=None, pulls=None, merged=(), fail=(), blockers=None, subs=None):
+    def __init__(self, issues=None, merged=(), fail=(), blockers=None, subs=None):
         self.issues = issues or {}
         self.blockers = blockers or {}
         self.subs = subs or {}
-        self.pulls = pulls or []
         self.merged = merged
         self.fail = fail
         self.calls = []
@@ -98,7 +94,7 @@ class FakeGitHub:
             return json.dumps(
                 [{"number": n, "state": st} for n, st in self.blockers.get(number, [])]
             )
-        if kind == "pr" and "merged" in args:
+        if kind == "pr":
             head = args[args.index("--head") + 1] if "--head" in args else None
             return json.dumps(
                 [
@@ -107,8 +103,6 @@ class FakeGitHub:
                     if head in (None, b)
                 ]
             )
-        if kind == "pr":
-            return json.dumps([{"headRefName": b} for b in self.pulls])
         if verb == "view":
             return json.dumps(self.issues[int(args[2])])
         if verb == "list":
@@ -606,10 +600,6 @@ class DescribeRelease:
         assert ("issue", "comment", "12", "--body", "Released issue/12.") in gh.calls
 
 
-def claim_comment(when):
-    return {"body": "%s `issue/12`." % cli.CLAIM_MARK, "createdAt": when}
-
-
 def claimed(capsys, clone, github):
     a = clone("a")
     github(make_issue(12, "approved"))
@@ -618,33 +608,6 @@ def claimed(capsys, clone, github):
 
 
 class DescribeStale:
-    def it_reports_an_idle_claim(self, capsys, clone, github):
-        a = claimed(capsys, clone, github)
-        github(
-            make_issue(
-                12, "approved", "in-progress", comments=[claim_comment("2026-02-01T00:00:00Z")]
-            )
-        )
-        code, out = run(capsys, a, "stale")
-        assert code == cli.PROBLEMS
-        assert "#12: issue/12 idle for 28 days" in out.err
-
-    def it_passes_a_recent_claim_on_an_old_main(self, capsys, clone, github):
-        a = claimed(capsys, clone, github)
-        github(
-            make_issue(
-                12, "approved", "in-progress", comments=[claim_comment("2026-02-28T00:00:00Z")]
-            )
-        )
-        code, out = run(capsys, a, "stale")
-        assert code == cli.OK
-        assert out.out == "No stale claims.\n"
-
-    def it_passes_a_claim_with_an_open_pull_request(self, capsys, clone, github):
-        a = claimed(capsys, clone, github)
-        github(make_issue(12, "approved", "in-progress"), pulls=["issue/12"])
-        assert run(capsys, a, "stale")[0] == cli.OK
-
     @pytest.mark.spec("stale-cmd-reports-claims-left-behind")
     def it_reports_a_branch_left_after_the_issue_closed(self, capsys, clone, github):
         a = claimed(capsys, clone, github)
@@ -668,9 +631,9 @@ class DescribeStale:
         assert "#12 is closed but still labeled in-progress; run release 12" in out.err
 
     @pytest.mark.spec("stale-cmd-reports-claims-left-behind")
-    def it_reports_a_recent_claim_that_lacks_the_label(self, capsys, clone, github):
+    def it_reports_a_claim_that_lacks_the_label(self, capsys, clone, github):
         a = claimed(capsys, clone, github)
-        github(make_issue(12, "approved", comments=[claim_comment("2026-02-28T00:00:00Z")]))
+        github(make_issue(12, "approved"))
         code, out = run(capsys, a, "stale")
         assert code == cli.PROBLEMS
         assert (
