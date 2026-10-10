@@ -38,7 +38,7 @@ ADD_LABEL_FLAGS = ("--label", "-l", "--add-label")
 LABEL_VERBS = {("issue", "create"), ("issue", "edit"), ("pr", "create"), ("pr", "edit")}
 SEPARATORS = {"&&", "||", ";", "|", "&", "(", ")", "\n"}
 PUNCTUATION = "();<>|&\n"
-HEREDOC_OPS = ("<<", "<<-")
+HEREDOC_OPS = ("<<",)
 SHELLS = {"sh", "bash"}
 WRAPPERS = {"env", "xargs"}
 ASSIGNMENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
