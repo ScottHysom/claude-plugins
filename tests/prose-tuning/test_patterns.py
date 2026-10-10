@@ -462,6 +462,12 @@ class DescribeShippedPatterns:
         assert [r.id for r in shipped.patterned()] == [
             "standing-no-em-dash",
             "standing-us-spelling",
+            "sentences-negate-the-verb",
+            "sentences-keep-relative-that",
+            "sentences-word-reads-one-way",
+            "sentences-parenthetical-including",
+            "sentences-one-negation",
+            "sentences-none-names-noun",
         ]
 
     @pytest.mark.spec("template-catches-british-spellings-and-emdashes")
