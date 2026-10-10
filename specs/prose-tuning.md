@@ -633,9 +633,11 @@ Source: README.md, the opening section and "Setting up".
 - `stage-cmd-gives-checksum-command` (test): When `stage` runs, it gives a
   command that checks every staged file's checksum from the project's folder
   on the device, and a prefix that starts every device command there.
-- `stage-cmd-checks-folder-paths` (test): When `--folder` or `--connected`
-  is not an absolute path, or `--folder` sits outside `--connected`, `stage`
-  names it and exits 2.
+- `stage-cmd-checks-folder-paths` (test): `stage` names the path and exits 2
+  under any of these conditions:
+  - `--folder` or `--connected` is not an absolute path.
+  - `--connected` is the device root, which has no folder name to mount.
+  - `--folder` sits outside `--connected`.
 - `init-cmd-reads-staged-rules` (test): When the script runs from its copy
   in `.prose-tuning/`, `config init` starts from the rules staged beside it,
   and never from a `templates/` folder in the project.

@@ -142,6 +142,14 @@ class DescribeStage:
         assert code == prose.CANNOT_RUN
         assert "--connected must be an absolute path" in err
 
+    @pytest.mark.spec("stage-cmd-checks-folder-paths")
+    @pytest.mark.parametrize("root", ["/", "//", "/.", "/Users/.."])
+    def it_refuses_the_device_root_as_the_connected_folder(self, capsys, root):
+        code, env, err = stage(capsys, "--connected", root, "--folder", FOLDER)
+        assert code == prose.CANNOT_RUN
+        assert env is None
+        assert "--connected %s is the device root" % root in err
+
     @pytest.mark.spec(
         "stage-cmd-gives-checksum-command", "repo:command-splits-output-streams-without-json"
     )
