@@ -7,6 +7,7 @@ here.
 import importlib.util
 import io
 import json
+import shlex
 from pathlib import Path
 
 import pytest
@@ -74,10 +75,22 @@ ALLOWED = [
 ]
 
 
+def nested(command, depth):
+    """The command run through `bash -c`, quoted inside itself depth times."""
+    for _ in range(depth):
+        command = "bash -c " + shlex.quote(command)
+    return command
+
+
 class DescribeCheck:
     @pytest.mark.parametrize("command", BLOCKED)
     @pytest.mark.spec("guard-blocks-approved-label")
     def it_blocks_a_command_adding_the_label(self, command):
+        assert issue_guard.check(command), command
+
+    @pytest.mark.spec("guard-blocks-approved-label")
+    def it_blocks_the_label_however_deep_the_shells_nest(self):
+        command = nested("cd x && gh issue edit 12 --add-label approved", 6)
         assert issue_guard.check(command), command
 
     @pytest.mark.parametrize("command", ALLOWED)
