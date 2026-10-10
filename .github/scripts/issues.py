@@ -155,7 +155,7 @@ import re
 import subprocess
 import sys
 
-ENVELOPE_VERSION = 1
+ENVELOPE_VERSION = 2
 
 OK, PROBLEMS, CANNOT_RUN = 0, 1, 2
 
@@ -360,6 +360,15 @@ def summary(item):
     return {"number": item["number"], "title": item["title"]}
 
 
+def next_data(found, blocked, plan):
+    """next's data: the issues it names, without the titles its plain output prints."""
+
+    def bare(entry):
+        return None if entry is None else {k: v for k, v in entry.items() if k != "title"}
+
+    return {"issue": bare(found), "blocked": [bare(b) for b in blocked], "tracking": bare(plan)}
+
+
 def now():
     """The current time. Tests replace this."""
     return datetime.datetime.now(datetime.timezone.utc)
@@ -422,14 +431,13 @@ def cmd_next(args, repo):
         else:
             print("No approved issue is free.")
 
-    data = {"issue": found, "blocked": blocked, "tracking": plan}
-    return emit(args, "next", data, human=human)
+    return emit(args, "next", next_data(found, blocked, plan), human=human)
 
 
 def next_in_plan(args, repo, number):
     """`next --tracking N`: the first sub-issue of #N, in #N's order, to work."""
     item = issue(repo, number)
-    data = {"issue": None, "blocked": [], "tracking": summary(item)}
+    found, blocked, plan = None, [], summary(item)
     problems = []
     if not is_open(item):
         problems.append("#%d is closed; its plan is finished" % number)
@@ -442,10 +450,9 @@ def next_in_plan(args, repo, number):
             "#%d is not labeled %s; ask the owner to approve the plan" % (number, APPROVED)
         )
     if problems:
-        return emit(args, "next", data, problems)
+        return emit(args, "next", next_data(found, blocked, plan), problems)
 
     held = claims(repo)
-    blocked = data["blocked"]
     for sub in sub_issues(repo, number):
         n = sub["number"]
         if not is_open(sub) or n in held or IN_PROGRESS in labels(sub):
@@ -458,17 +465,16 @@ def next_in_plan(args, repo, number):
             return emit(
                 args,
                 "next",
-                data,
+                next_data(found, blocked, plan),
                 [
                     "#%d %s is next in #%d's order and is not labeled %s; "
                     "ask the owner to approve it" % (n, sub["title"], number, APPROVED)
                 ],
             )
-        data["issue"] = summary(sub)
+        found = summary(sub)
         break
 
     def human():
-        found = data["issue"]
         if found:
             print("#%d %s" % (found["number"], found["title"]))
         elif blocked:
@@ -477,7 +483,7 @@ def next_in_plan(args, repo, number):
         else:
             print("No sub-issue of #%d is free." % number)
 
-    return emit(args, "next", data, human=human)
+    return emit(args, "next", next_data(found, blocked, plan), human=human)
 
 
 def print_blocked(blocked):
@@ -490,7 +496,7 @@ def print_blocked(blocked):
 
 def cmd_claim(args, repo):
     n = args.number
-    data = {"number": n, "branch": branch(n), "claimed": False}
+    data = {"number": n, "branch": branch(n)}
     item = issue(repo, n)
     if item.get("state") != "OPEN":
         return emit(args, "claim", data, ["#%d is closed" % n])
@@ -534,7 +540,6 @@ def cmd_claim(args, repo):
         if n in claims(repo):
             return emit(args, "claim", data, [held_message(n)])
         raise Fatal("could not push %s: %s" % (branch(n), push.stderr.strip()))
-    data["claimed"] = True
 
     warnings = []
     track = "%s/%s" % (REMOTE, branch(n))
@@ -579,7 +584,7 @@ def held_message(n):
 
 def cmd_release(args, repo):
     n = args.number
-    data = {"number": n, "branch": branch(n), "released": False}
+    data = {"number": n, "branch": branch(n)}
     item = issue(repo, n)
     sha = claims(repo).get(n)
     labeled = IN_PROGRESS in labels(item)
@@ -621,7 +626,6 @@ def cmd_release(args, repo):
     if labeled:
         gh(repo, "issue", "edit", str(n), "--remove-label", IN_PROGRESS)
     gh(repo, "issue", "comment", str(n), "--body", "Released %s." % branch(n))
-    data["released"] = True
     return emit(args, "release", data, human=human)
 
 
@@ -812,8 +816,7 @@ def cmd_stale(args, repo):
 
     errors, rows = [], []
     for n in sorted(set(held) | {i["number"] for i in labeled}):
-        row = {"number": n, "branch": branch(n), "pull_request": branch(n) in pr_branches}
-        rows.append(row)
+        rows.append({"number": n, "branch": branch(n)})
         if n not in held and n in closed:
             errors.append(
                 "#%d is closed but still labeled %s; run release %d" % (n, IN_PROGRESS, n)
@@ -836,14 +839,13 @@ def cmd_stale(args, repo):
                 "#%d has %s but is not labeled %s; run gh issue edit %d --add-label %s"
                 % (n, branch(n), IN_PROGRESS, n, IN_PROGRESS)
             )
-        if row["pull_request"]:
+        if branch(n) in pr_branches:
             continue
         last = parse_time(git(repo, "log", "-1", "--format=%cI", held[n]).stdout.strip())
         for c in item.get("comments", []):
             if CLAIM_MARK in (c.get("body") or ""):
                 last = max(last, parse_time(c["createdAt"]))
         idle = (now() - last).days
-        row["idle_days"] = idle
         if idle >= args.days:
             errors.append(
                 "#%d: %s idle for %d days with no open pull request; ask its agent, or release %d"
