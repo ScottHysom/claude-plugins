@@ -209,6 +209,21 @@ Source: README.md, under "Claiming an issue".
   also closes an issue that another `issue/M` branch holds,
   check-linked-issues.py fails it.
 
+## need owner-sees-claim-outcome: Know at once whether a claim won
+
+When an agent claims an issue, the owner wants to know at once whether the
+claim won, so the owner can tell a working agent from a stuck one. A
+command's output does not reliably reach the owner, under
+`bash-hides-output`, so the agent says so in chat.
+
+Source: CLAUDE.md, under "Issues", and #469.
+
+- `claudemd-reports-claim-first` (test): When an agent reads CLAUDE.md's
+  "Issues" section, it is told that its next message after `issues.py claim
+  N` says whether the claim won, naming #N and `issue/N` on a win and the
+  reason on exit 1, before any other work on the issue. The test checks the
+  rule is written, and #474 adds the eval that checks an agent follows it.
+
 ## need owner-orders-dependent-issues: Leave an issue until its blocker closes
 
 When one issue waits on another, the owner wants agents told to take the next

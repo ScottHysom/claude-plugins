@@ -304,7 +304,7 @@ class DescribeNext:
         github(make_issue(11, "approved", "in-progress"), make_issue(12, "approved"))
         code, data = run_json(capsys, clone("a"), "next")
         assert code == cli.OK
-        assert data["data"]["issue"] == {"number": 11, "title": "issue 11"}
+        assert data["data"]["issue"] == {"number": 11}
 
     @pytest.mark.spec("next-cmd-offers-free-issue")
     def it_never_offers_a_closed_issue(self, capsys, clone, github):
@@ -414,7 +414,7 @@ class DescribeNextTracking:
         )
         code, data = run_json(capsys, clone("a"), "next", "--tracking", "20")
         assert code == cli.OK
-        assert data["data"]["issue"] == {"number": 11, "title": "issue 11"}
+        assert data["data"]["issue"] == {"number": 11}
 
     @pytest.mark.spec(
         "next-cmd-follows-tracking-issue", "command-splits-output-streams-without-json"
@@ -959,3 +959,22 @@ class DescribeMain:
         closed_pipe()
         assert cli.main(["next", "-C", str(clone("a"))]) == cli.OK
         assert capsys.readouterr().err == ""
+
+
+_CLAUDE_MD = _PATH.parents[2] / "CLAUDE.md"
+
+
+def issues_section():
+    text = _CLAUDE_MD.read_text(encoding="utf-8")
+    return text.split("\n## Issues\n", 1)[1].split("\n## ", 1)[0]
+
+
+@pytest.mark.spec("claudemd-reports-claim-first")
+class DescribeTheClaimRuleInClaudeMd:
+    def it_tells_the_agent_to_report_the_claim_before_other_work(self):
+        rule = next(item for item in issues_section().split("\n- ") if "how the claim went" in item)
+        assert "before any other work" in rule
+        assert "`claim N`" in rule
+        assert "#N" in rule
+        assert "`issue/N`" in rule
+        assert "exit 1" in rule
