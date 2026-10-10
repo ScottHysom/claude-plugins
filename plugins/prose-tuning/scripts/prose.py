@@ -4808,18 +4808,25 @@ def cmd_setup(args):
 
 
 def normalize_folder(value, name):
-    """A device folder as get_device_info lists it, without a trailing slash."""
-    folder = (value or "").rstrip("/")
-    if not folder.startswith("/"):
+    """A device folder as get_device_info lists it, without a trailing slash.
+
+    The device root, however it is spelled, comes back empty.
+    """
+    if not (value or "").startswith("/"):
         raise Fatal(
             "--%s must be an absolute path on the device, as get_device_info lists it" % name
         )
-    return posixpath.normpath(folder)
+    return posixpath.normpath(value).rstrip("/")
 
 
 def cmd_stage(args):
     folder = normalize_folder(args.folder, "folder")
     connected = normalize_folder(args.connected or args.folder, "connected")
+    if not connected:
+        raise Fatal(
+            "--connected %s is the device root, which has no folder name to mount"
+            % (args.connected or args.folder)
+        )
     if folder == connected:
         sub = ""
     elif folder.startswith(connected + "/"):
@@ -4829,8 +4836,6 @@ def cmd_stage(args):
     mount = (
         posixpath.join(posixpath.basename(connected), sub) if sub else posixpath.basename(connected)
     )
-    if not mount:
-        raise Fatal("--connected %s has no folder name to mount" % connected)
 
     sources = copy_sources()
 
