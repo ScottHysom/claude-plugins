@@ -41,8 +41,8 @@ PUNCTUATION = "();<>|&\n"
 HEREDOC_OPS = ("<<", "<<-")
 # How far a quoted command inside a command (bash -c "...") is re-read.
 NESTING_LIMIT = 3
-SHELLS = {"sh", "bash", "zsh", "dash"}
-WRAPPERS = {"env", "command", "exec", "sudo", "time", "nohup", "xargs"}
+SHELLS = {"sh", "bash"}
+WRAPPERS = {"env", "xargs"}
 ASSIGNMENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 
 # Used when the command cannot be split into words.
