@@ -390,7 +390,7 @@ def cmd_next(args, repo):
         if TRACKING in labels(item):
             subs = [s["number"] for s in sub_issues(repo, item["number"]) if is_open(s)]
             queue.append((min([item["number"], *subs]), item, True))
-        elif IN_PROGRESS not in labels(item) and item["number"] not in held:
+        elif item["number"] not in held:
             queue.append((item["number"], item, False))
     queue.sort(key=lambda entry: (entry[0], not entry[2]))
 
@@ -441,7 +441,7 @@ def next_in_plan(args, repo, number):
     held = claims(repo)
     for sub in sub_issues(repo, number):
         n = sub["number"]
-        if not is_open(sub) or n in held or IN_PROGRESS in labels(sub):
+        if not is_open(sub) or n in held:
             continue
         open_blockers = blockers(repo, n)
         if open_blockers:
