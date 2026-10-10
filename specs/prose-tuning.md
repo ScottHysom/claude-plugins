@@ -501,7 +501,7 @@ project lacks copied across, and the rules that collide on an id or say the
 same thing under two ids shown side by side in one round, so they settle each
 conflict once.
 
-Source: README.md, under "Sharing rules between projects", and the adopt-prose
+Source: README.md, under "Sharing rules between projects", and the copy-prose
 description. The 0.6 score at which two rules count as similar is the owner's,
 in the ruling on #131.
 
@@ -526,41 +526,41 @@ in the ruling on #131.
   rule's id, `config classify` settles it as identical or colliding and does not list
   any candidates.
 - `classify-cmd-names-missing-target` (test): When the file given to
-  `--to` does not exist, `config classify` and `config adopt` name it and exit
+  `--to` does not exist, `config classify` and `config copy` name it and exit
   2.
 - `classify-refuses-unlinted` (test): When the source or the target does
   not lint clean, `config classify` names the lint command and exits 2.
 - `classify-gives-bodies` (test): When `config classify` reports a rule, it
   gives the rule's body, and the body of each target rule it matched.
-- `adoptprose-rereads-new-rules` (step): When `config classify` puts a rule in
-  `new`, adopt-prose reads it against the target and treats it as similar if
+- `copyprose-rereads-new-rules` (step): When `config classify` puts a rule in
+  `new`, copy-prose reads it against the target and treats it as similar if
   it states a target rule's point in other words.
-- `adoptprose-passes-each-new-rule` (step): When rules remain in `new`,
-  adopt-prose passes each to `config adopt` as its own `--rule`.
-- `adopt-cmd-copies-byte-for-byte` (test): When `config adopt` copies a
+- `copyprose-passes-each-new-rule` (step): When rules remain in `new`,
+  copy-prose passes each to `config copy` as its own `--rule`.
+- `copy-cmd-copies-byte-for-byte` (test): When `config copy` copies a
   rule, the target gets the rule's lines as the source has them, less any
   `prose-rule` comment.
-- `adopt-cmd-places-by-section` (test): When `config adopt` copies a rule,
+- `copy-cmd-places-by-section` (test): When `config copy` copies a rule,
   it puts it after the target's last rule from the same section, or failing
   that under the target's `##` heading matching the source's, or failing that
   at the end under a new copy of that heading.
-- `adopt-cmd-keeps-source-order` (test): When `config adopt` puts several
+- `copy-cmd-keeps-source-order` (test): When `config copy` puts several
   rules in one place, they keep the source's order.
-- `adopt-cmd-lints-clean` (test): When `config adopt` writes, the target
+- `copy-cmd-lints-clean` (test): When `config copy` writes, the target
   still lints clean.
-- `adopt-cmd-refuses-collision` (test): When the target already has an id
-  passed to `config adopt`, the command refuses it as a collision, and the
-  refusal says to run `config adopt` again without it and to put the pair to
+- `copy-cmd-refuses-collision` (test): When the target already has an id
+  passed to `config copy`, the command refuses it as a collision, and the
+  refusal says to run `config copy` again without it and to put the pair to
   the author for `config resolve`.
-- `adopt-cmd-refuses-unknown` (test): When the source has no rule with an
-  id passed to `config adopt`, or the id is passed twice, the command refuses
+- `copy-cmd-refuses-unknown` (test): When the source has no rule with an
+  id passed to `config copy`, or the id is passed twice, the command refuses
   it.
-- `adopt-cmd-refuses-unlinted` (test): When the source or the target does
-  not lint clean, `config adopt` names the lint command and exits 2.
-- `adoptprose-shows-conflicts-once` (step): When the classification leaves
-  colliding or similar rules, adopt-prose puts every pair to the author in one
+- `copy-cmd-refuses-unlinted` (test): When the source or the target does
+  not lint clean, `config copy` names the lint command and exits 2.
+- `copyprose-shows-conflicts-once` (step): When the classification leaves
+  colliding or similar rules, copy-prose puts every pair to the author in one
   round, with both bodies in full.
-- `adoptprose-keeps-target-id` (step): When the author settles a pair with a
+- `copyprose-keeps-target-id` (step): When the author settles a pair with a
   combination or a rewrite, the resulting rule keeps the target's id.
 - `resolve-cmd-writes-answers` (test): When `config resolve --answers` is
   given the author's answer to each pair, it writes each into the target.
@@ -582,12 +582,12 @@ in the ruling on #131.
 When the owner finds a rule worth having in every project, they want to add it
 to the rules prose-tuning ships, so every new `prose-style.md` starts with it.
 
-Source: the adopt-prose description.
+Source: the copy-prose description.
 
 - `classify-cmd-ignores-fill-markers` (test): When two rules differ only
   by a `FILL` marker, `config classify` treats their bodies as the same.
-- `adoptprose-bumps-shipped-version` (step): When the target is the shipped
-  rules, adopt-prose bumps prose-tuning's version in both manifests, says that
+- `copyprose-bumps-shipped-version` (step): When the target is the shipped
+  rules, copy-prose bumps prose-tuning's version in both manifests, says that
   projects already started from the shipped rules now differ, and replaces a
   project's own example with a `FILL` marker.
 
@@ -599,14 +599,14 @@ review and commit them their usual way.
 Source: README.md, under "What it adds to your project", and all three skill
 descriptions.
 
-- `adopt-cmd-gives-commit-note` (test): When `config adopt` writes, it
+- `copy-cmd-gives-commit-note` (test): When `config copy` writes, it
   gives a commit note naming the source's project, or its path outside a
-  repository, and each id adopted.
+  repository, and each id copied.
 - `resolve-cmd-gives-commit-note` (test): When `config resolve` copies a rule
   whole from the source, it gives a commit note naming the source's project,
   or its path outside a repository, and each id copied.
-- `adoptprose-never-commits` (step): When adopt-prose finishes, it reports what
-  changed, gives the author the commit notes from `config adopt` and
+- `copyprose-never-commits` (step): When copy-prose finishes, it reports what
+  changed, gives the author the commit notes from `config copy` and
   `config resolve` for their commit description, and commits nothing.
 - `updateproseconfig-never-commits` (step): When update-prose-config finishes,
   it reports what changed and which files are dirty, and commits nothing.

@@ -109,7 +109,7 @@ class DescribeClassifySignal:
 
 
 class DescribeRuleSimilarity:
-    """The floor under adopt-prose's similar bucket."""
+    """The floor under copy-prose's similar bucket."""
 
     @staticmethod
     def rule(name, body):
@@ -139,8 +139,8 @@ class DescribeRuleSimilarity:
 
         difflib.SequenceMatcher.ratio() is not symmetric - about one random
         rule pair in five scores differently depending on argument order. It
-        matters because `config classify` scores each rule of the file adopted
-        *from* against each rule of the file adopted *into*, so swapping `--file`
+        matters because `config classify` scores each rule of the file copied
+        *from* against each rule of the file copied *into*, so swapping `--file`
         and `--to` can move a rule between the similar and new buckets.
         Asserting symmetry here would be asserting
         something false; this records the asymmetry so that making it symmetric

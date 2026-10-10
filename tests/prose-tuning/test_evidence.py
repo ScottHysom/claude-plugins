@@ -26,7 +26,7 @@ class DescribeClassifySignal:
 class DescribeInferredEdits:
     """What `evidence` reports for edits the author made without tagging them.
 
-    Those hunks are the evidence adopt-prose infers rules from, and each one
+    Those hunks are the evidence update-prose-config infers rules from, and each one
     names a line the author is sent to. A hunk at the wrong line, or one that
     covers the wrong lines, points the model at text that was never changed.
     """

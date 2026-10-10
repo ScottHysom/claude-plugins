@@ -114,7 +114,7 @@ class DescribeAnswersWritten:
         assert (code, env["data"]["resolved"][0]["resolution"]) == (prose.OK, "keep-target")
         assert tgt.read_bytes() == before
 
-    @pytest.mark.spec("resolve-cmd-writes-answers", "adoptprose-keeps-target-id")
+    @pytest.mark.spec("resolve-cmd-writes-answers", "copyprose-keeps-target-id")
     def it_writes_a_combination_under_the_target_id(self, prose_repo):
         src, tgt = files(prose_repo, OWN_SUBJECT, CARRIES + "\n" + COUNT)
         ans = answer(
@@ -388,7 +388,7 @@ class DescribeTheCommitNote:
         ]
         _, env = resolve(prose_repo, src, tgt, answers)
         assert env["data"]["commit_note"] == (
-            "Adopted from repo: sentences-own-subject, sentences-count-needs-list"
+            "Copied from repo: sentences-own-subject, sentences-count-needs-list"
         )
 
     @pytest.mark.spec("resolve-cmd-gives-commit-note")
@@ -417,6 +417,6 @@ class DescribeTheCommitNote:
         assert out == (
             "keep-both  sentences-own-subject -> sentences-carries-subject  at line 14\n"
             "refused  answer 2  sentences-nope\n"
-            "\nfor the commit description: Adopted from repo: sentences-own-subject\n"
+            "\nfor the commit description: Copied from repo: sentences-own-subject\n"
         )
         assert "answer 2 (sentences-nope -> sentences-carries-subject)" in err

@@ -21,7 +21,7 @@ Commands:
                 reads to start a pass
     evidence    explicit tags + inferred edits
     reproduce   whether the rules' patterns reproduce the edits since HEAD
-    config      list | lint | check-id | classify | adopt | resolve | write |
+    config      list | lint | check-id | classify | copy | resolve | write |
                 init
     tags        resolve
     report      the findings for approval, and which of them overlap, also
@@ -572,7 +572,7 @@ POSITIONAL = re.compile(r"^\d+$")
 MAX_NAME_WORDS = 4
 # The score at or above which two rules are worth the author's look.
 SIMILAR_THRESHOLD = 0.6
-# adopt-prose's buckets, in the order it acts on them.
+# copy-prose's buckets, in the order it acts on them.
 BUCKET_NEW = "new"
 BUCKET_IDENTICAL = "identical"
 BUCKET_COLLIDING = "colliding"
@@ -599,8 +599,8 @@ FM_ITEM = re.compile(r"^ {4}-\s+(.+?)\s*$")
 # the commit that brings it in. Files written by earlier versions carry these
 # keys, so lint accepts them with any value.
 META_KEYS = {"source", "origin"}
-# The line config adopt gives the author for the commit description.
-ADOPTED_NOTE = "Adopted from %s: %s"
+# The line config copy gives the author for the commit description.
+COPIED_NOTE = "Copied from %s: %s"
 
 
 def validate_rule_name(name):
@@ -650,7 +650,7 @@ def similar_pairs(config, other):
     """The pairs of rules across two files scoring at or above
     SIMILAR_THRESHOLD.
 
-    A shared id is adopt-prose's identical or colliding bucket, so a pair
+    A shared id is copy-prose's identical or colliding bucket, so a pair
     under one id is left out. These are the pairs that agree in substance
     under two different names, which nothing else can see. Highest first.
     """
@@ -668,8 +668,8 @@ def similar_pairs(config, other):
 
 def classify_rules(config, other):
     """One entry per rule in config, in its order: the bucket it falls in
-    when adopted into other, and the rule of other it matched, each with its
-    body, so adopt-prose's step 3 can show the author both in full.
+    when copied into other, and the rule of other it matched, each with its
+    body, so copy-prose's step 3 can show the author both in full.
 
     An id match settles a rule before any score is read. A rule the target
     already names is a question about that rule, and the similar bucket is
@@ -766,7 +766,7 @@ class Rule:
         return "\n".join(self.body).strip()
 
     def body_key(self):
-        """The body normalized for comparison, for adopt-prose.
+        """The body normalized for comparison, for copy-prose.
 
         HTML comments go: a FILL marker tells one project what to supply and is
         not part of the rule, so two rules differing only by one are the same
@@ -2916,7 +2916,7 @@ def heading_end(lines, start):
     return end
 
 
-def adopted_block(lines, rule):
+def copied_block(lines, rule):
     """A rule's lines as the source has them, without a metadata comment.
 
     The block is sliced from the file rather than rendered from Rule, so that
@@ -2937,7 +2937,7 @@ def adopted_block(lines, rule):
     return [ln if ln.endswith("\n") else ln + "\n" for ln in block]
 
 
-def adopted_from(config):
+def copied_from(config):
     """What the commit note calls the source: the folder name of the
     repository holding it, else its path.
     """
@@ -2947,8 +2947,8 @@ def adopted_from(config):
         return config.path
 
 
-def plan_adoption(config, source_lines, target, target_lines, ids):
-    """(the target's new lines, the ids adopted, the ids refused with why).
+def plan_copy(config, source_lines, target, target_lines, ids):
+    """(the target's new lines, the ids copied, the ids refused with why).
 
     Every insertion point is found on the target as read, then applied from the
     bottom up, so an earlier insertion cannot move a later one. A rule goes
@@ -2969,7 +2969,7 @@ def plan_adoption(config, source_lines, target, target_lines, ids):
                 {
                     "id": rid,
                     "reason": "%s already has %s; that is a collision, not a new rule."
-                    " Run config adopt again without it, and put the pair to the"
+                    " Run config copy again without it, and put the pair to the"
                     " author for config resolve" % (target.rel(), rid),
                 }
             )
@@ -2977,13 +2977,13 @@ def plan_adoption(config, source_lines, target, target_lines, ids):
             chosen.append(source_ids[rid])
         seen.add(rid)
     chosen.sort(key=lambda r: r.line)
-    spots = adoption_spots(source_lines, target, target_lines, chosen)
+    spots = copy_spots(source_lines, target, target_lines, chosen)
     return place_blocks(target_lines, spots), [r.id for r in chosen], refused
 
 
-def adoption_spots(source_lines, target, target_lines, rules):
+def copy_spots(source_lines, target, target_lines, rules):
     """The spots place_blocks takes for copying rules into the target, each
-    rule found where plan_adoption says. rules are in the source's order.
+    rule found where plan_copy says. rules are in the source's order.
     """
     h2s = {}
     for i, ln in enumerate(target_lines):
@@ -3001,7 +3001,7 @@ def adoption_spots(source_lines, target, target_lines, rules):
             key = (heading_end(target_lines, h2s[rule.group]), None)
         else:
             key = (len(target_lines), rule.group or None)
-        spots.setdefault(key, []).append(adopted_block(source_lines, rule))
+        spots.setdefault(key, []).append(copied_block(source_lines, rule))
     return spots
 
 
@@ -3046,7 +3046,7 @@ def place_blocks(lines, spots, replaced=None):
 def linted_target(args, config):
     """The Config at --to, once it and config both lint clean.
 
-    classify, adopt and resolve share it: a rule read from a malformed file is
+    classify, copy and resolve share it: a rule read from a malformed file is
     classified or copied wrong, and the error then looks like the command's.
     """
     target = Config(os.path.abspath(args.to))
@@ -3060,22 +3060,22 @@ def linted_target(args, config):
     return target
 
 
-def config_adopt(args, repo, config):
+def config_copy(args, repo, config):
     """Copy named rules from this file into --to, and say where they came from.
 
-    adopt-prose's step 2. Refuses an id the target already has, because a
+    copy-prose's step 2. Refuses an id the target already has, because a
     shared id is step 3's question, and writes nothing while any id is refused
     unless --partial is passed.
     """
     target = linted_target(args, config)
     source_lines = Text.read(config.path).lines
     target_lines = Text.read(target.path).lines
-    out, adopted, refused = plan_adoption(config, source_lines, target, target_lines, args.rule)
+    out, copied, refused = plan_copy(config, source_lines, target, target_lines, args.rule)
     errors = [r["reason"] for r in refused]
-    write = adopted and not (refused and not args.partial)
+    write = copied and not (refused and not args.partial)
     if refused and not args.partial:
-        errors.append("nothing was written; pass --partial to adopt the rest")
-        adopted = []
+        errors.append("nothing was written; pass --partial to copy the rest")
+        copied = []
     if write and not args.dry_run:
         Text("".join(out)).write(target.path)
 
@@ -3085,23 +3085,21 @@ def config_adopt(args, repo, config):
         if m:
             lines.setdefault("%s-%s" % (m.group(1), m.group(2)), i + 1)
     data = {
-        "commit_note": (
-            ADOPTED_NOTE % (adopted_from(config), ", ".join(adopted)) if adopted else None
-        ),
-        "adopted": [{"id": rid} for rid in adopted],
+        "commit_note": (COPIED_NOTE % (copied_from(config), ", ".join(copied)) if copied else None),
+        "copied": [{"id": rid} for rid in copied],
         "refused": refused,
     }
 
     def human():
-        verb = "would adopt" if args.dry_run else "adopted"
-        for rid in adopted:
+        verb = "would copy" if args.dry_run else "copied"
+        for rid in copied:
             print("%s  %s  at line %d" % (verb, rid, lines[rid]))
         for r in refused:
             print("refused  %s" % r["id"])
         if data["commit_note"]:
             print("\nfor the commit description: %s" % data["commit_note"])
 
-    return emit(args, "config adopt", repo.root, data, errors=errors, human=human)
+    return emit(args, "config copy", repo.root, data, errors=errors, human=human)
 
 
 # config write: the parts of a rule a record can give, the fields of each
@@ -3498,7 +3496,7 @@ def config_write(args, repo, config):
     return emit(args, "config write", repo.root, data, errors=errors, human=human)
 
 
-# config resolve: the author's answers to adopt-prose's step 3. A pair under
+# config resolve: the author's answers to copy-prose's step 3. A pair under
 # one id is a collision; a pair under two ids is a similar pair.
 RESOLVE_TAKE = "take-source"
 RESOLVE_KEEP = "keep-target"
@@ -3573,9 +3571,9 @@ def plan_resolutions(config, source_lines, target, target_lines, answers):
     """(the target's new lines, the answers taken, the answers refused).
 
     take-source puts the source's rule in place of the target's, byte for
-    byte as config adopt copies one. combine rewrites the target's rule with
+    byte as config copy copies one. combine rewrites the target's rule with
     the parts the answer gives, under the target's id, as config write
-    rewrites one. keep-both copies the source's rule in as config adopt does.
+    rewrites one. keep-both copies the source's rule in as config copy does.
     keep-target and drop-source write nothing. A source rule is answered once,
     and a target rule is written once. Every range is read from the target as
     given, so an earlier answer cannot move a later one.
@@ -3594,7 +3592,7 @@ def plan_resolutions(config, source_lines, target, target_lines, answers):
                 raise WriteRefusal("%s already has %s" % (target.rel(), src.id))
             block = None
             if how == RESOLVE_TAKE:
-                block = adopted_block(source_lines, src)
+                block = copied_block(source_lines, src)
             elif how == RESOLVE_COMBINE:
                 rec = {"id": tgt.id, "expect": tgt.body_text()}
                 rec.update((p, ans[p]) for p in WRITE_PARTS if p in ans)
@@ -3622,14 +3620,14 @@ def plan_resolutions(config, source_lines, target, target_lines, answers):
             kept.append(src)
         taken.append({"index": n, "source": src.id, "target": tgt.id, "resolution": how})
     kept.sort(key=lambda r: r.line)
-    spots = adoption_spots(source_lines, target, target_lines, kept)
+    spots = copy_spots(source_lines, target, target_lines, kept)
     return place_blocks(target_lines, spots, replaced), taken, refused
 
 
 def config_resolve(args, repo, config):
     """Write the author's answer to each colliding and similar pair into --to.
 
-    adopt-prose's step 3. Each answer names a source rule, the target rule it
+    copy-prose's step 3. Each answer names a source rule, the target rule it
     was paired with, the resolution, and both bodies as config classify read
     them.
     Writes nothing while any answer is refused unless --partial is passed, and
@@ -3661,7 +3659,7 @@ def config_resolve(args, repo, config):
     written = {RESOLVE_TAKE: "target", RESOLVE_COMBINE: "target", RESOLVE_BOTH: "source"}
     copied = [t["source"] for t in taken if t["resolution"] in (RESOLVE_TAKE, RESOLVE_BOTH)]
     data = {
-        "commit_note": ADOPTED_NOTE % (adopted_from(config), ", ".join(copied)) if copied else None,
+        "commit_note": COPIED_NOTE % (copied_from(config), ", ".join(copied)) if copied else None,
         "resolved": taken,
         "refused": refused,
     }
@@ -3717,8 +3715,8 @@ def cmd_config(args):
     if not config.exists:
         raise Fatal("%s does not exist; run: prose.py config init" % config.path)
 
-    if which == "adopt":
-        return config_adopt(args, repo, config)
+    if which == "copy":
+        return config_copy(args, repo, config)
 
     if which == "write":
         return config_write(args, repo, config)
@@ -4976,8 +4974,8 @@ def build_parser():
         ("list", "the rules"),
         ("lint", "check the file"),
         ("check-id", "is this id well-formed and free"),
-        ("classify", "which bucket each rule falls in when adopted"),
-        ("adopt", "copy new rules into another file, marked as adopted"),
+        ("classify", "which bucket each rule falls in when copied"),
+        ("copy", "copy new rules into another file, with a note naming the source"),
         ("resolve", "write the answer to each colliding and similar pair into another file"),
         ("write", "write approved rules into the file from JSON"),
         ("init", "start one from the shipped rules"),
@@ -4997,7 +4995,7 @@ def build_parser():
             c.add_argument(
                 "--to", required=True, metavar="PATH", help="the prose-style.md to compare against"
             )
-        if name == "adopt":
+        if name == "copy":
             c.add_argument(
                 "--to", required=True, metavar="PATH", help="the prose-style.md to copy into"
             )
@@ -5006,7 +5004,7 @@ def build_parser():
             )
             c.add_argument("--dry-run", action="store_true", help="say what would be copied")
             c.add_argument(
-                "--partial", action="store_true", help="adopt what is valid instead of nothing"
+                "--partial", action="store_true", help="copy what is valid instead of nothing"
             )
         if name == "resolve":
             c.add_argument(
