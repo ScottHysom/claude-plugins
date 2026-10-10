@@ -296,7 +296,7 @@ class DescribeNext:
         )
         code, data = run_json(capsys, a, "next")
         assert code == cli.OK
-        assert data["data"]["issue"] == {"number": 13, "title": "issue 13"}
+        assert data["data"]["issue"] == {"number": 13}
 
     @pytest.mark.spec("next-cmd-offers-free-issue")
     def it_never_offers_a_closed_issue(self, capsys, clone, github):
@@ -329,7 +329,7 @@ class DescribeNextBlockers:
         )
         code, data = run_json(capsys, clone("a"), "next")
         assert code == cli.OK
-        assert data["data"]["issue"] == {"number": 11, "title": "issue 11"}
+        assert data["data"]["issue"] == {"number": 11}
 
     @pytest.mark.spec("next-cmd-skips-blocked-issues")
     def it_names_each_blocked_issue_with_its_open_blockers_when_all_are_blocked(
@@ -369,8 +369,8 @@ class DescribeNextTracking:
         )
         code, data = run_json(capsys, clone("a"), "next", "--tracking", "20")
         assert code == cli.OK
-        assert data["data"]["issue"] == {"number": 12, "title": "issue 12"}
-        assert data["data"]["tracking"] == {"number": 20, "title": "issue 20"}
+        assert data["data"]["issue"] == {"number": 12}
+        assert data["data"]["tracking"] == {"number": 20}
 
     @pytest.mark.spec("next-cmd-follows-tracking-issue")
     def it_passes_over_closed_held_and_blocked_sub_issues(self, capsys, remote, clone, github):
@@ -390,8 +390,8 @@ class DescribeNextTracking:
         )
         code, data = run_json(capsys, a, "next", "--tracking", "20")
         assert code == cli.OK
-        assert data["data"]["issue"] == {"number": 16, "title": "issue 16"}
-        assert data["data"]["blocked"] == [{"number": 14, "title": "issue 14", "blocked_by": [99]}]
+        assert data["data"]["issue"] == {"number": 16}
+        assert data["data"]["blocked"] == [{"number": 14, "blocked_by": [99]}]
 
     @pytest.mark.spec(
         "next-cmd-follows-tracking-issue", "command-splits-output-streams-without-json"
@@ -488,7 +488,7 @@ class DescribeNextPlans:
         code, data = run_json(capsys, clone("a"), "next")
         assert code == cli.OK
         assert data["data"]["issue"] is None
-        assert data["data"]["tracking"] == {"number": 20, "title": "issue 20"}
+        assert data["data"]["tracking"] == {"number": 20}
 
     @pytest.mark.spec("next-cmd-offers-free-issue")
     def it_never_offers_a_plan_or_an_approved_plans_sub_issue_as_work(self, capsys, clone, github):
@@ -506,7 +506,7 @@ class DescribeNextPlans:
         # 10 belongs to a plan nobody approved, so it is offered on its own,
         # and blocked; 30 takes its place before 32.
         assert data["data"]["issue"] is None
-        assert data["data"]["tracking"] == {"number": 30, "title": "issue 30"}
+        assert data["data"]["tracking"] == {"number": 30}
         assert [b["number"] for b in data["data"]["blocked"]] == [10]
 
 
@@ -903,6 +903,17 @@ class DescribeMain:
         assert set(data) == {"version", "command", "ok", "errors", "warnings", "data"}
         assert data["version"] == cli.ENVELOPE_VERSION
         assert data["command"] == argv[0]
+
+    @pytest.mark.spec("command-prints-json-envelope")
+    def it_names_only_the_issue_and_branch_for_claim_release_and_stale(self, capsys, clone, github):
+        a = clone("a")
+        github(make_issue(12, "approved"))
+        claim = run_json(capsys, a, "claim", "12")[1]["data"]
+        github(make_issue(12, "approved", "in-progress"))
+        stale = run_json(capsys, a, "stale")[1]["data"]
+        release = run_json(capsys, a, "release", "12")[1]["data"]
+        row = {"number": 12, "branch": "issue/12"}
+        assert (claim, stale, release) == (row, {"claims": [row]}, row)
 
     @pytest.mark.spec("script-exits-2-when-unrunnable")
     def it_cannot_run_when_gh_fails(self, capsys, clone, github):
