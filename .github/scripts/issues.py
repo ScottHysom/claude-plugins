@@ -37,9 +37,9 @@ Commands:
     claim N     take issue N: push issue/N, switch to it, label and comment.
     release N   give issue N up: delete issue/N if it holds no work, remove the
                 label, comment.
-    stale       claims idle for --days with no open pull request, and labels
-                and branches that disagree, including a closed issue that
-                still has the label and a held issue that lacks it.
+    stale       labels, branches and issue states that disagree, including a
+                closed issue that still has the label and a held issue that
+                lacks it.
     clear N     once issue N is closed, delete the local issue/N if a merged
                 pull request or main has everything on it, first moving any
                 worktree on it to a detached origin/main.
@@ -56,7 +56,8 @@ Every command takes --json and -C/--repo; claim, release, clear, sweep and
 plan file take --dry-run.
 
 Exit codes: 0 clean, 1 ran and found problems (the issue is held or not
-approved, or still open, the branch holds work, a claim is stale, a plan is
+approved, or still open, the branch holds work, a label and a branch
+disagree, a plan is
 refused or not filed as it says), 2 could not run.
 
 Plans. The file-plan skill, at .claude/skills/file-plan/SKILL.md, drives the
@@ -125,9 +126,6 @@ Things that look like bugs and are not:
 - `clear` deletes only the local branch and removes no worktree. GitHub
   deletes the remote branch when the pull request merges, and the desktop app
   manages worktrees.
-- A new claim branch points at main's tip, which may be an old commit, so
-  `stale` counts idle time from the later of the tip's commit date and the most
-  recent claim comment.
 - `plan` reads a {KEY} outside code only, so a body can show the syntax in a
   code span or a fence. As a simplification, a fence is a line opening with
   three or more backticks or tildes, and a code span lies within one line.
@@ -147,7 +145,6 @@ files. A Cowork session asks the owner to claim for it.
 """
 
 import argparse
-import datetime
 import hashlib
 import json
 import os
@@ -166,7 +163,6 @@ REMOTE = "origin"
 BASE = "main"
 BRANCH_PREFIX = "issue/"
 BRANCH_REF_RE = re.compile(r"^refs/heads/%s(\d+)$" % re.escape(BRANCH_PREFIX))
-STALE_DAYS = 7
 LIST_LIMIT = 1000
 CLAIM_MARK = "Claimed on branch"
 MERGED_FIELDS = "number,headRefName,headRefOid"
@@ -335,11 +331,6 @@ def labels(item):
     return {lbl.get("name", "").lower() for lbl in item.get("labels", [])}
 
 
-def parse_time(text):
-    # fromisoformat on 3.9 does not accept the "Z" GitHub writes.
-    return datetime.datetime.fromisoformat(text.replace("Z", "+00:00"))
-
-
 def blockers(repo, number):
     """The numbers of the open issues that block issue `number`."""
     listed = gh_json(repo, "api", BLOCKED_BY_PATH % number)
@@ -367,11 +358,6 @@ def next_data(found, blocked, plan):
         return None if entry is None else {k: v for k, v in entry.items() if k != "title"}
 
     return {"issue": bare(found), "blocked": [bare(b) for b in blocked], "tracking": bare(plan)}
-
-
-def now():
-    """The current time. Tests replace this."""
-    return datetime.datetime.now(datetime.timezone.utc)
 
 
 # --------------------------------------------------------------------------
@@ -807,13 +793,6 @@ def cmd_stale(args, repo):
         "number,state",
     )
     closed = {i["number"] for i in labeled if i.get("state") != "OPEN"}
-    pulls = gh_json(
-        repo, "pr", "list", "--state", "open", "--limit", str(LIST_LIMIT), "--json", "headRefName"
-    )
-    pr_branches = {p["headRefName"] for p in pulls}
-    if held:
-        git(repo, "fetch", "--quiet", REMOTE, *sorted(ref(n) for n in held))
-
     errors, rows = [], []
     for n in sorted(set(held) | {i["number"] for i in labeled}):
         rows.append({"number": n, "branch": branch(n)})
@@ -834,22 +813,10 @@ def cmd_stale(args, repo):
             continue
         if IN_PROGRESS not in labels(item):
             # claim warns and exits 0 when adding the label fails, so a held
-            # issue can be left unlabeled however recent the claim.
+            # issue can be left unlabeled.
             errors.append(
                 "#%d has %s but is not labeled %s; run gh issue edit %d --add-label %s"
                 % (n, branch(n), IN_PROGRESS, n, IN_PROGRESS)
-            )
-        if branch(n) in pr_branches:
-            continue
-        last = parse_time(git(repo, "log", "-1", "--format=%cI", held[n]).stdout.strip())
-        for c in item.get("comments", []):
-            if CLAIM_MARK in (c.get("body") or ""):
-                last = max(last, parse_time(c["createdAt"]))
-        idle = (now() - last).days
-        if idle >= args.days:
-            errors.append(
-                "#%d: %s idle for %d days with no open pull request; ask its agent, or release %d"
-                % (n, branch(n), idle, n)
             )
 
     def human():
@@ -1523,8 +1490,7 @@ def build_parser():
     p.add_argument("--dry-run", action="store_true")
     p.set_defaults(func=cmd_release)
 
-    p = sub.add_parser("stale", parents=[common], help="claims nobody is working on")
-    p.add_argument("--days", type=int, default=STALE_DAYS, help="idle days before a claim is stale")
+    p = sub.add_parser("stale", parents=[common], help="labels and branches that disagree")
     p.set_defaults(func=cmd_stale)
 
     p = sub.add_parser("clear", parents=[common], help="delete a merged claim's local branch")
