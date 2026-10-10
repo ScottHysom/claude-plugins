@@ -289,10 +289,11 @@ class DescribeClaim:
 
 class DescribeNext:
     @pytest.mark.spec("next-cmd-offers-free-issue")
-    def it_skips_labeled_and_branch_held_issues(self, capsys, remote, clone, github):
+    def it_skips_branch_held_issues_whatever_their_labels(self, capsys, remote, clone, github):
         a = clone("a")
-        github(make_issue(10, "approved"))
+        github(make_issue(10, "approved"), make_issue(11, "approved"))
         run(capsys, a, "claim", "10")
+        run(capsys, a, "claim", "11")
         github(
             make_issue(10, "approved"),  # held by branch, label not added yet
             make_issue(11, "approved", "in-progress"),
@@ -305,14 +306,23 @@ class DescribeNext:
         assert data["data"]["issue"] == {"number": 13, "title": "issue 13"}
 
     @pytest.mark.spec("next-cmd-offers-free-issue")
+    def it_offers_a_labeled_issue_that_no_branch_holds(self, capsys, clone, github):
+        github(make_issue(11, "approved", "in-progress"), make_issue(12, "approved"))
+        code, data = run_json(capsys, clone("a"), "next")
+        assert code == cli.OK
+        assert data["data"]["issue"] == {"number": 11, "title": "issue 11"}
+
+    @pytest.mark.spec("next-cmd-offers-free-issue")
     def it_never_offers_a_closed_issue(self, capsys, clone, github):
         github(make_issue(12, "approved", state="CLOSED"))
         assert run_json(capsys, clone("a"), "next")[1]["data"]["issue"] is None
 
     @pytest.mark.spec("next-cmd-offers-free-issue")
-    def it_is_not_a_problem_when_nothing_is_free(self, capsys, clone, github):
+    def it_is_not_a_problem_when_nothing_is_free(self, capsys, remote, clone, github):
+        a = clone("a")
         github(make_issue(11, "approved", "in-progress"))
-        code, out = run(capsys, clone("a"), "next")
+        run(capsys, a, "claim", "11")
+        code, out = run(capsys, a, "next")
         assert code == cli.OK
         assert out.out == "No approved issue is free.\n"
 
@@ -381,7 +391,8 @@ class DescribeNextTracking:
     @pytest.mark.spec("next-cmd-follows-tracking-issue")
     def it_passes_over_closed_held_and_blocked_sub_issues(self, capsys, remote, clone, github):
         a = clone("a")
-        github(make_issue(13, "approved"))
+        github(make_issue(11, "approved"), make_issue(13, "approved"))
+        run(capsys, a, "claim", "11")
         run(capsys, a, "claim", "13")
         github(
             make_issue(20, "approved", "tracking"),
@@ -398,6 +409,18 @@ class DescribeNextTracking:
         assert code == cli.OK
         assert data["data"]["issue"] == {"number": 16, "title": "issue 16"}
         assert data["data"]["blocked"] == [{"number": 14, "title": "issue 14", "blocked_by": [99]}]
+
+    @pytest.mark.spec("next-cmd-follows-tracking-issue")
+    def it_offers_a_labeled_sub_issue_that_no_branch_holds(self, capsys, clone, github):
+        github(
+            make_issue(20, "approved", "tracking"),
+            make_issue(11, "approved", "in-progress"),
+            make_issue(12, "approved"),
+            subs={20: [11, 12]},
+        )
+        code, data = run_json(capsys, clone("a"), "next", "--tracking", "20")
+        assert code == cli.OK
+        assert data["data"]["issue"] == {"number": 11, "title": "issue 11"}
 
     @pytest.mark.spec(
         "next-cmd-follows-tracking-issue", "command-splits-output-streams-without-json"
