@@ -11,15 +11,11 @@
     ".github/scripts/tests/test_check_skills.py::DescribeSteps::it_rejects_a_known_gap_that_has_a_command": 229,
     ".github/scripts/tests/test_check_skills.py::DescribeSteps::it_rejects_a_known_gap_with_no_step": 229,
     ".github/scripts/tests/test_check_skills.py::DescribeSteps::it_warns_for_a_known_gap": 229,
-    ".github/scripts/tests/test_check_tests.py::DescribePlacement::it_warns_when_a_plugin_script_has_no_suite": 239,
-    ".github/scripts/tests/test_issues.py::DescribeStale::it_passes_a_claim_with_an_open_pull_request": 219,
-    ".github/scripts/tests/test_issues.py::DescribeStale::it_passes_a_recent_claim_on_an_old_main": 219,
-    ".github/scripts/tests/test_issues.py::DescribeStale::it_reports_an_idle_claim": 219
+    ".github/scripts/tests/test_check_tests.py::DescribePlacement::it_warns_when_a_plugin_script_has_no_suite": 239
   },
   "surface": {
     ".github/scripts/check-coverage.py::diff --report": 243,
     ".github/scripts/check-coverage.py::floors --report": 243,
-    ".github/scripts/check-specs.py::inventory --report": 257,
-    ".github/scripts/issues.py::stale --days": 219
+    ".github/scripts/check-specs.py::inventory --report": 257
   }
 }

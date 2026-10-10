@@ -481,7 +481,7 @@ python3 .github/scripts/issues.py next         # the oldest approved, unblocked 
 python3 .github/scripts/issues.py next --tracking 347  # the next issue in #347's plan
 python3 .github/scripts/issues.py claim 12     # take it, and switch to branch issue/12
 python3 .github/scripts/issues.py release 12   # give it up without a pull request
-python3 .github/scripts/issues.py stale        # claims nobody seems to be working on
+python3 .github/scripts/issues.py stale        # labels, branches and issue states that disagree
 python3 .github/scripts/issues.py clear 12     # delete the local issue/12 once its pull request merges
 python3 .github/scripts/issues.py sweep        # delete every local branch whose work is on main
 ```
