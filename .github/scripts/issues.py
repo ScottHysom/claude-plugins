@@ -68,7 +68,10 @@ against CLAUDE.md's rules for issues, and checks the plan's keys and links.
 It then orders the issues so each comes after the issues that block it, with
 ties in the order the plan lists them. The tracking issue's body is the plan
 text, after `**Claude:**`, then an Order section written from that order.
-A refused plan's report holds the faults and no token.
+A refused plan's report holds the faults and no token. An issue that is open
+already joins a plan by its number in place of a draft. The report shows it
+as GitHub holds it, and `plan file` links it and adds it as a sub-issue
+without filing or editing it.
 
 The token hashes the plan file's bytes, the repository gh resolves for the
 clone, and its labels. `plan file` refuses a token that does not match them
@@ -135,6 +138,9 @@ Things that look like bugs and are not:
   list. A run cut short adds them in order up to where it stopped, so the
   rest follow in order. A list put out of order some other way is reported by
   the read-back rather than reordered.
+- `plan report` reads an issue named by number for its state, title, labels
+  and body, and does not check them against the rules for a draft, or read a
+  {KEY} in its body. GitHub holds that body, and filing does not change it.
 - When gh creates an issue and prints something that is not its address,
   `plan file` cannot record the number and stops. A re-run would file that
   issue again, so check the repository before running it again.
@@ -185,6 +191,9 @@ AREA_LABEL_RE = re.compile(r"^(?:repo|plugin:.+)$")
 WITHHELD_LABELS = (APPROVED, TRACKING)
 PLAN_KEYS = ("issues", "tracking")
 ISSUE_KEYS = ("key", "title", "labels", "body", "blocked_by")
+# An issue of the plan that is open on GitHub already, named by its number.
+FILED_KEYS = ("key", "number", "blocked_by")
+FILED_FIELDS = "number,title,state,labels,body,url"
 TRACKING_KEYS = ("title", "plan")
 KEY_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_-]*$")
 REFERENCE_RE = re.compile(r"\{([A-Za-z][A-Za-z0-9_-]*)\}")
@@ -214,12 +223,17 @@ Order section follows. A body or the plan names an issue of the plan as
 {KEY}, and filing puts the issue's number there, so #{KEY} becomes #342. A
 {KEY} in a code span or a fence stays as it is.
 
+An issue that is open already takes a "key" and its "number" in place of a
+title, labels and body, and may take "blocked_by". Filing leaves it as it
+is, links it and adds it to the tracking issue in the plan's order.
+
 example:
   {"issues": [
      {"key": "A", "title": "report() hides the token", "labels": ["bug", "repo"],
       "body": "**Claude:**\\n\\n## What's wrong\\n..."},
      {"key": "B", "title": "file() files twice", "labels": ["bug", "repo"],
-      "blocked_by": ["A", 340], "body": "**Claude:**\\n\\n## What's wrong\\nAfter #{A}..."}],
+      "blocked_by": ["A", 340], "body": "**Claude:**\\n\\n## What's wrong\\nAfter #{A}..."},
+     {"key": "C", "number": 338, "blocked_by": ["B"]}],
    "tracking": {"title": "Make filing safe", "plan": "Fix the report first."}}
 """
 
@@ -889,10 +903,55 @@ def is_text(value):
     return isinstance(value, str) and bool(value.strip())
 
 
+def check_blockers(name, blocked_by, faults):
+    """blocked_by without repeats, or [] with a fault when it is not a list of
+    keys and issue numbers."""
+    if not (
+        isinstance(blocked_by, list)
+        and all(
+            isinstance(b, str) or (isinstance(b, int) and not isinstance(b, bool))
+            for b in blocked_by
+        )
+    ):
+        faults.append("%s's blocked_by is not a list of keys and issue numbers" % name)
+        return []
+    deduped = []
+    for b in blocked_by:
+        if b not in deduped:
+            deduped.append(b)
+    return deduped
+
+
+def check_filed(name, key, item, faults):
+    """A row for an issue the plan names by number. Its title, labels and body
+    come from GitHub, in check_plan."""
+    number = item["number"]
+    for extra in sorted(set(item) - set(FILED_KEYS)):
+        faults.append(
+            "%s names an issue filed already, so it takes only %s, and has %r"
+            % (name, ", ".join(FILED_KEYS), extra)
+        )
+    if not (isinstance(number, int) and not isinstance(number, bool) and number > 0):
+        faults.append("%s's number is not an issue number" % name)
+        number = None
+    row = {
+        "key": key if not name.startswith("issue") else None,
+        "name": name,
+        "title": "",
+        "labels": [],
+        "body": "",
+        "blocked_by": check_blockers(name, item.get("blocked_by", []), faults),
+        "number": number,
+        "url": None,
+    }
+    return row, faults
+
+
 def check_issue(index, item, known):
     """One issue of the plan as a row, or None, and the faults in it.
 
     `known` maps each of the repository's labels, in lower case, to its name.
+    A row for an issue filed already carries its number; a draft's is None.
     """
     if not isinstance(item, dict):
         return None, ["issue %d is not a JSON object" % index]
@@ -903,6 +962,8 @@ def check_issue(index, item, known):
         faults.append(
             "%s has no key, or one that is not a letter followed by letters, digits, _ or -" % name
         )
+    if "number" in item:
+        return check_filed(name, key, item, faults)
     for extra in sorted(set(item) - set(ISSUE_KEYS)):
         faults.append("%s has %r, which is not one of %s" % (name, extra, ", ".join(ISSUE_KEYS)))
     title, body, labels = item.get("title"), item.get("body"), item.get("labels")
@@ -941,28 +1002,50 @@ def check_issue(index, item, known):
             faults.append("%s carries `%s`, which only the tracking issue carries" % (name, lbl))
         elif lbl.lower() not in known:
             faults.append("%s carries `%s`, a label the repository does not have" % (name, lbl))
-    if not (
-        isinstance(blocked_by, list)
-        and all(
-            isinstance(b, str) or (isinstance(b, int) and not isinstance(b, bool))
-            for b in blocked_by
-        )
-    ):
-        faults.append("%s's blocked_by is not a list of keys and issue numbers" % name)
-        blocked_by = []
-    deduped = []
-    for b in blocked_by:
-        if b not in deduped:
-            deduped.append(b)
     row = {
         "key": key if not name.startswith("issue") else None,
         "name": name,
         "title": title if is_text(title) else "",
         "labels": [known.get(lbl.lower(), lbl) for lbl in labels],
         "body": body,
-        "blocked_by": deduped,
+        "blocked_by": check_blockers(name, blocked_by, faults),
+        "number": None,
+        "url": None,
     }
     return row, faults
+
+
+def fill_filed(repo, rows):
+    """Fill each row the plan names by number with the issue as GitHub holds
+    it, and return the faults: a number named twice, or one that is closed or
+    cannot be read."""
+    faults, named = [], {}
+    for r in rows:
+        if r["number"] is None:
+            continue
+        if r["number"] in named:
+            faults.append("%s and %s both name #%d" % (named[r["number"]], r["name"], r["number"]))
+            continue
+        named[r["number"]] = r["name"]
+        try:
+            item = gh_json(repo, "issue", "view", str(r["number"]), "--json", FILED_FIELDS)
+        except Fatal as exc:
+            faults.append("%s names #%d, which cannot be read: %s" % (r["name"], r["number"], exc))
+            continue
+        if not is_open(item):
+            faults.append("%s names #%d, which is closed" % (r["name"], r["number"]))
+            continue
+        r["title"], r["body"], r["url"] = item["title"], item.get("body") or "", item["url"]
+        r["labels"] = [lbl["name"] for lbl in item.get("labels", [])]
+    return faults
+
+
+def plan_numbers(ledger, rows):
+    """{key: number} for every issue of the plan known to be filed: by an
+    earlier run of plan file, or before the plan."""
+    numbers = {k: e["number"] for k, e in ledger["issues"].items()}
+    numbers.update({r["key"]: r["number"] for r in rows if r["number"] is not None})
+    return numbers
 
 
 def plan_order(rows):
@@ -1028,7 +1111,9 @@ def check_plan(repo, plan, labels):
         seen.add(row["key"])
         rows.append(row)
 
-    texts = [(r["name"] + "'s body", r["body"]) for r in rows]
+    faults += fill_filed(repo, rows)
+    drafts = [r for r in rows if r["number"] is None]
+    texts = [(r["name"] + "'s body", r["body"]) for r in drafts]
     if tracking:
         texts.append(("the tracking issue's plan", tracking["plan"]))
     for where, text in texts:
@@ -1067,7 +1152,11 @@ def check_plan(repo, plan, labels):
     place = {k: i for i, k in enumerate(order)}
     by_key = {r["key"]: r for r in rows}
     for key in order:
+        if by_key[key]["number"] is not None:
+            continue
         for _, _, ref in references(by_key[key]["body"]):
+            if by_key.get(ref, {}).get("number") is not None:
+                continue
             if ref in place and place[ref] >= place[key]:
                 faults.append(
                     "`%s`'s body names {%s}, which is filed %s, so its number is not known "
@@ -1195,6 +1284,13 @@ def report_markdown(data, faults, warnings):
         out += ["", "## %d. `%s`: %s" % (i, row["key"], row["title"]), ""]
         out.append("- **Labels:** %s" % (", ".join(row["labels"]) or "none"))
         out.append("- **Blocked by:** %s" % blockers_text(row["blocked_by"], numbers))
+        if row["number"] is not None:
+            out.append(
+                "- **Filed already** as #%d, before this plan. plan file leaves it as it is, "
+                "and adds it to the plan." % row["number"]
+            )
+            out += ["", quoted(row["body"])]
+            continue
         if row["key"] in numbers:
             out.append(
                 "- **Filed already** as #%d, by an earlier run. plan file leaves it as it is."
@@ -1244,7 +1340,7 @@ def checked(args, repo):
 
 def cmd_plan_report(args, repo):
     raw, where, labels, rows, tracking, ledger, faults, warnings = checked(args, repo)
-    numbers = {k: e["number"] for k, e in ledger["issues"].items()}
+    numbers = plan_numbers(ledger, rows)
     shown = None
     if tracking:
         shown = {"title": tracking["title"], "body": None, "number": None}
@@ -1258,7 +1354,8 @@ def cmd_plan_report(args, repo):
         "repository": where["name"],
         "url": where["url"],
         "issues": [
-            {k: r[k] for k in ("key", "title", "labels", "body", "blocked_by")} for r in rows
+            {k: r[k] for k in ("key", "number", "title", "labels", "body", "blocked_by")}
+            for r in rows
         ],
         "order": [] if faults else [r["key"] for r in rows],
         "tracking": shown,
@@ -1325,8 +1422,14 @@ def cmd_plan_file(args, repo):
     if faults:
         return emit(args, "plan file", data, [*faults, "nothing was filed"], warnings)
 
-    numbers = {k: e["number"] for k, e in ledger["issues"].items()}
+    numbers = plan_numbers(ledger, rows)
     expected = {}
+
+    def before(r):
+        """The entry for an issue the plan names by number, or None."""
+        if r["number"] is None:
+            return None
+        return {"number": r["number"], "title": r["title"], "url": r["url"]}
 
     def said(what, item):
         if not item["filed"]:
@@ -1347,7 +1450,7 @@ def cmd_plan_file(args, repo):
 
     if args.dry_run:
         for r in rows:
-            entry = ledger["issues"].get(r["key"])
+            entry = before(r) or ledger["issues"].get(r["key"])
             data["issues"].append(
                 {
                     "key": r["key"],
@@ -1370,7 +1473,7 @@ def cmd_plan_file(args, repo):
     ids = {}
     try:
         for r in rows:
-            entry = ledger["issues"].get(r["key"])
+            entry = before(r) or ledger["issues"].get(r["key"])
             filed = entry is None
             if filed:
                 number, url = create_issue(

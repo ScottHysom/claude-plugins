@@ -23,6 +23,9 @@ BODY = (
     "## Done when\n\nIt works.\n\n## Requirements\n\nNone.\n"
 )
 FIRST = 100
+# The body of an issue filed before the plan. It keeps neither the headings
+# a draft needs nor its {KEY}, which only a draft's body has filled in.
+OLD_BODY = "Filed by hand. See #{A}.\n"
 
 
 @pytest.fixture(autouse=True)
@@ -50,7 +53,14 @@ class Hub:
         self.labels = list(labels)
         self.issues = {}
         for number, state in outside:
-            self.issues[number] = {"number": number, "title": "old", "state": state}
+            self.issues[number] = {
+                "number": number,
+                "title": "old #%d" % number,
+                "state": state,
+                "labels": [{"name": "bug"}, {"name": "repo"}],
+                "body": OLD_BODY,
+                "url": "https://github.com/o/r/issues/%d" % number,
+            }
         self.blocked, self.subs, self.calls = {}, {}, []
         self.next = FIRST
         self.creates = 0
@@ -410,6 +420,122 @@ class DescribePlanFile:
             "filed tracking issue #101 The plan  https://github.com/o/r/issues/101",
             "added #100 to #101",
         ]
+
+
+class DescribePlanFiledIssue:
+    @pytest.mark.spec("planreport-cmd-shows-filed-issue")
+    def it_shows_an_issue_named_by_number_as_github_holds_it(self, capsys, tmp_path, repo, hub):
+        gh = hub(outside=[(40, "OPEN")])
+        plan = write_plan(tmp_path, issue("A"), {"key": "B", "number": 40, "blocked_by": ["A"]})
+        code, data = report(capsys, repo, plan)
+        assert code == cli.OK, data["errors"]
+        shown = data["data"]["issues"][1]
+        assert shown["number"] == 40
+        assert shown["title"] == "old #40"
+        assert shown["labels"] == ["bug", "repo"]
+        assert shown["body"] == OLD_BODY
+        assert data["data"]["numbers"] == {"B": 40}
+        assert "2. #40 old #40, blocked by #{A}\n" in data["data"]["tracking"]["body"]
+        written = (repo / cli.PLAN_REPORT).read_text()
+        assert "## 2. `B`: old #40" in written
+        assert "- **Filed already** as #40, before this plan." in written
+        assert "> Filed by hand. See #{A}." in written
+        assert "by an earlier run" not in written
+        assert gh.writes() == []
+
+    @pytest.mark.spec("planreport-cmd-shows-filed-issue")
+    def it_lets_a_draft_name_a_filed_issue_listed_after_it(self, capsys, tmp_path, repo, hub):
+        hub(outside=[(40, "OPEN")])
+        plan = write_plan(
+            tmp_path, issue("A", body=BODY + "Before #{B}."), {"key": "B", "number": 40}
+        )
+        code, data = report(capsys, repo, plan)
+        assert code == cli.OK, data["errors"]
+        assert "> Before #40." in (repo / cli.PLAN_REPORT).read_text()
+
+    @pytest.mark.parametrize(
+        ("issues", "says"),
+        [
+            (({"key": "A", "number": 7},), "`A` names #7, which is closed"),
+            (({"key": "A", "number": 9},), "`A` names #9, which cannot be read"),
+            (
+                ({"key": "A", "number": 40}, {"key": "B", "number": 40}),
+                "`A` and `B` both name #40",
+            ),
+            (
+                ({"key": "A", "number": 40, "title": "new"},),
+                "`A` names an issue filed already, so it takes only key, number, blocked_by, "
+                "and has 'title'",
+            ),
+            (({"key": "A", "number": "40"},), "`A`'s number is not an issue number"),
+            (({"key": "A", "number": 40, "blocked_by": "B"},), "`A`'s blocked_by is not a list"),
+        ],
+        ids=["closed", "missing", "twice", "draft-field", "not-a-number", "blockers"],
+    )
+    @pytest.mark.spec("planreport-cmd-shows-filed-issue")
+    def it_refuses_a_number_it_cannot_group(self, capsys, tmp_path, repo, hub, issues, says):
+        hub(outside=[(7, "CLOSED"), (40, "OPEN")])
+        code, data = report(capsys, repo, write_plan(tmp_path, *issues))
+        assert code == cli.PROBLEMS
+        assert any(says in e for e in data["errors"]), data["errors"]
+        assert data["data"]["token"] is None
+
+    @pytest.mark.spec("planfile-cmd-groups-filed-issue")
+    def it_links_and_groups_a_filed_issue_without_filing_it(self, capsys, tmp_path, repo, hub):
+        gh = hub(outside=[(40, "OPEN")])
+        plan = write_plan(
+            tmp_path,
+            {"key": "B", "number": 40, "blocked_by": ["A"]},
+            issue("A"),
+            issue("C", "B", body=BODY + "After #{B}."),
+        )
+        token = token_for(capsys, repo, plan)
+        code, data = file_plan(capsys, repo, plan, token)
+        assert code == cli.OK, data["errors"]
+        a, c, t = 100, 101, 102
+        assert [(i["key"], i["number"], i["filed"]) for i in data["data"]["issues"]] == [
+            ("A", a, True),
+            ("B", 40, False),
+            ("C", c, True),
+        ]
+        assert gh.issues[40]["body"] == OLD_BODY
+        assert gh.issues[c]["body"] == BODY + "After #40."
+        assert gh.blocked == {40: [a], c: [40]}
+        assert gh.subs == {t: [a, 40, c]}
+        assert "2. #40 old #40, blocked by #100\n" in gh.issues[t]["body"]
+        ledger = json.loads((repo / cli.PLAN_LEDGER).read_text())
+        assert sorted(ledger["issues"]) == ["A", "C"]
+        assert ledger["complete"] is True
+
+    @pytest.mark.spec("planfile-cmd-groups-filed-issue")
+    def it_names_a_filed_issue_as_already_filed(self, capsys, tmp_path, repo, hub):
+        hub(outside=[(40, "OPEN")])
+        plan = write_plan(tmp_path, {"key": "A", "number": 40})
+        token = token_for(capsys, repo, plan)
+        code, dry = file_plan(capsys, repo, plan, token, "--dry-run")
+        assert code == cli.OK, dry["errors"]
+        assert dry["data"]["issues"][0]["number"] == 40
+        assert dry["data"]["issues"][0]["filed"] is False
+        code, out = run(capsys, repo, "plan", "file", "--drafts", str(plan), "--token", token)
+        assert code == cli.OK
+        assert out.out.splitlines() == [
+            "already filed #40 old #40",
+            "filed tracking issue #100 The plan  https://github.com/o/r/issues/100",
+            "added #40 to #100",
+        ]
+
+    @pytest.mark.spec("planfile-cmd-groups-filed-issue")
+    def it_names_a_filed_issue_github_lists_out_of_order(self, capsys, tmp_path, repo, hub):
+        gh = hub(outside=[(40, "OPEN")])
+        plan = write_plan(tmp_path, issue("A"), {"key": "B", "number": 40})
+        token = token_for(capsys, repo, plan)
+        gh.subs[101] = [40]
+        code, data = file_plan(capsys, repo, plan, token)
+        assert code == cli.PROBLEMS
+        assert (
+            "#101 lists its sub-issues as #40, #100, and the plan's order is #100, #40"
+            in (data["errors"][0])
+        )
 
 
 class DescribePlanFileToken:
