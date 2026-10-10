@@ -23,6 +23,9 @@ BLOCKED = [
     "gh issue edit 12 --add-label=approved",
     "gh issue create --title x --body y --label approved",
     "gh issue create -t x -b y -l approved",
+    "gh issue create -t x -b y -lapproved",
+    "gh issue create -t x -b y -l=approved",
+    "gh pr edit 3 -lbug,approved",
     "gh pr edit 3 --add-label approved",
     "gh pr create --fill --label repo --label approved",
     "cd repo && gh issue edit 12 --add-label approved",
@@ -39,6 +42,8 @@ BLOCKED = [
     "gh api repos/ScottHysom/claude-plugins/issues/12/labels -f 'labels[]=approved'",
     "gh api -X POST /repos/o/r/issues/12/labels --raw-field labels[]=approved",
     "gh label edit repo --name approved",
+    "gh label edit repo -napproved",
+    "gh label edit repo -n=approved",
     "gh label create approved --color 0e8a16",
     # shlex cannot split an unclosed quote, so the plain text match decides.
     "gh issue edit 12 --add-label approved 'unclosed",
@@ -46,6 +51,7 @@ BLOCKED = [
 
 ALLOWED = [
     "gh issue edit 12 --add-label bug",
+    "gh issue create -t x -b y -lbug",
     "gh issue edit 12 --remove-label approved",
     "gh issue create --title 'Not approved yet' --body 'approved by nobody' --label bug",
     "gh issue list --label approved",

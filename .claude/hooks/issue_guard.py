@@ -54,7 +54,11 @@ def names_label(value):
 
 
 def flag_values(args, flags):
-    """Values given to any of these flags, as `--flag value` or `--flag=value`."""
+    """Values given to any of these flags, as `--flag value` or `--flag=value`.
+
+    A short flag also takes its value attached, as gh reads it: `-lvalue` and
+    `-l=value` both give `value`.
+    """
     out = []
     for i, arg in enumerate(args):
         for flag in flags:
@@ -62,6 +66,9 @@ def flag_values(args, flags):
                 out.append(args[i + 1])
             elif arg.startswith(flag + "=") and flag.startswith("--"):
                 out.append(arg[len(flag) + 1 :])
+            elif arg.startswith(flag) and not flag.startswith("--") and arg != flag:
+                value = arg[len(flag) :]
+                out.append(value[1:] if value.startswith("=") else value)
     return out
 
 

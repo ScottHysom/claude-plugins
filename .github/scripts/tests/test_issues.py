@@ -304,7 +304,7 @@ class DescribeNext:
         github(make_issue(11, "approved", "in-progress"), make_issue(12, "approved"))
         code, data = run_json(capsys, clone("a"), "next")
         assert code == cli.OK
-        assert data["data"]["issue"] == {"number": 11, "title": "issue 11"}
+        assert data["data"]["issue"] == {"number": 11}
 
     @pytest.mark.spec("next-cmd-offers-free-issue")
     def it_never_offers_a_closed_issue(self, capsys, clone, github):
@@ -414,7 +414,7 @@ class DescribeNextTracking:
         )
         code, data = run_json(capsys, clone("a"), "next", "--tracking", "20")
         assert code == cli.OK
-        assert data["data"]["issue"] == {"number": 11, "title": "issue 11"}
+        assert data["data"]["issue"] == {"number": 11}
 
     @pytest.mark.spec(
         "next-cmd-follows-tracking-issue", "command-splits-output-streams-without-json"
