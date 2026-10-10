@@ -52,6 +52,10 @@ back them. What agents do:
   and tell the owner, and do not work on it anyway. If you stop without
   opening a pull request, run `issues.py release N`. README.md, under
   "Claiming an issue", explains the lock.
+- **Tell the owner how the claim went before any other work.** The owner
+  does not reliably see a command's output. So the next thing after
+  `claim N` is a message in chat. On a win it names #N and the `issue/N`
+  branch. On exit 1 it relays why the claim stopped.
 - **Take a plan's issues through its tracking issue.** Asked for "the next
   issue tracked by #N", run `python3 .github/scripts/issues.py next --tracking N`
   and claim the issue it names. When plain `next` names a tracking issue

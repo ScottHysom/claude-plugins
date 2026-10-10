@@ -959,3 +959,22 @@ class DescribeMain:
         closed_pipe()
         assert cli.main(["next", "-C", str(clone("a"))]) == cli.OK
         assert capsys.readouterr().err == ""
+
+
+_CLAUDE_MD = _PATH.parents[2] / "CLAUDE.md"
+
+
+def issues_section():
+    text = _CLAUDE_MD.read_text(encoding="utf-8")
+    return text.split("\n## Issues\n", 1)[1].split("\n## ", 1)[0]
+
+
+@pytest.mark.spec("claudemd-reports-claim-first")
+class DescribeTheClaimRuleInClaudeMd:
+    def it_tells_the_agent_to_report_the_claim_before_other_work(self):
+        rule = next(item for item in issues_section().split("\n- ") if "how the claim went" in item)
+        assert "before any other work" in rule
+        assert "`claim N`" in rule
+        assert "#N" in rule
+        assert "`issue/N`" in rule
+        assert "exit 1" in rule
