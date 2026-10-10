@@ -38,7 +38,7 @@ ADD_LABEL_FLAGS = ("--label", "-l", "--add-label")
 LABEL_VERBS = {("issue", "create"), ("issue", "edit"), ("pr", "create"), ("pr", "edit")}
 SEPARATORS = {"&&", "||", ";", "|", "&", "(", ")", "\n"}
 PUNCTUATION = "();<>|&\n"
-HEREDOC_OPS = ("<<", "<<-")
+HEREDOC_OPS = ("<<",)
 # How far a quoted command inside a command (bash -c "...") is re-read.
 NESTING_LIMIT = 3
 SHELLS = {"sh", "bash"}
