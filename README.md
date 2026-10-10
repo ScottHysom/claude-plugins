@@ -462,7 +462,9 @@ python3 .github/scripts/issues.py plan file --drafts plan.json --token 3f9a1c0e7
 ```
 
 `plan report` refuses a plan whose issues break CLAUDE.md's rules for
-issues, or whose links name nothing or form a cycle. It orders the issues so
+issues, or whose links name nothing or form a cycle. A plan can also name an
+issue that is open already by its number, and `plan file` groups it with the
+rest without filing it again. It orders the issues so
 each comes after the issues that block it, and writes the plan as it will be
 filed to `.issues-plan/report.md`, ending with an approval token. The owner approves
 that report, and `plan file` takes its token. `plan file` files the issues in

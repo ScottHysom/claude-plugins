@@ -31,6 +31,11 @@ Split the plan into issues, one problem each, as CLAUDE.md asks under
 - `blocked_by`, when it waits on anything: the keys of the issues in the plan
   it waits on, and the numbers of open issues outside it.
 
+An issue that is open already, such as one filed while working another,
+joins the plan as a `key` and its `number`, with `blocked_by` when it waits
+on anything, and nothing else. Filing leaves it as it is, and adds it to the
+tracking issue in its place in the order.
+
 In a body, name another issue of the plan as `#{KEY}`, never by a number you
 expect it to get. Filing puts the issue's number in place of `{KEY}`. A body
 can name only an issue filed before it, so name a blocker from the issue it
@@ -48,13 +53,14 @@ cat > "${TMPDIR:-/tmp}/plan.json" <<'END'
   {"key": "A", "title": "<the title>", "labels": ["bug", "repo"],
    "body": "**Claude:**\n\n## What's wrong\n\n<...>"},
   {"key": "B", "title": "<the title>", "labels": ["enhancement", "repo"],
-   "blocked_by": ["A"], "body": "**Claude:**\n\n## What's wrong\n\nOnce #{A} lands, <...>"}],
+   "blocked_by": ["A"], "body": "**Claude:**\n\n## What's wrong\n\nOnce #{A} lands, <...>"},
+  {"key": "C", "number": 416, "blocked_by": ["B"]}],
  "tracking": {"title": "<the plan's title>", "plan": "<what it is for, and why this order>"}}
 END
 ```
 
 ## Step 2: check the plan
-<!-- spec: planreport-cmd-checks-each-draft, planreport-cmd-checks-plan-links, planreport-cmd-orders-by-links, planreport-cmd-writes-report-file -->
+<!-- spec: planreport-cmd-checks-each-draft, planreport-cmd-checks-plan-links, planreport-cmd-orders-by-links, planreport-cmd-writes-report-file, planreport-cmd-shows-filed-issue -->
 
 ```sh
 python3 .github/scripts/issues.py plan report --drafts "${TMPDIR:-/tmp}/plan.json" --json
@@ -68,8 +74,8 @@ holds. Tell the owner about it.
 When it exits 0, `data.report` is the path of the report: each issue whole,
 in the order it will be filed, and the tracking issue's body as it will be
 filed. The file ends with the approval token, which is `data.token`. An issue
-marked "Filed already" was filed by an earlier run of `plan file` that
-stopped part way, and step 4 leaves it as it is.
+marked "Filed already" was filed before the plan, or by an earlier run of
+`plan file` that stopped part way, and step 4 leaves it as it is.
 
 ## Step 3: take the owner's approval
 <!-- spec: fileplan-shows-report-whole, fileplan-revises-on-comment -->
@@ -102,7 +108,7 @@ turn. The owner's reply is the decision, and it names the token.
 On "file nothing", stop.
 
 ## Step 4: file the plan
-<!-- spec: planfile-cmd-requires-token, planfile-cmd-files-in-order, planfile-cmd-resumes-after-failed-call -->
+<!-- spec: planfile-cmd-requires-token, planfile-cmd-files-in-order, planfile-cmd-resumes-after-failed-call, planfile-cmd-groups-filed-issue -->
 
 ```sh
 python3 .github/scripts/issues.py plan file --drafts "${TMPDIR:-/tmp}/plan.json" --token 3f9a1c0e7b2d4a68 --json
