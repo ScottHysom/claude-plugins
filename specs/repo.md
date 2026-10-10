@@ -292,6 +292,14 @@ filed by hand, recorded in #359.
 - `planfile-cmd-verifies-links` (test): When `plan file` has filed a plan, it
   reads every link and the sub-issues back from GitHub, and exits 1 naming
   each that differs from the plan.
+- `planreport-cmd-shows-filed-issue` (test): When a plan's issue gives the
+  `number` of an issue already filed in place of a draft, `plan report` shows
+  that issue as GitHub holds it, marked as filed already. It refuses a number
+  that is closed, that cannot be read, or that two keys name.
+- `planfile-cmd-groups-filed-issue` (test): When `plan file` files a plan that
+  names an issue by its `number`, it does not file or edit that issue. It adds
+  the issue's "blocked by" links, adds it as a sub-issue in the plan's order,
+  and reads it back with the rest.
 - `fileplan-shows-report-whole` (step): When the file-plan skill asks the
   owner to approve a plan, it shows the report file whole, as a private
   artifact or, where it cannot publish one, in its reply, and never a summary

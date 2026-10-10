@@ -38,9 +38,7 @@ ADD_LABEL_FLAGS = ("--label", "-l", "--add-label")
 LABEL_VERBS = {("issue", "create"), ("issue", "edit"), ("pr", "create"), ("pr", "edit")}
 SEPARATORS = {"&&", "||", ";", "|", "&", "(", ")", "\n"}
 PUNCTUATION = "();<>|&\n"
-HEREDOC_OPS = ("<<", "<<-")
-# How far a quoted command inside a command (bash -c "...") is re-read.
-NESTING_LIMIT = 3
+HEREDOC_OPS = ("<<",)
 SHELLS = {"sh", "bash"}
 WRAPPERS = {"env", "xargs"}
 ASSIGNMENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
@@ -138,7 +136,7 @@ def simple_commands(words):
     return out
 
 
-def check(command, depth=0):
+def check(command):
     """The reason to block this shell command, or None."""
     try:
         # A newline ends a command just as ; does, so it is punctuation here
@@ -160,11 +158,13 @@ def check(command, depth=0):
             reason = gh_blocks(args)
             if reason:
                 return reason
-        # A shell run with -c takes its command as one quoted argument.
-        if depth < NESTING_LIMIT and cmd and cmd[0].split("/")[-1] in SHELLS:
+        # A shell run with -c takes its command as one quoted argument. That
+        # argument is shorter than the command it came from, so the re-reading
+        # ends however deep the nesting goes.
+        if cmd and cmd[0].split("/")[-1] in SHELLS:
             for flag, script in zip(cmd, cmd[1:]):
                 if flag == "-c":
-                    reason = check(script, depth + 1)
+                    reason = check(script)
                     if reason:
                         return reason
     return None

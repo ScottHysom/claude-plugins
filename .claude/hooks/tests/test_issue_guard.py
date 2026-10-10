@@ -7,6 +7,7 @@ here.
 import importlib.util
 import io
 import json
+import shlex
 from pathlib import Path
 
 import pytest
@@ -39,6 +40,7 @@ BLOCKED = [
     "(gh issue edit 12 --add-label approved)",
     "cd repo\ngh issue edit 12 --add-label approved",
     "cat <<'EOF' > notes.md\nsome text\nEOF\ngh issue edit 12 --add-label approved",
+    "cat <<-EOF > notes.md\n\tsome text\n\tEOF\ngh issue edit 12 --add-label approved",
     "gh api repos/ScottHysom/claude-plugins/issues/12/labels -f 'labels[]=approved'",
     "gh api -X POST /repos/o/r/issues/12/labels --raw-field labels[]=approved",
     "gh label edit repo --name approved",
@@ -66,16 +68,29 @@ ALLOWED = [
     "git commit -m 'Scott runs gh issue edit N --add-label approved'",
     "git commit -F - <<'EOF'\ndocs: how to approve\n\ngh issue edit 12 --add-label approved\nEOF",
     "gh pr create --title x --body \"$(cat <<'EOF'\nRun gh issue edit 12 --add-label approved\nEOF\n)\"",
+    "cat <<-EOF > notes.md\n\tgh issue edit 12 --add-label approved\n\tEOF\nls",
     "echo 'gh issue edit 12 --add-label approved'",
     "echo gh issue edit 12 --add-label approved",
     "",
 ]
 
 
+def nested(command, depth):
+    """The command run through `bash -c`, quoted inside itself depth times."""
+    for _ in range(depth):
+        command = "bash -c " + shlex.quote(command)
+    return command
+
+
 class DescribeCheck:
     @pytest.mark.parametrize("command", BLOCKED)
     @pytest.mark.spec("guard-blocks-approved-label")
     def it_blocks_a_command_adding_the_label(self, command):
+        assert issue_guard.check(command), command
+
+    @pytest.mark.spec("guard-blocks-approved-label")
+    def it_blocks_the_label_however_deep_the_shells_nest(self):
+        command = nested("cd x && gh issue edit 12 --add-label approved", 6)
         assert issue_guard.check(command), command
 
     @pytest.mark.parametrize("command", ALLOWED)
