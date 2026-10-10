@@ -203,11 +203,16 @@ any test or does not find any skill step", adds words and no meaning.
 > **Before.** The spec pull request changes no behavior.
 > **After.** The spec pull request does not change any behavior.
 
-### sentences-keep-relative-that: A relative clause keeps its "that"
+### sentences-keep-relative-that: A relative clause with "no" keeps its "that"
 
 "A line no test runs" drops the word that tells the reader a clause has
 started. Write "a line that no test runs", or "a line not run by any test".
-Either form is fine.
+Either form is fine. The same holds for a clause that opens with "nobody" or
+"nothing".
+
+A relative clause without "no", such as "a worktree the desktop app made", may
+drop "that". It keeps "that" only when the reader could take it as attaching
+to another part of the sentence.
 
 **Pattern.** `(?i)\b(?!(?:that|which|with|and|or|of|is|has|by|to|in|for|as|under|was|does|are|when|where|why|so|because|if|since|once|until|while|but)\b)(?![a-z]+(?:s|ed)\b)[a-z]+ no (?!(?:longer|matter)\b)[a-z]+ (?:[a-z]+ ){0,4}(?:[a-z]+s|[a-z]+ed|can|has|have|will)\b`
 **Pattern.** `(?i)\b(?:a|an|the|every|each|any) [a-z]+ (?:nobody|nothing) (?!else\b)[a-z]+`
