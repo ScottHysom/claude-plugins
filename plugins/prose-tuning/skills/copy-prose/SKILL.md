@@ -1,6 +1,6 @@
 ---
-name: adopt-prose
-description: Copy prose rules from one project's prose-style.md into another, or into the rules prose-tuning ships so every new prose-style.md starts with them. Rules the target lacks are added as-is, with a note naming where they came from for the commit description; rules that collide on the same id, and rules that state the same thing under two different ids, are shown side by side in one batch for the author to resolve. Use when asked to adopt another project's prose rules, to promote a rule into the shipped rules, to share a style rule between two projects, or to merge two prose-style.md files. Never commits.
+name: copy-prose
+description: Copy prose rules from one project's prose-style.md into another, or into the rules prose-tuning ships so every new prose-style.md starts with them. Rules the target lacks are added as-is, with a note naming where they came from for the commit description; rules that collide on the same id, and rules that state the same thing under two different ids, are shown side by side in one batch for the author to resolve. Use when asked to copy or adopt another project's prose rules, to promote a rule into the shipped rules, to share a style rule between two projects, or to merge two prose-style.md files. Never commits.
 ---
 
 # Move prose rules between projects
@@ -34,7 +34,7 @@ Promoting a rule into the shipped rules is repo work, done in Claude Code
 against a checkout of `claude-plugins`.
 
 ## Step 1: classify
-<!-- spec: classify-cmd-finds-new-rules, classify-cmd-finds-identical-rules, classify-cmd-finds-colliding-rules, classify-cmd-finds-similar-rules, classify-refuses-unlinted, classify-gives-bodies, adoptprose-rereads-new-rules -->
+<!-- spec: classify-cmd-finds-new-rules, classify-cmd-finds-identical-rules, classify-cmd-finds-colliding-rules, classify-cmd-finds-similar-rules, classify-refuses-unlinted, classify-gives-bodies, copyprose-rereads-new-rules -->
 
 ```sh
 python3 "$PROSE" config classify --file <source> --to <target> --json
@@ -51,7 +51,7 @@ buckets, and `target` naming the target rule it matched, with that rule's
 | colliding | same id, different body | step 3 |
 | similar | different id, and `candidates` lists the target rules that scored close | step 3 |
 
-**The similar bucket is the one that matters.** Adopting a similar rule as new
+**The similar bucket is the one that matters.** Copying a similar rule as new
 leaves the target holding the same instruction twice under two names, and a
 report can then cite only one of them.
 
@@ -65,11 +65,11 @@ words to step 3 as similar. Two rules can say the same thing with no words in
 common. This is judgment, and it is the part of this step the script cannot do.
 The identical and colliding buckets are exact, so leave them as they came.
 
-## Step 2: adopt the new rules
-<!-- spec: adoptprose-passes-each-new-rule, adopt-cmd-copies-byte-for-byte, adopt-cmd-places-by-section -->
+## Step 2: copy the new rules
+<!-- spec: copyprose-passes-each-new-rule, copy-cmd-copies-byte-for-byte, copy-cmd-places-by-section -->
 
 ```sh
-python3 "$PROSE" config adopt --file <source> --to <target> --rule <id> --rule <id> --json
+python3 "$PROSE" config copy --file <source> --to <target> --rule <id> --rule <id> --json
 ```
 
 Pass every rule still in the new bucket after step 1, each as its own
@@ -81,7 +81,7 @@ The command exits 1 and writes nothing while any id is refused, and each
 refusal says what to do.
 
 ## Step 3: the author's answers, in one batch
-<!-- spec: adoptprose-shows-conflicts-once, adoptprose-keeps-target-id -->
+<!-- spec: copyprose-shows-conflicts-once, copyprose-keeps-target-id -->
 
 Ask one `AskUserQuestion` set covering every colliding and every similar pair, each
 showing both bodies in full. Take them from step 1's result: a rule's `body`
@@ -118,7 +118,7 @@ Keep `data.commit_note` for the hand-off. The command exits 1 and writes
 nothing while any answer is refused, and each refusal says why.
 
 ## Step 4: when the target is the shipped rules
-<!-- spec: adoptprose-bumps-shipped-version -->
+<!-- spec: copyprose-bumps-shipped-version -->
 
 Promoting into them carries three extra obligations, because the shipped rules are part of the plugin:
 
@@ -139,7 +139,7 @@ python3 .github/scripts/check-manifest-consistency.py check
   inherits a worked example about something it has never heard of.
 
 ## Step 5: hand off
-<!-- spec: adoptprose-never-commits -->
+<!-- spec: copyprose-never-commits -->
 
 <!-- no-command: hand-off to the author. Steps 2 and 3 hold the commit notes. -->
 

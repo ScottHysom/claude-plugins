@@ -167,5 +167,5 @@ than a blank file, and a project that wants to diverge edits its own copy.
 
 Editing the shipped rules changes what new projects get and changes nothing
 about existing ones, which do not update themselves. A rule from a real
-project reaches the shipped rules through `adopt-prose`, whose `SKILL.md` says
+project reaches the shipped rules through `copy-prose`, whose `SKILL.md` says
 what that also requires, including the version bump.

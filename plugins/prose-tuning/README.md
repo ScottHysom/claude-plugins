@@ -75,7 +75,7 @@ from another project's rules, or from an empty file.
 |---|---|---|
 | `update-prose-config` | Learns rules from your uncommitted edits and writes them into `.claude/rules/prose-style.md` | "update the prose config" |
 | `apply-prose` | Reports where your documents break the rules, and rewrites the passages you approve | "apply the house style" |
-| `adopt-prose` | Copies rules from another project's `prose-style.md` into this one | "adopt the prose rules from ..." |
+| `copy-prose` | Copies rules from another project's `prose-style.md` into this one | "copy the prose rules from ..." |
 
 ## Teaching it your style
 
@@ -161,7 +161,7 @@ some documents, name them when you ask.
 
 ## Sharing rules between projects
 
-Ask Claude to adopt the prose rules from another project. Rules this project
+Ask Claude to copy the prose rules from another project. Rules this project
 lacks are copied across, and Claude gives you a line for your commit
 description saying which project they came from. Claude asks
 you about two cases, side by side and in one round:

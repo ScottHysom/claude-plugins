@@ -345,5 +345,5 @@ message format, and the bridge's lock-file workaround.
 This skill writes inside the project repo it was invoked in, and nowhere else.
 `--from` reads another worktree of the same repo, and the run writes only this
 tree.
-Carrying a rule upstream into the rules this plugin ships is `adopt-prose`'s
+Carrying a rule upstream into the rules this plugin ships is `copy-prose`'s
 job, and it is deliberate rather than automatic.

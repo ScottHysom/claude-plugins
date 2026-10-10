@@ -261,7 +261,7 @@ class DescribeCheckIdCommand:
 
 
 class DescribeRuleSimilarity:
-    """The floor under adopt-prose's similar bucket - a candidate list for a
+    """The floor under copy-prose's similar bucket - a candidate list for a
     person to judge, not a decision the script makes.
     """
 
@@ -310,7 +310,7 @@ class DescribeBodyKey:
     @pytest.mark.spec("classify-cmd-ignores-fill-markers")
     def it_ignores_a_fill_marker(self):
         """A rule awaiting an example is still the same rule. If the marker
-        counted, adopt-prose would offer to add what is already there.
+        counted, copy-prose would offer to add what is already there.
         """
         with_marker = self.rule(["Same rule.", "<!-- FILL: supply an example. -->", ""])
         without = self.rule(["Same", "rule."])
@@ -322,7 +322,7 @@ class DescribeBodyKey:
 
 
 class DescribeConfigClassify:
-    """adopt-prose's step 1. Every source rule lands in one bucket, and two
+    """copy-prose's step 1. Every source rule lands in one bucket, and two
     runs on the same pair of files land it in the same one.
     """
 
@@ -497,8 +497,8 @@ class DescribeConfigClassify:
         assert "0 new, 0 identical, 0 colliding, 1 similar" in out
 
 
-class DescribeConfigAdopt:
-    """adopt-prose's step 2. A new rule reaches the target as the source wrote
+class DescribeConfigCopy:
+    """copy-prose's step 2. A new rule reaches the target as the source wrote
     it, with only its metadata replaced, and never over a rule the target has.
     """
 
@@ -540,36 +540,36 @@ class DescribeConfigAdopt:
         tgt.write_text(self.HEAD + target)
         return src, tgt
 
-    def adopt(self, prose_repo, src, tgt, *argv):
-        return prose_repo.run("config", "adopt", "--file", str(src), "--to", str(tgt), *argv)
+    def copy(self, prose_repo, src, tgt, *argv):
+        return prose_repo.run("config", "copy", "--file", str(src), "--to", str(tgt), *argv)
 
-    @pytest.mark.spec("adopt-cmd-copies-byte-for-byte")
+    @pytest.mark.spec("copy-cmd-copies-byte-for-byte")
     def it_copies_a_rule_byte_for_byte(self, prose_repo):
         src, tgt = self.files(
             prose_repo, "## Sentences\n\n" + self.OWN_SUBJECT, "## Sentences\n\n" + self.COUNT
         )
-        code, _ = self.adopt(prose_repo, src, tgt, "--rule", "sentences-own-subject")
+        code, _ = self.copy(prose_repo, src, tgt, "--rule", "sentences-own-subject")
         assert code == prose.OK
         body = self.OWN_SUBJECT.split("\n", 2)[2]
         assert "\n" + body in tgt.read_text()
 
-    @pytest.mark.spec("adopt-cmd-copies-byte-for-byte")
+    @pytest.mark.spec("copy-cmd-copies-byte-for-byte")
     def it_drops_the_metadata_comment_an_earlier_version_wrote(self, prose_repo):
         src, tgt = self.files(
             prose_repo, "## Sentences\n\n" + self.OWN_SUBJECT, "## Sentences\n\n" + self.COUNT
         )
-        code, _ = self.adopt(prose_repo, src, tgt, "--rule", "sentences-own-subject")
+        code, _ = self.copy(prose_repo, src, tgt, "--rule", "sentences-own-subject")
         text = tgt.read_text()
         assert code == prose.OK
         assert "### sentences-own-subject: Carries its own subject\n\nA sentence" in text
         assert "prose-rule" not in text
 
-    @pytest.mark.spec("adopt-cmd-gives-commit-note")
+    @pytest.mark.spec("copy-cmd-gives-commit-note")
     def it_names_the_source_project_and_the_ids_for_the_commit(self, prose_repo):
         src, tgt = self.files(
             prose_repo, "## Sentences\n\n" + self.OWN_SUBJECT + "\n" + self.COUNT, ""
         )
-        code, env = self.adopt(
+        code, env = self.copy(
             prose_repo,
             src,
             tgt,
@@ -580,31 +580,31 @@ class DescribeConfigAdopt:
         )
         assert (code, env["data"]["commit_note"]) == (
             prose.OK,
-            "Adopted from repo: sentences-own-subject, sentences-count-needs-list",
+            "Copied from repo: sentences-own-subject, sentences-count-needs-list",
         )
 
-    @pytest.mark.spec("adopt-cmd-gives-commit-note")
+    @pytest.mark.spec("copy-cmd-gives-commit-note")
     def it_names_the_source_path_outside_a_repository(self, prose_repo, tmp_path_factory):
         src = tmp_path_factory.mktemp("elsewhere") / "prose-style.md"
         src.write_text(self.HEAD + "## Sentences\n\n" + self.OWN_SUBJECT)
         tgt = prose_repo.root / "target-style.md"
         tgt.write_text(self.HEAD)
-        _, env = self.adopt(prose_repo, src, tgt, "--rule", "sentences-own-subject")
-        assert env["data"]["commit_note"] == "Adopted from %s: sentences-own-subject" % src
+        _, env = self.copy(prose_repo, src, tgt, "--rule", "sentences-own-subject")
+        assert env["data"]["commit_note"] == "Copied from %s: sentences-own-subject" % src
 
     @pytest.mark.spec(
-        "adopt-cmd-gives-commit-note", "repo:command-splits-output-streams-without-json"
+        "copy-cmd-gives-commit-note", "repo:command-splits-output-streams-without-json"
     )
     def it_prints_the_commit_note_without_json(self, prose_repo, capsys):
         src, tgt = self.files(prose_repo, "## Sentences\n\n" + self.OWN_SUBJECT, "")
         capsys.readouterr()
-        argv = ["config", "adopt", "--file", str(src), "--to", str(tgt)]
+        argv = ["config", "copy", "--file", str(src), "--to", str(tgt)]
         code = prose.main([*argv, "--rule", "sentences-own-subject", "-C", str(prose_repo.root)])
         out = capsys.readouterr().out
         assert code == prose.OK
-        assert "for the commit description: Adopted from repo: sentences-own-subject" in out
+        assert "for the commit description: Copied from repo: sentences-own-subject" in out
 
-    @pytest.mark.spec("adopt-cmd-refuses-collision")
+    @pytest.mark.spec("copy-cmd-refuses-collision")
     def it_refuses_an_id_the_target_has(self, prose_repo):
         src, tgt = self.files(
             prose_repo,
@@ -612,7 +612,7 @@ class DescribeConfigAdopt:
             "## Sentences\n\n" + self.OWN_SUBJECT.replace("incomplete", "unfinished"),
         )
         before = tgt.read_bytes()
-        code, env = self.adopt(prose_repo, src, tgt, "--rule", "sentences-own-subject")
+        code, env = self.copy(prose_repo, src, tgt, "--rule", "sentences-own-subject")
         assert code == prose.PROBLEMS
         assert [r["id"] for r in env["data"]["refused"]] == ["sentences-own-subject"]
         assert "collision" in env["errors"][0]
@@ -620,21 +620,21 @@ class DescribeConfigAdopt:
         assert "config resolve" in env["errors"][0]
         assert tgt.read_bytes() == before
 
-    @pytest.mark.spec("adopt-cmd-refuses-unknown")
+    @pytest.mark.spec("copy-cmd-refuses-unknown")
     def it_refuses_an_id_the_source_lacks(self, prose_repo):
         src, tgt = self.files(prose_repo, "## Sentences\n\n" + self.OWN_SUBJECT, "")
-        code, env = self.adopt(prose_repo, src, tgt, "--rule", "sentences-no-such-rule")
+        code, env = self.copy(prose_repo, src, tgt, "--rule", "sentences-no-such-rule")
         assert code == prose.PROBLEMS
         assert [r["id"] for r in env["data"]["refused"]] == ["sentences-no-such-rule"]
 
-    @pytest.mark.spec("adopt-cmd-places-by-section")
+    @pytest.mark.spec("copy-cmd-places-by-section")
     def it_places_a_rule_after_the_last_of_its_section(self, prose_repo):
         src, tgt = self.files(
             prose_repo,
             "## Sentences\n\n" + self.OWN_SUBJECT,
             "## Sentences\n\n" + self.COUNT + "\n## Register\n\n" + self.TONE,
         )
-        code, _ = self.adopt(prose_repo, src, tgt, "--rule", "sentences-own-subject")
+        code, _ = self.copy(prose_repo, src, tgt, "--rule", "sentences-own-subject")
         assert code == prose.OK
         text = tgt.read_text()
         assert (
@@ -645,7 +645,7 @@ class DescribeConfigAdopt:
         assert "> **After.** These rules apply:\n\n### sentences-own-subject" in text
         assert "> **After.** A reader can state it.\n\n## Register" in text
 
-    @pytest.mark.spec("adopt-cmd-places-by-section")
+    @pytest.mark.spec("copy-cmd-places-by-section")
     def it_prints_the_line_it_placed_a_rule_at(self, prose_repo):
         src, tgt = self.files(
             prose_repo,
@@ -653,32 +653,32 @@ class DescribeConfigAdopt:
             "## Sentences\n\n" + self.COUNT + "\n## Register\n\n" + self.TONE,
         )
         prose_repo._capsys.readouterr()
-        argv = ["config", "adopt", "--file", str(src), "--to", str(tgt), "-C", str(prose_repo.root)]
+        argv = ["config", "copy", "--file", str(src), "--to", str(tgt), "-C", str(prose_repo.root)]
         code = prose.main([*argv, "--rule", "sentences-own-subject"])
         out, _ = prose_repo._capsys.readouterr()
         assert code == prose.OK
         line = int(out.split("\n")[0].rsplit(" ", 1)[1])
         assert tgt.read_text().split("\n")[line - 1].startswith("### sentences-own-subject:")
 
-    @pytest.mark.spec("adopt-cmd-places-by-section")
+    @pytest.mark.spec("copy-cmd-places-by-section")
     def it_adds_the_section_heading_when_the_target_has_none(self, prose_repo):
         src, tgt = self.files(
             prose_repo,
             "## Register\n\n" + self.TONE,
             "## Sentences\n\n" + self.COUNT,
         )
-        code, _ = self.adopt(prose_repo, src, tgt, "--rule", "register-plain-words")
+        code, _ = self.copy(prose_repo, src, tgt, "--rule", "register-plain-words")
         assert code == prose.OK
         assert "These rules apply:\n\n## Register\n\n### register-plain-words" in tgt.read_text()
 
-    @pytest.mark.spec("adopt-cmd-keeps-source-order")
+    @pytest.mark.spec("copy-cmd-keeps-source-order")
     def it_keeps_the_source_order_for_rules_going_to_one_place(self, prose_repo):
         src, tgt = self.files(
             prose_repo,
             "## Sentences\n\n" + self.OWN_SUBJECT + "\n" + self.COUNT,
             "## Register\n\n" + self.TONE,
         )
-        code, _ = self.adopt(
+        code, _ = self.copy(
             prose_repo,
             src,
             tgt,
@@ -696,9 +696,9 @@ class DescribeConfigAdopt:
     def it_writes_nothing_on_a_dry_run(self, prose_repo):
         src, tgt = self.files(prose_repo, "## Sentences\n\n" + self.OWN_SUBJECT, "")
         before = tgt.read_bytes()
-        code, env = self.adopt(prose_repo, src, tgt, "--rule", "sentences-own-subject", "--dry-run")
+        code, env = self.copy(prose_repo, src, tgt, "--rule", "sentences-own-subject", "--dry-run")
         assert code == prose.OK
-        assert [a["id"] for a in env["data"]["adopted"]] == ["sentences-own-subject"]
+        assert [a["id"] for a in env["data"]["copied"]] == ["sentences-own-subject"]
         assert tgt.read_bytes() == before
 
     @pytest.mark.spec("repo:command-applies-rest-if-partial")
@@ -707,10 +707,10 @@ class DescribeConfigAdopt:
             prose_repo, "## Sentences\n\n" + self.OWN_SUBJECT, "## Sentences\n\n" + self.COUNT
         )
         before = tgt.read_bytes()
-        code, env = self.adopt(
+        code, env = self.copy(
             prose_repo, src, tgt, "--rule", "sentences-own-subject", "--rule", "sentences-nope"
         )
-        assert (code, env["data"]["adopted"]) == (prose.PROBLEMS, [])
+        assert (code, env["data"]["copied"]) == (prose.PROBLEMS, [])
         assert tgt.read_bytes() == before
 
     @pytest.mark.spec("repo:command-applies-rest-if-partial")
@@ -718,7 +718,7 @@ class DescribeConfigAdopt:
         src, tgt = self.files(
             prose_repo, "## Sentences\n\n" + self.OWN_SUBJECT, "## Sentences\n\n" + self.COUNT
         )
-        code, _ = self.adopt(
+        code, _ = self.copy(
             prose_repo,
             src,
             tgt,
@@ -731,14 +731,14 @@ class DescribeConfigAdopt:
         assert code == prose.PROBLEMS
         assert "### sentences-own-subject" in tgt.read_text()
 
-    @pytest.mark.spec("adopt-cmd-lints-clean")
+    @pytest.mark.spec("copy-cmd-lints-clean")
     def it_leaves_a_target_that_lints_clean(self, prose_repo):
         src, tgt = self.files(
             prose_repo,
             "## Sentences\n\n" + self.OWN_SUBJECT + "\n## Register\n\n" + self.TONE,
             "## Sentences\n\n" + self.COUNT,
         )
-        self.adopt(
+        self.copy(
             prose_repo,
             src,
             tgt,
@@ -751,17 +751,17 @@ class DescribeConfigAdopt:
         _, env = prose_repo.run("config", "list", "--file", str(tgt))
         assert (lint, len(env["data"]["rules"])) == (prose.OK, 3)
 
-    @pytest.mark.spec("adopt-cmd-refuses-unlinted")
+    @pytest.mark.spec("copy-cmd-refuses-unlinted")
     def it_refuses_a_source_that_does_not_lint(self, prose_repo):
         src, tgt = self.files(prose_repo, "## Sentences\n\n### sentences-01: Bad\n\nBody.\n", "")
-        code, _ = self.adopt(prose_repo, src, tgt, "--rule", "sentences-01")
+        code, _ = self.copy(prose_repo, src, tgt, "--rule", "sentences-01")
         assert code == prose.CANNOT_RUN
         assert "does not lint clean" in prose_repo.err
 
-    @pytest.mark.spec("adopt-cmd-refuses-unknown")
+    @pytest.mark.spec("copy-cmd-refuses-unknown")
     def it_refuses_an_id_named_twice(self, prose_repo):
         src, tgt = self.files(prose_repo, "## Sentences\n\n" + self.OWN_SUBJECT, "")
-        code, env = self.adopt(
+        code, env = self.copy(
             prose_repo,
             src,
             tgt,
@@ -775,26 +775,26 @@ class DescribeConfigAdopt:
             {"id": "sentences-own-subject", "reason": "sentences-own-subject is named twice"}
         ]
 
-    @pytest.mark.spec("adopt-cmd-places-by-section")
+    @pytest.mark.spec("copy-cmd-places-by-section")
     def it_places_a_rule_under_the_matching_heading_when_its_section_is_empty(self, prose_repo):
         src, tgt = self.files(
             prose_repo,
             "## Sentences\n\n" + self.OWN_SUBJECT,
             "## Sentences\n\nNo rules yet.\n\n## Register\n\n" + self.TONE,
         )
-        code, _ = self.adopt(prose_repo, src, tgt, "--rule", "sentences-own-subject")
+        code, _ = self.copy(prose_repo, src, tgt, "--rule", "sentences-own-subject")
         assert code == prose.OK
         text = tgt.read_text()
         assert text.count("## Sentences") == 1
         assert "No rules yet.\n\n### sentences-own-subject" in text
         assert "> **After.** A reader can state it.\n\n## Register" in text
 
-    @pytest.mark.spec("adopt-cmd-lints-clean")
+    @pytest.mark.spec("copy-cmd-lints-clean")
     def it_ends_a_target_with_no_final_newline_before_adding_to_it(self, prose_repo):
         src, tgt = self.files(
             prose_repo, "## Register\n\n" + self.TONE, "## Sentences\n\n" + self.COUNT.rstrip("\n")
         )
-        code, _ = self.adopt(prose_repo, src, tgt, "--rule", "register-plain-words")
+        code, _ = self.copy(prose_repo, src, tgt, "--rule", "register-plain-words")
         assert code == prose.OK
         assert "These rules apply:\n\n## Register\n\n### register-plain-words" in tgt.read_text()
         lint, _ = prose_repo.run("config", "lint", "--file", str(tgt))
@@ -805,24 +805,24 @@ class DescribeConfigAdopt:
     def it_refuses_a_missing_target_file(self, prose_repo):
         src, _ = self.files(prose_repo, "## Sentences\n\n" + self.OWN_SUBJECT, "")
         missing = prose_repo.root / "nowhere.md"
-        code, env = self.adopt(prose_repo, src, missing, "--rule", "sentences-own-subject")
+        code, env = self.copy(prose_repo, src, missing, "--rule", "sentences-own-subject")
         assert (code, env) == (prose.CANNOT_RUN, None)
         assert "nowhere.md does not exist" in prose_repo.err
         assert not missing.exists()
 
     @pytest.mark.spec("repo:command-splits-output-streams-without-json")
-    def it_prints_each_adopted_and_refused_id_on_stdout_without_json(self, prose_repo):
+    def it_prints_each_copied_and_refused_id_on_stdout_without_json(self, prose_repo):
         src, tgt = self.files(
             prose_repo, "## Sentences\n\n" + self.OWN_SUBJECT, "## Sentences\n\n" + self.COUNT
         )
         prose_repo._capsys.readouterr()
-        argv = ["config", "adopt", "--file", str(src), "--to", str(tgt), "-C", str(prose_repo.root)]
+        argv = ["config", "copy", "--file", str(src), "--to", str(tgt), "-C", str(prose_repo.root)]
         code = prose.main([*argv, "--rule", "sentences-own-subject", "--rule", "sentences-nope"])
         out, err = prose_repo._capsys.readouterr()
         assert code == prose.PROBLEMS
         assert out == "refused  sentences-nope\n"
-        assert "nothing was written; pass --partial to adopt the rest" in err
+        assert "nothing was written; pass --partial to copy the rest" in err
         code = prose.main([*argv, "--rule", "sentences-own-subject", "--dry-run"])
         out, err = prose_repo._capsys.readouterr()
         assert (code, err) == (prose.OK, "")
-        assert out.startswith("would adopt  sentences-own-subject  at line ")
+        assert out.startswith("would copy  sentences-own-subject  at line ")
