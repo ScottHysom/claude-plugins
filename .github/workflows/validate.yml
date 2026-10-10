@@ -140,12 +140,17 @@ jobs:
       # #!/bin/sh - work on the machine that wrote them. `sh -n` checks each
       # script parses; shellcheck catches the rest. A plugin's shell templates
       # are copied into every project it sets up, so a bug there reaches all of
-      # them.
+      # them. With no script to check, the xargs lines would run nothing and pass,
+      # so the step fails instead.
       # spec: ci-lints-shell
       - name: Lint shell scripts
         run: |
-          git ls-files -z '*.sh' | xargs -0 -r -n1 sh -n
-          git ls-files -z '*.sh' | xargs -0 -r shellcheck
+          if [ -z "$(git ls-files '*.sh')" ]; then
+            echo "::error::git ls-files '*.sh' found no shell script to lint"
+            exit 1
+          fi
+          git ls-files -z '*.sh' | xargs -0 -n1 sh -n
+          git ls-files -z '*.sh' | xargs -0 shellcheck
 
       # prose.py parses a markup grammar and rewrites files in place. Its
       # round-trip property - insert then strip returns the file byte-identical

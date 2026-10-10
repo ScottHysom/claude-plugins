@@ -627,7 +627,8 @@ Source: README.md, under "Formatting and linting" and "Shell scripts".
 - `ci-lints-python` (check): When a pull request is opened or updated, CI lints
   the Python.
 - `ci-lints-shell` (check): When a pull request is opened or updated, CI
-  checks each shell script parses and passes shellcheck.
+  checks each shell script parses and passes shellcheck, and fails when it
+  finds none.
 
 ## need owner-traces-behavior-to-needs: Tie each behavior to the need behind it
 
