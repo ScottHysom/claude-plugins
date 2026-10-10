@@ -152,7 +152,7 @@ import re
 import subprocess
 import sys
 
-ENVELOPE_VERSION = 1
+ENVELOPE_VERSION = 2
 
 OK, PROBLEMS, CANNOT_RUN = 0, 1, 2
 
@@ -351,6 +351,15 @@ def summary(item):
     return {"number": item["number"], "title": item["title"]}
 
 
+def next_data(found, blocked, plan):
+    """next's data: the issues it names, without the titles its plain output prints."""
+
+    def bare(entry):
+        return None if entry is None else {k: v for k, v in entry.items() if k != "title"}
+
+    return {"issue": bare(found), "blocked": [bare(b) for b in blocked], "tracking": bare(plan)}
+
+
 # --------------------------------------------------------------------------
 # commands
 # --------------------------------------------------------------------------
@@ -408,14 +417,13 @@ def cmd_next(args, repo):
         else:
             print("No approved issue is free.")
 
-    data = {"issue": found, "blocked": blocked, "tracking": plan}
-    return emit(args, "next", data, human=human)
+    return emit(args, "next", next_data(found, blocked, plan), human=human)
 
 
 def next_in_plan(args, repo, number):
     """`next --tracking N`: the first sub-issue of #N, in #N's order, to work."""
     item = issue(repo, number)
-    data = {"issue": None, "blocked": [], "tracking": summary(item)}
+    found, blocked, plan = None, [], summary(item)
     problems = []
     if not is_open(item):
         problems.append("#%d is closed; its plan is finished" % number)
@@ -428,10 +436,9 @@ def next_in_plan(args, repo, number):
             "#%d is not labeled %s; ask the owner to approve the plan" % (number, APPROVED)
         )
     if problems:
-        return emit(args, "next", data, problems)
+        return emit(args, "next", next_data(found, blocked, plan), problems)
 
     held = claims(repo)
-    blocked = data["blocked"]
     for sub in sub_issues(repo, number):
         n = sub["number"]
         if not is_open(sub) or n in held:
@@ -444,17 +451,16 @@ def next_in_plan(args, repo, number):
             return emit(
                 args,
                 "next",
-                data,
+                next_data(found, blocked, plan),
                 [
                     "#%d %s is next in #%d's order and is not labeled %s; "
                     "ask the owner to approve it" % (n, sub["title"], number, APPROVED)
                 ],
             )
-        data["issue"] = summary(sub)
+        found = summary(sub)
         break
 
     def human():
-        found = data["issue"]
         if found:
             print("#%d %s" % (found["number"], found["title"]))
         elif blocked:
@@ -463,7 +469,7 @@ def next_in_plan(args, repo, number):
         else:
             print("No sub-issue of #%d is free." % number)
 
-    return emit(args, "next", data, human=human)
+    return emit(args, "next", next_data(found, blocked, plan), human=human)
 
 
 def print_blocked(blocked):
@@ -476,7 +482,7 @@ def print_blocked(blocked):
 
 def cmd_claim(args, repo):
     n = args.number
-    data = {"number": n, "branch": branch(n), "claimed": False}
+    data = {"number": n, "branch": branch(n)}
     item = issue(repo, n)
     if item.get("state") != "OPEN":
         return emit(args, "claim", data, ["#%d is closed" % n])
@@ -520,7 +526,6 @@ def cmd_claim(args, repo):
         if n in claims(repo):
             return emit(args, "claim", data, [held_message(n)])
         raise Fatal("could not push %s: %s" % (branch(n), push.stderr.strip()))
-    data["claimed"] = True
 
     warnings = []
     track = "%s/%s" % (REMOTE, branch(n))
@@ -565,7 +570,7 @@ def held_message(n):
 
 def cmd_release(args, repo):
     n = args.number
-    data = {"number": n, "branch": branch(n), "released": False}
+    data = {"number": n, "branch": branch(n)}
     item = issue(repo, n)
     sha = claims(repo).get(n)
     labeled = IN_PROGRESS in labels(item)
@@ -607,7 +612,6 @@ def cmd_release(args, repo):
     if labeled:
         gh(repo, "issue", "edit", str(n), "--remove-label", IN_PROGRESS)
     gh(repo, "issue", "comment", str(n), "--body", "Released %s." % branch(n))
-    data["released"] = True
     return emit(args, "release", data, human=human)
 
 
