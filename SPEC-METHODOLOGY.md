@@ -15,10 +15,10 @@ has no place in the code, however useful it seems.
 An agent building software fills gaps with guesses. It completes patterns, adds
 options a person would have stopped to ask about, and guards against inputs
 produced by nothing. Martin Fowler and Kent Beck's catalog of code smells calls
-this speculative generality: machinery built for a need that nobody has. Without a
-written record of what the code is for, a reader cannot know whether a behavior was
-ever asked for. Each later change treats the code as the spec, so one made-up
-behavior is built on another.
+this speculative generality: machinery built for a need that nobody has.
+Without a written record of what the code is for, a reader cannot know whether
+a behavior was ever asked for. Each later change treats the code as the spec,
+so one made-up behavior is built on another.
 
 claude-plugins found this in its issue #114. An agent had given every rule in a
 rules file a `source` key with four allowed values. The key passed through each
@@ -153,9 +153,9 @@ The model does only what needs judgment, such as inferring a rule, writing
 prose or deciding whether something conforms. It also calls the tools that a
 script cannot reach.
 
-A **seam** is a point where the model stands between one command's output and the
-next command. A skill keeps a seam only where a judgment or such a tool call
-has to sit between two commands, and one command does the work everywhere
+A **seam** is a point where the model stands between one command's output and
+the next command. A skill keeps a seam only where a judgment or such a tool
+call has to sit between two commands, and one command does the work everywhere
 else. That gives the skill the fewest seams its work allows.
 
 Every seam is one of these kinds:
@@ -288,7 +288,8 @@ and `id` parts, and fails a spec file that breaks them. How it reads them:
   line between.
 - It checks every need, constraint and requirement id against the form
   under "Ids", below.
-- In claude-plugins it refuses `eval`, since the repository does not run any eval yet.
+- In claude-plugins it refuses `eval`, since the repository does not run any
+  eval yet.
 
 The rest is convention, which the owner reviews:
 

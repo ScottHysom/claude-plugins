@@ -26,8 +26,8 @@ ls "$TODOS" || echo "todos is not installed as a plugin here"
 python3 "$TODOS" setup --json
 ```
 
-Run the block as one command, from the project root. If the `ls` fails, the plugin is not installed
-here, so stop.
+Run the block as one command, from the project root. If the `ls` fails, the
+plugin is not installed here, so stop.
 
 `setup` copies the script into the project at `.todos/`, beside a
 `.gitignore` that keeps it out of every commit. Each later command starts a
@@ -77,9 +77,9 @@ and why.
 TODO and another checkout of the repo does. When the author named this tree,
 tell them which checkouts hold TODOs, and stop. Otherwise put one
 `AskUserQuestion` to the author, with an option for each entry giving its
-`root`, `branch` and `files`, and an option to skip every checkout. Ask even when there is only one
-entry, because filing marks the TODOs in that checkout. On a pick, scan
-that one:
+`root`, `branch` and `files`, and an option to skip every checkout. Ask even
+when there is only one entry, because filing marks the TODOs in that checkout.
+On a pick, scan that one:
 
 ```sh
 TODOS=.todos/todos.py && python3 "$TODOS" scan --from "<root>" --json
@@ -148,8 +148,8 @@ When the Artifact tool is not available, or refuses to publish, ask in
 `AskUserQuestion` calls of up to four questions each, in the order the
 questions were written, naming each TODO by its `file:first` and title.
 
-Ask nothing when every TODO is clear. Keep every question in the one round, and never
-ask again after drafting starts.
+Ask nothing when every TODO is clear. Keep every question in the one round, and
+never ask again after drafting starts.
 
 ## Step 3: route and draft
 <!-- spec: dotodos-follows-project-rules, dotodos-follows-todo-kind, dotodos-reuses-open-issues, dotodos-passes-todos-to-skills, dotodos-withholds-facts-from-prose -->

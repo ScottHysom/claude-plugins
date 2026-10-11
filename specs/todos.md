@@ -13,8 +13,8 @@ requirements.
 - A TODO already committed. The skill reads only the changes since the last
   commit.
 - Issue trackers other than GitHub's.
-- Running in Cowork, the Claude desktop app's mode for a user's own files. The plugin needs Claude Code and a clone with a GitHub
-  remote.
+- Running in Cowork, the Claude desktop app's mode for a user's own files. The
+  plugin needs Claude Code and a clone with a GitHub remote.
 - Writing another plugin's files or markup. A TODO reaches another plugin only
   through that plugin's skill.
 - TODOs in a separate clone of the repo. Git lists only the worktrees of the
@@ -141,9 +141,9 @@ recorded there.
   that are not letters, digits or spaces if it has one, `scan` gives the rest
   of the line as the title.
 - `scan-cmd-reads-line-detail` (test): When a TODO's marker is neither empty
-  nor one of `-`, `*`, `+`, `>` or `|`, `scan` gives as its detail the added lines
-  directly below it that open with the same marker at the same indent, up to
-  a blank line or the next TODO, marked handled or not.
+  nor one of `-`, `*`, `+`, `>` or `|`, `scan` gives as its detail the added
+  lines directly below it that open with the same marker at the same indent, up
+  to a blank line or the next TODO, marked handled or not.
 - `scan-cmd-reads-c-and-html-comments` (test): When a TODO's marker contains
   `/*` or `<!--`, and every line to the comment's `*/` or `-->` was added
   since the last commit, `scan` runs the TODO to there, or to the line above

@@ -9,8 +9,8 @@ description: Conform a project's markdown to the rules in its prose-style.md. Re
 written before the rules existed.
 
 **Report first. Change nothing until the author says so.** A style pass that
-silently rewrites three hundred lines produces exactly the diff that nobody reads.
-A reader can tell a rule being applied correctly from a rule being
+silently rewrites three hundred lines produces exactly the diff that nobody
+reads. A reader can tell a rule being applied correctly from a rule being
 misapplied only by seeing which rule was claimed.
 
 ## Locate the script
@@ -167,7 +167,8 @@ findings, because the author may accept one and reject the other.
 proposed rewrite that changes a number, a name, a date or a claim is out of
 scope for this skill no matter how badly the sentence reads.
 
-Write the findings file outside the project, so the run does not leave a stray file in it:
+Write the findings file outside the project, so the run does not leave a stray
+file in it:
 
 ```sh
 cat > "${TMPDIR:-/tmp}/prose-findings.json" <<'END'
@@ -267,7 +268,8 @@ python3 "$PROSE" apply --findings "${TMPDIR:-/tmp}/prose-findings.json" \
 The `--file` flags select from the approved findings. Any files the author
 named in step 2 go after the flags, as they did for `report`.
 
-A rule id or file that does not match any finding is an error rather than an empty run.
+A rule id or file that does not match any finding is an error rather than an
+empty run.
 
 ## Step 6: report and stop
 <!-- spec: applyprose-never-commits -->
@@ -281,8 +283,8 @@ tree dirty.
 
 ## What this skill does not do
 
-This skill does not add rules. A passage that reads badly but does not break any existing rule is a
-note to the author and a candidate for `update-prose-config`. Editing it here
-would be a freelance rewrite wearing a rule's clothing, and whoever reads the
-change later, in the report or in the commit, could not tell it from a rule's
-edit.
+This skill does not add rules. A passage that reads badly but does not break
+any existing rule is a note to the author and a candidate for
+`update-prose-config`. Editing it here would be a freelance rewrite wearing a
+rule's clothing, and whoever reads the change later, in the report or in the
+commit, could not tell it from a rule's edit.

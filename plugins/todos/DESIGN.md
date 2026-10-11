@@ -58,11 +58,11 @@ The author often names the checkout when invoking the skill, as in
 folder, so the skill passes the name as the author gave it and the script
 checks it, rather than the model guessing which worktree a name means. A
 mistyped name is refused with the list of worktrees and their branches.
-`--from` naming this tree reads as if `--from` were left out, so the skill does not need to
-tell this tree from another before passing the name on. Each hand-off from
-`file --from` names the checkout's root and branch, so the receiving skill
-reads the passage where it was left, as CLAUDE.md's hand-off convention asks,
-instead of asking the author again.
+`--from` naming this tree reads as if `--from` were left out, so the skill does
+not need to tell this tree from another before passing the name on. Each
+hand-off from `file --from` names the checkout's root and branch, so the
+receiving skill reads the passage where it was left, as CLAUDE.md's hand-off
+convention asks, instead of asking the author again.
 
 prose-tuning's `carry` copies the edits into the session's tree, because
 Claude Code refuses a worktree session's edits to the main checkout's

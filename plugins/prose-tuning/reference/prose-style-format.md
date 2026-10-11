@@ -56,7 +56,8 @@ or what, its subject is missing.
 > **After.** A reader can state what is inside the file.
 ```
 
-**The id is in the heading.** The heading reads `### <id>: <Title>`, split on the first `: `.
+**The id is in the heading.** The heading reads `### <id>: <Title>`, split on
+the first `: `.
 
 **An id is `<section>-<name>`.** The section is one lower-case word. The name is
 one to four lower-case words joined by `-`, and no word may start with a digit.
@@ -74,9 +75,9 @@ subject, not the wording. A rule whose subject moved far enough to want a
 different name is a different rule, and the one it replaced should have been
 rewritten in place.
 
-A script does not enforce the naming discipline. `config lint` checks the grammar and the
-word count and stops there, the same way it cannot tell that two rules
-contradict each other. Both are left to judgment.
+A script does not enforce the naming discipline. `config lint` checks the
+grammar and the word count and stops there, the same way it cannot tell that
+two rules contradict each other. Both are left to judgment.
 
 **A rule does not carry metadata.** Where a rule came from belongs in the commit
 that adds it. Files written by earlier versions of prose-tuning can carry a
@@ -200,7 +201,8 @@ alone.
 A `prose-style.md` written before this format change carries `sentences-01` and
 its kind, and `config lint` now reports every one of them as an error. There is
 no `config migrate`, because naming a rule takes a reading of what it means.
-Open the file, name each rule, and change the headings. The rest of each rule stays as it is.
+Open the file, name each rule, and change the headings. The rest of each rule
+stays as it is.
 
 Anything outside the file that quoted an old id (a report, a commit message, a
 cross-reference in another document) is stale afterwards. The cross-references

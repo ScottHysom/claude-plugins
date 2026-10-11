@@ -10,15 +10,16 @@ requirements.
 - Code shared between plugins. Each plugin installs on its own and cannot
   import another's.
 - Packages outside the Python standard library in a plugin script.
-- Editing this repo from Cowork, the Claude desktop app's mode for work on a user's own files. Contributors change it from Claude Code, and
-  its plugins serve Cowork sessions in the user's own projects.
+- Editing this repo from Cowork, the Claude desktop app's mode for work on a
+  user's own files. Contributors change it from Claude Code, and its plugins
+  serve Cowork sessions in the user's own projects.
 
 ## need owner-keeps-model-at-seams: Keep the model to judgment and platform seams
 
 When a skill, the instructions a plugin gives Claude for one task, runs script
-commands, the owner wants the model between two of
-them only where it makes a judgment or calls a tool beyond a script's reach, so a
-run does not spend context on work a script could do, or get that work wrong.
+commands, the owner wants the model between two of them only where it makes a
+judgment or calls a tool beyond a script's reach, so a run does not spend
+context on work a script could do, or get that work wrong.
 
 Source: #126, and CLAUDE.md, under "Skills and scripts".
 
@@ -176,9 +177,9 @@ Source: README.md, under "Issues" and "Keeping `approved` meaningful".
 - `guard-allows-quoted-text` (test): When a command only quotes such a
   command, in an argument or a heredoc body, or reads or removes the label,
   issue_guard.py exits 0 and prints nothing.
-- `guard-scans-unparsed-input` (test): When the hook's input fails to parse as JSON, or
-  its command cannot be split, issue_guard.py blocks it if the raw text names
-  `gh`, a label flag and `approved`, and allows it otherwise.
+- `guard-scans-unparsed-input` (test): When the hook's input fails to parse as
+  JSON, or its command cannot be split, issue_guard.py blocks it if the raw
+  text names `gh`, a label flag and `approved`, and allows it otherwise.
 - `settingsjson-registers-guard` (test): When Claude Code runs a Bash command
   in this repo, `.claude/settings.json` runs issue_guard.py first, with 10
   seconds to answer.
@@ -228,8 +229,8 @@ Source: CLAUDE.md, under "Issues", and #469.
 ## need owner-orders-dependent-issues: Leave an issue until its blocker closes
 
 When one issue waits on another, the owner wants agents told to take the next
-issue to leave it until its blocker closes, so an agent builds only on work that has
-landed.
+issue to leave it until its blocker closes, so an agent builds only on work
+that has landed.
 
 Source: the owner's request on 2026-10-04, recorded in #345.
 
@@ -275,10 +276,10 @@ filed by hand, recorded in #359.
   - does not carry exactly one kind label and one area label.
   - carries `approved` or `tracking`.
   - carries a label the repository does not have.
-- `planreport-cmd-checks-plan-links` (test): When a key repeats, a `{KEY}` or
-  a `blocked_by` key does not name an issue in the plan, a body names an issue
-  filed after it, a blocker outside the plan is anything but an open issue, or the
-  links form a cycle, `plan report` refuses the plan and names each fault.
+- `planreport-cmd-checks-plan-links` (test): When a key repeats, a `{KEY}` or a
+  `blocked_by` key does not name an issue in the plan, a body names an issue
+  filed after it, a blocker outside the plan is anything but an open issue, or
+  the links form a cycle, `plan report` refuses the plan and names each fault.
 - `planreport-cmd-orders-by-links` (test): When `plan report` accepts a plan,
   it puts each issue after the issues that block it, with ties in the plan's
   listed order. It shows each issue whole, and the tracking issue's body as
@@ -302,10 +303,10 @@ filed by hand, recorded in #359.
   names an issue by its `number`, it does not file or edit that issue. It adds
   the issue's "blocked by" links, adds it as a sub-issue in the plan's order,
   and reads it back with the rest.
-- `fileplan-shows-report-whole` (step): When the file-plan skill asks the
-  owner to approve a plan, it shows the report file whole, as a private
-  artifact (a page Claude publishes on claude.ai) or, where it cannot publish one, in its reply, rather than a
-  summary of its own.
+- `fileplan-shows-report-whole` (step): When the file-plan skill asks the owner
+  to approve a plan, it shows the report file whole, as a private artifact (a
+  page Claude publishes on claude.ai) or, where it cannot publish one, in its
+  reply, rather than a summary of its own.
 
 ## need owner-sees-held-issues: See from the issue list which issues are held
 
@@ -359,14 +360,14 @@ Source: #289, and README.md, under "Claiming an issue".
     `origin/main`.
   - leaves every worktree in place.
   - deletes the branch.
-- `clear-cmd-keeps-unmerged-work` (test): When #N is open, the local
-  `issue/N` is missing, or it holds a commit that every merged pull request
-  from it lacks and a change `origin/main` lacks, `issues.py clear` exits 1, says
-  what to do next and deletes nothing.
+- `clear-cmd-keeps-unmerged-work` (test): When #N is open, the local `issue/N`
+  is missing, or it holds a commit that every merged pull request from it lacks
+  and a change `origin/main` lacks, `issues.py clear` exits 1, says what to do
+  next and deletes nothing.
 - `clear-cmd-keeps-uncommitted-changes` (test): When a worktree that has
   `issue/N` checked out has uncommitted changes, `issues.py clear N` exits 1,
-  names the worktree and says to commit or discard the changes, and neither moves a
-  worktree nor deletes anything, with or without `--dry-run`.
+  names the worktree and says to commit or discard the changes, and neither
+  moves a worktree nor deletes anything, with or without `--dry-run`.
 
 ## need owner-prevents-stale-branches: Keep finished branches from piling up
 
@@ -413,8 +414,8 @@ Source: README.md, under "Adding a plugin", step 4.
   command with a placeholder, an optional part, a continuation, a comment, a
   heredoc or a list indent, `commands` checks it as the model would run it,
   and reads only shell fences.
-- `commands-cmd-scans-something` (test): When `commands` does not find a shell fence
-  that runs a script, it fails.
+- `commands-cmd-scans-something` (test): When `commands` does not find a shell
+  fence that runs a script, it fails.
 - `ci-runs-commands` (check): When a pull request is opened or updated, CI runs
   `commands`.
 
@@ -646,8 +647,8 @@ Source: README.md, under "Formatting and linting" and "Shell scripts".
   the ruff hook exits 2 with the findings on stderr.
 - `ruffhook-reports-parse-error` (test): When ruff cannot format the file, the
   ruff hook exits 2 with ruff's error.
-- `ruffhook-names-ruff-install` (test): When the ruff hook does not find ruff, it
-  exits 2 and names the command that installs it.
+- `ruffhook-names-ruff-install` (test): When the ruff hook does not find ruff,
+  it exits 2 and names the command that installs it.
 - `settingsjson-registers-ruff-hook` (test): When Claude Code writes or edits
   a file in this repo, `.claude/settings.json` runs the ruff hook, with 30
   seconds to answer.
@@ -795,7 +796,8 @@ conventions".
 
 Deleting an issue takes admin rights on the repository, so a script cannot
 count on undoing an issue it filed. For the same reason, a batch cannot be
-filed all or nothing. This is the repo's own copy of the constraint in `specs/todos.md`.
+filed all or nothing. This is the repo's own copy of the constraint in
+`specs/todos.md`.
 
 Source: GitHub's documentation, "Deleting an issue".
 

@@ -158,8 +158,8 @@ An invented element, such as `<with>`, `<old>` or `<new>`, is closed early by
 the browser, which shows both versions run together.
 
 `<repl>` is the only edit tag that holds another, and it holds exactly one
-`<del>` and one `<ins>`. Since that is the only nesting, the parser never has to decide
-which span a closing tag closes.
+`<del>` and one `<ins>`. Since that is the only nesting, the parser never has
+to decide which span a closing tag closes.
 
 The parser reports one message per fault. A parser that says two things about
 one typo teaches the author to skim its output.

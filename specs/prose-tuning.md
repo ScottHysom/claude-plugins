@@ -52,9 +52,9 @@ rule are the owner's figure, in the ruling on #132.
   author's `<ins>`, `<del>` or `<repl>`, `evidence` reports each as an
   explicit record with its old and new text, and the `why` and `<alt>` it
   carries.
-- `evidence-cmd-reports-standalone-alts` (test): When a file holds an
-  `<alt>` that is not tied to any edit, `evidence` reports it as an explicit record of its
-  own.
+- `evidence-cmd-reports-standalone-alts` (test): When a file holds an `<alt>`
+  that is not tied to any edit, `evidence` reports it as an explicit record of
+  its own.
 - `evidence-cmd-marks-hunk-signals` (test): When an inferred hunk changed
   only numbers, only link targets or only whitespace, `evidence` marks it
   `numeric-only`, `link-only` or `whitespace-only`.
@@ -65,8 +65,9 @@ rule are the owner's figure, in the ruling on #132.
 - `updateproseconfig-asks-about-signals` (step): When a hunk carries a signal,
   update-prose-config takes it to the interview and never straight into a
   rule.
-- `updateproseconfig-makes-rules-at-threshold` (step): When a candidate meets any of these conditions, update-prose-config
-  makes it a rule, and anything else a question:
+- `updateproseconfig-makes-rules-at-threshold` (step): When a candidate meets
+  any of these conditions, update-prose-config makes it a rule, and anything
+  else a question:
     - it occurs two or more times independently.
     - it carries a `why` or an `<alt>`.
     - an answered question settles it.
@@ -87,9 +88,9 @@ rule are the owner's figure, in the ruling on #132.
 - `preflight-cmd-checks-before-teaching` (test): When `preflight --for
   config` runs, it exits 1 on markup that does not parse or a `prose-style.md`
   with errors.
-- `preflight-shows-progress` (test): When `preflight --for config` does not find a
-  blocker, it reports whether `prose-style.md` exists and the markup already
-  in the files.
+- `preflight-shows-progress` (test): When `preflight --for config` does not
+  find a blocker, it reports whether `prose-style.md` exists and the markup
+  already in the files.
 - `list-cmd-gives-every-rule` (test): When `config list --json` runs, it
   gives every rule in `prose-style.md` with its id, its title and its worked
   example.
@@ -247,10 +248,10 @@ document changes only in ways they have seen.
 Source: README.md, under "Checking your documents", and the apply-prose
 description.
 
-- `report-cmd-locates-findings-by-text` (test): When a finding gives its
-  text, `report` and `apply` look for it among the places that start on its
-  line, and refuse it unless it starts at exactly one of them, or at more than
-  one with a `col_start` that says which. They refuse a finding that does not give a text,
+- `report-cmd-locates-findings-by-text` (test): When a finding gives its text,
+  `report` and `apply` look for it among the places that start on its line, and
+  refuse it unless it starts at exactly one of them, or at more than one with a
+  `col_start` that says which. They refuse a finding that does not give a text,
   or that gives a `col_end`.
 - `report-cmd-refuses-empty-spans` (test): When a finding's text is empty,
   `report` and `apply` refuse it and say to rewrite the text beside the gap
@@ -694,12 +695,12 @@ checkout holds edits.
   checkout, by its folder or its branch, or a hand-off carries one,
   update-prose-config passes it to `evidence --from` and `reproduce --from`,
   and does not ask which checkout to learn from.
-- `updateproseconfig-asks-which-checkout` (step): When the author did not name a checkout
-  and `evidence` names two or more other worktrees, update-prose-config asks
-  the author in one `AskUserQuestion` which to learn from, if any, listing
-  each one's path, branch and files. When it names one, update-prose-config
-  reads that one without asking. Either way it gathers the evidence again
-  with `--from`.
+- `updateproseconfig-asks-which-checkout` (step): When the author did not name
+  a checkout and `evidence` names two or more other worktrees,
+  update-prose-config asks the author in one `AskUserQuestion` which to learn
+  from, if any, listing each one's path, branch and files. When it names one,
+  update-prose-config reads that one without asking. Either way it gathers the
+  evidence again with `--from`.
 - `updateproseconfig-names-unreproduced-edits` (step): When
   update-prose-config hands off, it lists each edit `reproduce` left
   unmatched, so the author knows which edits apply-prose may not make again if

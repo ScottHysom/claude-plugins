@@ -49,8 +49,8 @@ plugin's script, which the skills run from there. Git ignores
 the folder, so it never reaches your commits. You can delete it whenever you
 like, and the next run puts it back.
 
-The skills in this plugin do not commit anything. Each one leaves its changes for you
-to review and commit your usual way.
+The skills in this plugin do not commit anything. Each one leaves its changes
+for you to review and commit your usual way.
 
 ## Setting up
 
@@ -147,13 +147,14 @@ Claude first asks whether the rules have been learned from it. On your yes it
 removes the markup, keeping the edits, and stops so you can commit before it
 checks anything. Run it again after the commit.
 
-Claude then lists each passage that breaks a rule, with the file, the line,
-the rule's id and a proposed rewrite. In Claude Code, the list is a private
-page on claude.ai that only you can open. Comment on a rewrite there and send
-the comment to Claude, and Claude revises it or drops it and updates the page.
-Claude changes your documents only once you approve. You can approve the whole list, or only
-some rules, or only some files. If a document, the list or the rules change
-after you approve, nothing is written, and Claude shows you the list again.
+Claude then lists each passage that breaks a rule, with the file, the line, the
+rule's id and a proposed rewrite. In Claude Code, the list is a private page on
+claude.ai that only you can open. Comment on a rewrite there and send the
+comment to Claude, and Claude revises it or drops it and updates the page.
+Claude changes your documents only once you approve. You can approve the whole
+list, or only some rules, or only some files. If a document, the list or the
+rules change after you approve, nothing is written, and Claude shows you the
+list again.
 
 Two proposed rewrites sometimes touch the same passage, such as a fix inside a
 paragraph that another rewrite cuts. Only one of them can apply. Claude shows

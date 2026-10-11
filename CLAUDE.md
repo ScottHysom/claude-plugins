@@ -25,8 +25,9 @@ README.md, under "Issues", has the process, the labels and the checks that
 back them. What agents do:
 
 - **File what you find outside the task.** A problem outside the work in hand
-  gets an issue, rather than an unasked fix or only a mention in chat. One problem per issue. Search first (`gh issue list --search`), and
-  comment on a match rather than opening a second.
+  gets an issue, rather than an unasked fix or only a mention in chat. One
+  problem per issue. Search first (`gh issue list --search`), and comment on a
+  match rather than opening a second.
 - **Title the problem, not the fix.** The body starts with `**Claude:**`, as
   review replies do, then these headings:
   - **What's wrong**: what happens, and a command that shows it.
@@ -89,8 +90,8 @@ requirement is admitted.
   owner.** A new need or constraint goes in the issue, and enters `specs/`
   only once the owner approves that issue. A new requirement under an existing
   need or constraint is listed in the pull request description.
-- **Asked why a behavior exists, answer with its requirement and its need.**
-  If it has no requirement, say so and file an issue. Do not argue for it from the
+- **Asked why a behavior exists, answer with its requirement and its need.** If
+  it has no requirement, say so and file an issue. Do not argue for it from the
   design's own consistency.
 - **Cite the requirement from what verifies it.** A new test carries
   `@pytest.mark.spec("<id>")`, a new skill step carries
@@ -119,9 +120,9 @@ requirement is admitted.
   expects to find there. The script checks every one against the file as it is
   now and rejects what is stale or breaks a rule, rather than trusting it.
 - **The model sits between two commands only at a judgment or a platform
-  seam.** A **seam** is the gap between one command's output and the next command,
-  where the model does whatever joins them. The two kinds that belong to the
-  model:
+  seam.** A **seam** is the gap between one command's output and the next
+  command, where the model does whatever joins them. The two kinds that belong
+  to the model:
   - **Judgment.** The model decides, or relays the author's decision, and the
     next command takes the decision as input. `report`'s approval token goes
     to `apply`, and the token proves the judgment was made on the files as

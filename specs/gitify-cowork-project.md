@@ -72,9 +72,10 @@ Source: the owner's review of #139.
   when the folder is not on the device it prints `missing:` and exits 2.
 - `historysection-leaves-history-to-git` (test): The section that `history`
   appends tells Claude to keep the record of a change out of the documents,
-  never to run a git command that writes through Cowork's device bridge (the `device_bash` and
-  `device_commit_files` tools that reach the user's computer), and to give the
-  user the commit message to commit from their own terminal.
+  never to run a git command that writes through Cowork's device bridge (the
+  `device_bash` and `device_commit_files` tools that reach the user's
+  computer), and to give the user the commit message to commit from their own
+  terminal.
 - `gitifyproject-adds-history-to-repo` (step): When the folder is already a
   git repo, gitify-project offers to add only the Git history section to its
   `CLAUDE.md`, runs `history`'s command on a yes, and tells the user to commit

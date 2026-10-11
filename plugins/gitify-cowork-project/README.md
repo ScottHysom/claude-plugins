@@ -25,14 +25,14 @@ and a project that wants a house style adds one separately.
 ## A folder that is already a git repository
 
 A folder that is already a git repository has a history of its own, and the
-plugin does not take it over. It does not write any of the files below, and leaves
-the Project Instructions field as it is. Claude offers one thing instead: a
-short section at the end of the folder's `CLAUDE.md` (which it creates if
-there is none) telling Claude to leave change history to git. Like the
-section described under "What you get", it tells Claude to keep dated notes
+plugin does not take it over. It does not write any of the files below, and
+leaves the Project Instructions field as it is. Claude offers one thing
+instead: a short section at the end of the folder's `CLAUDE.md` (which it
+creates if there is none) telling Claude to leave change history to git. Like
+the section described under "What you get", it tells Claude to keep dated notes
 out of the documents and how to read the history. There is no `commit.sh`, so
-it tells Claude to give you each commit message to commit yourself. You
-review the section and commit it the same way.
+it tells Claude to give you each commit message to commit yourself. You review
+the section and commit it the same way.
 
 ## What you get
 

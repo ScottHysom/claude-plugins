@@ -33,8 +33,8 @@ skill's first step says so and stops when the script is missing.
 A Cowork Project's instructions field is not versioned, and a copy of it in the
 folder drifts from it the first time either is edited. So the field's content
 moves into `CLAUDE.md` at the root of the folder, copied exactly, and the field
-holds one line that points there. That line stays the same from then on, so there is
-nothing left to drift.
+holds one line that points there. That line stays the same from then on, so
+there is nothing left to drift.
 
 The note at the top of `CLAUDE.md` says how the file works. It is an HTML
 comment on lines of its own, which Cowork leaves out when it loads the file, so

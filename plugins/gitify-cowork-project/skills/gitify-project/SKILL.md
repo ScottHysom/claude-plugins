@@ -158,11 +158,11 @@ itself. The field reaches every conversation from its start, so this line gets
 ## Step 6: a folder that is already a git repo
 <!-- spec: gitifyproject-adds-history-to-repo -->
 
-Come here only from step 1's `repo:`, and skip steps 2 to 5. This skill does not take over a repo, write its `.gitignore`,
-`commit.sh` or `setup.sh`, or move the Project Instructions. It can add one
-thing: a "Git history" section at the end of the root `CLAUDE.md`, which tells
-Claude to keep the record of a change out of the documents and to leave the
-commit to the user.
+Come here only from step 1's `repo:`, and skip steps 2 to 5. This skill does
+not take over a repo, write its `.gitignore`, `commit.sh` or `setup.sh`, or
+move the Project Instructions. It can add one thing: a "Git history" section at
+the end of the root `CLAUDE.md`, which tells Claude to keep the record of a
+change out of the documents and to leave the commit to the user.
 
 Ask the user whether to add it. On a yes:
 

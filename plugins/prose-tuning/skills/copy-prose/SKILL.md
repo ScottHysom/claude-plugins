@@ -120,7 +120,8 @@ nothing while any answer is refused, and each refusal says why.
 ## Step 4: when the target is the shipped rules
 <!-- spec: copyprose-bumps-shipped-version -->
 
-Promoting into the shipped rules carries three extra obligations, because they are part of the plugin:
+Promoting into the shipped rules carries three extra obligations, because they
+are part of the plugin:
 
 ```sh
 python3 .github/scripts/check-manifest-consistency.py check
@@ -143,7 +144,7 @@ python3 .github/scripts/check-manifest-consistency.py check
 
 <!-- no-command: hand-off to the author. Steps 2 and 3 hold the commit notes. -->
 
-Report what changed, and give the author the `data.commit_note` of steps 2
-and 3 as the lines for their commit description. `prose-style.md` does not record where
-a rule came from, so the commit is where that note lives. Leave the working
-tree dirty. **Never commit.**
+Report what changed, and give the author the `data.commit_note` of steps 2 and
+3 as the lines for their commit description. `prose-style.md` does not record
+where a rule came from, so the commit is where that note lives. Leave the
+working tree dirty. **Never commit.**

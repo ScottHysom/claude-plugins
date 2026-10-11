@@ -2,8 +2,8 @@
 
 A personal plugin marketplace for Claude. A **marketplace** is a catalog of
 plugins that Claude can install from, and a **plugin** bundles skills, the
-instructions Claude follows for one kind of task, with the scripts they run. Add it once, then install any plugin
-listed below.
+instructions Claude follows for one kind of task, with the scripts they run.
+Add it once, then install any plugin listed below.
 
 Plugins here may target Cowork, Claude Code, or both. Cowork is the Claude
 desktop app's mode for work on a user's own files, in which Claude runs in a
@@ -199,19 +199,20 @@ across to its own script directory and puts it on `sys.path`; CI picks it up
 without any edit at the repo root.
 
 The CI scripts and hooks keep their suites directly beside them, because an
-install does not copy anything under `.github/` or `.claude/`. Their tests load the script by path with
-`importlib.util.spec_from_file_location`, from the directory above the test
-file, since names like `check-tests.py` cannot be imported by name.
-`.github/scripts/tests/test_issues.py` shows the pattern. A new script in
-either directory does not need any config edit. A new directory of scripts does
-need its `tests/` added to `testpaths`: pytest does not walk into directories
-whose names start with a dot, so these roots are listed by path.
+install does not copy anything under `.github/` or `.claude/`. Their tests load
+the script by path with `importlib.util.spec_from_file_location`, from the
+directory above the test file, since names like `check-tests.py` cannot be
+imported by name. `.github/scripts/tests/test_issues.py` shows the pattern. A
+new script in either directory does not need any config edit. A new directory
+of scripts does need its `tests/` added to `testpaths`: pytest does not walk
+into directories whose names start with a dot, so these roots are listed by
+path.
 
-A directory under `tests/` does not get an `__init__.py`. Without one, pytest puts each test
-file's own directory on `sys.path` and names the module by its bare stem, which
-is what lets a helper like `prose_samples.py` resolve and what keeps two
-`conftest.py` files from colliding. For the same reason test module basenames
-are unique across the whole repo, not just within a plugin.
+A directory under `tests/` does not get an `__init__.py`. Without one, pytest
+puts each test file's own directory on `sys.path` and names the module by its
+bare stem, which is what lets a helper like `prose_samples.py` resolve and what
+keeps two `conftest.py` files from colliding. For the same reason test module
+basenames are unique across the whole repo, not just within a plugin.
 
 Every plugin's `conftest.py` is imported under the same module name, so a test
 never imports from `conftest` by name: when one run loads more than one plugin's
@@ -221,11 +222,11 @@ Hypothesis strategy is built from, goes in a helper module named after the
 plugin, like `tests/prose-tuning/prose_samples.py`. `ruff check` fails on a
 `conftest` import.
 
-CI runs the suite on Python 3.9 and 3.13. The
-scripts have to run under whatever Python is already on the machine, which on
-macOS is still 3.9, so the scripts use neither a walrus in a comprehension nor `X | Y` unions. The
-floor constrains the test dependencies as well; `requirements-dev.txt` says
-how, next to the pins it applies to.
+CI runs the suite on Python 3.9 and 3.13. The scripts have to run under
+whatever Python is already on the machine, which on macOS is still 3.9, so the
+scripts use neither a walrus in a comprehension nor `X | Y` unions. The floor
+constrains the test dependencies as well; `requirements-dev.txt` says how, next
+to the pins it applies to.
 
 ### Coverage
 
@@ -289,13 +290,13 @@ requirement as `repo:<id>`.
 - a need, constraint or requirement id that does not read as its subject and
   then a verb, the form SPEC-METHODOLOGY.md gives under "Ids"
 
-The tests and steps still waiting on a ruling are listed in `.github/untraced.json`, each
-with the open issue that will trace it, and pass with a warning. When one
-gains a citation, its entry comes out in the same pull request, and `trace` fails
-until it does. `trace` also fails an entry, there or in check-skills.py's
-`KNOWN_SEAMS`, whose issue has closed. It reads the issues through
-`GITHUB_TOKEN` and `GITHUB_REPOSITORY`, which CI sets, and warns that it did
-not look when they are unset.
+The tests and steps still waiting on a ruling are listed in
+`.github/untraced.json`, each with the open issue that will trace it, and pass
+with a warning. When one gains a citation, its entry comes out in the same pull
+request, and `trace` fails until it does. `trace` also fails an entry, there or
+in check-skills.py's `KNOWN_SEAMS`, whose issue has closed. It reads the issues
+through `GITHUB_TOKEN` and `GITHUB_REPOSITORY`, which CI sets, and warns that
+it did not look when they are unset.
 
 `surface` fails a subcommand, option or `choices` value of a plugin script or a
 `.github/scripts/` script that is not named in backticks by any requirement,
@@ -378,8 +379,9 @@ problem whoever wrote it. Ruff runs as you go in two places, so that rarely happ
 - **Claude Code** runs `.claude/hooks/ruff.py` after every edit to a `.py`
   file, set up in `.claude/settings.json`. It sorts imports, formats, and hands
   any remaining lint problem back to Claude. The hook's docstring says why it
-  does not fix anything else. It needs ruff installed in `.venv` or on `PATH`, and tells
-  Claude when it is not. In a git worktree it uses the main checkout's `.venv`.
+  does not fix anything else. It needs ruff installed in `.venv` or on `PATH`,
+  and tells Claude when it is not. In a git worktree it uses the main
+  checkout's `.venv`.
 - **VS Code** formats and sorts imports on save, and shows lint problems as you
   type, using the committed `.vscode/settings.json`. Accept the prompt to install
   the recommended Ruff extension when you open the folder. The extension uses
@@ -552,8 +554,8 @@ tell an agent adding `approved` from the owner adding it. What covers that:
 - **Only the owner adds the label.** `.claude/hooks/issue_guard.py` blocks any
   command Claude Code runs that would add it. To approve with Claude's help,
   run `! gh issue edit <N> --add-label approved`: the `!` runs it in your own
-  shell, where Claude Code's hooks do not run. The hook reads command text, so it stops a
-  mistake but not a determined workaround. Cowork does not run it.
+  shell, where Claude Code's hooks do not run. The hook reads command text, so
+  it stops a mistake but not a determined workaround. Cowork does not run it.
 - **Work closes only approved issues.** The `validate` job runs
   `.github/scripts/check-linked-issues.py`, which fails a pull request whose
   title, description or commits would close an issue without `approved`. It

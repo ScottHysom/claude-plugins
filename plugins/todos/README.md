@@ -102,8 +102,8 @@ prose rules, when you have one, so the note becomes a rule for how your
 documents read. A `TODO(docs):` is a change to what a document says, and
 always becomes an issue.
 
-Claude does not send anything to GitHub before you approve. If anything changes between the
-report and the filing, Claude shows you a fresh report first.
+Claude does not send anything to GitHub before you approve. If anything changes
+between the report and the filing, Claude shows you a fresh report first.
 
 ## What it changes
 
@@ -134,12 +134,12 @@ renders:
 <!-- - TODO-HANDLED(#42): say which folders the layout leaves out -->
 ```
 
-Claude leaves the rest of your files as they were. Delete the markers when you commit, or
-keep them as pointers to where each TODO went. While a markdown file holds a
-marker you have not committed, prose-tuning's apply-prose waits, because the
-file has uncommitted changes. apply-prose is the skill in the prose-tuning
-plugin that rewrites your markdown to follow your project's house style.
-Commit the file and it runs.
+Claude leaves the rest of your files as they were. Delete the markers when you
+commit, or keep them as pointers to where each TODO went. While a markdown file
+holds a marker you have not committed, prose-tuning's apply-prose waits,
+because the file has uncommitted changes. apply-prose is the skill in the
+prose-tuning plugin that rewrites your markdown to follow your project's house
+style. Commit the file and it runs.
 
 The plugin keeps a copy of its script in `.todos/` in your project, with its
 own `.gitignore`, so it never shows up in a commit. Claude never commits. You
