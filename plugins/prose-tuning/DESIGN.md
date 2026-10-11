@@ -125,9 +125,14 @@ Where the skill cannot publish, it gives the file whole in its reply.
 - resolving tags
 - reading the config
 
-The model does only what needs judgment: inferring a rule, writing prose,
-deciding whether a passage conforms. The script's module docstring lists its
-commands, and the parts of it that look like bugs and are not.
+The model does only what needs judgment:
+
+- inferring a rule
+- writing prose
+- deciding whether a passage conforms
+
+The script's module docstring lists its commands, and the parts of it that
+look like bugs and are not.
 
 These parts of the script carry the design.
 
