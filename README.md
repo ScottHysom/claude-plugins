@@ -3,7 +3,11 @@
 A personal plugin marketplace for Claude. Add it once, then install any plugin
 listed below.
 
-Plugins here may target Cowork, Claude Code, or both. **Each plugin's
+Plugins here may target Cowork, Claude Code, or both. Cowork is the Claude
+desktop app's mode for work on a user's own files, in which Claude runs in a
+cloud container. Cowork's **device bridge** is the set of tools, such as
+`device_bash`, that reach the user's connected folder from that container,
+through a Linux virtual machine on the user's computer. **Each plugin's
 description says which surface it needs.** The plugin format is identical
 across surfaces, but a plugin that calls Cowork's device bridge will not work
 in Claude Code, and installing it there will fail confusingly rather than
@@ -308,6 +312,11 @@ need it serves. The items waiting on an issue are under `surface` in
 - that closes an issue edited after `approved` was last added to it.
 
 To re-approve an edited issue, remove the label and add it again.
+
+A plugin written before `specs/` existed gets its needs and requirements by
+**backfill**: they are drafted from sources outside the code, and the owner
+rules on what the code does that no need covers. SPEC-METHODOLOGY.md, under
+"An existing codebase", has the steps.
 
 `inventory` lists what a plugin's backfill has to trace. It reads a coverage
 report that records which test ran each line:
