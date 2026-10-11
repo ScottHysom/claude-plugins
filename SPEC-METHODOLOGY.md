@@ -167,11 +167,11 @@ Every seam is one of these kinds:
   The token carries the renter's approval across the seam.
 - **Platform.** The model calls a tool that a script cannot reach, such as one
   that asks the user a question or writes to the user's computer.
-- **Courier.** The model does work a script could do, in one of these ways:
-  - it carries a value from one command's output into the next, unchanged
-  - it chooses what to do from an exit code, by a table in its instructions
-  - it verifies something a command could verify itself
-  - it edits a file by a rule
+- **Courier.** The model does work a script could do when it:
+  - carries a value from one command's output into the next, unchanged
+  - chooses what to do from an exit code, by a table in its instructions
+  - verifies something a command could verify itself
+  - edits a file by a rule
 
 A courier seam costs context on every run, and it is a place the model can go
 wrong. The script does that work instead, under these rules:
