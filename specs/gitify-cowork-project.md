@@ -72,8 +72,10 @@ Source: the owner's review of #139.
   when the folder is not on the device it prints `missing:` and exits 2.
 - `historysection-leaves-history-to-git` (test): The section that `history`
   appends tells Claude to keep the record of a change out of the documents,
-  never to run a git command that writes through the bridge, and to give the
-  user the commit message to commit from their own terminal.
+  never to run a git command that writes through Cowork's device bridge (the
+  `device_bash` and `device_commit_files` tools that reach the user's
+  computer), and to give the user the commit message to commit from their own
+  terminal.
 - `gitifyproject-adds-history-to-repo` (step): When the folder is already a
   git repo, gitify-project offers to add only the Git history section to its
   `CLAUDE.md`, runs `history`'s command on a yes, and tells the user to commit
@@ -130,8 +132,8 @@ file is the owner's, in the ruling on #130.
 ## need user-keeps-own-files: Keep the user's files as they are
 
 When the folder is missing, or already has a file with the name of one Claude
-would write, the user wants Claude to stop, so nothing of theirs is
-overwritten.
+would write, the user wants Claude to stop, so Claude does not overwrite
+any of their files.
 
 Source: README.md, under "Setting it up".
 
@@ -176,7 +178,7 @@ instructions", and the gitify-project description.
   files, it prints the one line for the Project Instructions field. The line
   names `CLAUDE.md` at the project's path, says the project's documents live
   only in that folder, and tells Claude to ask for access when the folder is
-  not connected and never to write project documents anywhere else.
+  not connected, and to write project documents only in that folder.
 - `gitifyproject-hands-off-field-line` (step): When the files are on the
   device, gitify-project gives the user that line to put in place of
   everything in the field.
@@ -187,8 +189,9 @@ instructions", and the gitify-project description.
 ## need user-keeps-documents-in-folder: Keep every document in the project's folder
 
 When a session can't reach the project's folder, the user wants Claude to ask
-for it, and never to write project documents anywhere else, so the documents
-don't split between the folder and the claude.ai Project.
+for it, and to write project documents only in that folder, so the documents
+all stay in the folder rather than splitting between it and the claude.ai
+Project.
 
 Source: #297.
 

@@ -1,7 +1,9 @@
 # claude-plugins
 
-A personal plugin marketplace for Claude. Add it once, then install any plugin
-listed below.
+A personal plugin marketplace for Claude. A **marketplace** is a catalog of
+plugins that Claude can install from, and a **plugin** bundles skills with the
+scripts they run.
+Add it once, then install any plugin listed below.
 
 Plugins here may target Cowork, Claude Code, or both. Cowork is the Claude
 desktop app's mode for work on a user's own files, in which Claude runs in a
@@ -9,7 +11,7 @@ cloud container. Cowork's **device bridge** is the set of tools, such as
 `device_bash`, that reach the user's connected folder from that container,
 through a Linux virtual machine on the user's computer. **Each plugin's
 description says which surface it needs.** The plugin format is identical
-across surfaces, but a plugin that calls Cowork's device bridge will not work
+across surfaces. A plugin that calls Cowork's device bridge will not work
 in Claude Code, and installing it there will fail confusingly rather than
 loudly.
 
@@ -168,8 +170,8 @@ a clone.
 
 That is why the suites are not beside the scripts they test. **Everything under
 `plugins/<name>/` is copied verbatim into every install**. The manifest points
-each plugin at its own directory and the whole subtree is copied, with no
-`files` or `exclude` key, no `.claudeignore` and no build step to hold anything
+each plugin at its own directory and the whole subtree is copied, without a
+`files` or `exclude` key, a `.claudeignore` or a build step to hold anything
 back. A test file there reaches every user.
 `python3 .github/scripts/check-tests.py placement` is what fails a pull request
 that puts one there; its docstring says what it rejects.
@@ -189,27 +191,28 @@ Where a suite goes depends on where the script it tests lives:
 | `.claude/hooks/` | `.claude/hooks/tests/` |
 
 `pytest` from the repo root collects all of them, from the roots listed under
-`testpaths` in `pytest.ini`. A test file anywhere else is never run, and
-nothing reports it missing, so `check-tests.py placement` fails it.
+`testpaths` in `pytest.ini`. A test file anywhere else is skipped
+without a report, so `check-tests.py placement` fails it.
 
 A new plugin adding a script adds `tests/<name>/conftest.py`, which reaches
-across to its own script directory and puts it on `sys.path`; nothing at the
-repo root needs editing for CI to pick it up.
+across to its own script directory and puts it on `sys.path`; CI picks it up
+without any edit at the repo root.
 
-The CI scripts and hooks keep their suites directly beside them, because nothing
-under `.github/` or `.claude/` ships. Their tests load the script by path with
-`importlib.util.spec_from_file_location`, from the directory above the test
-file, since names like `check-tests.py` cannot be imported by name.
-`.github/scripts/tests/test_issues.py` shows the pattern. A new script in
-either directory does not need any config edit. A new directory of scripts does
-need its `tests/` added to `testpaths`: pytest does not walk into directories
-whose names start with a dot, so these roots are listed by path.
+The CI scripts and hooks keep their suites directly beside them, because an
+install does not copy anything under `.github/` or `.claude/`. Their tests load
+the script by path with `importlib.util.spec_from_file_location`, from the
+directory above the test file, since names like `check-tests.py` cannot be
+imported by name. `.github/scripts/tests/test_issues.py` shows the pattern. A
+new script in either directory does not need any config edit. A new directory
+of scripts does need its `tests/` added to `testpaths`: pytest does not walk
+into directories whose names start with a dot, so these roots are listed by
+path.
 
-Nothing under `tests/` gets an `__init__.py`. Without one, pytest puts each test
-file's own directory on `sys.path` and names the module by its bare stem, which
-is what lets a helper like `prose_samples.py` resolve and what keeps two
-`conftest.py` files from colliding. For the same reason test module basenames
-are unique across the whole repo, not just within a plugin.
+A directory under `tests/` does not get an `__init__.py`. Without one, pytest
+puts each test file's own directory on `sys.path` and names the module by its
+bare stem, which is what lets a helper like `prose_samples.py` resolve and what
+keeps two `conftest.py` files from colliding. For the same reason test module
+basenames are unique across the whole repo, not just within a plugin.
 
 Every plugin's `conftest.py` is imported under the same module name, so a test
 never imports from `conftest` by name: when one run loads more than one plugin's
@@ -219,11 +222,11 @@ Hypothesis strategy is built from, goes in a helper module named after the
 plugin, like `tests/prose-tuning/prose_samples.py`. `ruff check` fails on a
 `conftest` import.
 
-CI runs the suite on Python 3.9 and 3.13. The floor is not decoration. The
-scripts have to run under whatever Python is already on the machine, which on
-macOS is still 3.9, so no walrus in a comprehension and no `X | Y` unions. The
-floor constrains the test dependencies as well; `requirements-dev.txt` says
-how, next to the pins it applies to.
+CI runs the suite on Python 3.9 and 3.13. The scripts have to run under
+whatever Python is already on the machine, which on macOS is still 3.9, so the
+scripts use neither a walrus in a comprehension nor `X | Y` unions. The floor
+constrains the test dependencies as well; `requirements-dev.txt` says how, next
+to the pins it applies to.
 
 ### Coverage
 
@@ -287,20 +290,20 @@ requirement as `repo:<id>`.
 - a need, constraint or requirement id that does not read as its subject and
   then a verb, the form SPEC-METHODOLOGY.md gives under "Ids"
 
-The tests and steps still waiting on a ruling are listed in `.github/untraced.json`, each
-with the open issue that will trace it, and pass with a warning. When one
-gains a citation, its entry goes in the same pull request, and `trace` fails
-until it does. `trace` also fails an entry, there or in check-skills.py's
-`KNOWN_SEAMS`, whose issue has closed. It reads the issues through
-`GITHUB_TOKEN` and `GITHUB_REPOSITORY`, which CI sets, and warns that it did
-not look when they are unset.
+The tests and steps still waiting on a ruling are listed in
+`.github/untraced.json`, each with the open issue that will trace it, and pass
+with a warning. When one gains a citation, its entry comes out in the same pull
+request, and `trace` fails until it does. `trace` also fails an entry, there or
+in check-skills.py's `KNOWN_SEAMS`, whose issue has closed. It reads the issues
+through `GITHUB_TOKEN` and `GITHUB_REPOSITORY`, which CI sets, and warns that
+it did not look when they are unset.
 
 `surface` fails a subcommand, option or `choices` value of a plugin script or a
 `.github/scripts/` script that is not named in backticks by any requirement,
 whether in its own spec or in `specs/repo.md`. A span that starts with a
 script's file name, such as `issues.py claim`, counts only for that script. Text
-in a skill counts for nothing, since a skill naming an option does not say which
-need it serves. The items waiting on an issue are under `surface` in
+in a skill does not count, since a skill can name an option without saying
+which need it serves. The items waiting on an issue are under `surface` in
 `.github/untraced.json`.
 
 `changes` runs in CI on a pull request. It fails a pull request:
@@ -335,7 +338,7 @@ chosen one, and the rest of the suite says what specifically happened and why
 it mattered. Both are load-bearing: a property that fails prints a shrunk
 counterexample, which tells you what broke and nothing about why anyone cared.
 
-Property tests explore a different set of inputs on each run, so CI fixes the
+Property tests explore a different set of inputs on each run. CI fixes the
 seed, so a red build there is always caused by the diff. A developer
 machine explores. When exploring turns something up, pin it with `@example(...)`
 so it is checked every run afterwards, and add the example-based test that says
@@ -376,8 +379,9 @@ problem whoever wrote it. Ruff runs as you go in two places, so that rarely happ
 - **Claude Code** runs `.claude/hooks/ruff.py` after every edit to a `.py`
   file, set up in `.claude/settings.json`. It sorts imports, formats, and hands
   any remaining lint problem back to Claude. The hook's docstring says why it
-  fixes nothing else. It needs ruff installed in `.venv` or on `PATH`, and tells
-  Claude when it is not. In a git worktree it uses the main checkout's `.venv`.
+  does not fix anything else. It needs ruff installed in `.venv` or on `PATH`,
+  and tells Claude when it is not. In a git worktree it uses the main
+  checkout's `.venv`.
 - **VS Code** formats and sorts imports on save, and shows lint problems as you
   type, using the committed `.vscode/settings.json`. Accept the prompt to install
   the recommended Ruff extension when you open the folder. The extension uses
@@ -460,7 +464,7 @@ and for update-prose-config. A tracking issue:
   as "blocked by" links between them.
 - carries `approved` once the owner approves the plan. Each sub-issue still
   needs its own `approved` before an agent works it.
-- is never claimed, and no pull request closes it.
+- is never claimed or closed by a pull request.
 
 The owner closes it when its last sub-issue closes.
 
@@ -476,7 +480,7 @@ python3 .github/scripts/issues.py plan file --drafts plan.json --token 3f9a1c0e7
 `plan report` refuses a plan whose issues break CLAUDE.md's rules for
 issues, or whose links name nothing or form a cycle. A plan can also name an
 issue that is open already by its number, and `plan file` groups it with the
-rest without filing it again. It orders the issues so
+rest without filing it again. `plan report` orders the issues so
 each comes after the issues that block it, and writes the plan as it will be
 filed to `.issues-plan/report.md`, ending with an approval token. The owner approves
 that report, and `plan file` takes its token. `plan file` files the issues in
@@ -550,15 +554,15 @@ tell an agent adding `approved` from the owner adding it. What covers that:
 - **Only the owner adds the label.** `.claude/hooks/issue_guard.py` blocks any
   command Claude Code runs that would add it. To approve with Claude's help,
   run `! gh issue edit <N> --add-label approved`: the `!` runs it in your own
-  shell, where no hook applies. The hook reads command text, so it stops a
-  mistake, not a determined workaround, and Cowork does not run it.
+  shell, where Claude Code's hooks do not run. The hook reads command text, so
+  it stops a mistake but not a determined workaround. Cowork does not run it.
 - **Work closes only approved issues.** The `validate` job runs
   `.github/scripts/check-linked-issues.py`, which fails a pull request whose
   title, description or commits would close an issue without `approved`. It
   holds for every agent, wherever it ran. A pull request that does not close any
   issue passes. If you approve an issue after its pull request was opened,
   re-run the job.
-- **Issue text is information, not instructions.** Nothing can check this.
+- **Issue text is information, not instructions.** A script cannot check this.
   It holds because the owner reads an issue before approving it, and agents
   work from the issue as approved plus the owner's own comments.
 

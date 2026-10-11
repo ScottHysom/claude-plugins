@@ -24,11 +24,11 @@ marker that is wrong for its file shows up when the file runs.
 
 The script reads the lines added since the last commit and nothing else. A
 `TODO:` in a committed test fixture, or in a document that quotes the syntax,
-is never collected, and filing never marks a committed line. `scan` compares
+is never collected, and filing marks only uncommitted lines. `scan` compares
 each file with the last commit by a shortest edit script: the fewest lines
-added and removed that turn one into the other. A committed line then never
-reads as added, even where the file repeats it, which Python's difflib does
-not promise.
+added and removed that turn one into the other. A committed line then always
+reads as committed, even where the file repeats it, a guarantee Python's
+difflib does not make.
 
 ## A TODO at the end of a line
 
@@ -58,11 +58,11 @@ The author often names the checkout when invoking the skill, as in
 folder, so the skill passes the name as the author gave it and the script
 checks it, rather than the model guessing which worktree a name means. A
 mistyped name is refused with the list of worktrees and their branches.
-`--from` naming this tree reads as no `--from`, so the skill does not need to
-tell this tree from another before passing the name on. Each hand-off from
-`file --from` names the checkout's root and branch, so the receiving skill
-reads the passage where it was left, as CLAUDE.md's hand-off convention asks,
-instead of asking the author again.
+`--from` naming this tree reads as if `--from` were left out, so the skill does
+not need to tell this tree from another before passing the name on. Each
+hand-off from `file --from` names the checkout's root and branch, so the
+receiving skill reads the passage where it was left, as CLAUDE.md's hand-off
+convention asks, instead of asking the author again.
 
 prose-tuning's `carry` copies the edits into the session's tree, because
 Claude Code refuses a worktree session's edits to the main checkout's
@@ -136,10 +136,10 @@ rather than trusting the report. `gh api graphql` exits 1 when a lookup finds
 nothing, and still prints the data, so the script reads a missing issue from
 that output, and stops on any other error.
 
-## Filing cannot be undone
+## Irreversible filing
 
-Deleting an issue takes admin rights on the repository, which the user may not
-hold, so a batch cannot be filed all or nothing. `file` checks everything it
+Deleting an issue takes admin rights on the repository, which the user may
+lack, so a batch cannot be filed all or nothing. `file` checks everything it
 can before its first call to GitHub: the token, every draft, and that it can
 open every file it will change for writing. It then marks each TODO as soon
 as its issue exists, and stops at the first call that fails, so a run cut
@@ -152,7 +152,7 @@ tell from the file which TODOs were handled and which were missed, and the
 only record was the chat. The owner ruled while planning #333 that `file`
 marks a TODO instead. Its word, `TODO` or `TODO(<kind>)`, becomes
 `TODO-HANDLED(<target>)`, and the TODO's text and comment syntax stay. A
-hand-off's target is the skill's name, because no pull request exists yet
+hand-off's target is the skill's name, because a pull request does not exist yet
 when `file` runs. Marking never adds or removes a line, so the line numbers
 `scan` gave stay right while `file` works through a file.
 
@@ -162,8 +162,8 @@ a comment-only hunk (#327), rather than reading the marker as a prose edit.
 The wrap runs to the end of the TODO's last line, because a list item, a quote
 or a trailing TODO would render too.
 
-`scan` reads a marked TODO, with its detail, so that a second run neither
-reports it nor warns, and does not read it as the detail of a new TODO
+`scan` reads a marked TODO, with its detail, so that a second run skips it
+silently, and does not read it as the detail of a new TODO
 written above it. `tests/todos/test_properties_todos_marking.py` checks, for
 every file Hypothesis builds, that:
 
@@ -176,7 +176,7 @@ every file Hypothesis builds, that:
 
 In the owner's repositories only the owner adds the `approved` label.
 `.claude/hooks/issue_guard.py` reads only the text of a Bash command, so it
-does not see a script that runs `gh`, and CI does not catch an issue labeled
+does not see a script that runs `gh`, and CI lets through an issue labeled
 when it is created. `report` and `file` therefore refuse a draft carrying the
 label, in any case.
 

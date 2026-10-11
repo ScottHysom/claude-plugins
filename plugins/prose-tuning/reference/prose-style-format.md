@@ -56,7 +56,8 @@ or what, its subject is missing.
 > **After.** A reader can state what is inside the file.
 ```
 
-**The id is in the heading.** `### <id>: <Title>`, split on the first `: `.
+**The id is in the heading.** The heading reads `### <id>: <Title>`, split on
+the first `: `.
 
 **An id is `<section>-<name>`.** The section is one lower-case word. The name is
 one to four lower-case words joined by `-`, and no word may start with a digit.
@@ -67,16 +68,16 @@ section where a project diverges.
 The name says what the rule means. `sentences-count-needs-list` is legible in
 a report, where `sentences-09` would send the reader back to the file. The
 four-word ceiling is there because a rule whose
-subject cannot be said in four words has not been decided yet.
+subject needs more than four words has not been decided yet.
 
 **A rule keeps its name for life.** Reword the body freely; the name survives, because the name is about the
 subject, not the wording. A rule whose subject moved far enough to want a
 different name is a different rule, and the one it replaced should have been
 rewritten in place.
 
-Nothing enforces the naming discipline. `config lint` checks the grammar and the
-word count and stops there, the same way it cannot tell that two rules
-contradict each other. Both are left to judgment.
+A script does not enforce the naming discipline. `config lint` checks the
+grammar and the word count and stops there, the same way it cannot tell that
+two rules contradict each other. Both are left to judgment.
 
 **A rule does not carry metadata.** Where a rule came from belongs in the commit
 that adds it. Files written by earlier versions of prose-tuning can carry a
@@ -86,8 +87,8 @@ in it.
 
 **The example is a two-line blockquote** with fixed lead words, `> **Before.**`
 and `> **After.**`. They come as a pair; half an example is an error. A rule
-with no example at all is a warning, not an error, because a one-line standing
-instruction like "use US spelling" does not need one.
+that lacks an example draws a warning rather than an error, because a one-line
+standing instruction like "use US spelling" can stand without one.
 
 `**Check.**` is conventional rather than required. A rule that can state a
 mechanical test should.
@@ -129,9 +130,11 @@ code. The lines of one paragraph or list item are searched as one passage,
 with each line break read as a single space, so `in order to` finds a
 sentence that wraps after `order`.
 
-`config lint` rejects a `**Pattern.**` line that is not one code span, a
-pattern that does not compile, and a pattern that matches an empty string,
-which would match everywhere.
+`config lint` rejects any of these:
+
+- a `**Pattern.**` line that holds anything other than one code span.
+- a pattern that fails to compile.
+- a pattern that matches an empty string, which would match everywhere.
 
 **A pattern answers to its rule's worked example.** When a rule has both
 halves of an example, at least one of its patterns must find something in the
@@ -151,7 +154,7 @@ the em-dash, a word such as `behaviour`, or a phrase such as `in order to`. A
 pattern that matches every one of those forms and little else is exhaustive,
 and the rule is checked in every file on every run.
 
-A rule about meaning gets none. `sentences-own-subject` and
+A rule about meaning does not get a pattern. `sentences-own-subject` and
 `headings-noun-phrase` need a reading of the sentence, and a pattern
 approximating them would flag a pile of passages that are fine. The model
 then learns to skim the matches.
@@ -180,7 +183,8 @@ python3 "$PROSE" config lint
 python3 "$PROSE" config list
 ```
 
-Both read the project's `.claude/rules/prose-style.md`. `--file <path>` reads
+`config lint` and `config list` both read the project's
+`.claude/rules/prose-style.md`. `--file <path>` reads
 another one instead.
 
 `lint` exits 1 on any error and prints one line per problem. `list` prints the
@@ -188,7 +192,7 @@ rules and marks with `!` any rule that does not carry a worked example.
 
 `config write` adds and rewrites rules from JSON, in the shape this page
 gives. It refuses a name that is malformed or already taken, and a rule that
-would not lint, and writes nothing until every record passes.
+would fail lint. It writes nothing until every record passes.
 `config check-id --section <section> --name <name>` rules on one name
 alone.
 
@@ -197,7 +201,8 @@ alone.
 A `prose-style.md` written before this format change carries `sentences-01` and
 its kind, and `config lint` now reports every one of them as an error. There is
 no `config migrate`, because naming a rule takes a reading of what it means.
-Open the file, name each rule, and change the headings. Nothing else in a rule moves.
+Open the file, name each rule, and change the headings. The rest of each rule
+stays as it is.
 
 Anything outside the file that quoted an old id (a report, a commit message, a
 cross-reference in another document) is stale afterwards. The cross-references

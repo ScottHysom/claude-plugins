@@ -102,8 +102,8 @@ prose rules, when you have one, so the note becomes a rule for how your
 documents read. A `TODO(docs):` is a change to what a document says, and
 always becomes an issue.
 
-Nothing reaches GitHub before you approve. If anything changes between the
-report and the filing, Claude shows you a fresh report first.
+Claude does not send anything to GitHub before you approve. If anything changes
+between the report and the filing, Claude shows you a fresh report first.
 
 ## What it changes
 
@@ -126,7 +126,7 @@ The TODO's text and comment syntax stay as you wrote them. A TODO that still
 reads `TODO:` after a run is one that was not handled, and a search for `TODO`
 finds both kinds. Claude does not collect a marked TODO again.
 
-In a markdown file, a marked TODO that is not already inside an HTML comment
+In a markdown file, a marked TODO outside an HTML comment
 is wrapped in one, from `<!--` to `-->`, so it does not show when the document
 renders:
 
@@ -134,12 +134,12 @@ renders:
 <!-- - TODO-HANDLED(#42): say which folders the layout leaves out -->
 ```
 
-Nothing else in your files changes. Delete the markers when you commit, or
-keep them as pointers to where each TODO went. While a markdown file holds a
-marker you have not committed, prose-tuning's apply-prose waits, because the
-file has uncommitted changes. apply-prose is the skill in the prose-tuning
-plugin that rewrites your markdown to follow your project's house style.
-Commit the file and it runs.
+Claude leaves the rest of your files as they were. Delete the markers when you
+commit, or keep them as pointers to where each TODO went. While a markdown file
+holds a marker you have not committed, prose-tuning's apply-prose waits,
+because the file has uncommitted changes. apply-prose is the skill in the
+prose-tuning plugin that rewrites your markdown to follow your project's house
+style. Commit the file and it runs.
 
 The plugin keeps a copy of its script in `.todos/` in your project, with its
 own `.gitignore`, so it never shows up in a commit. Claude never commits. You

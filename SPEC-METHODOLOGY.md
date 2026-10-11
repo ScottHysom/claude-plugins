@@ -15,10 +15,10 @@ has no place in the code, however useful it seems.
 An agent building software fills gaps with guesses. It completes patterns, adds
 options a person would have stopped to ask about, and guards against inputs
 produced by nothing. Martin Fowler and Kent Beck's catalog of code smells calls
-this speculative generality: machinery built for a need that nobody has. Without a
-written record of what the code is for, no one can know whether a behavior was
-ever asked for. Each later change treats the code as the spec, so one made-up
-behavior is built on another.
+this speculative generality: machinery built for a need that nobody has.
+Without a written record of what the code is for, a reader cannot know whether
+a behavior was ever asked for. Each later change treats the code as the spec,
+so one made-up behavior is built on another.
 
 claude-plugins found this in its issue #114. An agent had given every rule in a
 rules file a `source` key with four allowed values. The key passed through each
@@ -32,15 +32,15 @@ of these steps unquestioned:
 - Asked why the key existed, an agent defended it by its symmetry: one value
   for each route a rule could take into the file.
 
-The key was not read by any code, and nothing ever wrote two of its
-values. An audit of the repository then found about one behavior in six with
+The key was not read by any code. Two of its values were never
+written. An audit of the repository then found about one behavior in six with
 no written need.
 
 Tests did not catch any of it. A test shows that a behavior works, and says
 nothing about whether anyone needs it. Several of the unneeded behaviors had
 tests, and the lint code that held `source` to its values had no tests.
 
-## The model
+## The method
 
 The method adds one layer above the code and links everything below it to that
 layer.
@@ -106,24 +106,24 @@ flowchart LR
 ```
 
 A skill step and a CI workflow step carry their citation on the instructions
-or the workflow that does the work, so no code sits below them in the chain.
-Nothing measures what the model does when it follows a skill step. An eval is
-what would close that gap.
+or the workflow that does the work, so the chain has no code below them.
+The method does not measure what the model does when it follows a skill
+step. An eval is what would close that gap.
 
 A script in CI checks each link on every pull request:
 
 | Link | Checked by | Fails when |
 |---|---|---|
 | Code runs under a test | The coverage check | A pull request adds a line that no test runs, or a component falls below its coverage floor |
-| A test or a skill step cites a requirement | `trace` | One cites nothing, or cites an id that no spec holds |
-| Every requirement is cited by something of its kind | `trace` | Nothing of the requirement's kind cites it |
+| A test or a skill step cites a requirement | `trace` | One cites nothing, or cites an id missing from every spec |
+| Every requirement is cited by something of its kind | `trace` | The requirement is not cited by anything of its kind |
 | A requirement serves a need or a constraint | `trace`, as it reads the spec files | A requirement sits outside any need or constraint |
 
 "The checks", below, describes each script.
 
 Coverage is the link most easily left out, and #114 shows why it matters. No
-test ran the lint code that held `source` to its values, so no test could cite
-a requirement for it, and a trace through tests alone would have passed. The
+test ran the lint code that held `source` to its values. With no such test to
+cite a requirement for it, a trace through tests alone would have passed. The
 coverage check forces a test onto new logic, and `trace` forces that test to
 cite a requirement.
 
@@ -153,9 +153,9 @@ The model does only what needs judgment, such as inferring a rule, writing
 prose or deciding whether something conforms. It also calls the tools that a
 script cannot reach.
 
-A seam is a point where the model stands between one command's output and the
-next command. A skill keeps a seam only where a judgment or such a tool call
-has to sit between two commands, and one command does the work everywhere
+A **seam** is a point where the model stands between one command's output and
+the next command. A skill keeps a seam only where a judgment or such a tool
+call has to sit between two commands, and one command does the work everywhere
 else. That gives the skill the fewest seams its work allows.
 
 Every seam is one of these kinds:
@@ -280,7 +280,7 @@ The grammar leaves out blank lines, and the line breaks inside a paragraph.
 `trace` reads the `need`, `constraint`, `requirement`, `continuation`, `kind`
 and `id` parts, and fails a spec file that breaks them. How it reads them:
 
-- Any `##` heading ends the section above it. A heading that is not a need
+- Any `##` heading ends the section above it. A heading other than a need
   or a constraint (including a misspelled one) does not open a section, so a
   requirement under it fails as one outside any need.
 - Under a need or a constraint, every bullet must be a requirement.
@@ -288,7 +288,8 @@ and `id` parts, and fails a spec file that breaks them. How it reads them:
   line between.
 - It checks every need, constraint and requirement id against the form
   under "Ids", below.
-- In claude-plugins it refuses `eval`, since nothing there runs an eval yet.
+- In claude-plugins it refuses `eval`, since the repository does not run any
+  eval yet.
 
 The rest is convention, which the owner reviews:
 
@@ -341,7 +342,7 @@ Word 1 is the subject, in one word:
   so a reader can tell the command from a file or a skill of the same name:
   `sync-cmd-stays-under-limit`, `reports-cmd-lists-open-rentals`.
   A script run as a whole is a command too.
-- `command` is an ordinary word, which the marker does not claim, and it
+- `command` is an ordinary word, which the marker leaves unclaimed. It
   cannot stand in for `cmd`. It can be the subject of a requirement about
   more than one command:
   - every command, as in `command-splits-output-streams-without-json`.
@@ -465,7 +466,7 @@ standard-library Python, JSON output on request, and exit codes of 0 for clean,
 
 Notes for the agent that builds them:
 
-- A check that scans nothing fails. A file pattern that stops matching would
+- A check fails when it scans nothing. A file pattern that stops matching would
   otherwise pass every pull request.
 - Per-test coverage is what ties a line to a test. In Python, pytest-cov, the
   pytest plugin for the coverage.py tool, records it with
@@ -580,7 +581,7 @@ not a source.
 6. **Ruling.** Post on the ticket every item that could not be placed, as a
    numbered list, each with its evidence and a recommended outcome. The owner
    rules on all of them in one reply. The outcomes:
-   - **Remove:** nothing calls it, and no need asks for it.
+   - **Remove:** nothing calls it, and it falls outside every need.
    - **Keep:** the owner states the need, in words that become its heading.
    - **Wire up:** the need is real and nothing uses the behavior, so a ticket
      adds the step that uses it.

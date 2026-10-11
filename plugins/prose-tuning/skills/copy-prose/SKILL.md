@@ -46,7 +46,7 @@ buckets, and `target` naming the target rule it matched, with that rule's
 
 | Bucket | Meaning | Action |
 |---|---|---|
-| new | the target has no rule with that id, and none scored similar | step 2 |
+| new | the target has no rule with that id, or any that scored similar | step 2 |
 | identical | same id, and the bodies match once comments and whitespace are set aside | skip silently |
 | colliding | same id, different body | step 3 |
 | similar | different id, and `candidates` lists the target rules that scored close | step 3 |
@@ -120,7 +120,8 @@ nothing while any answer is refused, and each refusal says why.
 ## Step 4: when the target is the shipped rules
 <!-- spec: copyprose-bumps-shipped-version -->
 
-Promoting into them carries three extra obligations, because the shipped rules are part of the plugin:
+Promoting into the shipped rules carries three extra obligations, because they
+are part of the plugin:
 
 ```sh
 python3 .github/scripts/check-manifest-consistency.py check
@@ -134,7 +135,7 @@ python3 .github/scripts/check-manifest-consistency.py check
   again, with the shipped rules as the source and that project as the target,
   and it is the author's call, not this run's.
 - **Keep the `FILL` markers.** A rule promoted out of a real project usually has
-  that project's example baked into it. The shipped version needs the example
+  that project's example written into it. The shipped version needs the example
   replaced by a `FILL` telling the next project what to supply, or every project
   inherits a worked example about something it has never heard of.
 
@@ -143,7 +144,7 @@ python3 .github/scripts/check-manifest-consistency.py check
 
 <!-- no-command: hand-off to the author. Steps 2 and 3 hold the commit notes. -->
 
-Report what changed, and give the author the `data.commit_note` of steps 2
-and 3 as the lines for their commit description. Nothing in `prose-style.md` records where
-a rule came from, so the commit is where that note lives. Leave the working
-tree dirty. **Never commit.**
+Report what changed, and give the author the `data.commit_note` of steps 2 and
+3 as the lines for their commit description. `prose-style.md` does not record
+where a rule came from, so the commit is where that note lives. Leave the
+working tree dirty. **Never commit.**

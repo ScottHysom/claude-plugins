@@ -6,7 +6,8 @@ and saves them in the project. From then on, Claude follows those rules in
 everything it writes there. Claude can also check the documents you already
 have against the rules and fix what breaks them, once you approve.
 
-prose-tuning works in Claude Code, and in Cowork when you install it from
+prose-tuning works in Claude Code, and in Cowork (the mode of the Claude
+desktop app that works with files on your computer) when you install it from
 the marketplace.
 
 ## When to use it
@@ -48,8 +49,8 @@ plugin's script, which the skills run from there. Git ignores
 the folder, so it never reaches your commits. You can delete it whenever you
 like, and the next run puts it back.
 
-No skill in this plugin commits anything. Each one leaves its changes for you
-to review and commit your usual way.
+The skills in this plugin do not commit anything. Each one leaves its changes
+for you to review and commit your usual way.
 
 ## Setting up
 
@@ -104,8 +105,8 @@ make again, so you can decide whether to commit your edits or discard them and
 have Claude make them again from the rules.
 
 You can also hand Claude a note on how a passage reads, yourself or through
-another skill that collects such notes. A note on a passage you have not
-changed becomes a proposed rule for it, and Claude asks about it if the note
+another skill that collects such notes. A note on a passage you left
+unchanged becomes a proposed rule for it, and Claude asks about it if the note
 does not say what the rule is. The passage itself is rewritten later, when you
 check your documents. A note on a passage you rewrote is taken as the reason
 for your edit, and the rule comes from what you changed.
@@ -123,10 +124,16 @@ Where an edit needs explaining, say so in the document itself:
 </repl>
 ```
 
-`<del>` marks text to cut and `<ins>` text to add. Both are real HTML
-elements, so a markdown preview shows them as an edit while you write. `<repl>`
-swaps one for the other, `why` says why, and `<alt>` offers a rule or another
-way to write it. Claude leaves this markup in place while it learns the
+The tags:
+
+- `<del>` marks text to cut.
+- `<ins>` marks text to add.
+- `<repl>` swaps one for the other.
+- `why` says why.
+- `<alt>` offers a rule or another way to write it.
+
+`<del>` and `<ins>` are real HTML elements, so a markdown preview shows them as
+an edit while you write. Claude leaves this markup in place while it learns the
 rules. When you next check your documents, Claude asks whether the rules are
 learned, and on your yes removes the markup, keeping the edits it marks, so
 none of it reaches a commit. The
@@ -140,13 +147,14 @@ Claude first asks whether the rules have been learned from it. On your yes it
 removes the markup, keeping the edits, and stops so you can commit before it
 checks anything. Run it again after the commit.
 
-Claude then lists each passage that breaks a rule, with the file, the line,
-the rule's id and a proposed rewrite. In Claude Code, the list is a private
-page on claude.ai that only you can open. Comment on a rewrite there and send
-the comment to Claude, and Claude revises it or drops it and updates the page.
-Nothing changes until you approve. You can approve the whole list, or only
-some rules, or only some files. If a document, the list or the rules change
-after you approve, nothing is written, and Claude shows you the list again.
+Claude then lists each passage that breaks a rule, with the file, the line, the
+rule's id and a proposed rewrite. In Claude Code, the list is a private page on
+claude.ai that only you can open. Comment on a rewrite there and send the
+comment to Claude, and Claude revises it or drops it and updates the page.
+Claude changes your documents only once you approve. You can approve the whole
+list, or only some rules, or only some files. If a document, the list or the
+rules change after you approve, nothing is written, and Claude shows you the
+list again.
 
 Two proposed rewrites sometimes touch the same passage, such as a fix inside a
 paragraph that another rewrite cuts. Only one of them can apply. Claude shows
