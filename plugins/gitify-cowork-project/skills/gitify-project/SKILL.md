@@ -135,9 +135,8 @@ Do not `git init`. Step 5 covers why.
 
 <!-- no-command: hand-off to the user. The bridge cannot commit, so the user runs setup.sh. -->
 
-The bridge cannot complete a `git commit`; the plugin's DESIGN.md, under "Why
-`commit.sh` exists", says why. So tell the user to run, from their own
-terminal:
+The bridge cannot complete a `git commit`, so tell the user to run, from their
+own terminal:
 
 ```text
 cd "<project folder>" && sh setup.sh
