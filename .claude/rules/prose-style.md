@@ -52,8 +52,8 @@ defines it, and only there.
 
 "Already known" means the owner's own career, not the field at large.
 
-Git, GitHub, Python, pytest, shell, CI and JSON need no gloss. These always
-do:
+Git, GitHub, Python, pytest, shell, CI, JSON and a skill need no gloss. These
+always do:
 
 - Cowork, and its device bridge.
 - How plugins, skills and the marketplace fit together.
@@ -316,10 +316,33 @@ is none of. Name the noun.
 ### sentences-one-meaning-per-term: A term keeps one meaning in a document
 
 A word the document defines, such as a role, is not reused for anything
-else, including in a heading.
+else, including in a heading. The same holds for a plain word the document
+already uses as a term. Where "open" means an open issue, a kind left
+undecided is "unspecified" rather than "open".
 
 > **Before.** ## The model
 > **After.** ## The method
+
+### sentences-tail-beside-verb: A tail that shares the verb sits beside it
+
+A short clause that shares the verb and its object, such as "or offer to",
+goes in parentheses straight after the verb. At the end of the sentence, it
+makes the reader carry the verb back across the object to see what the tail
+completes.
+
+**Pattern.** `,\s(?:or|and)\s[a-z]+\sto\.`
+
+> **Before.** Do not run any of it from here, or offer to.
+> **After.** Do not run (or offer to) any of it from here.
+
+### sentences-gloss-in-parentheses: A gloss inside a comma-split sentence goes in parentheses
+
+A definition dropped into a sentence that commas already divide goes in
+parentheses. Set off by commas, it reads as one more phrase of the sentence,
+and the reader loses track of which phrase carries the claim.
+
+> **Before.** When a skill, the instructions a plugin gives Claude for one task, runs script commands, the owner wants the model between two of them only where it makes a judgment.
+> **After.** When a skill (the instructions a plugin gives Claude for one task) runs script commands, the owner wants the model between two of them only where it makes a judgment.
 
 ## Headings
 
