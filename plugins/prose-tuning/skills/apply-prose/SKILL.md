@@ -9,9 +9,9 @@ description: Conform a project's markdown to the rules in its prose-style.md. Re
 written before the rules existed.
 
 **Report first. Change nothing until the author says so.** A style pass that
-silently rewrites three hundred lines produces exactly the diff that nobody reads,
-and a reader cannot tell a rule being applied correctly from a rule being
-misapplied without seeing which rule was claimed.
+silently rewrites three hundred lines produces exactly the diff that nobody reads.
+A reader can tell a rule being applied correctly from a rule being
+misapplied only by seeing which rule was claimed.
 
 ## Locate the script
 
@@ -140,7 +140,7 @@ on a match that no finding or dismissal of its rule contains.
 
 **Never search the prose with a command of your own,** such as `grep` over
 the segments. A search written during a run finds a different set on
-the next run, and nothing records which rules it covered. A rule with no
+the next run, and the run does not record which rules it covered. A rule with no
 pattern is checked by reading the segments. A break of a patterned rule that
 reading turns up anyway is still a finding. Tell the author the pattern
 missed it, since the pattern is theirs to extend.
@@ -167,7 +167,7 @@ findings, because the author may accept one and reject the other.
 proposed rewrite that changes a number, a name, a date or a claim is out of
 scope for this skill no matter how badly the sentence reads.
 
-Write the findings file outside the project, so no stray file is left in it:
+Write the findings file outside the project, so the run does not leave a stray file in it:
 
 ```sh
 cat > "${TMPDIR:-/tmp}/prose-findings.json" <<'END'
@@ -218,8 +218,8 @@ Publish the file at `data.report` as a private artifact with the Artifact
 tool, as markdown, with the icon `checklist`. After every later run of
 `report`, publish the same file path again, so the report keeps its address.
 The author reads the report there, and nowhere else. Never retype the report
-or a part of it into chat or a dialog, because the author then approves a
-text that `apply` never sees.
+or a part of it into chat or a dialog, because the author would then approve a
+text other than the one `apply` reads.
 
 When the only errors left are overlaps, publish the report with them, give
 the author its address, and ask them to comment on each overlap saying which
@@ -231,7 +231,7 @@ artifact's address and `data.token`, with these options:
 - apply every finding;
 - apply some rule ids or some files, named in the answer;
 - comment first, on the findings in the artifact;
-- apply none.
+- apply none of the findings.
 
 On "comment first", end the turn. A comment the author sends to Claude starts
 a new turn. Revise or dismiss the findings it names, or remove the side of an
@@ -267,7 +267,7 @@ python3 "$PROSE" apply --findings "${TMPDIR:-/tmp}/prose-findings.json" \
 The `--file` flags select from the approved findings. Any files the author
 named in step 2 go after the flags, as they did for `report`.
 
-A rule id or file that does not match any finding is an error, not an empty run.
+A rule id or file that does not match any finding is an error rather than an empty run.
 
 ## Step 6: report and stop
 <!-- spec: applyprose-never-commits -->
@@ -281,7 +281,7 @@ tree dirty.
 
 ## What this skill does not do
 
-It does not add rules. A passage that reads badly but does not break any existing rule is a
+This skill does not add rules. A passage that reads badly but does not break any existing rule is a
 note to the author and a candidate for `update-prose-config`. Editing it here
 would be a freelance rewrite wearing a rule's clothing, and whoever reads the
 change later, in the report or in the commit, could not tell it from a rule's

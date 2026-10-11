@@ -37,7 +37,7 @@ the markup already in each file. The markup is what this skill reads, so
 `preflight` does not block on it.
 
 When `preflight` reports the rules file missing, offer `config init`. A project that has never
-had one starts from the rules this plugin ships rather than from nothing:
+had one starts from the rules this plugin ships rather than from an empty file:
 
 ```sh
 python3 "$PROSE" config init
@@ -70,11 +70,11 @@ neither can then be pointed at.
 was handed one with its notes, add `--from "<that checkout>"` to `evidence`
 here and to `reproduce` in step 7, and do not ask which checkout to read.
 
-**When `data.other_worktrees` is not empty,** this tree does not hold any
-edits and another checkout of the repo does. With one entry, read that one.
+**When `data.other_worktrees` is not empty,** another checkout of the repo
+holds the edits instead of this tree. With one entry, read that one.
 With two or more, put one `AskUserQuestion` to the author, with an option for
-each entry giving its `root`, `branch` and `files`, and an option to read
-none. Gather the evidence again from the one read, and pass the same `--from`
+each entry giving its `root`, `branch` and `files`, and an option to skip
+all of them. Gather the evidence again from the one read, and pass the same `--from`
 to `reproduce` in step 7:
 
 ```sh
@@ -86,17 +86,16 @@ still go into this tree's `prose-style.md`, and the other checkout is only
 read. A warning that its `prose-style.md` has changes means the author edited
 rules there that this run does not see. Say so.
 
-If the author picks none and the run was not handed any notes, stop. This
+If the author skips every checkout and the run was not handed any notes, stop. This
 tree has nothing to learn from.
 
 **`explicit`** is markup the author wrote: an `<ins>`, `<del>` or `<repl>` with
-its `why` and its `<alt>` proposals, or an `<alt>` tied to no passage, whose
+its `why` and its `<alt>` proposals, or an `<alt>` not tied to any passage, whose
 record has kind `alt` and holds the proposal in `alt`. The author has already
 said what they mean. Take it at face value.
 
 **`inferred`** is an untagged diff hunk. Treat every one as a statement about
-prose, not a factual correction. That is the working assumption of this whole
-skill. The escape hatch is the `signal` field: a hunk marked `numeric-only`,
+prose, not a factual correction. The escape hatch is the `signal` field: a hunk marked `numeric-only`,
 `link-only` or `whitespace-only` may be a fact that got fixed in passing. Those
 go into the interview, never straight into a rule.
 
@@ -108,7 +107,7 @@ commit. A note that does not say which lines changed takes them from the
 
 - **On a passage that has not changed**, take the note as an `<alt>` on that
   passage: a proposed rule, with the passage as its evidence. Do not write it
-  into the document as markup, and do not rewrite the passage. `apply-prose`
+  into the document as markup or rewrite the passage. `apply-prose`
   rewrites it once the rule is written.
 - **On a passage that has changed**, take the note as the `why` of the
   `inferred` records in its lines. The rule comes from what the diff changed,
@@ -208,11 +207,11 @@ in the file gains a new form in this run's evidence, extend its pattern rather
 than adding a rule.
 
 **When a new rule contradicts an existing one, rewrite the body of the existing
-id.** Do not add a second rule, and do not mark the old one retired. The id is
+id.** Do not add a second rule or mark the old one retired. The id is
 the identity, the body is current truth, and
 `git log -p .claude/rules/prose-style.md` holds what it used to say.
 
-**The script cannot detect a contradiction** and does not try. That is why
+**The script cannot detect a contradiction.** That is why
 every candidate is checked against `rules` from step 2, and why a candidate touching covered ground goes to the
 author instead of into the file. Never reconcile two rules unilaterally.
 
@@ -268,15 +267,15 @@ Publish the file at `data.rules` as a private artifact with the Artifact
 tool, as markdown, with the icon `checklist`. After every later dry run,
 publish the same file path again, so the page keeps its address. The author
 reads the rules there, and nowhere else. Never retype a rule or a summary of
-the batch into chat or a dialog, because the author then approves a text that
-`config write` never sees.
+the batch into chat or a dialog, because the author would then approve a text
+other than the one `config write` reads.
 
 Put one `AskUserQuestion` to the author, naming the artifact's address and
 `data.token`, with these options:
 
 - write every rule;
 - comment first, on the rules in the artifact;
-- write none.
+- write none of the rules.
 
 On "comment first", end the turn. A comment the author sends to Claude starts
 a new turn. Revise the batch file as the comment asks, run the dry run again,
@@ -316,7 +315,7 @@ as one entry in `edits`:
   numbers.
 - **`reproduced: false`** means that none of the patterns did. Check the edit by reading it
   against the rules listed in `unpatterned`, which a command cannot check. An
-  edit the interview settled as a fact, not a style choice, does not need a rule.
+  edit the interview settled as a fact rather than a style choice does not need a rule.
 
 An edit that is not reproduced by any pattern or accounted for by any
 unpatterned rule shows a rule that is wrong or incomplete. Say which, and fix
@@ -330,7 +329,7 @@ then run `reproduce` again.
 <!-- no-command: hand-off to the author. The run ends with the working tree dirty. -->
 
 Report what changed, which files are dirty, and stop. The only file the run
-writes is `prose-style.md`. Never write markup into a document, and never run
+writes is `prose-style.md`. Never write markup into a document or run
 `tags resolve`. The author's markup and edits stay as they left them, and
 `apply-prose` resolves the markup once the author says the rules are learned.
 

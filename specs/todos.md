@@ -13,7 +13,7 @@ requirements.
 - A TODO already committed. The skill reads only the changes since the last
   commit.
 - Issue trackers other than GitHub's.
-- Running in Cowork. The plugin needs Claude Code and a clone with a GitHub
+- Running in Cowork, the Claude desktop app's mode for a user's own files. The plugin needs Claude Code and a clone with a GitHub
   remote.
 - Writing another plugin's files or markup. A TODO reaches another plugin only
   through that plugin's skill.
@@ -33,8 +33,8 @@ Source: #311, which quotes the owner's request.
   each tracked regular file has gained since the last commit, following
   renames, and every line of a regular file git neither tracks nor ignores,
   and nothing else.
-- `scan-cmd-reports-nothing-pending` (test): When `scan` does not find a
-  pending TODO, and does not name another worktree, it says so and exits 0.
+- `scan-cmd-reports-nothing-pending` (test): When `scan` finds neither a
+  pending TODO nor another worktree to name, it says so and exits 0.
 - `scan-cmd-locates-each-todo` (test): When `scan` reports a TODO, it gives
   these:
   - its file, and its first and last line.
@@ -90,10 +90,10 @@ Source: the owner's ruling while planning, 2026-10-04, recorded in #333.
   ending `.md` or `.markdown`, and the TODO is not already in an HTML comment,
   it wraps the TODO, with its detail lines, in `<!--` and `-->`.
 - `scan-cmd-skips-handled-todos` (test): When an added line opens with
-  `TODO-HANDLED(<target>):`, after its indent and any characters that are not
+  `TODO-HANDLED(<target>):`, after its indent and any characters other than
   letters or digits, or holds one that `file` left after the line's other
-  text, `scan` neither reports it nor warns, and does not read an opening one
-  or its detail as another TODO's detail or as the line a TODO sits above.
+  text, `scan` neither reports it nor warns. It also does not read an opening
+  one or its detail as another TODO's detail or as the line a TODO sits above.
 
 ## need user-collects-from-other-checkout: Collect TODOs left in another checkout
 
@@ -140,8 +140,8 @@ recorded there.
   file opens with a TODO, after its indent and a comment marker of characters
   that are not letters, digits or spaces if it has one, `scan` gives the rest
   of the line as the title.
-- `scan-cmd-reads-line-detail` (test): When a TODO's marker is not empty and
-  is not `-`, `*`, `+`, `>` or `|`, `scan` gives as its detail the added lines
+- `scan-cmd-reads-line-detail` (test): When a TODO's marker is neither empty
+  nor one of `-`, `*`, `+`, `>` or `|`, `scan` gives as its detail the added lines
   directly below it that open with the same marker at the same indent, up to
   a blank line or the next TODO, marked handled or not.
 - `scan-cmd-reads-c-and-html-comments` (test): When a TODO's marker contains
@@ -182,13 +182,17 @@ design changes, bugs and bug fixes, and the ruling on `TODO(kind):`.
   kind, and for any other word it does not give a kind and warns with the
   word.
 - `dotodos-follows-todo-kind` (step): When a TODO names a kind, or do-todos
-  infers one from its words, it drafts by that kind: a `bug` as a defect, a
-  `fix` as the defect it fixes with the fix as what done means, a `change` as
-  an improvement to the code, a `design` as a change to what the project does
-  or how it is built, a `docs` as a change to what a document says, and a
-  `prose` as a change to how a passage reads. A name that is wrong or out of
-  date is something a document says, so its TODO is `docs`. A term chosen for
-  how the passage reads, such as one word kept to one meaning, is `prose`.
+  infers one from its words, it drafts by that kind:
+  - a `bug` as a defect.
+  - a `fix` as the defect it fixes, with the fix as what done means.
+  - a `change` as an improvement to the code.
+  - a `design` as a change to what the project does or how it is built.
+  - a `docs` as a change to what a document says.
+  - a `prose` as a change to how a passage reads.
+
+  A name that is wrong or out of date is something a document says, so its
+  TODO is `docs`. A term chosen for how the passage reads, such as one word
+  kept to one meaning, is `prose`.
 
 ## need user-answers-in-one-round: Answer every open question at once
 
@@ -209,8 +213,8 @@ TODO's detail is missing or too sparse.
   also under `--from`, which git ignores. Each question is numbered, named by
   the `file:first` and title of each TODO it asks about, with its options
   under it. It refuses a question without options, without a TODO, or naming
-  a line that does not hold a pending TODO, and then the file holds the
-  refusals and no question.
+  a line that does not hold a pending TODO. When it refuses one, the file
+  holds the refusals and no question.
 - `dotodos-asks-on-page` (step): When the open questions are more than one
   `AskUserQuestion` call holds, do-todos publishes the page `questions`
   writes as a private artifact, takes each answer from a comment sent to
@@ -251,14 +255,14 @@ Source: #312, which records the design the owner approved.
   repository the drafts will be filed in, as `gh` resolves it for the
   clone.
 - `report-cmd-prints-approval-token` (test): When `report` exits 0, it prints
-  a token as its last line, and otherwise prints none.
+  a token as its last line, and otherwise does not print a token.
 - `report-cmd-stops-on-unreadable-drafts` (test): When the file given to
-  `--drafts` cannot be read, or is not JSON, `report` and `file` name the
-  fault and exit 2.
+  `--drafts` is unreadable or holds something other than JSON, `report` and
+  `file` name the fault and exit 2.
 - `file-cmd-requires-token` (test): When the token passed to `file --token`
-  is not the one `report` would print for the drafts, the files they name and
-  the target repository as they are now, `file` does not file or post
-  anything, and writes nothing.
+  differs from the one `report` would print for the drafts, the files they
+  name and the target repository as they are now, `file` stops before it
+  files, posts or writes anything.
 - `file-cmd-files-in-reported-repo` (test): When `file` calls `gh`, it passes
   the repository `report` named as `--repo`.
 - `file-cmd-never-posts-in-preview` (test): When `file` is given `--dry-run`,
@@ -333,8 +337,8 @@ Source: #319, which quotes the owner's first use case, and CLAUDE.md, under
 ## need owner-keeps-approval-label: Keep approved for the owner
 
 When the skill files an issue under the owner's account, the owner wants it
-never to carry `approved`, so an agent cannot approve its own work through a
-script that issue_guard.py does not see.
+never to carry `approved`. Otherwise an agent could approve its own work
+through a script that issue_guard.py does not see.
 
 Source: README.md, under "Keeping `approved` meaningful", and #312, which
 records the owner's ruling.
@@ -427,9 +431,9 @@ a child of `claude` itself, without `sandbox-exec`.
 
 ## constraint github-keeps-filed-issues: A filed issue cannot be counted on to come back
 
-Deleting an issue takes admin rights on the repository, which the user may not
-hold, so a script cannot count on undoing an issue it filed, and a batch
-cannot be filed all or nothing.
+Deleting an issue takes admin rights on the repository, which the user may
+lack. A script therefore cannot count on undoing an issue it filed. For the
+same reason, a batch cannot be filed all or nothing.
 
 Source: GitHub's documentation, "Deleting an issue".
 

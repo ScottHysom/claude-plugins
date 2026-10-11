@@ -5,13 +5,17 @@ description: File the TODO comments left in a project's uncommitted changes as G
 
 # File the TODOs as issues
 
-A TODO is a note the author left in a file while reviewing it: a line that
+A **TODO** is a note the author left in a file while reviewing it: a line that
 opens, after its indent and the file's comment marker, with `TODO:` or with a
 kind word, as in `TODO(bug):`. This skill drafts an issue for each, or a
 comment on an open issue that already covers it, or routes it to an installed
-skill made for its work. It shows the author every draft, files the ones
-approved, marks each TODO handled in its file once its issue or comment exists
-or its route is settled, and hands the routed ones on last.
+skill made for its work. It:
+
+- shows the author every draft;
+- files the ones approved;
+- marks each TODO handled in its file once its issue or comment exists or its
+  route is settled;
+- hands the routed ones on last.
 
 ## Locate the script
 
@@ -22,8 +26,8 @@ ls "$TODOS" || echo "todos is not installed as a plugin here"
 python3 "$TODOS" setup --json
 ```
 
-Run the block as one command, from the project root. If the `ls` fails, stop:
-the plugin is not installed here.
+Run the block as one command, from the project root. If the `ls` fails, the plugin is not installed
+here, so stop.
 
 `setup` copies the script into the project at `.todos/`, beside a
 `.gitignore` that keeps it out of every commit. Each later command starts a
@@ -54,19 +58,26 @@ Pass the same `--from "<name>"` to `report` and `file` in step 4. When `scan`
 exits 2, tell the author what it says, with the worktrees it lists, and stop.
 Never guess which checkout a refused name meant.
 
-`data.todos` lists every TODO added since the last commit. Each has its
-`file`, its `first` and `last` lines, its `text` (the first line as it
-stands), its `kind` or null, its `title`, its `detail`, `above`, the line
-it sits above, or for a TODO at the end of a line that line, and `similar`, the open issues GitHub's search returns for its
-title, each with its `number`, `title` and `url`. `data.labels` lists the
-labels of `data.repository`, the repository the issues would go to. Each warning names a line that looks like a
-TODO and was not read, and why.
+`data.todos` lists every TODO added since the last commit. Each has:
 
-**When `data.other_worktrees` is not empty,** this tree does not hold any
+- its `file`, and its `first` and `last` lines;
+- its `text`, the first line as it stands;
+- its `kind`, or null;
+- its `title` and its `detail`;
+- `above`, the line it sits above, or for a TODO at the end of a line, that
+  line;
+- `similar`, the open issues GitHub's search returns for its title, each with
+  its `number`, `title` and `url`.
+
+`data.labels` lists the labels of `data.repository`, the repository the issues
+would go to. Each warning names a line that looks like a TODO and was not read,
+and why.
+
+**When `data.other_worktrees` lists a checkout,** this tree does not hold any
 TODO and another checkout of the repo does. When the author named this tree,
 tell them which checkouts hold TODOs, and stop. Otherwise put one
 `AskUserQuestion` to the author, with an option for each entry giving its
-`root`, `branch` and `files`, and an option to collect none. Ask even when there is only one
+`root`, `branch` and `files`, and an option to skip every checkout. Ask even when there is only one
 entry, because filing marks the TODOs in that checkout. On a pick, scan
 that one:
 
@@ -75,7 +86,7 @@ TODOS=.todos/todos.py && python3 "$TODOS" scan --from "<root>" --json
 ```
 
 Pass the same `--from "<root>"` to `report` and `file` in step 4. If the
-author picks none, stop.
+author skips every checkout, stop.
 
 When `data.todos` is empty and `data.other_worktrees` is too, tell the author,
 with any warnings, and stop.
@@ -93,7 +104,7 @@ TODO where any of these holds:
 
 - it says too little to write an issue that someone else could act on, such
   as what is wrong, or what done means;
-- it does not give a kind, and its words do not settle one;
+- it does not give a kind, and its words leave the kind open;
 - an issue in its `similar` may cover it, and the issue's title and the TODO
   do not settle whether it does;
 - it may repeat another TODO.
@@ -137,7 +148,7 @@ When the Artifact tool is not available, or refuses to publish, ask in
 `AskUserQuestion` calls of up to four questions each, in the order the
 questions were written, naming each TODO by its `file:first` and title.
 
-Ask nothing when every TODO is clear. Never ask one TODO at a time, and never
+Ask nothing when every TODO is clear. Keep every question in the one round, and never
 ask again after drafting starts.
 
 ## Step 3: route and draft
@@ -206,10 +217,13 @@ END
 ```
 
 `file`, `line` and `text` are the TODO's `file`, `first` and `text` from
-step 1, copied exactly. `route` is `issue`, with `title`, `body` and `labels`,
-`comment`, with `issue`, the open issue's number, and `body`, or `skill`, with
-`skill`. A TODO the
-author wants left in place does not get a draft.
+step 1, copied exactly. `route` is one of:
+
+- `issue`, with `title`, `body` and `labels`;
+- `comment`, with `issue`, the open issue's number, and `body`;
+- `skill`, with `skill`.
+
+A TODO the author wants left in place does not get a draft.
 
 ## Step 4: report, approve, file
 <!-- spec: dotodos-shows-report-whole, dotodos-revises-on-report-comment -->
@@ -223,10 +237,16 @@ TODOS=.todos/todos.py && python3 "$TODOS" report --drafts "${TMPDIR:-/tmp}/todo-
 Add the `--from` that step 1's `scan` took to `report` and `file`, when it
 took one.
 
-`report` writes the report to the markdown file at `data.report`: the
-repository the issues go to, each draft whole with its route, the skill each
-routed TODO goes to, the TODOs left in place and `scan`'s warnings. When it
-exits 0, `data.token` is the approval token, and the file ends with it.
+`report` writes the report to the markdown file at `data.report`. The report
+holds:
+
+- the repository the issues go to;
+- each draft whole, with its route;
+- the skill each routed TODO goes to;
+- the TODOs left in place;
+- `scan`'s warnings.
+
+When it exits 0, `data.token` is the approval token, and the file ends with it.
 
 When `report` exits 1, its errors name each draft it refused and why. Fix the
 drafts and run `report` again before showing it.
@@ -244,7 +264,7 @@ and `data.token`, with these options:
 - file every draft;
 - file a part, named in the answer;
 - comment first, on the drafts in the artifact;
-- file none.
+- file no draft.
 
 On "comment first", end the turn. A comment the author sends to Claude starts
 a new turn. Revise the drafts it names, run `report` again, publish the file

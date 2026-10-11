@@ -13,7 +13,7 @@ The `setup` call at the end of that step reports `data.surface`:
 - **`local`:** `setup` has copied the script into the project, at
   `.prose-tuning/prose.py`. Run every command as "Locally: run each command
   from the project root", below, says.
-- **`cowork`:** the project isn't visible from here, and `device_bash`, which
+- **`cowork`:** the project is out of view from here, and `device_bash`, which
   can see it, can't read the plugin. Copy the script into the project and run
   every command there, as the two sections on Cowork say.
 

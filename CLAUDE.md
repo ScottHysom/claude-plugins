@@ -24,9 +24,8 @@ on a summary here; this file holds what the README does not.
 README.md, under "Issues", has the process, the labels and the checks that
 back them. What agents do:
 
-- **File what you find outside the task.** A problem that is not part of the
-  work in hand gets an issue, not an unasked fix and not only a mention in
-  chat. One problem per issue. Search first (`gh issue list --search`), and
+- **File what you find outside the task.** A problem outside the work in hand
+  gets an issue, rather than an unasked fix or only a mention in chat. One problem per issue. Search first (`gh issue list --search`), and
   comment on a match rather than opening a second.
 - **Title the problem, not the fix.** The body starts with `**Claude:**`, as
   review replies do, then these headings:
@@ -48,7 +47,7 @@ back them. What agents do:
 - **Claim an issue before any work on it**, whether the owner named it or you
   found it with `python3 .github/scripts/issues.py next`. Run
   `python3 .github/scripts/issues.py claim N` and work on the `issue/N` branch
-  it switches you to. If it exits 1 the issue is held or not approved: stop
+  it switches you to. If it exits 1, the issue is held or not approved. Stop
   and tell the owner, and do not work on it anyway. If you stop without
   opening a pull request, run `issues.py release N`. README.md, under
   "Claiming an issue", explains the lock.
@@ -83,15 +82,15 @@ requirement is admitted.
 
 - **Build only what a requirement asks for.** Before adding a command,
   option, key, value, refusal or branch, find the requirement it serves.
-- **A behavior is justified by a need or a constraint.** A need is something
-  someone wants. A constraint is something the platform forces. Symmetry,
+- **A behavior is justified by a need or a constraint.** A **need** is something
+  someone wants. A **constraint** is something the platform forces. Symmetry,
   completeness and "it might be useful" are neither.
-- **When no requirement covers the work, propose one and wait for the
+- **When the work lacks a requirement, propose one and wait for the
   owner.** A new need or constraint goes in the issue, and enters `specs/`
   only once the owner approves that issue. A new requirement under an existing
   need or constraint is listed in the pull request description.
 - **Asked why a behavior exists, answer with its requirement and its need.**
-  If it has none, say so and file an issue. Do not argue for it from the
+  If it has no requirement, say so and file an issue. Do not argue for it from the
   design's own consistency.
 - **Cite the requirement from what verifies it.** A new test carries
   `@pytest.mark.spec("<id>")`, a new skill step carries
@@ -120,15 +119,16 @@ requirement is admitted.
   expects to find there. The script checks every one against the file as it is
   now and rejects what is stale or breaks a rule, rather than trusting it.
 - **The model sits between two commands only at a judgment or a platform
-  seam.** A seam is the gap between one command's output and the next command,
+  seam.** A **seam** is the gap between one command's output and the next command,
   where the model does whatever joins them. The two kinds that belong to the
   model:
   - **Judgment.** The model decides, or relays the author's decision, and the
     next command takes the decision as input. `report`'s approval token goes
     to `apply`, and the token proves the judgment was made on the files as
     they are.
-  - **Platform.** The model calls a tool that a script cannot, such as Cowork's
-    `device_bash`, `device_commit_files` or `propose_skills`, or asks the user
+  - **Platform.** The model calls a tool that a script cannot, such as
+    `device_bash`, `device_commit_files` or `propose_skills` in Cowork, the
+    Claude desktop app's mode for work on a user's own files, or asks the user
     a question.
 
   Everywhere else the script does the joining work, in one command, or in a
@@ -195,8 +195,8 @@ requirement is admitted.
   reads as the skill's own folder. `.github/scripts/check-skills.py repeats`
   fails a pull request that copies a block between two of a plugin's skills;
   its docstring says what it counts and how the exception is drawn.
-- **A plugin knows only itself.** It never edits another plugin's templates and
-  never relies on another plugin's files, because each installs on its own. When
+- **A plugin knows only itself.** It never edits another plugin's templates or
+  relies on another plugin's files, because each installs on its own. When
   two plugins meet in a project, they follow a shared convention instead.
   COWORK.md has the one for files a plugin leaves in a project.
 - **A skill hands work to another plugin's skill by convention.** When one
@@ -244,8 +244,9 @@ requirement is admitted.
   one does. A batch applies all or nothing unless `--partial` is passed.
   Changes are planned against one snapshot of the file and applied together,
   so an earlier one cannot shift the address of a later one.
-- **Cowork's device bridge cannot delete files.** A script that may run there
-  rewrites files in place with `open(path, "w")`, not via a temp file moved into
+- **Cowork's device bridge cannot delete files.** The device bridge is the set of
+  tools, such as `device_bash`, that reach the user's folder from Cowork's
+  cloud container. A script that may run there rewrites files in place with `open(path, "w")`, not via a temp file moved into
   place, and only ever reads git, because a git write through the bridge
   strands `.git/*.lock` files that block every later write. Say so in the
   script's docstring, where the next reader will look, and point to COWORK.md
@@ -259,8 +260,9 @@ requirement is admitted.
 - Every script has a pytest suite, and where it goes depends on where the
   script lives:
   - A plugin script: `tests/<plugin>/` at the repo root, with a `conftest.py`
-    as README.md describes. Not beside the script: everything under `plugins/`
-    is copied into every install, so a test file there ships to every user.
+    as README.md describes. A test does not go beside the script. Everything
+    under `plugins/` is copied into every install, so a test file there ships
+    to every user.
   - A CI script in `.github/scripts/`: `.github/scripts/tests/`.
   - A Claude Code hook in `.claude/hooks/`: `.claude/hooks/tests/`.
 
@@ -290,10 +292,9 @@ requirement is admitted.
   with the unit under test as its subject, and never the word "should". A
   failing test's name is the first line of the report, so it has to say which
   promise broke rather than which function was touched. `pytest.ini` collects
-  only those two prefixes, which means a test named any other way is not run
-  and not reported; `.github/scripts/check-tests.py naming` is what catches
-  one. It fails when it has scanned nothing, because the grep it replaced did not match any files once
-  its pathspec went stale, and still passed.
+  only those two prefixes, which means a test named any other way is neither run
+  nor reported; `.github/scripts/check-tests.py naming` is what catches
+  one. It fails when it has scanned nothing.
 - **prose.py's round trip is the property that must never regress.**
   Neutralizing author-tagged text returns the untagged text, byte for byte.
   `evidence` diffs that text against the last commit, so a byte it loses or

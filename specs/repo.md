@@ -10,14 +10,15 @@ requirements.
 - Code shared between plugins. Each plugin installs on its own and cannot
   import another's.
 - Packages outside the Python standard library in a plugin script.
-- Editing this repo from Cowork. Contributors change it from Claude Code, and
+- Editing this repo from Cowork, the Claude desktop app's mode for work on a user's own files. Contributors change it from Claude Code, and
   its plugins serve Cowork sessions in the user's own projects.
 
 ## need owner-keeps-model-at-seams: Keep the model to judgment and platform seams
 
-When a skill runs script commands, the owner wants the model between two of
-them only where it makes a judgment or calls a tool that a script cannot, so no run
-spends context on work a script could do, or gets that work wrong.
+When a skill, the instructions a plugin gives Claude for one task, runs script
+commands, the owner wants the model between two of
+them only where it makes a judgment or calls a tool beyond a script's reach, so a
+run does not spend context on work a script could do, or get that work wrong.
 
 Source: #126, and CLAUDE.md, under "Skills and scripts".
 
@@ -64,8 +65,8 @@ Source: CLAUDE.md, under "Script conventions".
 
 When CI, a skill or a contributor runs a repo script, they want its exit code
 to say whether it ran clean, found problems or could not run, and a stop to
-say what to do next, so the caller does not need a table of remedies and a test can
-drive any command through `main(argv)`.
+say what to do next, so the caller can act without a table of remedies and a
+test can drive any command through `main(argv)`.
 
 Source: CLAUDE.md, under "Script conventions", and #24, "Importing the module
 does nothing".
@@ -77,7 +78,7 @@ does nothing".
 - `script-names-remedy-on-stop` (test): When a repo script stops, its message
   says what to do next.
 - `script-does-nothing-on-import` (test): When a repo script is imported, it
-  does nothing, and each `main(argv)` call starts with no state from an
+  does nothing, and each `main(argv)` call starts without state from an
   earlier one.
 - `script-ignores-closed-pipe` (test): When stdout closes before a repo script
   finishes printing, it exits 0 without a traceback.
@@ -85,15 +86,15 @@ does nothing".
 ## need user-installs-from-marketplace: Install any plugin from one marketplace
 
 When the user wants one of the owner's plugins, they want to add the
-marketplace once and install any plugin listed in it, so each plugin does not need any
-setup of its own.
+marketplace (the catalog of plugins this repo publishes) once and install any
+plugin listed in it, so each plugin does not need any setup of its own.
 
 Source: README.md, under "Adding this marketplace".
 
 - `ci-validates-manifests` (check): When a pull request is opened or
   updated, CI runs the latest `claude plugin validate --strict` on the
   catalog and on every plugin directory with a plugin.json, and fails when it
-  finds none.
+  does not find a plugin directory.
 - `ci-prints-cli-version` (check): When CI validates the manifests, it prints
   the version of the Claude Code CLI it installed, so a failure that a new
   release brings can be traced to that release.
@@ -104,8 +105,8 @@ Source: README.md, under "Adding this marketplace".
 ## need owner-ships-only-runtime-files: Install only what a plugin runs
 
 When the user installs a plugin, the owner wants the install to hold only what
-the user needs to run it, so no contributor-only file, such as a test or a
-spec, ships to every user.
+the user needs to run it, so a contributor-only file, such as a test or a
+spec, never ships to a user.
 
 Source: the owner's review of #139, and CLAUDE.md, under "Tests".
 
@@ -155,7 +156,7 @@ Source: README.md, under "Issues" and "Keeping `approved` meaningful".
   request does not close an issue, check-linked-issues.py passes it from any branch.
 - `checklinkedissues-cmd-stops-on-failed-listing` (test): When
   check-linked-issues.py cannot read a pull request's commits or the claim
-  branches, it exits 2 and does not print any links.
+  branches, it exits 2 before printing any links.
 - `ci-runs-checklinkedissues` (check): When a pull request is opened, edited
   or updated, CI runs check-linked-issues.py.
 - `changes-cmd-fails-post-approval-edits` (test): When an issue a pull
@@ -175,7 +176,7 @@ Source: README.md, under "Issues" and "Keeping `approved` meaningful".
 - `guard-allows-quoted-text` (test): When a command only quotes such a
   command, in an argument or a heredoc body, or reads or removes the label,
   issue_guard.py exits 0 and prints nothing.
-- `guard-scans-unparsed-input` (test): When the hook's input is not JSON, or
+- `guard-scans-unparsed-input` (test): When the hook's input fails to parse as JSON, or
   its command cannot be split, issue_guard.py blocks it if the raw text names
   `gh`, a label flag and `approved`, and allows it otherwise.
 - `settingsjson-registers-guard` (test): When Claude Code runs a Bash command
@@ -185,7 +186,7 @@ Source: README.md, under "Issues" and "Keeping `approved` meaningful".
 ## need owner-keeps-claims-exclusive: Keep two agents off the same issue
 
 When two agents are told to take the next issue at the same time, the owner
-wants each to get a different one, so no two agents do the same work.
+wants each to get a different one, so two agents never do the same work.
 
 Source: README.md, under "Claiming an issue".
 
@@ -200,7 +201,7 @@ Source: README.md, under "Claiming an issue".
 - `claim-cmd-switches-to-issue-branch` (test): When `issues.py claim N`
   wins, it switches the clone to `issue/N`, and warns when the switch fails.
 - `claim-cmd-stops-when-nobody-wins` (test): When the push fails and
-  `issue/N` does not exist, `issues.py claim` exits 2 and writes nothing to
+  `issue/N` does not exist, `issues.py claim` exits 2 without writing to
   the issue.
 - `checklinkedissues-cmd-requires-claim-branch` (test): When a pull
   request closes #N and does not come from `issue/N` in this repository,
@@ -227,8 +228,8 @@ Source: CLAUDE.md, under "Issues", and #469.
 ## need owner-orders-dependent-issues: Leave an issue until its blocker closes
 
 When one issue waits on another, the owner wants agents told to take the next
-issue to leave it until its blocker closes, so no agent builds on work that has
-not landed.
+issue to leave it until its blocker closes, so an agent builds only on work that has
+landed.
 
 Source: the owner's request on 2026-10-04, recorded in #345.
 
@@ -276,7 +277,7 @@ filed by hand, recorded in #359.
   - carries a label the repository does not have.
 - `planreport-cmd-checks-plan-links` (test): When a key repeats, a `{KEY}` or
   a `blocked_by` key does not name an issue in the plan, a body names an issue
-  filed after it, a blocker outside the plan is not an open issue, or the
+  filed after it, a blocker outside the plan is anything but an open issue, or the
   links form a cycle, `plan report` refuses the plan and names each fault.
 - `planreport-cmd-orders-by-links` (test): When `plan report` accepts a plan,
   it puts each issue after the issues that block it, with ties in the plan's
@@ -284,8 +285,8 @@ filed by hand, recorded in #359.
   it will be filed, with an Order section written from the links.
 - `planfile-cmd-requires-token` (test): When `issues.py plan file --drafts
   <file> --token <token>` is given a token that does not match the plan, the
-  repository and its labels as they are now, or the plan no longer passes the
-  checks `plan report` made, it files nothing and exits 1.
+  repository and its labels as they are now, or the plan now fails one of the
+  checks `plan report` made, it exits 1 without filing anything.
 - `planfile-cmd-files-in-order` (test): When `plan file` runs with a current
   token, it files the issues in the report's order, each `{KEY}` replaced by
   the number filed, and adds each "blocked by" link. It then files the
@@ -303,14 +304,14 @@ filed by hand, recorded in #359.
   and reads it back with the rest.
 - `fileplan-shows-report-whole` (step): When the file-plan skill asks the
   owner to approve a plan, it shows the report file whole, as a private
-  artifact or, where it cannot publish one, in its reply, and never a summary
-  of its own.
+  artifact (a page Claude publishes on claude.ai) or, where it cannot publish one, in its reply, rather than a
+  summary of its own.
 
 ## need owner-sees-held-issues: See from the issue list which issues are held
 
 When an agent or the owner looks at the issue list, they want a claimed issue
 to show as claimed, and a label that disagrees with its branch to be reported,
-so nobody reads a stale label as a claim.
+so a reader never takes a stale label for a claim.
 
 Source: README.md, under "Claiming an issue", and #33.
 
@@ -327,8 +328,8 @@ Source: README.md, under "Claiming an issue", and #33.
 ## need owner-frees-abandoned-claims: Free an abandoned claim without losing work
 
 When an agent stops without opening a pull request, the owner wants its claim
-freed for someone else, so the issue does not stay held, and does not want any commit
-on the claim branch lost in the freeing.
+freed for someone else, so the issue does not stay held, and wants every commit
+on the claim branch kept through the freeing.
 
 Source: README.md, under "Claiming an issue", and CLAUDE.md, under "Issues".
 
@@ -339,8 +340,8 @@ Source: README.md, under "Claiming an issue", and CLAUDE.md, under "Issues".
   changed after `release` checked it, `issues.py release` exits 1 and deletes
   nothing.
 - `release-cmd-requires-held-claim` (test): When `issues.py release N`
-  finds neither `issue/N` nor the `in-progress` label, it exits 1 and comments
-  nothing, so no issue reads as released that was never held.
+  finds neither `issue/N` nor the `in-progress` label, it exits 1 without
+  commenting, so only an issue that was held can read as released.
 
 ## need owner-clears-merged-claims: Clear a merged claim's local branch
 
@@ -359,32 +360,32 @@ Source: #289, and README.md, under "Claiming an issue".
   - leaves every worktree in place.
   - deletes the branch.
 - `clear-cmd-keeps-unmerged-work` (test): When #N is open, the local
-  `issue/N` does not exist, or it holds a commit that no merged pull request from
-  it has and a change `origin/main` lacks, `issues.py clear` exits 1, says
+  `issue/N` is missing, or it holds a commit that every merged pull request
+  from it lacks and a change `origin/main` lacks, `issues.py clear` exits 1, says
   what to do next and deletes nothing.
 - `clear-cmd-keeps-uncommitted-changes` (test): When a worktree that has
   `issue/N` checked out has uncommitted changes, `issues.py clear N` exits 1,
-  names the worktree and says to commit or discard the changes, and does not move a
-  worktree and deletes nothing, with or without `--dry-run`.
+  names the worktree and says to commit or discard the changes, and neither moves a
+  worktree nor deletes anything, with or without `--dry-run`.
 
 ## need owner-prevents-stale-branches: Keep finished branches from piling up
 
 When a session's work has merged or was never started, the owner wants every
-local branch it left removed without typing git commands, so stale branches do
-not accumulate in the clone.
+local branch it left removed without typing git commands, so the clone keeps
+only live branches.
 
 Source: #294, and README.md, under "Claiming an issue".
 
 - `sweep-cmd-deletes-merged-branches` (test): When `issues.py sweep` runs, it
   deletes every local branch but `main` whose tip is inside the head of a
   merged pull request from that branch, or which does not hold any change `origin/main`
-  lacks, as a branch with no commits of its own does.
+  lacks, as a branch without commits of its own does.
 - `sweep-cmd-keeps-live-branches` (test): When a local branch holds a change
   `origin/main` lacks, is checked out in any worktree, or still exists on
   `origin`, `issues.py sweep` keeps it and prints it with the reason.
 - `branchsweep-reports-deleted-branches` (test): When branch_sweep.py's sweep
-  deletes branches, the hook names them on stdout in one line, and prints
-  nothing when it deletes none.
+  deletes branches, the hook names them on stdout in one line, and stays
+  silent when it does not delete a branch.
 - `branchsweep-never-blocks` (test): When `issues.py sweep` fails, does not print a
   result or runs past the hook's own time limit, branch_sweep.py exits 0 and
   prints one line saying why and naming the command to run by hand.
@@ -407,21 +408,21 @@ Source: README.md, under "Adding a plugin", step 4.
 - `commands-cmd-finds-named-script` (test): When an invocation names its
   script through a variable or a path, `commands` finds the script, and fails
   an unassigned variable, a variable naming two scripts, and a script that is
-  missing, will not import or has no parser.
+  missing, fails to import or has no parser.
 - `commands-cmd-handles-fence-syntax` (test): When a fence writes a
   command with a placeholder, an optional part, a continuation, a comment, a
   heredoc or a list indent, `commands` checks it as the model would run it,
   and reads only shell fences.
-- `commands-cmd-scans-something` (test): When no shell fence runs a script,
-  `commands` fails.
+- `commands-cmd-scans-something` (test): When `commands` does not find a shell fence
+  that runs a script, it fails.
 - `ci-runs-commands` (check): When a pull request is opened or updated, CI runs
   `commands`.
 
 ## need owner-knows-each-step-command: Know which command does each skill step's work
 
 When a contributor writes a skill step, the owner wants it to name the command
-that does its work, or say why it has none, so no step leaves work to the
-model without saying so.
+that does its work, or say why it has no command, so every step that leaves
+work to the model says so.
 
 Source: CLAUDE.md, under "Skills and scripts", and #98.
 
@@ -434,8 +435,8 @@ Source: CLAUDE.md, under "Skills and scripts", and #98.
 - `steps-cmd-fails-stray-commands` (test): When a SKILL.md runs
   an invocation `commands` accepts outside every `## Step` section and outside
   "Locate the script", `steps` fails it.
-- `steps-cmd-scans-something` (test): When no SKILL.md has a step, `steps`
-  fails.
+- `steps-cmd-scans-something` (test): When `steps` does not find a SKILL.md
+  with a step, it fails.
 - `checkskills-cmd-reads-project-skills` (test): When a skill sits at
   `.claude/skills/<skill>/SKILL.md`, `check-skills.py commands`, `steps` and
   `fences` check it as they check a plugin's skill, and read a script path it
@@ -461,8 +462,8 @@ Source: CLAUDE.md, under "Skills and scripts", and #97.
 - `fences-cmd-allows-setup-commands` (test): When a shell fence runs an
   allowed setup command where it may stand, `fences` passes it, and fails the
   same command anywhere else.
-- `fences-cmd-scans-something` (test): When no shell fence exists, `fences`
-  fails.
+- `fences-cmd-scans-something` (test): When `fences` does not find a shell
+  fence, it fails.
 - `ci-runs-fences` (check): When a pull request is opened or updated, CI runs
   `fences`.
 
@@ -487,8 +488,8 @@ file", README.md, under "Adding a plugin", step 2, and #54.
 - `repeats-cmd-skips-markers` (test): When two of a plugin's skills carry
   the same comment line, such as one spec marker, `repeats` does not report it
   as a copied block.
-- `repeats-cmd-scans-something` (test): When no SKILL.md exists, or none
-  yields a block, `repeats` fails.
+- `repeats-cmd-scans-something` (test): When `repeats` does not find a SKILL.md
+  that yields a block, it fails.
 - `ci-runs-repeats` (check): When a pull request is opened or updated, CI runs
   `repeats`.
 
@@ -511,8 +512,8 @@ Source: README.md, under "Adding a plugin", step 4.
 - `descriptions-cmd-only-checks-descriptions` (test): When a tag sits
   outside the description, in the body, in another front matter key or in
   markdown outside `plugins/`, `descriptions` passes it.
-- `descriptions-cmd-scans-something` (test): When no file under `plugins/`
-  has a description, `descriptions` fails.
+- `descriptions-cmd-scans-something` (test): When every file under `plugins/`
+  lacks a description, `descriptions` fails.
 - `ci-runs-descriptions` (check): When a pull request is opened or updated, CI
   runs `descriptions`.
 
@@ -560,8 +561,9 @@ Source: README.md, under "Adding a plugin", step 4.
 ## need owner-sees-every-line-tested: Know every plugin line runs under a test
 
 When a contributor changes a plugin script, the owner wants CI to fail a
-script whose coverage falls below its floor, or a new line that no test runs, so a
-line that no test runs cannot also escape the trace.
+script whose coverage falls below its floor, or a new line that no test runs,
+so the coverage check catches each line that the trace, which follows tests,
+would miss.
 
 Source: #128, README.md, under "Coverage", and SPEC-METHODOLOGY.md, under
 "The chain".
@@ -607,7 +609,7 @@ Source: #128, README.md, under "Coverage", and SPEC-METHODOLOGY.md, under
 ## need contributor-knows-each-test-runs: Run every test the suite appears to have
 
 When a contributor writes a test, they want CI to fail one that pytest would
-not collect, by where it sits or by its name, so no test silently never runs.
+not collect, by where it sits or by its name, so every test in the suite runs.
 
 Source: README.md, under "Running the tests", CLAUDE.md, under "Tests", and
 #22 and #26.
@@ -618,8 +620,8 @@ Source: README.md, under "Running the tests", CLAUDE.md, under "Tests", and
 - `naming-cmd-fails-old-test-names` (test): When a test file holds `def
   test_` or `class Test` at any indent, `check-tests.py naming` fails and
   names the file and line.
-- `naming-cmd-scans-something` (test): When `naming` does not find a test file,
-  or a `testpaths` root that exists holds none, it fails.
+- `naming-cmd-scans-something` (test): When `naming` does not find a test file
+  overall, or in any `testpaths` root that exists, it fails.
 - `ci-runs-placement-and-naming` (check): When a pull request is opened or
   updated, CI runs `placement` and `naming`.
 
@@ -635,8 +637,8 @@ Source: README.md, under "Formatting and linting" and "Shell scripts".
   holding ruff, the ruff hook uses it.
 - `ruffhook-borrows-main-venv` (test): When the ruff hook runs in a worktree
   with no `.venv` of its own, it uses the main checkout's.
-- `ruffhook-falls-back-to-path` (test): When no `.venv` holds ruff, the ruff
-  hook uses the ruff on PATH.
+- `ruffhook-falls-back-to-path` (test): When ruff is not in any `.venv`, the
+  ruff hook uses the ruff on PATH.
 - `ruffhook-formats-edit` (test): When Claude Code writes or edits a `.py`
   file, the ruff hook sorts its imports and formats it, and leaves every other
   file alone.
@@ -644,7 +646,7 @@ Source: README.md, under "Formatting and linting" and "Shell scripts".
   the ruff hook exits 2 with the findings on stderr.
 - `ruffhook-reports-parse-error` (test): When ruff cannot format the file, the
   ruff hook exits 2 with ruff's error.
-- `ruffhook-names-ruff-install` (test): When no ruff is found, the ruff hook
+- `ruffhook-names-ruff-install` (test): When the ruff hook does not find ruff, it
   exits 2 and names the command that installs it.
 - `settingsjson-registers-ruff-hook` (test): When Claude Code writes or edits
   a file in this repo, `.claude/settings.json` runs the ruff hook, with 30
@@ -655,7 +657,7 @@ Source: README.md, under "Formatting and linting" and "Shell scripts".
   the Python.
 - `ci-lints-shell` (check): When a pull request is opened or updated, CI
   checks each shell script parses and passes shellcheck, and fails when it
-  finds none.
+  does not find a shell script.
 
 ## need owner-traces-behavior-to-needs: Tie each behavior to the need behind it
 
@@ -666,21 +668,22 @@ that asked for it, and every requirement keeps something that verifies it.
 Source: #114, #129, and SPEC-METHODOLOGY.md, under "The chain".
 
 - `trace-cmd-fails-uncited-tests-and-skills` (test): When a test or a skill
-  step does not cite a requirement, and `.github/untraced.json` does not list
-  it, `check-specs.py trace` fails it.
+  step does not cite a requirement and is missing from `.github/untraced.json`,
+  `check-specs.py trace` fails it.
 - `trace-cmd-fails-unknown-ids` (test): When a test, a skill step or a
   workflow step cites an id its component's spec does not hold, `trace` fails
   the citation.
-- `trace-cmd-fails-unverified-requirements` (test): When nothing of a
-  requirement's kind cites it, a test for `test`, a skill step for `step` and
-  a workflow step for `check`, `trace` fails the requirement.
+- `trace-cmd-fails-unverified-requirements` (test): When a
+  requirement is not cited by anything of its kind, a test for `test`, a skill
+  step for `step` and a workflow step for `check`, `trace` fails the
+  requirement.
 - `trace-cmd-warns-on-waiting-items` (test): When `.github/untraced.json`
   lists a test or a step that cites nothing, and the issue it waits on is
   open, `trace` passes it with a warning naming that issue.
 - `trace-cmd-fails-closed-issue-entries` (test): When an entry in
   `.github/untraced.json`, or a step in check-skills.py's `KNOWN_SEAMS`, waits
   on an issue that has closed, `trace` fails the entry. It stops on an issue
-  it cannot read, and without a token it warns that it did not look.
+  it cannot read, and without a token it warns that it skipped the lookup.
 - `trace-cmd-fails-stale-list-entries` (test): When a listed test or step
   cites a requirement, or no longer exists, `trace` fails until its entry is
   removed.
@@ -740,7 +743,7 @@ Source: #114, #129, and SPEC-METHODOLOGY.md, under "The chain".
 ## constraint marketplace-serves-repo-as-is: The marketplace is this repository as it stands
 
 Claude reads the marketplace straight from this repository's GitHub address.
-No CI step builds a package in between, so an install copies a plugin's
+CI does not build a package in between, so an install copies a plugin's
 directory whole, and a file stays out of an install only by sitting outside
 `plugins/<plugin>/`.
 
@@ -749,7 +752,9 @@ marketplace" and "Layout".
 
 ## constraint bridge-cannot-delete: Cowork's device bridge cannot delete files
 
-A git write through the bridge strands a `.git/*.lock` that blocks every
+Cowork's **device bridge** is the set of tools, such as `device_bash`, that
+reach the user's folder from Cowork's cloud container. A git write through the
+bridge strands a `.git/*.lock` that blocks every
 later write. The constraint binds every plugin script that runs on the user's
 device through the bridge.
 
@@ -757,8 +762,8 @@ Source: CLAUDE.md, under "Script conventions", and COWORK.md.
 
 ## constraint proposeskills-takes-one-file: propose_skills takes a single SKILL.md
 
-Cowork's `propose_skills` delivers one `SKILL.md` and no bundled files, so a
-plugin that bundles a script cannot reach Cowork that way.
+Cowork's `propose_skills` delivers one `SKILL.md` without any bundled files, so
+a plugin that bundles a script cannot reach Cowork that way.
 
 Source: README.md, under "Adding a plugin", step 2.
 
@@ -772,8 +777,9 @@ Source: GitHub's "Linking a pull request to an issue", and #15.
 
 ## constraint hook-blocks-on-exit-2: A Claude Code hook that exits 2 blocks the call
 
-A PreToolUse hook that exits 2 stops the tool call, and Claude Code hands the
-hook's stderr back to Claude.
+A PreToolUse hook is a command that Claude Code runs before each tool call. One
+that exits 2 stops the tool call, and Claude Code hands the hook's stderr back
+to Claude.
 
 Source: Claude Code's hooks documentation, and #15, which tried it live.
 
@@ -788,8 +794,8 @@ conventions".
 ## constraint github-keeps-filed-issues: A filed issue cannot be counted on to come back
 
 Deleting an issue takes admin rights on the repository, so a script cannot
-count on undoing an issue it filed, and a batch cannot be filed all or
-nothing. This is the repo's own copy of the constraint in `specs/todos.md`.
+count on undoing an issue it filed. For the same reason, a batch cannot be
+filed all or nothing. This is the repo's own copy of the constraint in `specs/todos.md`.
 
 Source: GitHub's documentation, "Deleting an issue".
 

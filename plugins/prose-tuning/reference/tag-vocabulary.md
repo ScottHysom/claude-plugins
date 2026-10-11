@@ -25,7 +25,7 @@ commit is a bug.
 ```
 
 A `<del>` immediately followed by an `<ins>`, with only whitespace between, is
-one replacement. Nothing else is needed for the common case.
+one replacement. The common case does not need anything else.
 
 Wrap the pair in `<repl>` when commentary needs somewhere to attach:
 

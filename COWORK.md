@@ -5,8 +5,8 @@ sessions have shown it. Read this before designing anything that runs there. Whe
 something new, record it here, not only in a script's docstring or a pull
 request, so the next design starts from it.
 
-Nothing here comes from documentation. Each point is what a probe in a real
-session printed. A question that no probe has answered yet goes under "Not yet
+This file does not draw on documentation. Each point is what a probe in a real
+session printed. A question that probes have yet to answer goes under "Not yet
 known", added back when there is one.
 
 ## The container and the device
@@ -153,8 +153,8 @@ an existing folder", beside the same files run through Claude Code 2.1.274.
 - **A plugin's files in a project stay in the plugin's own folder.** Name it
   `.<plugin name>/` and give it a `.gitignore` holding `*`. Git then ignores the
   whole folder (including that `.gitignore`), so the project's commits never pick
-  it up. The project's own `.gitignore` doesn't have to know the plugin exists,
-  and no other plugin's templates have to either.
+  it up. Neither the project's own `.gitignore` nor any other plugin's templates
+  have to know the plugin exists.
 - **Instructions every session needs go in `.claude/rules/`, with no
   `paths:`.** Both products load a file there without being asked, as the
   table above shows, and a `paths:` key takes it out of that row. Unlike the root `CLAUDE.md`, a plugin can add a
@@ -169,7 +169,7 @@ an existing folder", beside the same files run through Claude Code 2.1.274.
 
 ## Probing
 
-The model can't run Cowork from Claude Code. It writes a probe prompt, the
+The agent can't run Cowork from Claude Code. It writes a probe prompt. The
 user pastes it into a Cowork session and pastes the answers back. A probe that
 works asks for:
 

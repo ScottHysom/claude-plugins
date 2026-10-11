@@ -33,7 +33,7 @@ skill's first step says so and stops when the script is missing.
 A Cowork Project's instructions field is not versioned, and a copy of it in the
 folder drifts from it the first time either is edited. So the field's content
 moves into `CLAUDE.md` at the root of the folder, copied exactly, and the field
-holds one line that points there. That line never needs to change, so there is
+holds one line that points there. That line stays the same from then on, so there is
 nothing left to drift.
 
 The note at the top of `CLAUDE.md` says how the file works. It is an HTML
@@ -65,7 +65,7 @@ records stay out of the documents. It also says how a commit is made from
 Cowork, how to read the history, and what to do when the Project Instructions
 field holds more than its one line. The field's line gets `CLAUDE.md` read in
 every conversation, so the section needs nothing registered on the account and
-has no second copy to keep in step. It sits outside the note's HTML comment,
+exists in one copy only. It sits outside the note's HTML comment,
 because Claude never sees what is inside one.
 
 A folder that is already a git repo gets only this section, from

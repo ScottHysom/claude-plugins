@@ -13,7 +13,7 @@ produced eleven good rules across six documents. That run also cost these:
 - nine exchanges
 - a tag vocabulary invented halfway through
 - twenty hand-written anchor strings, of which three missed
-- five malformed tags that nothing caught, because no parser existed yet
+- five malformed tags that went uncaught, because a parser did not exist yet
 
 The rules were the valuable part, and they were lost at the end of the
 session. Every later agent editing those documents started from nothing.
@@ -52,14 +52,14 @@ author's edits. `evidence` and `reproduce` take `--from` instead, and read the
 edits where they are: each file against that checkout's own last commit, in
 the scope of the session's `prose-style.md`. The rules go into the session's
 tree. The other checkout is read with plain file reads and `git show`, never
-written, so the author is not left with a second copy of their edits to
+written, so the author is spared a second copy of their edits to
 discard. `specs/prose-tuning.md`, under `constraint
 worktree-guards-shared-claude`, has the source.
 
 ## Packaging
 
 The skills call a bundled script, `scripts/prose.py`. Cowork's
-`propose_skills` takes a single `SKILL.md` with no bundled files, so proposing
+`propose_skills` takes only a single `SKILL.md`, so proposing
 one of these skills gives a skill that cannot run. That is why the plugin
 supports Cowork only by marketplace install.
 
@@ -158,7 +158,7 @@ An invented element, such as `<with>`, `<old>` or `<new>`, is closed early by
 the browser, which shows both versions run together.
 
 `<repl>` is the only edit tag that holds another, and it holds exactly one
-`<del>` and one `<ins>`. With no other nesting, the parser never has to decide
+`<del>` and one `<ins>`. Since that is the only nesting, the parser never has to decide
 which span a closing tag closes.
 
 The parser reports one message per fault. A parser that says two things about
@@ -170,7 +170,7 @@ The shipped rules live in `templates/prose-style.md`. `config init` starts a
 new project's rules from them, so a project starts from a working set rather
 than a blank file, and a project that wants to diverge edits its own copy.
 
-Editing the shipped rules changes what new projects get and changes nothing
-about existing ones, which do not update themselves. A rule from a real
+Editing the shipped rules changes what new projects get and leaves existing
+ones as they are, since they do not update themselves. A rule from a real
 project reaches the shipped rules through `copy-prose`, whose `SKILL.md` says
 what that also requires, including the version bump.

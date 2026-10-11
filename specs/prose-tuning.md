@@ -53,7 +53,7 @@ rule are the owner's figure, in the ruling on #132.
   explicit record with its old and new text, and the `why` and `<alt>` it
   carries.
 - `evidence-cmd-reports-standalone-alts` (test): When a file holds an
-  `<alt>` tied to no edit, `evidence` reports it as an explicit record of its
+  `<alt>` that is not tied to any edit, `evidence` reports it as an explicit record of its
   own.
 - `evidence-cmd-marks-hunk-signals` (test): When an inferred hunk changed
   only numbers, only link targets or only whitespace, `evidence` marks it
@@ -65,10 +65,11 @@ rule are the owner's figure, in the ruling on #132.
 - `updateproseconfig-asks-about-signals` (step): When a hunk carries a signal,
   update-prose-config takes it to the interview and never straight into a
   rule.
-- `updateproseconfig-makes-rules-at-threshold` (step): When a candidate occurs
-  two or more times independently, carries a `why` or an `<alt>`, or is
-  settled by an answered question, update-prose-config makes it a rule, and
-  anything else a question.
+- `updateproseconfig-makes-rules-at-threshold` (step): When a candidate meets any of these conditions, update-prose-config
+  makes it a rule, and anything else a question:
+    - it occurs two or more times independently.
+    - it carries a `why` or an `<alt>`.
+    - an answered question settles it.
 - `reproduce-cmd-matches-changed-text` (test): When `reproduce` runs, it
   reads the author's markup as resolved, and reports each edit since the last
   commit as reproduced when a rule's pattern, run over the file as it was at
@@ -81,12 +82,12 @@ rule are the owner's figure, in the ruling on #132.
   does not lint clean, `reproduce` names the fault and exits 1 before reading
   any file.
 - `updateproseconfig-fixes-the-rule` (step): When an edit is not reproduced by any
-  pattern, and not accounted for by any unpatterned rule, update-prose-config fixes
+  pattern or accounted for by any unpatterned rule, update-prose-config fixes
   the rule rather than the document.
 - `preflight-cmd-checks-before-teaching` (test): When `preflight --for
   config` runs, it exits 1 on markup that does not parse or a `prose-style.md`
   with errors.
-- `preflight-shows-progress` (test): When `preflight --for config` finds no
+- `preflight-shows-progress` (test): When `preflight --for config` does not find a
   blocker, it reports whether `prose-style.md` exists and the markup already
   in the files.
 - `list-cmd-gives-every-rule` (test): When `config list --json` runs, it
@@ -108,8 +109,8 @@ rule are the owner's figure, in the ruling on #132.
   `prose-style.md` requires, or refuses the record and names it by its place
   and id.
 - `write-cmd-lints-clean` (test): When `config write` writes rules,
-  `prose-style.md` still lints clean. A record whose rule would not lint is
-  refused, and a file that does not lint clean is not written to at all.
+  `prose-style.md` still lints clean. A record whose rule would fail lint is
+  refused. A file that fails lint is not written to at all.
 - `write-cmd-writes-nothing-unless-partial` (test): When `config write`
   refuses any record, it writes nothing unless `--partial` is passed. Given
   `--dry-run`, it reports what it would write and does not change
@@ -121,7 +122,7 @@ rule are the owner's figure, in the ruling on #132.
 - `write-cmd-keeps-unnamed-parts` (test): When `config write` rewrites a
   rule, it replaces the title, body, example or patterns the record gives and
   keeps the rest.
-- `write-cmd-refuses-stale` (test): When a rewrite's `expect` is not the
+- `write-cmd-refuses-stale` (test): When a rewrite's `expect` differs from the
   rule's body as the file holds it now, or the file has no rule with its id,
   `config write` refuses it.
 
@@ -129,8 +130,8 @@ rule are the owner's figure, in the ruling on #132.
 
 When Claude has proposed rules, the user wants to see each one as
 `prose-style.md` will hold it, with its patterns and its example, and to
-comment on one and have it revised, before approving. Nothing is written that
-they did not see.
+comment on one and have it revised, before approving. Only what they
+saw is written.
 
 Source: the owner's request on 2026-10-04, after approving rules from a
 summary in a session (#343).
@@ -199,8 +200,8 @@ description.
   text stays, `<del>` text goes, `<repl>` keeps its replacement, and every tag
   is removed.
 - `resolve-cmd-tidies-cuts` (test): When a resolved cut removes whole
-  paragraphs, one blank line is left where they were, none at either end of
-  the file, and no newline is added to a file that had none.
+  paragraphs, one blank line is left where they were and none at either
+  end of the file. A file without a final newline is left without one.
 - `resolve-cmd-warns-on-list-block-tags` (test): When `tags resolve` removes a
   block-form tag inside a list, it warns with the tag's file and line.
 - `applyprose-resolves-author-markup` (step): When `preflight --for apply`
@@ -226,7 +227,7 @@ update-prose-config description.
   reading.
 - `applyprose-splits-findings-by-rule` (step): When a passage breaks two
   rules, apply-prose writes two findings, one for each rule.
-- `lint-cmd-checks-id-grammar` (test): When a rule's id is not a
+- `lint-cmd-checks-id-grammar` (test): When a rule's id is anything but a
   lower-case section word and a name of one to four lower-case words, none
   starting with a digit, `config lint` names it once and exits 1. A name that
   repeats its section is a warning.
@@ -240,16 +241,16 @@ update-prose-config description.
 
 When the user asks Claude to apply the house style, they want a list of every
 passage that breaks a rule, with its file, line, rule id and proposed rewrite,
-and want nothing changed until they approve all of it or a part, so no
-document changes in a way they did not see.
+and want each change held until they approve all of it or a part, so a
+document changes only in ways they have seen.
 
 Source: README.md, under "Checking your documents", and the apply-prose
 description.
 
 - `report-cmd-locates-findings-by-text` (test): When a finding gives its
   text, `report` and `apply` look for it among the places that start on its
-  line, and refuse it when it starts at none of them, or at more than one and
-  no `col_start` says which. They refuse a finding that does not give a text,
+  line, and refuse it unless it starts at exactly one of them, or at more than
+  one with a `col_start` that says which. They refuse a finding that does not give a text,
   or that gives a `col_end`.
 - `report-cmd-refuses-empty-spans` (test): When a finding's text is empty,
   `report` and `apply` refuse it and say to rewrite the text beside the gap
@@ -258,14 +259,14 @@ description.
   holds a newline, `report` shows it whole and `apply` rewrites the span as
   one finding, keeping a newline its rewrite carries.
 - `report-cmd-refuses-stale-findings` (test): When a finding's text no
-  longer matches its file, or its line or its file does not exist, `report`
+  longer matches its file, or its line or its file is missing, `report`
   and `apply` refuse it and name it by its place in the batch.
 - `report-cmd-shows-current-text` (test): When `report` prints a finding,
   it shows the text at the finding's place in the file as it is now, each line
   between `|` marks, with `(cut)` for an empty rewrite, and it does not change a
   document.
 - `report-cmd-prints-approval-token` (test): When `report` exits 0, it
-  prints a token as its last line, and otherwise prints none.
+  prints a token as its last line, and otherwise does not print a token.
 - `report-cmd-shows-whole-batch` (test): When `report` is given `--only` or
   `--file`, it refuses them and exits 2, so its token covers only findings it
   showed.
@@ -290,7 +291,7 @@ description.
   findings to one file, it plans them against one snapshot of it, so the
   result does not depend on the order they came in.
 - `report-cmd-stops-on-unreadable-findings` (test): When the file given to
-  `--findings` cannot be read, or is not JSON, `report` and `apply` name the
+  `--findings` cannot be read or parsed as JSON, `report` and `apply` name the
   fault and exit 2.
 - `apply-cmd-describes-finding-fields-in-help` (test): When `apply --help`
   runs, it describes every field of a finding, and where a rewrite may hold a
@@ -298,8 +299,8 @@ description.
 - `config-cmd-reads-pattern-lines` (test): When a rule carries
   `**Pattern.**` lines, `config` reads every one, fenced in one or two
   backticks, and lists them with the rule.
-- `lint-cmd-checks-patterns` (test): When a pattern cannot run, matches
-  its rule's After example or finds nothing in its Before example, `config
+- `lint-cmd-checks-patterns` (test): When a pattern fails to run, matches
+  its rule's After example or misses its Before example, `config
   lint` names it and exits 1. A rule with no example leaves its patterns
   unchecked.
 - `patterns-cmd-prints-each-prose-match` (test): When a rule carries a
@@ -314,7 +315,7 @@ description.
 - `report-cmd-fails-uncovered-matches` (test): When a pattern matches text
   in a file in scope that no finding or dismissal of the same rule contains,
   `report` names the match and exits 1.
-- `uncovered-names-remedy` (test): When a pattern match is covered by no
+- `uncovered-names-remedy` (test): When a pattern match is not covered by any
   finding, `report` names it and says to add a finding or a dismissal.
 - `apply-cmd-honors-dismissals` (test): When a finding carries `dismiss`,
   `report` prints its reason and `apply` leaves its text alone. A dismissal
@@ -363,8 +364,8 @@ Source: README.md, under "Checking your documents".
 
 When the user applies the house style, they want only the document's own
 prose checked and rewritten, never its code, front matter, comments, a table's
-structure or someone else's words, so a style pass cannot break what is not
-prose.
+structure or someone else's words, so a style pass puts only prose at
+risk.
 
 Source: the apply-prose description. The owner confirmed the need in the
 ruling on #133.
@@ -437,7 +438,7 @@ Source: README.md, under "Checking your documents", and the apply-prose
 description.
 
 - `segments-cmd-reads-scope-by-default` (test): When `segments`, `patterns`
-  or `pass` is not given a file, it reads every file in scope, and names a file
+  or `pass` runs without a file, it reads every file in scope, and names a file
   given that does not exist.
 - `report-cmd-only-searches-named-files` (test): When `report` is given
   files, it fails only on uncovered pattern matches in those files, and names
@@ -466,7 +467,7 @@ description.
 When the user first runs update-prose-config in a project, they want to start
 the rules file from the default set the plugin ships, from another project's
 rules or from an empty file, so the first rules need not be written from
-nothing.
+scratch.
 
 Source: README.md, under "Setting up".
 
@@ -507,7 +508,7 @@ description. The 0.6 score at which two rules count as similar is the owner's,
 in the ruling on #131.
 
 - `classify-cmd-finds-new-rules` (test): When the target has no rule with
-  a source rule's id, and no target rule scores 0.6 or more against it,
+  a source rule's id, and every target rule scores below 0.6 against it,
   `config classify` puts it in `new`.
 - `classify-cmd-finds-identical-rules` (test): When a target rule has a
   source rule's id, and their bodies match once HTML comments are dropped and
@@ -542,9 +543,10 @@ in the ruling on #131.
   rule, the target gets the rule's lines as the source has them, less any
   `prose-rule` comment.
 - `copy-cmd-places-by-section` (test): When `config copy` copies a rule,
-  it puts it after the target's last rule from the same section, or failing
-  that under the target's `##` heading matching the source's, or failing that
-  at the end under a new copy of that heading.
+  it puts it in the first of these places that applies:
+    - after the target's last rule from the same section.
+    - under the target's `##` heading matching the source's.
+    - at the end under a new copy of that heading.
 - `copy-cmd-keeps-source-order` (test): When `config copy` puts several
   rules in one place, they keep the source's order.
 - `copy-cmd-lints-clean` (test): When `config copy` writes, the target
@@ -621,7 +623,8 @@ descriptions.
 
 When the user works in a Cowork Project, they want the skills they have in
 Claude Code, installed from the same marketplace, so one house style serves
-both.
+both. Cowork is a mode of the Claude desktop app that runs Claude in a cloud
+container, working on a folder the user connects from their own computer.
 
 Source: README.md, the opening section and "Setting up".
 
@@ -691,15 +694,15 @@ checkout holds edits.
   checkout, by its folder or its branch, or a hand-off carries one,
   update-prose-config passes it to `evidence --from` and `reproduce --from`,
   and does not ask which checkout to learn from.
-- `updateproseconfig-asks-which-checkout` (step): When no checkout was named
+- `updateproseconfig-asks-which-checkout` (step): When the author did not name a checkout
   and `evidence` names two or more other worktrees, update-prose-config asks
   the author in one `AskUserQuestion` which to learn from, if any, listing
   each one's path, branch and files. When it names one, update-prose-config
   reads that one without asking. Either way it gathers the evidence again
   with `--from`.
 - `updateproseconfig-names-unreproduced-edits` (step): When
-  update-prose-config hands off, it lists each edit that `reproduce` did not
-  match, so the author knows which edits apply-prose may not make again if
+  update-prose-config hands off, it lists each edit `reproduce` left
+  unmatched, so the author knows which edits apply-prose may not make again if
   they discard theirs.
 
 ## need user-teaches-by-noting: Teach the style by noting a passage

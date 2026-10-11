@@ -7,7 +7,7 @@ description: Put an existing Cowork Project folder under git, writing commit.sh,
 
 The skill runs only in Cowork with a connected folder. This skill writes to the user's device
 through the bridge (`device_bash`, `device_commit_files`), which Claude Code
-does not have. If the bridge is not available, say so and stop rather than
+does not have. If the bridge is missing, say so and stop rather than
 building the files somewhere they cannot reach.
 
 The folder already holds the user's work. This skill adds git and nothing else:
@@ -146,7 +146,7 @@ Say what it does, because it is not what they may expect: it stages every file
 in the folder and **commits nothing**. It lists the files the first commit
 would take. They add a pattern to `.gitignore` for anything that should stay
 out, run `sh setup.sh` again to see the new list, and when it is right run
-`sh setup.sh commit`. Do not run any of it from here, and do not offer to.
+`sh setup.sh commit`. Do not run any of it from here, or offer to.
 
 Then tell them to change the Project Instructions field, which only they can
 do. `CLAUDE.md` now holds what was there, and the field keeping a copy is how
@@ -154,13 +154,11 @@ the two drift apart. They replace everything in the field with
 `data.field_pointer`, exactly, even though Cowork also loads `CLAUDE.md` by
 itself. The field reaches every conversation from its start, so this line gets
 `CLAUDE.md` read wherever Cowork's own loading of the file does not reach.
-COWORK.md, in the claude-plugins repo, under "How instruction files load", has
-what Cowork loads and when.
 
 ## Step 6: a folder that is already a git repo
 <!-- spec: gitifyproject-adds-history-to-repo -->
 
-Come here only from step 1's `repo:`, and skip steps 2 to 5. This skill does not take over a repo, and does not write its `.gitignore`,
+Come here only from step 1's `repo:`, and skip steps 2 to 5. This skill does not take over a repo, write its `.gitignore`,
 `commit.sh` or `setup.sh`, or move the Project Instructions. It can add one
 thing: a "Git history" section at the end of the root `CLAUDE.md`, which tells
 Claude to keep the record of a change out of the documents and to leave the
@@ -177,7 +175,7 @@ Run `data.history_command` through `device_bash`. It prints one line:
 - **`added:`**: the section is at the end of `CLAUDE.md`. Tell the user to
   review it and commit `CLAUDE.md` from their own terminal. Do not commit it
   from here.
-- **`present:`**: `CLAUDE.md` already has the section. Nothing changed.
+- **`present:`**: `CLAUDE.md` already has the section. The file is unchanged.
 - **`not-repo:`** or **`missing:`**: the line says what is wrong. Tell the user
   and stop.
 - **`failed:`**: the end of `CLAUDE.md` does not match the section. Show the
