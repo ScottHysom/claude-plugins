@@ -199,6 +199,8 @@ any test or does not find any skill step", adds words and no meaning.
 **Pattern.** `\b(?:give|given|put|run|show|shown|take|taken|write|written) no\b`
 **Pattern.** `(?i)\b((?:do|does|did|can|could|will|would|is|are|was|were)(?: not|n't) [a-z]+)\b[^.;:]*?\b\1\b`
 **Pattern.** `(?:^|[.!?]\s+)Nothing [a-z]+ed\b`
+**Pattern.** `(?:^|[.!?]\s+|\b(?i:so|because|since|until|while|if|when|where|whether)\s+)(?:[Nn]othing|[Nn]obody) (?:(?:in|of|on|from|under|about)(?= (?:\S+ ){1,3}?(?:[a-z]+s|do|can|have|will|need)\b)|(?:[a-z]+s|do|can|have|will|need)\b(?!\s*$))`
+**Pattern.** `(?:^|[.!?]\s+|\b(?i:so|because|since|until|while|if|when|where|whether)\s+)[Nn]o (?!(?:one|longer|matter|more)\b)(?:[a-z]+ ){1,2}?(?:(?:in|of|on|from|under|about)(?= (?:\S+ ){1,3}?(?:[a-z]+s|do|can|have|will|need)\b)|(?:[a-z]+s|do|can|have|will|need)\b(?!\s*$))`
 
 > **Before.** The spec pull request changes no behavior.
 > **After.** The spec pull request does not change any behavior.
