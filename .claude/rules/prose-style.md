@@ -374,7 +374,8 @@ lead-in to a bullet.
 
 The contributor docs are plain technical prose for an engineer. A plugin's
 `README.md` is for someone who has just installed the plugin and may not write
-code.
+code. A file that instructs Claude is plain literal prose. It says what to do
+and why, without metaphor.
 
 > **Before.** The grep it replaced went blind the moment its pathspec stopped matching and stayed green.
 > **After.** The grep it replaced matched no files once its pathspec went stale, and still passed.
