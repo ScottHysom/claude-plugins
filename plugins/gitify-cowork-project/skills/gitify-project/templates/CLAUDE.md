@@ -15,7 +15,8 @@ This project's documents live only in this folder. Create and edit them here,
 and nowhere else. Never put a project document in the claude.ai Project's own
 documents, or hand it over as a file in the chat, which Cowork keeps in
 `Claude outputs/`, outside git. If a session cannot reach this folder, ask the
-user for access to it first, and write nothing until it is connected.
+user for access to it first, and wait until it is connected before writing
+anything.
 
 ## Git history
 
