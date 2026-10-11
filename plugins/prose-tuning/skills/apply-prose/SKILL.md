@@ -283,5 +283,6 @@ tree dirty.
 
 It does not add rules. A passage that reads badly but does not break any existing rule is a
 note to the author and a candidate for `update-prose-config`. Editing it here
-would be a freelance rewrite wearing a rule's clothing, and nothing downstream
-could tell the difference.
+would be a freelance rewrite wearing a rule's clothing, and whoever reads the
+change later, in the report or in the commit, could not tell it from a rule's
+edit.
