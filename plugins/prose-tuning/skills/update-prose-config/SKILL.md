@@ -92,10 +92,10 @@ This tree has nothing to learn from.
 **`explicit`** is markup the author wrote: an `<ins>`, `<del>` or `<repl>` with
 its `why` and its `<alt>` proposals, or an `<alt>` not tied to any passage,
 whose record has kind `alt` and holds the proposal in `alt`. The author has
-already said what they mean. Take it at face value.
+already said what they mean. Take it as written.
 
 **`inferred`** is an untagged diff hunk. Treat every one as a statement about
-prose, not a factual correction. The escape hatch is the `signal` field: a hunk
+prose, not a factual correction. The exception is the `signal` field. A hunk
 marked `numeric-only`, `link-only` or `whitespace-only` may be a fact that got
 fixed in passing. Those go into the interview, never straight into a rule.
 

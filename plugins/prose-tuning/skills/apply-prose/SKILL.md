@@ -40,7 +40,7 @@ python3 "$PROSE" preflight --for apply
   `<del>` and `<repl>` marking edits, with `why` and `<alt>` saying why.
   `update-prose-config` learns from it and leaves it in place.
 - **an uncommitted governed document.** The author is mid-edit, and a rewrite
-  landing on top of that is unreviewable.
+  made over those edits could not be reviewed.
 
 An uncommitted `prose-style.md` is not a blocker. It is the expected output of
 the run whose rules this pass is about to check.
@@ -56,7 +56,7 @@ python3 "$PROSE" tags resolve
 
 `resolve` keeps each `<ins>`, drops each `<del>`, keeps the replacement of
 each `<repl>`, and removes every tag. Read its warnings. A block-form tag
-resolved inside a list is the one case worth eyeballing, because a tag between
+resolved inside a list is the one case to read closely, because a tag between
 two list items ends the list. Then stop. Tell the author to commit the
 resolved files and run this skill again to conform them.
 
@@ -285,6 +285,5 @@ tree dirty.
 
 This skill does not add rules. A passage that reads badly but does not break
 any existing rule is a note to the author and a candidate for
-`update-prose-config`. Editing it here would be a freelance rewrite wearing a
-rule's clothing, and whoever reads the change later, in the report or in the
-commit, could not tell it from a rule's edit.
+`update-prose-config`. Leave it as it is, because a reader of the report or
+the commit could not tell an edit to it from one a rule made.

@@ -135,7 +135,7 @@ python3 .github/scripts/check-manifest-consistency.py check
   again, with the shipped rules as the source and that project as the target,
   and it is the author's call, not this run's.
 - **Keep the `FILL` markers.** A rule promoted out of a real project usually has
-  that project's example baked into it. The shipped version needs the example
+  that project's example written into it. The shipped version needs the example
   replaced by a `FILL` telling the next project what to supply, or every project
   inherits a worked example about something it has never heard of.
 
