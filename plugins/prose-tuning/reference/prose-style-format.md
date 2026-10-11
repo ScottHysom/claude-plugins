@@ -115,12 +115,19 @@ easily as one line per family of words than as one long alternation.
 **A flag such as `(?i)` goes at the very start.** Python 3.11 refuses one
 anywhere else, so `config lint` refuses it on every version.
 
-**A pattern reads what `segments` returns, and nothing else.** Front matter,
-fences, blockquotes, HTML comments and a table's delimiter row are never
-searched. A match that touches a code span is dropped too, since a code span
-quotes code. The lines of one paragraph or list item are searched as one
-passage, with each line break read as a single space, so `in order to` finds
-a sentence that wraps after `order`.
+**A pattern reads what `segments` returns, and nothing else.** A pattern
+never searches these parts of a document:
+
+- front matter
+- fences
+- blockquotes
+- HTML comments
+- a table's delimiter row
+
+A match that touches a code span is dropped too, since a code span quotes
+code. The lines of one paragraph or list item are searched as one passage,
+with each line break read as a single space, so `in order to` finds a
+sentence that wraps after `order`.
 
 `config lint` rejects a `**Pattern.**` line that is not one code span, a
 pattern that does not compile, and a pattern that matches an empty string,
