@@ -146,7 +146,7 @@ Say what it does, because it is not what they may expect: it stages every file
 in the folder and **commits nothing**. It lists the files the first commit
 would take. They add a pattern to `.gitignore` for anything that should stay
 out, run `sh setup.sh` again to see the new list, and when it is right run
-`sh setup.sh commit`. Do not run any of it from here, or offer to.
+`sh setup.sh commit`. Do not run (or offer to) any of it from here.
 
 Then tell them to change the Project Instructions field, which only they can
 do. `CLAUDE.md` now holds what was there, and the field keeping a copy is how
@@ -159,10 +159,15 @@ itself. The field reaches every conversation from its start, so this line gets
 <!-- spec: gitifyproject-adds-history-to-repo -->
 
 Come here only from step 1's `repo:`, and skip steps 2 to 5. This skill does
-not take over a repo, write its `.gitignore`, `commit.sh` or `setup.sh`, or
-move the Project Instructions. It can add one thing: a "Git history" section at
-the end of the root `CLAUDE.md`, which tells Claude to keep the record of a
-change out of the documents and to leave the commit to the user.
+not:
+
+- take over a repo
+- write its `.gitignore`, `commit.sh` or `setup.sh`
+- move the Project Instructions
+
+It can add one thing: a "Git history" section at the end of the root
+`CLAUDE.md`, which tells Claude to keep the record of a change out of the
+documents and to leave the commit to the user.
 
 Ask the user whether to add it. On a yes:
 

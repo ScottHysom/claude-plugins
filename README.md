@@ -1,8 +1,8 @@
 # claude-plugins
 
 A personal plugin marketplace for Claude. A **marketplace** is a catalog of
-plugins that Claude can install from, and a **plugin** bundles skills, the
-instructions Claude follows for one kind of task, with the scripts they run.
+plugins that Claude can install from, and a **plugin** bundles skills with the
+scripts they run.
 Add it once, then install any plugin listed below.
 
 Plugins here may target Cowork, Claude Code, or both. Cowork is the Claude

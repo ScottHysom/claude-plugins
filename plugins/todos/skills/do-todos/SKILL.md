@@ -104,7 +104,7 @@ TODO where any of these holds:
 
 - it says too little to write an issue that someone else could act on, such
   as what is wrong, or what done means;
-- it does not give a kind, and its words leave the kind open;
+- it does not give a kind, and its words leave the kind unspecified;
 - an issue in its `similar` may cover it, and the issue's title and the TODO
   do not settle whether it does;
 - it may repeat another TODO.

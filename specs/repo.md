@@ -16,10 +16,10 @@ requirements.
 
 ## need owner-keeps-model-at-seams: Keep the model to judgment and platform seams
 
-When a skill, the instructions a plugin gives Claude for one task, runs script
-commands, the owner wants the model between two of them only where it makes a
-judgment or calls a tool beyond a script's reach, so a run does not spend
-context on work a script could do, or get that work wrong.
+When a skill runs script commands, the owner wants the model between two of
+them only where it makes a judgment or calls a tool beyond a script's reach,
+so a run does not spend context on work a script could do, or get that work
+wrong.
 
 Source: #126, and CLAUDE.md, under "Skills and scripts".
 
@@ -675,9 +675,11 @@ Source: #114, #129, and SPEC-METHODOLOGY.md, under "The chain".
   workflow step cites an id its component's spec does not hold, `trace` fails
   the citation.
 - `trace-cmd-fails-unverified-requirements` (test): When a
-  requirement is not cited by anything of its kind, a test for `test`, a skill
-  step for `step` and a workflow step for `check`, `trace` fails the
-  requirement.
+  requirement is not cited by anything of its kind, `trace` fails the
+  requirement. Each kind is cited by:
+  - `test`: a test.
+  - `step`: a skill step.
+  - `check`: a workflow step.
 - `trace-cmd-warns-on-waiting-items` (test): When `.github/untraced.json`
   lists a test or a step that cites nothing, and the issue it waits on is
   open, `trace` passes it with a warning naming that issue.
