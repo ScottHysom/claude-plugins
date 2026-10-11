@@ -318,11 +318,11 @@ as one entry in `edits`:
   against the rules listed in `unpatterned`, which a command cannot check. An
   edit the interview settled as a fact, not a style choice, does not need a rule.
 
-An edit that no pattern reproduces and no unpatterned rule accounts for shows
-a rule that is wrong or incomplete. Say which, and fix the rule rather than
-the document: extend its pattern, or write the rule it is missing. Hand the fix
-to the author and `config write` as steps 5 and 6 do, then run `reproduce`
-again.
+An edit that is not reproduced by any pattern or accounted for by any
+unpatterned rule shows a rule that is wrong or incomplete. Say which, and fix
+the rule rather than the document: extend its pattern, or write the rule it is
+missing. Hand the fix to the author and `config write` as steps 5 and 6 do,
+then run `reproduce` again.
 
 ## Step 8: hand off
 <!-- spec: updateproseconfig-never-commits, updateproseconfig-names-unreproduced-edits, updateproseconfig-never-writes-documents -->
