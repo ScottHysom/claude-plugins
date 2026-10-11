@@ -357,25 +357,41 @@ already found obvious, or have not. Leave the judgment to them.
 A contraction such as "won't" is as acceptable as "will not", in every
 document. Neither form is preferred.
 
-### register-instruction-clauses-change-behavior: In instructions to a model, every clause changes what the model does
+### register-instruction-clauses-change-behavior: In instructions to Claude, every clause changes what Claude does
 
-A file that instructs a model is read in full on every run. Such files include:
+A file written to instruct Claude is read in full every time it loads. Such
+files include:
 
-- a skill's `SKILL.md`, and the files it sends the model to read.
-- `CLAUDE.md`.
-- every file in `.claude/rules/` (including this one).
+- a skill's `SKILL.md`, and every file it sends the model to read.
+- `CLAUDE.md`, which loads into every session in the project.
+- every file in `.claude/rules/` (including this one), which loads the same
+  way.
+- a template that a skill copies into a project as one of these files, such as
+  prose-tuning's `templates/prose-style.md`.
 
-A clause that records design history, or argues for the design to a
-contributor, costs context on each run and can read as an instruction. A reason
-stays when it changes a decision the model makes, or holds a line the model
-will be pressed to cross. The rest belongs in the project's design notes, its
-README, a script's docstring or the commit body.
+A clause in any of these files that records design history, or argues for the
+design to a contributor, costs context on each run and can read as an
+instruction. A reason stays when it changes a decision the model or the agent
+makes, or holds a line it will be pressed to cross.
 
-<!-- FILL: one clause from this project's instructions to a model that
-     argues for the design, and the shorter line that replaces it. -->
+A reason that does not stay moves elsewhere:
 
-**Check.** Delete the clause and ask whether the model would then do anything
-differently. If it would not, the clause goes.
+- from a skill or its template, to the skill's design notes (such as a
+  plugin's `DESIGN.md`), its script's docstring or the commit body.
+- from `CLAUDE.md` or `.claude/rules/`, to the project's `README.md` when a
+  contributor needs it, and otherwise to the commit body.
+
+**Check.** Delete the clause and ask whether the model or the agent would then
+do anything differently. If it would not, the clause goes.
+
+<!-- FILL: replace the examples below with a real before and after from this
+     project. -->
+
+> **Before.** `update-prose-config` deliberately cannot do it: a skill that writes outside the repo it was invoked in is a skill whose blast radius depends on which machine it ran on.
+> **After.** `update-prose-config` deliberately cannot do it.
+
+> **Before.** A step the model does by hand will eventually be done wrong, and nothing will notice.
+> **After.** A step the model does by hand will eventually be done wrong.
 
 ## Settled decisions
 
