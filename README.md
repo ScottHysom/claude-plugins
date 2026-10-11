@@ -332,16 +332,19 @@ machine explores. When exploring turns something up, pin it with `@example(...)`
 so it is checked every run afterwards, and add the example-based test that says
 what the bug was.
 
-Property tests stay honest through two habits. Mutation-check: break the code the property
-guards and confirm it fails, because a property that passes against broken code
-is a generator producing nothing interesting. Run the tests with
-`PYTHONDONTWRITEBYTECODE=1` while doing it, and confirm the unbroken code passes
-first. Python reuses cached bytecode when a file's size and modification second
-match, so a quick break-and-restore can run a stale copy. macOS's system Python
-keeps that cache in `~/Library/Caches/com.apple.python`, not beside the source,
-so it is easy to miss. And watch for vacuity with
-`--hypothesis-show-statistics`. A round-trip generator whose inputs are all
-refused proves only that refusing works.
+Property tests stay honest through these habits:
+
+- **Mutation-check.** Break the code the property guards and confirm the
+  property fails. A property that passes against broken code is a generator
+  producing nothing interesting. Run the tests with `PYTHONDONTWRITEBYTECODE=1`
+  while doing it, and confirm the unbroken code passes first. Python reuses
+  cached bytecode when a file's size and modification second match, so a quick
+  break-and-restore can run a stale copy. macOS's system Python keeps that
+  cache in `~/Library/Caches/com.apple.python` rather than beside the source,
+  so it is easy to miss.
+- **Watch for vacuity.** Run the tests with `--hypothesis-show-statistics`. A
+  round-trip generator whose inputs are all refused proves only that refusing
+  works.
 
 ## Formatting and linting
 
