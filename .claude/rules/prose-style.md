@@ -369,7 +369,7 @@ already found obvious, or have not. Leave the judgment to them.
 A contraction such as "won't" is as acceptable as "will not", in every
 document. Neither form is preferred.
 
-### register-skill-clauses-change-behavior: In instructions Claude loads, every clause changes what Claude does
+### register-instruction-clauses-change-behavior: In instructions to Claude, every clause changes what Claude does
 
 A `SKILL.md` speaks to the model, which reads all of it on every run of the
 skill. So does a file in the plugin's `reference/` that the `SKILL.md` sends

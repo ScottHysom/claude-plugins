@@ -357,14 +357,19 @@ already found obvious, or have not. Leave the judgment to them.
 A contraction such as "won't" is as acceptable as "will not", in every
 document. Neither form is preferred.
 
-### register-skill-clauses-change-behavior: In a skill's instructions, every clause changes what the model does
+### register-instruction-clauses-change-behavior: In instructions to a model, every clause changes what the model does
 
-A file that instructs a model, such as a skill's `SKILL.md`, is read in full on
-every run. A clause that records design history, or argues for the design to a
+A file that instructs a model is read in full on every run. Such files include:
+
+- a skill's `SKILL.md`, and the files it sends the model to read.
+- `CLAUDE.md`.
+- every file in `.claude/rules/` (including this one).
+
+A clause that records design history, or argues for the design to a
 contributor, costs context on each run and can read as an instruction. A reason
 stays when it changes a decision the model makes, or holds a line the model
-will be pressed to cross. The rest belongs in the project's design notes, a
-script's docstring or the commit body.
+will be pressed to cross. The rest belongs in the project's design notes, its
+README, a script's docstring or the commit body.
 
 <!-- FILL: one clause from this project's instructions to a model that
      argues for the design, and the shorter line that replaces it. -->
