@@ -68,7 +68,9 @@ prose-tuning's `carry` copies the edits into the session's tree, because
 Claude Code refuses a worktree session's edits to the main checkout's
 `.claude/`. A TODO can sit in any file, and the probe recorded under
 `constraint bash-writes-other-checkout` in `specs/todos.md` found that a
-script run through Bash can open one there for writing. So nothing is carried.
+script run through Bash can open one there for writing. So the todos script
+does not carry any edit across, and marks each TODO in the checkout where it
+sits.
 
 ## Why a script
 
@@ -81,7 +83,8 @@ does the rest:
 - marking each TODO handled
 
 Marking has to change a TODO's word and its wrap, and no other byte. A model
-editing by hand gets that wrong eventually, and nothing would notice.
+editing by hand gets that wrong eventually, and without the script, neither
+the model nor the author would notice the stray byte.
 
 ## The report and the token
 
@@ -162,9 +165,12 @@ or a trailing TODO would render too.
 `scan` reads a marked TODO, with its detail, so that a second run neither
 reports it nor warns, and does not read it as the detail of a new TODO
 written above it. `tests/todos/test_properties_todos_marking.py` checks, for
-every file Hypothesis builds, that a file with every TODO marked holds nothing
-for `scan`, that no byte changed outside each word and wrap, and that nothing
-of a marked TODO renders in markdown.
+every file Hypothesis builds, that:
+
+- `scan` does not report or warn about anything in a file with every TODO
+  marked.
+- marking leaves every byte outside each word and wrap as it was.
+- markdown does not render any part of a marked TODO.
 
 ## `approved`
 
