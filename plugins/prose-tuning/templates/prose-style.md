@@ -289,7 +289,7 @@ main clause.
 Two negations in one sentence make the reader undo both. Turn one of them
 positive.
 
-**Pattern.** `(?i)\b(?:nothing|nobody|no one|not)\b[^.;:]*\bnever\b`
+**Pattern.** `(?i)\b(?<!\bor )(?:not|never|no|nothing|nobody|none|cannot|[a-z]+n['’]t)\b[^.;:]*\b(?<!\bor )(?:not|never|no|nothing|nobody|none|cannot|[a-z]+n['’]t)\b`
 
 > **Before.** Nothing can show that a behavior was never asked for.
 > **After.** No one can know whether a behavior was ever asked for.
