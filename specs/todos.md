@@ -36,20 +36,23 @@ Source: #311, which quotes the owner's request.
 - `scan-cmd-reports-nothing-pending` (test): When `scan` does not find a
   pending TODO, and does not name another worktree, it says so and exits 0.
 - `scan-cmd-locates-each-todo` (test): When `scan` reports a TODO, it gives
-  its file, its first and last line, the line it sits above, or for a TODO at
-  the end of a line that line, with that line's text as the last commit has
-  it and its number at the last commit when it has one, and the last
-  commit's hash with whether a remote branch holds it.
+  these:
+  - its file, and its first and last line.
+  - the line it sits above, or for a TODO at the end of a line, that line.
+  - that line's text as the last commit has it, and its number at the last
+    commit when it has one.
+  - the last commit's hash, and whether a remote branch holds it.
 - `scan-cmd-lists-labels` (test): When `scan` runs, it lists every label of
   the repository with its description.
 - `dotodos-reads-todos-from-scan` (step): When do-todos looks for TODOs, it
   takes them from `scan`'s output, and never searches the files with a
   command of its own.
 - `report-cmd-shows-each-draft` (test): When `report` runs, it prints each
-  draft whole, with its TODO's file and lines and its route, for a draft
-  routed to `issue` its title, labels and body, for a draft routed to
-  `comment` the number and title of its issue and its body, and for a draft
-  routed to `skill` the skill's name and the TODO's title and detail.
+  draft whole, with its TODO's file and lines and its route, and what its
+  route adds:
+  - `issue`: its title, labels and body.
+  - `comment`: the number and title of its issue, and its body.
+  - `skill`: the skill's name, and the TODO's title and detail.
 - `report-cmd-lists-undrafted-todos` (test): When a pending TODO has no draft,
   `report` lists it as left in place.
 - `report-cmd-lists-scan-warnings` (test): When `report` runs, it lists every
@@ -406,10 +409,10 @@ ended.
 
 ## constraint bash-writes-other-checkout: A script run through Bash can write another checkout
 
-A script that a session in a worktree the desktop app made runs through Bash
-can open a tracked file in the repo's main checkout, outside `.claude/`, for
-writing. So `file --from` marks the TODOs in the checkout where they were
-left.
+When a session runs in a worktree the desktop app made, a script it runs
+through Bash can open a tracked file in the repo's main checkout, outside
+`.claude/`, for writing. So `file --from` marks the TODOs in the checkout
+where they were left.
 
 The probe ran Bash without Claude Code's sandbox. It did not test a session
 with the sandbox turned on, which limits writes to the working directory. If
