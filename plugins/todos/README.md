@@ -137,7 +137,9 @@ renders:
 Nothing else in your files changes. Delete the markers when you commit, or
 keep them as pointers to where each TODO went. While a markdown file holds a
 marker you have not committed, prose-tuning's apply-prose waits, because the
-file has uncommitted changes. Commit the file and it runs.
+file has uncommitted changes. apply-prose is the skill in the prose-tuning
+plugin that rewrites your markdown to follow your project's house style.
+Commit the file and it runs.
 
 The plugin keeps a copy of its script in `.todos/` in your project, with its
 own `.gitignore`, so it never shows up in a commit. Claude never commits. You
