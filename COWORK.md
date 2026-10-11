@@ -119,13 +119,13 @@ an existing folder", beside the same files run through Claude Code 2.1.274.
   tool: it is tied to the message, not to touching the folder.
 - **Only the connected folder's root counts.** A `CLAUDE.md` in a folder
   inside the connected one, or above it, is never loaded. Files are read
-  through `device_bash`, which triggers nothing, so neither are path-scoped
-  rules.
+  through `device_bash`, and a read there does not trigger any loading. So
+  path-scoped rules are never loaded either.
 - **A "Start from scratch" Project has no folder,** whatever Cowork's guide
-  says: none is created on disk and none is linked, though a chip with a
-  folder icon and the project's name sits below the prompt box. A session in
-  it does not report any connected folder. Only the field carries standing
-  instructions there.
+  says: Cowork does not create a folder on disk or link one, though a chip
+  with a folder icon and the project's name sits below the prompt box. A
+  session in it does not report any connected folder. Only the field carries
+  standing instructions there.
 - **A session started from the Claude mobile app has no folder at first.**
   Seen in the session behind #297, in a Project made with "Use an existing
   folder". The session got the field, `get_device_info` reported

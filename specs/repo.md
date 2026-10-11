@@ -267,12 +267,13 @@ Source: the owner's request on 2026-10-05, after #347 and its sub-issues were
 filed by hand, recorded in #359.
 
 - `planreport-cmd-checks-each-draft` (test): When `issues.py plan report
-  --drafts <file>` reads a plan, it refuses each issue whose body does not
-  open with `**Claude:**` or lacks a heading CLAUDE.md asks for. It also
-  refuses each issue that does not carry exactly one kind label and one area
-  label, that carries `approved` or `tracking`, or that carries a label the
-  repository does not have. It names every fault in one run, and prints no
-  token.
+  --drafts <file>` reads a plan, it names every fault in one run, does not
+  print a token, and refuses each issue that:
+  - has a body that does not open with `**Claude:**`.
+  - lacks a heading CLAUDE.md asks for.
+  - does not carry exactly one kind label and one area label.
+  - carries `approved` or `tracking`.
+  - carries a label the repository does not have.
 - `planreport-cmd-checks-plan-links` (test): When a key repeats, a `{KEY}` or
   a `blocked_by` key does not name an issue in the plan, a body names an issue
   filed after it, a blocker outside the plan is not an open issue, or the
@@ -351,9 +352,12 @@ Source: #289, and README.md, under "Claiming an issue".
 
 - `clear-cmd-deletes-merged-branch` (test): When `issues.py clear N` finds #N
   closed, and the local `issue/N` either inside the head of a merged pull
-  request from it or not holding any change `origin/main` lacks, it switches any
-  worktree that has the branch checked out to a detached `origin/main`,
-  does not remove a worktree, and deletes the branch.
+  request from it or not holding any change `origin/main` lacks, it does
+  these:
+  - switches any worktree that has the branch checked out to a detached
+    `origin/main`.
+  - leaves every worktree in place.
+  - deletes the branch.
 - `clear-cmd-keeps-unmerged-work` (test): When #N is open, the local
   `issue/N` does not exist, or it holds a commit that no merged pull request from
   it has and a change `origin/main` lacks, `issues.py clear` exits 1, says
@@ -656,8 +660,8 @@ Source: README.md, under "Formatting and linting" and "Shell scripts".
 ## need owner-traces-behavior-to-needs: Tie each behavior to the need behind it
 
 When a contributor adds a behavior, the owner wants CI to tie each test and
-skill step to a requirement in `specs/`, so no behavior arrives that no need
-asked for, and no requirement loses the last thing that verifies it.
+skill step to a requirement in `specs/`, so every behavior arrives with a need
+that asked for it, and every requirement keeps something that verifies it.
 
 Source: #114, #129, and SPEC-METHODOLOGY.md, under "The chain".
 
@@ -680,11 +684,14 @@ Source: #114, #129, and SPEC-METHODOLOGY.md, under "The chain".
 - `trace-cmd-fails-stale-list-entries` (test): When a listed test or step
   cites a requirement, or no longer exists, `trace` fails until its entry is
   removed.
-- `trace-cmd-checks-spec-grammar` (test): When a spec file has a
-  requirement outside a need or a constraint, a malformed requirement, a need,
-  constraint or requirement id not in the form SPEC-METHODOLOGY.md gives under
-  "Ids", a duplicate id or a kind that nothing in the repo verifies, `trace` fails
-  it.
+- `trace-cmd-checks-spec-grammar` (test): When `trace` reads a spec file,
+  it fails each of these it finds:
+  - a requirement outside a need or a constraint.
+  - a malformed requirement.
+  - a need, constraint or requirement id not in the form SPEC-METHODOLOGY.md
+    gives under "Ids".
+  - a duplicate id.
+  - a kind that nothing in the repo verifies.
 - `trace-cmd-scans-something` (test): When `trace` does not find any spec,
   test or skill step, it fails.
 - `trace-cmd-reads-project-skills` (test): When a step of a skill under
