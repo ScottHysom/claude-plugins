@@ -114,7 +114,7 @@ requirement is admitted.
   rest: parsing, selecting files, diffing, validating, reading config, writing
   results. The test: if two runs on the same input should give the same answer,
   it belongs in the script. A step the model does by hand will eventually be
-  done wrong, and nothing will notice.
+  done wrong.
 - **Validate what the model produces before writing it.** The model hands the
   script its proposed changes as JSON, each carrying its address and the text it
   expects to find there. The script checks every one against the file as it is
