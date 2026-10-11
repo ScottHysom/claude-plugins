@@ -27,7 +27,7 @@ says what changed and why.
 
 To commit, write the message into `.commit-msg` at the root of this folder
 through `device_bash`, then ask the user to run `./commit.sh` from their own
-terminal. Never run `git commit` through the bridge, Cowork's `device_bash` tool. The bridge cannot delete
+terminal. Never run `git commit` through the bridge. The bridge cannot delete
 files, so the commit strands `.git/HEAD.lock`, which blocks every later write.
 
 Read-only git works through the bridge. Use it to answer questions about what

@@ -127,9 +127,8 @@ requirement is admitted.
     to `apply`, and the token proves the judgment was made on the files as
     they are.
   - **Platform.** The model calls a tool that a script cannot, such as
-    `device_bash`, `device_commit_files` or `propose_skills` in Cowork, the
-    Claude desktop app's mode for work on a user's own files, or asks the user
-    a question.
+    `device_bash`, `device_commit_files` or `propose_skills` in Cowork, or asks
+    the user a question.
 
   Everywhere else the script does the joining work, in one command, or in a
   command that takes the model's decision as input. SPEC-METHODOLOGY.md, under
@@ -244,9 +243,8 @@ requirement is admitted.
   one does. A batch applies all or nothing unless `--partial` is passed.
   Changes are planned against one snapshot of the file and applied together,
   so an earlier one cannot shift the address of a later one.
-- **Cowork's device bridge cannot delete files.** The device bridge is the set of
-  tools, such as `device_bash`, that reach the user's folder from Cowork's
-  cloud container. A script that may run there rewrites files in place with `open(path, "w")`, not via a temp file moved into
+- **Cowork's device bridge cannot delete files.** A script that may run there
+  rewrites files in place with `open(path, "w")`, not via a temp file moved into
   place, and only ever reads git, because a git write through the bridge
   strands `.git/*.lock` files that block every later write. Say so in the
   script's docstring, where the next reader will look, and point to COWORK.md

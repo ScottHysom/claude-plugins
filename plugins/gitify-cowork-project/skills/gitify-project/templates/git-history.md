@@ -6,7 +6,7 @@ or change logs. A document holds only what is current, and the commit message
 says what changed and why.
 
 Never run `git commit`, or any other git command that writes, through the
-bridge, Cowork's `device_bash` tool. The bridge cannot delete files, so the command strands a lock file in
+bridge. The bridge cannot delete files, so the command strands a lock file in
 `.git`, which blocks every later write. When a change is ready, give the user
 the commit message and ask them to commit from their own terminal.
 
