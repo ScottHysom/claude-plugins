@@ -552,6 +552,11 @@ class DescribeShippedPatterns:
                 ["Nothing can show that it was never"],
             ),
             (NONE, "The code had none.", ["had none"]),
+            (NONE, "It exits 0 when it finds none.", ["finds none"]),
+            (NONE, "It says nothing when it deletes none.", ["deletes none"]),
+            (NONE, "It fails when a root holds none.", ["holds none"]),
+            (NONE, "The rule gets none.", ["gets none"]),
+            (NONE, "The search found none.", ["found none"]),
         ],
     )
     def it_finds_what_its_rule_names(self, shipped, rid, doc, want):
@@ -576,6 +581,11 @@ class DescribeShippedPatterns:
             (INCLUDING, "A typo one included, it fails."),
             (ONE_NEGATION, "Not now. It never runs."),
             (NONE, "None had tests."),
+            (NONE, "If none is created on disk, it stops."),
+            (NONE, "It says none is created on disk."),
+            (NONE, "It finds none of the tests."),
+            (NONE, "A marker runs one command or none."),
+            (NONE, "It was none the wiser."),
         ],
     )
     def it_leaves_a_near_miss_alone(self, shipped, rid, doc):

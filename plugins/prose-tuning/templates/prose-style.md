@@ -301,7 +301,7 @@ is none of. Name the noun.
 
 <!-- FILL: a real before and after from this project. -->
 
-**Pattern.** `(?i)\b(?:has|had|have) none\b`
+**Pattern.** `(?i)\b(?!(?:and|or|nor|but|if|that|which|who|when|where|while|because|since|so|as|than|of|for|with|to|in|on|at|by|from|into|is|are|was|were|be|been|being)\b)[a-z]+ none\b(?! of\b)(?! (?:is|are|was|were|has|have|had|does|do|did|can|could|will|would|may|might|must|should)\b)`
 
 ### sentences-one-meaning-per-term: A term keeps one meaning in a document
 
