@@ -441,6 +441,16 @@ class DescribeDismissal:
         assert prose_repo.read("doc.md") == PATTERNED_DOC.replace("Able to run.", "It runs.")
 
 
+# The shipped rules whose patterns DescribeShippedPatterns checks by example,
+# beside the dash and spelling rules that have cases of their own.
+NEGATE = "sentences-negate-the-verb"
+THAT = "sentences-keep-relative-that"
+ONE_WAY = "sentences-word-reads-one-way"
+INCLUDING = "sentences-parenthetical-including"
+ONE_NEGATION = "sentences-one-negation"
+NONE = "sentences-none-names-noun"
+
+
 class DescribeShippedPatterns:
     """The shipped rules' patterns, against the words each must and must not
     find. A word here that a later edit to a pattern stops finding is a
@@ -456,7 +466,7 @@ class DescribeShippedPatterns:
         rule = shipped.by_id()[rid]
         return [m["text"] for m in prose.pattern_matches(text, prose.Blocks(text), [rule])]
 
-    @pytest.mark.spec("template-catches-british-spellings-and-emdashes")
+    @pytest.mark.spec("template-patterns-find-only-their-breaches")
     def it_lints_clean(self, shipped):
         assert shipped.errors == []
         assert [r.id for r in shipped.patterned()] == [
@@ -470,7 +480,7 @@ class DescribeShippedPatterns:
             "sentences-none-names-noun",
         ]
 
-    @pytest.mark.spec("template-catches-british-spellings-and-emdashes")
+    @pytest.mark.spec("template-patterns-find-only-their-breaches")
     @pytest.mark.parametrize(
         ("doc", "want"),
         [
@@ -488,7 +498,7 @@ class DescribeShippedPatterns:
     def it_finds_a_dash_doing_an_em_dash_job(self, shipped, doc, want):
         assert self.found(shipped, "standing-no-em-dash", doc) == want
 
-    @pytest.mark.spec("template-catches-british-spellings-and-emdashes")
+    @pytest.mark.spec("template-patterns-find-only-their-breaches")
     @pytest.mark.parametrize(
         "word",
         "behaviour Colourful favourite honour neighbour analyse organisation "
@@ -499,7 +509,7 @@ class DescribeShippedPatterns:
     def it_finds_a_british_spelling(self, shipped, word):
         assert self.found(shipped, "standing-us-spelling", "A %s here.\n" % word) == [word]
 
-    @pytest.mark.spec("template-catches-british-spellings-and-emdashes")
+    @pytest.mark.spec("template-patterns-find-only-their-breaches")
     @pytest.mark.parametrize(
         "word",
         "behavior color hour contour glamour analyses analysis emphasis realism "
@@ -509,3 +519,64 @@ class DescribeShippedPatterns:
     )
     def it_leaves_a_us_spelling_alone(self, shipped, word):
         assert self.found(shipped, "standing-us-spelling", "A %s here.\n" % word) == []
+
+    # Every pattern line of each rule has a sentence it must find, so breaking
+    # any one line fails a case here, whether or not lint holds it to an example.
+    @pytest.mark.spec("template-patterns-find-only-their-breaches")
+    @pytest.mark.parametrize(
+        ("rid", "doc", "want"),
+        [
+            (NEGATE, "The pull request changes no behavior.", ["changes no"]),
+            (NEGATE, "The run returned no rows.", ["returned no"]),
+            (NEGATE, "It ends showing no output.", ["showing no"]),
+            (NEGATE, "It falls under no rule.", ["under no"]),
+            (NEGATE, "The step tries to cite no requirement.", ["to cite no"]),
+            (NEGATE, "No script can decide.", ["No script can"]),
+            (NEGATE, "It is run by no test.", ["by no test"]),
+            (NEGATE, "They write no tests.", ["write no"]),
+            (
+                NEGATE,
+                "It does not find a spec or does not find a test.",
+                ["does not find a spec or does not find"],
+            ),
+            (NEGATE, "It ran. Nothing changed.", [". Nothing changed"]),
+            (THAT, "Read those for behavior no test runs.", ["behavior no test runs"]),
+            (THAT, "It is a step nobody runs.", ["a step nobody runs"]),
+            (THAT, "It warns nothing changes.", ["warns nothing changes"]),
+            (ONE_WAY, "No variable kept from the call before.", ["kept from"]),
+            (INCLUDING, "A heading, a typo one included, opens it.", [", a typo one included,"]),
+            (INCLUDING, "It opens every heading, a typo one included.", [", a typo one included."]),
+            (
+                ONE_NEGATION,
+                "Nothing can show that it was never asked for.",
+                ["Nothing can show that it was never"],
+            ),
+            (NONE, "The code had none.", ["had none"]),
+        ],
+    )
+    def it_finds_what_its_rule_names(self, shipped, rid, doc, want):
+        assert self.found(shipped, rid, doc + "\n") == want
+
+    @pytest.mark.spec("template-patterns-find-only-their-breaches")
+    @pytest.mark.parametrize(
+        ("rid", "doc"),
+        [
+            (NEGATE, "A behavior has no test."),
+            (NEGATE, "It comes down to when no test runs."),
+            (NEGATE, "It applies to no one else."),
+            (NEGATE, "It finishes in no more than a second."),
+            (NEGATE, "It does not find a spec, and it does not run a test."),
+            (NEGATE, "It found nothing changed."),
+            (THAT, "Read those for behavior that no test runs."),
+            (THAT, "The rule is no longer used."),
+            (THAT, "It is a step nothing else needs."),
+            (THAT, "It says nothing breaks."),
+            (ONE_WAY, "No variable kept away from the call."),
+            (INCLUDING, "It opens every heading (including a typo one)."),
+            (INCLUDING, "A typo one included, it fails."),
+            (ONE_NEGATION, "Not now. It never runs."),
+            (NONE, "None had tests."),
+        ],
+    )
+    def it_leaves_a_near_miss_alone(self, shipped, rid, doc):
+        assert self.found(shipped, rid, doc + "\n") == []

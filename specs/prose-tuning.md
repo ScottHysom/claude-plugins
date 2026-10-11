@@ -473,10 +473,11 @@ Source: README.md, under "Setting up".
 - `updateproseconfig-offers-init` (step): When `preflight --for config`
   reports that `prose-style.md` is missing, update-prose-config offers
   `config init`, and runs it only once the author says yes.
-- `template-catches-british-spellings-and-emdashes` (test): When a project
-  starts from the shipped rules, they lint clean, and their patterns find a
-  British spelling and a dash doing an em-dash's job, and leave a US spelling
-  alone.
+- `template-patterns-find-only-their-breaches` (test): When a project
+  starts from the shipped rules, they lint clean, and every pattern they
+  carry finds a sentence that breaks its rule and leaves a near miss alone,
+  such as a US spelling or a "no" in "has no", so a new project does not
+  start with false alarms.
 - `init-cmd-writes-shipped-rules` (test): When `config init` runs with no
   option, it writes the shipped rules to `.claude/rules/prose-style.md`,
   creating the folder, with the project's name where the rules leave a slot,
