@@ -241,16 +241,29 @@ step 1, copied exactly. `route` is one of:
 A TODO the author wants left in place does not get a draft.
 
 ## Step 4: report, approve, file
-<!-- spec: dotodos-shows-report-whole, dotodos-revises-on-report-comment -->
+<!-- spec: dotodos-shows-report-whole, dotodos-revises-on-report-comment, dotodos-leads-review-replies -->
 
 <!-- seam: judgment: the author approves the report, or a part of it, before file runs -->
 
 Add the `--from` or `--pr` that step 1's `scan` took to `report` and `file`,
 when it took one.
 
+Under `--pr`, `file` marks each TODO by a reply in its review comment's
+thread, which names where the TODO went. When the project's rules for
+replies ask a reply to open with some text, such as a prefix its `CLAUDE.md`
+names, pass that text to `file` as `--reply-lead`:
+
+```sh
+TODOS=.todos/todos.py && python3 "$TODOS" file --pr 527 --reply-lead "**Claude:**" --drafts "${TMPDIR:-/tmp}/todo-drafts.json" --token 3f9a1c0e7b2d4a68 --json
+```
+
+The reply is a mark, as `TODO-HANDLED` is in a file, so the report does not
+show it and the author does not approve it.
+
 **When every draft is routed to `skill`,** run `file` without `--token`, and
-skip `report` and the question. The batch does not send anything to GitHub,
-and the receiving skill asks the author about each note:
+skip `report` and the question. The batch does not file or post anything
+but the replies that mark review TODOs, and the receiving skill asks the
+author about each note:
 
 ```sh
 TODOS=.todos/todos.py && python3 "$TODOS" file --drafts "${TMPDIR:-/tmp}/todo-drafts.json" --json
@@ -333,14 +346,18 @@ Tell the author:
   the `skill` it goes to;
 - each file marked, which is the `file` of each entry in `data.filed` that
   does not have a `comment`, and the checkout it is in when step 1 passed
-  `--from`. An entry with a `comment` came from that review comment, and
-  `file` did not write it into any file;
+  `--from`;
+- each reply posted: an entry of `data.filed` that has a `comment`, with its
+  `reply_url`. Such an entry came from that review comment, and `file` did
+  not write it into any file;
 - each TODO left in place: the ones without a draft in step 4's report, and
   each entry of `data.left`.
 
 When `file` exits 1, say which call failed, from `errors`. Every TODO whose
 issue or comment exists is marked in its file, as its entry's `handled` says,
-and every other one is as the author left it.
+and every other one is as the author left it. When a reply in a review thread
+failed, the error gives the reply and the thread, so that the author can post
+it by hand.
 
 Leave the working tree as it is. **Never commit.** The author reviews the
 changes and commits them the project's usual way.

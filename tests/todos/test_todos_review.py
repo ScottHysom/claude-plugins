@@ -1,6 +1,6 @@
 """TODOs left as review comments on a pull request: how `--pr` reads them,
 places them on the lines of the head branch's worktree, files them and hands
-them off without writing any file."""
+them off without writing any file, and marks each by a reply in its thread."""
 
 import os
 from pathlib import Path
@@ -328,7 +328,7 @@ class DescribePrOption:
         assert "not allowed with argument" in capsys.readouterr().err
 
 
-@pytest.mark.spec("file-cmd-leaves-review-todos-unmarked")
+@pytest.mark.spec("file-cmd-leaves-tree-for-review-todos")
 class DescribeFilingReviewTodos:
     def it_files_a_review_todo_and_writes_no_file(self, repo, review, comments, github):
         repo.write("doc.md", DOC)
@@ -344,23 +344,8 @@ class DescribeFilingReviewTodos:
         assert repo.git("status", "--porcelain").decode().strip() == ""
         [filed] = env["data"]["filed"]
         assert filed["number"] == 1
-        assert filed["handled"] is None
         assert filed["comment"]["url"] == made["html_url"]
         assert github.issues[0]["body"] == "It fails."
-
-    def it_names_the_review_comment_rather_than_a_mark(self, repo, review, comments):
-        repo.write("doc.md", DOC)
-        repo.commit()
-        made = comments.add("doc.md", 3, repo.head(), "TODO: later")
-        [todo] = scan_pr(repo)["data"]["todos"]
-        drafts = repo.drafts([repo.draft(todo)])
-        token = pr_token(repo, drafts)
-        code, out, _ = repo.human(
-            "file", "--pr", str(PR), "--drafts", drafts, "--token", token, "--dry-run"
-        )
-        assert code == todos.OK
-        assert "from the review comment %s" % made["html_url"] in out
-        assert "mark" not in out
 
     def it_keeps_apart_two_comments_on_one_line(self, repo, review, comments):
         repo.write("doc.md", DOC)
@@ -447,3 +432,157 @@ class DescribeReviewHandoffs:
         checkout = env["data"]["handoffs"][0]["checkout"]
         assert real(checkout["root"]) == real(worktree.root)
         assert checkout["branch"] == branch_of(worktree)
+
+
+def file_pr(tree, drafts, *extra):
+    """Run file --pr with the token report --pr prints."""
+    token = pr_token(tree, drafts)
+    return tree.run("file", "--pr", str(PR), "--drafts", drafts, "--token", token, *extra)
+
+
+def thread(github, made):
+    """The bodies of the replies in the thread of review comment made."""
+    return [r["body"] for r in github.replies if r["in_reply_to_id"] == made["id"]]
+
+
+@pytest.mark.spec("file-cmd-replies-to-review-todos")
+class DescribeReviewReplies:
+    def it_replies_in_the_thread_naming_the_issue(self, repo, review, comments, github):
+        repo.write("doc.md", DOC)
+        repo.commit()
+        made = comments.add("doc.md", 3, repo.head(), "TODO(bug): broken")
+        [todo] = scan_pr(repo)["data"]["todos"]
+        code, env = file_pr(repo, repo.drafts([repo.draft(todo)]))
+        assert code == todos.OK, repo.err
+        assert thread(github, made) == ["TODO-HANDLED(#1): Filed as #1."]
+        [filed] = env["data"]["filed"]
+        assert filed["handled"] == "TODO-HANDLED(#1)"
+        assert filed["reply_url"] == github.replies[0]["html_url"]
+
+    def it_names_the_issue_a_comment_went_to_and_the_skill_a_hand_off_went_to(
+        self, repo, review, comments, github
+    ):
+        repo.write("doc.md", DOC)
+        repo.commit()
+        github.add_issue(7, "Lists run long")
+        on_issue = comments.add("doc.md", 3, repo.head(), "TODO: also here")
+        on_skill = comments.add("doc.md", 5, repo.head(), "TODO(prose): wordy")
+        first, second = scan_pr(repo)["data"]["todos"]
+        drafts = repo.drafts([repo.comment(first, 7), repo.skill(second)])
+        code, _ = file_pr(repo, drafts)
+        assert code == todos.OK, repo.err
+        assert thread(github, on_issue) == ["TODO-HANDLED(#7 comment): Added to #7 as a comment."]
+        assert thread(github, on_skill) == [
+            "TODO-HANDLED(example:learn-prose-rules): Handed to the skill"
+            " `example:learn-prose-rules`."
+        ]
+
+    def it_opens_each_reply_with_the_lead_it_is_given(self, repo, review, comments, github):
+        repo.write("doc.md", DOC)
+        repo.commit()
+        made = comments.add("doc.md", 3, repo.head(), "TODO(prose): wordy")
+        [todo] = scan_pr(repo)["data"]["todos"]
+        drafts = repo.drafts([repo.skill(todo)])
+        code, _ = repo.run(
+            "file", "--pr", str(PR), "--drafts", drafts, "--reply-lead", "**Claude:** "
+        )
+        assert code == todos.OK, repo.err
+        assert thread(github, made)[0].startswith("**Claude:** TODO-HANDLED(")
+
+    @pytest.mark.spec("file-cmd-never-posts-in-preview")
+    def it_does_not_reply_in_a_dry_run(self, repo, review, comments, github):
+        repo.write("doc.md", DOC)
+        repo.commit()
+        made = comments.add("doc.md", 3, repo.head(), "TODO(prose): wordy")
+        [todo] = scan_pr(repo)["data"]["todos"]
+        drafts = repo.drafts([repo.skill(todo)])
+        code, out, _ = repo.human("file", "--pr", str(PR), "--drafts", drafts, "--dry-run")
+        assert code == todos.OK
+        assert github.replies == []
+        assert "and reply in %s: TODO-HANDLED(" % made["html_url"] in out
+
+    @pytest.mark.spec("file-cmd-never-posts-in-preview")
+    def it_says_a_dry_run_replies_with_the_new_issues_number(self, repo, review, comments):
+        repo.write("doc.md", DOC)
+        repo.commit()
+        made = comments.add("doc.md", 3, repo.head(), "TODO: later")
+        [todo] = scan_pr(repo)["data"]["todos"]
+        drafts = repo.drafts([repo.draft(todo)])
+        token = pr_token(repo, drafts)
+        code, out, _ = repo.human(
+            "file", "--pr", str(PR), "--drafts", drafts, "--token", token, "--dry-run"
+        )
+        assert code == todos.OK
+        assert "and reply in %s with the new issue's number" % made["html_url"] in out
+
+    def it_names_each_reply_in_human_output(self, repo, review, comments):
+        repo.write("doc.md", DOC)
+        repo.commit()
+        made = comments.add("doc.md", 3, repo.head(), "TODO: later")
+        [todo] = scan_pr(repo)["data"]["todos"]
+        drafts = repo.drafts([repo.draft(todo)])
+        token = pr_token(repo, drafts)
+        code, out, _ = repo.human("file", "--pr", str(PR), "--drafts", drafts, "--token", token)
+        assert code == todos.OK
+        assert "and replied in %s: TODO-HANDLED(#1): Filed as #1." % made["html_url"] in out
+
+    def it_stops_and_gives_the_reply_when_a_reply_fails(self, repo, review, comments, github):
+        repo.write("doc.md", DOC)
+        repo.commit()
+        comments.add("doc.md", 3, repo.head(), "TODO: first")
+        made = comments.add("doc.md", 5, repo.head(), "TODO: second")
+        found = scan_pr(repo)["data"]["todos"]
+        github.fail_replies = (1,)
+        code, env = file_pr(repo, repo.drafts([repo.draft(t) for t in found]))
+        assert code == todos.PROBLEMS
+        assert len(github.issues) == 1
+        [error] = env["errors"]
+        assert made["html_url"] in error
+        assert '"TODO-HANDLED(#1): Filed as #1."' in error
+        assert [r["first"] for r in env["data"]["left"]] == [3]
+
+    def it_stops_when_a_reply_does_not_print_its_address(self, repo, review, comments, github):
+        repo.write("doc.md", DOC)
+        repo.commit()
+        comments.add("doc.md", 3, repo.head(), "TODO(prose): wordy")
+        [todo] = scan_pr(repo)["data"]["todos"]
+        github.printed = "Not Found"
+        code, env = repo.run("file", "--pr", str(PR), "--drafts", repo.drafts([repo.skill(todo)]))
+        assert code == todos.PROBLEMS
+        assert "did not print the reply's address, but printed 'Not Found'" in env["errors"][0]
+
+    def it_does_not_reply_twice_when_a_stopped_run_runs_again(self, repo, review, comments, github):
+        repo.write("doc.md", DOC)
+        repo.commit()
+        first = comments.add("doc.md", 3, repo.head(), "TODO: first")
+        second = comments.add("doc.md", 5, repo.head(), "TODO: second")
+        github.fail = (2,)
+        found = scan_pr(repo)["data"]["todos"]
+        code, _ = file_pr(repo, repo.drafts([repo.draft(t) for t in found]))
+        assert code == todos.PROBLEMS
+        github.fail = ()
+        [left] = scan_pr(repo)["data"]["todos"]
+        assert left["title"] == "first"
+        code, _ = file_pr(repo, repo.drafts([repo.draft(left)]))
+        assert code == todos.OK, repo.err
+        assert len(thread(github, first)) == 1
+        assert len(thread(github, second)) == 1
+
+
+@pytest.mark.spec("scan-cmd-skips-answered-review-todos")
+class DescribeAnsweredReviewTodos:
+    def it_skips_a_thread_that_holds_a_reply_with_a_mark(self, repo, review, comments):
+        repo.write("doc.md", DOC)
+        repo.commit()
+        top = comments.add("doc.md", 3, repo.head(), "TODO: done already")
+        reply = "**Claude:** TODO-HANDLED(#4): Filed as #4."
+        comments.add("doc.md", 3, repo.head(), reply, reply_to=top["id"])
+        assert scan_pr(repo)["data"]["todos"] == []
+
+    def it_reads_a_thread_whose_replies_do_not_hold_a_mark(self, repo, review, comments):
+        repo.write("doc.md", DOC)
+        repo.commit()
+        top = comments.add("doc.md", 3, repo.head(), "TODO: still open")
+        comments.add("doc.md", 3, repo.head(), "Agreed, TODO-HANDLED later", reply_to=top["id"])
+        [todo] = scan_pr(repo)["data"]["todos"]
+        assert todo["title"] == "still open"

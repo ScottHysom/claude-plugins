@@ -87,6 +87,12 @@ changed them, Claude warns, names the comment, and places it as near as it
 can. A comment on a whole file is not read. Claude files these TODOs as it
 files the others, and leaves your files as they are.
 
+In place of a mark in a file, Claude replies in each comment's thread,
+naming the issue, comment or skill the TODO went to, as in
+`TODO-HANDLED(#12): Filed as #12.` The reply opens the way your project's
+rules ask a reply to open, and leaves the thread for you to resolve. A
+comment whose thread holds such a reply is not collected again.
+
 ## Filing them
 
 Ask Claude to file your TODOs. Claude:
