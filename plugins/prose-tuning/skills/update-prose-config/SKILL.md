@@ -328,7 +328,7 @@ missing. Hand the fix to the author and `config write` as steps 5 and 6 do,
 then run `reproduce` again.
 
 ## Step 8: hand off
-<!-- spec: updateproseconfig-never-commits, updateproseconfig-names-unreproduced-edits, updateproseconfig-never-writes-documents -->
+<!-- spec: updateproseconfig-never-commits, updateproseconfig-names-unreproduced-edits, updateproseconfig-names-written-rules, updateproseconfig-never-writes-documents -->
 
 <!-- no-command: hand-off to the author. The run ends with the working tree dirty. -->
 
@@ -340,6 +340,11 @@ writes is `prose-style.md`. Never write markup into a document or run
 List each edit that step 7 last reported with `reproduced: false`, by its
 `file` and `start`. If the author discards their edits and runs `apply-prose`
 instead, these are the edits it may not make again.
+
+Name the id of each rule that `config write` wrote, from `data.written` in
+step 6 and any later write in step 7. Tell the author that, once they have
+committed the edits, `apply-prose` given those ids checks the documents
+against just those rules, as in `apply-prose sentences-tail-beside-verb`.
 **Never commit.** The project's own maintenance skill owns commit types,
 message format, and the bridge's lock-file workaround.
 

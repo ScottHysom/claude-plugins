@@ -167,6 +167,12 @@ The `scope:` list at the top of `prose-style.md` decides which files are
 checked. If a file you expected was skipped, ask Claude why. To check only
 some documents, name them when you ask.
 
+To check the documents against only some rules, name their ids when you ask.
+This suits rules Claude has just learned, and once it has written them, Claude
+names their ids for you. Commit first, then ask. The list and the approval are
+the same as for every rule. A proposed rewrite is still checked against every
+rule that carries a pattern, so a fix for a new rule cannot break an older one.
+
 ## Sharing rules between projects
 
 Ask Claude to copy the prose rules from another project. Rules this project
