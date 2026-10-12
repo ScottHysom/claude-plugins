@@ -16,9 +16,9 @@ Commands:
     scan    list the TODOs in the working tree's changes since the last
             commit, the open issues like each, and the labels of the
             repository they would be filed in
-    report  check the model's drafts against the files as they are now, and
-            print them whole, ending with an approval token, and write them
-            as markdown to .todos/report.md
+    report  check the model's drafts against the files as they are now,
+            print each that reaches GitHub whole, ending with an approval
+            token, and write them as markdown to .todos/report.md
     file    file or post each draft that report showed, mark its TODO
             handled, and print the hand-off for each draft routed to a skill
     questions
@@ -45,8 +45,9 @@ that already covers the TODO. The route `skill` takes `skill`, the name the
 Skill tool takes, for an installed skill made for the work the TODO asks for.
 `python3 todos.py report --help` shows an example.
 
-Hand-offs. A draft routed to `skill` does not reach GitHub. `file` marks its
-TODO like any other, then prints a hand-off for each skill, holding every TODO
+Hand-offs. A draft routed to `skill` does not reach GitHub, so `report` does
+not show it and the token does not cover it. The receiving skill asks the
+author about it. `file` marks its TODO like any other, then prints a hand-off for each skill, holding every TODO
 routed to it: the TODO's title and detail, and the passage it sat above. The
 passage is the run of lines that are neither blank nor a TODO's, marked or
 not, around the line `scan` gave as `above`, with any trailing TODO taken off.
@@ -63,11 +64,12 @@ query, with an aliased `search` per title. A word of the title holding a colon
 is quoted, so a title such as "is:closed in config" cannot act as a search
 qualifier and widen the search past this repository's open issues.
 
-The token. `report` ends with a token that hashes the drafts file, the
-repository gh resolves for the clone, the last commit and every file a draft
-names. `file` refuses a token that does not match them as they are now, so
-what it files is what the author approved, in the repository the report
-named. Every later gh call passes that repository as --repo, so a fork cannot
+The token. `report` ends with a token that hashes the drafts routed to
+`issue` or `comment`, the repository gh resolves for the clone, the last
+commit and every file those drafts name. `file` refuses a token that does not
+match them as they are now, so what it files is what the author approved, in
+the repository the report named. A batch that routes every draft to `skill`
+sends nothing to GitHub, so `file` runs it without a token. Every later gh call passes that repository as --repo, so a fork cannot
 send issues to its upstream.
 
 Filing. A filed issue cannot be counted on to come back, since deleting one
@@ -334,6 +336,10 @@ example:
 
 TOKEN_LENGTH = 16
 TOKEN_LABEL = "approval token: "
+TOKEN_MISSING = (
+    "the batch holds a draft routed to `%s` or `%s`, so file needs --token. Run report,"
+    " show it to the author, and file with its token" % (ROUTE_ISSUE, ROUTE_COMMENT)
+)
 TOKEN_STALE = (
     "the token does not match the drafts, the files they name, the last commit or the"
     " repository as they are now, so nothing was filed, posted or written. Run report again,"
@@ -1319,7 +1325,7 @@ def cmd_setup(args):
 
 
 def read_drafts(path):
-    """(raw bytes, drafts) from the file --drafts names."""
+    """The drafts in the file --drafts names."""
     try:
         with open(path, "rb") as fh:
             raw = fh.read()
@@ -1334,7 +1340,12 @@ def read_drafts(path):
         raise Fatal("%s is not JSON: %s. Fix it, then run again." % (path, exc)) from exc
     if not isinstance(drafts, list):
         raise Fatal("%s holds JSON, but not an array of drafts. Fix it, then run again." % path)
-    return raw, drafts
+    return drafts
+
+
+def reaches_github(draft):
+    """Whether a draft is routed to GitHub, as an issue or a comment."""
+    return isinstance(draft, dict) and draft.get("route") in (ROUTE_ISSUE, ROUTE_COMMENT)
 
 
 def is_text(value):
@@ -1498,17 +1509,19 @@ class TokenHash:
         return self.digest.hexdigest()[:TOKEN_LENGTH]
 
 
-def approval_token(repo, github, raw, drafts):
+def approval_token(repo, github, drafts):
     """The token report prints and file requires, for this batch as it is now.
 
-    A sha256 over the drafts' bytes, the repository's name, the last commit,
-    and the path and bytes of every file a draft names.
+    A sha256 over the drafts routed to GitHub, the repository's name, the last
+    commit, and the path and bytes of every file those drafts name. A draft
+    routed to a skill changes nothing in it.
     """
+    drafts = [d for d in drafts if reaches_github(d)]
     digest = TokenHash()
-    digest.part(raw)
+    digest.part(json.dumps(drafts, sort_keys=True).encode("utf-8"))
     digest.part(github.name.encode("utf-8"))
     digest.part(repo.head.encode("utf-8"))
-    names = set(d["file"] for d in drafts if isinstance(d, dict) and is_text(d.get("file")))
+    names = set(d["file"] for d in drafts if is_text(d.get("file")))
     for rel in sorted(names):
         digest.part(rel.encode("utf-8"))
         digest.document(os.path.join(repo.root, rel))
@@ -1523,13 +1536,6 @@ def print_block(heading, text):
 
 def print_draft(row):
     print("draft %d  %s  %s" % (row["draft"], where(row), row["route"]))
-    if row["route"] == ROUTE_SKILL:
-        print("  to      %s" % row["skill"])
-        print("  title   %s" % row["title"])
-        if row["detail"]:
-            print_block("detail", row["detail"])
-        print()
-        return
     if row["route"] == ROUTE_COMMENT:
         print("  on      #%d  %s" % (row["issue"]["number"], row["issue"]["title"]))
     else:
@@ -1554,11 +1560,6 @@ def report_markdown(data, refused):
     for row in data["drafts"]:
         heading = "## Draft %d: `%s`, %s" % (row["draft"], where(row), row["route"])
         out += ["", heading, ""]
-        if row["route"] == ROUTE_SKILL:
-            out += ["- **To:** `%s`" % row["skill"], "- **Title:** %s" % row["title"]]
-            if row["detail"]:
-                out += ["", quoted(row["detail"])]
-            continue
         if row["route"] == ROUTE_COMMENT:
             out.append("- **On:** #%d %s" % (row["issue"]["number"], row["issue"]["title"]))
         else:
@@ -1597,10 +1598,11 @@ def write_report(repo, data, refused):
 
 
 def cmd_report(args):
-    """The drafts as the author approves them, read against the files now."""
+    """The drafts as the author approves them, read against the files now.
+    A draft routed to a skill is checked, and not shown."""
     here = Repo(args.repo)
     repo, _ = open_tree(args, here)
-    raw, drafts = read_drafts(args.drafts)
+    drafts = read_drafts(args.drafts)
     github = GitHub(repo)
     labels = github.labels()
     found = Scan(repo)
@@ -1609,7 +1611,8 @@ def cmd_report(args):
     left = [t for t in found.todos if (t["file"], t["first"]) not in drafted]
     # No token for a report that failed: the author cannot approve a batch
     # file would refuse.
-    token = None if refused else approval_token(repo, github, raw, drafts)
+    token = None if refused else approval_token(repo, github, drafts)
+    rows = [r for r in rows if r["route"] != ROUTE_SKILL]
     data = {
         "repository": github.name,
         "url": github.url,
@@ -1805,7 +1808,7 @@ def writable(repo, rel):
 
 def cmd_file(args):
     repo, checkout = open_tree(args)
-    raw, drafts = read_drafts(args.drafts)
+    drafts = read_drafts(args.drafts)
     github = GitHub(repo)
     data = {
         "repository": github.name,
@@ -1814,8 +1817,11 @@ def cmd_file(args):
         "handoffs": [],
         "dry_run": args.dry_run,
     }
-    if args.token != approval_token(repo, github, raw, drafts):
-        return emit(args, "file", data, errors=[TOKEN_STALE])
+    if any(reaches_github(d) for d in drafts):
+        if args.token is None:
+            return emit(args, "file", data, errors=[TOKEN_MISSING])
+        if args.token != approval_token(repo, github, drafts):
+            return emit(args, "file", data, errors=[TOKEN_STALE])
     found = Scan(repo)
     rows, refused = check_drafts(drafts, found, github, github.labels())
     if refused:
@@ -2006,7 +2012,12 @@ def build_parser():
         epilog=DRAFTS_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    p.add_argument("--token", required=True, help="the approval token report printed")
+    p.add_argument(
+        "--token",
+        help=(
+            "the approval token report printed, which a batch with a draft routed to GitHub needs"
+        ),
+    )
     p.set_defaults(func=cmd_file)
 
     p = sub.add_parser(

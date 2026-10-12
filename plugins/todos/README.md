@@ -87,11 +87,13 @@ Ask Claude to file your TODOs. Claude:
    covers a TODO, Claude drafts a comment on that issue instead, so the
    problem keeps one issue. When a skill you have installed is made for the
    work a TODO asks for, Claude routes the TODO to that skill instead.
-4. Shows you the repository the issues will go to, every draft in full, with
-   where each goes, and the TODOs that will stay. The report is a private
-   page on claude.ai that only you can open. Comment on a draft there and
-   send the comment to Claude, and Claude revises the draft and updates the
-   page. You approve all of the drafts, some, or none.
+4. Shows you the repository the issues will go to, every issue and comment
+   drafted, in full, and the TODOs that will stay. A TODO routed to a skill
+   is left to that skill, which asks you about it itself. The report is a
+   private page on claude.ai that only you can open. Comment on a draft there
+   and send the comment to Claude, and Claude revises the draft and updates
+   the page. You approve all of the drafts, some, or none. When every TODO
+   goes to a skill, there is no report to approve.
 5. Files the issues and posts the comments you approved, and marks each TODO
    once its issue or comment exists.
 6. Tells you what it filed and what it will hand on, then hands each TODO
