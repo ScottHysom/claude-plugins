@@ -88,9 +88,9 @@ the model nor the author would notice the stray byte.
 
 ## The report and the token
 
-`report` prints every draft whole and ends with a token that hashes the
-drafts file, the repository gh resolves for the clone, the last commit and
-every file a draft names. `file` refuses any other token. The author approves
+`report` prints every draft routed to GitHub whole, and ends with a token that
+hashes those drafts, the repository gh resolves for the clone, the last
+commit and every file those drafts name. `file` refuses any other token. The author approves
 the text `file` will send, in the repository the report named, and a fork
 cannot send issues to its upstream, since every gh call after the first passes
 that repository as `--repo`.
@@ -186,8 +186,12 @@ The owner asked in #319 for a `prose` TODO to reach the skill that learns
 prose rules, rather than become an issue, and for a TODO about what a document
 says never to reach it. A draft can take the route `skill`, which names a
 skill as the Skill tool takes it. The model picks the skill from the skills
-the session lists, by their descriptions, so `report` cannot check the name,
-and the token is what holds the author's approval of it.
+the session lists, by their descriptions, so `report` cannot check the name.
+
+A routed TODO does not reach GitHub, and the receiving skill asks the author
+about it, so `report` leaves it out and the token does not cover it (#533).
+Asked in both places, the author approved each note twice. A batch that
+routes every TODO to a skill runs `file` without `report` or a token.
 
 `file` marks a routed TODO like any other, with no call to GitHub, and then
 prints one hand-off per skill. Each holds the TODO's title and detail and the

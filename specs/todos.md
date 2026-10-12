@@ -48,11 +48,13 @@ Source: #311, which quotes the owner's request.
   takes them from `scan`'s output, and never searches the files with a
   command of its own.
 - `report-cmd-shows-each-draft` (test): When `report` runs, it prints each
-  draft whole, with its TODO's file and lines and its route, and what its
-  route adds:
+  draft routed to `issue` or `comment` whole, with its TODO's file and lines
+  and its route, and what its route adds:
   - `issue`: its title, labels and body.
   - `comment`: the number and title of its issue, and its body.
-  - `skill`: the skill's name, and the TODO's title and detail.
+
+  It leaves out a draft routed to `skill`, which the receiving skill shows
+  the author.
 - `report-cmd-lists-undrafted-todos` (test): When a pending TODO has no draft,
   `report` lists it as left in place.
 - `report-cmd-lists-scan-warnings` (test): When `report` runs, it lists every
@@ -259,19 +261,23 @@ Source: #312, which records the design the owner approved.
 - `report-cmd-stops-on-unreadable-drafts` (test): When the file given to
   `--drafts` is unreadable or holds something other than JSON, `report` and
   `file` name the fault and exit 2.
-- `file-cmd-requires-token` (test): When the token passed to `file --token`
-  differs from the one `report` would print for the drafts, the files they
-  name and the target repository as they are now, `file` stops before it
-  files, posts or writes anything.
+- `file-cmd-requires-token` (test): When the batch holds a draft routed to
+  `issue` or `comment`, and `file --token` is missing or differs from the
+  token `report` would print, `file` stops before it files, posts or writes
+  anything. The token covers the drafts routed to `issue` or `comment`, the
+  files they name, the last commit and the target repository as they are
+  now. When every draft is routed to `skill`, `file` runs without a token.
 - `file-cmd-files-in-reported-repo` (test): When `file` calls `gh`, it passes
   the repository `report` named as `--repo`.
 - `file-cmd-never-posts-in-preview` (test): When `file` is given `--dry-run`,
   it prints what it would file, post and mark, and does not file or post
   anything.
-- `dotodos-shows-report-whole` (step): When `report` exits 0, do-todos
-  publishes `.todos/report.md` as a private artifact, or shows the file whole
-  where it cannot, and takes one decision over the whole set, naming the
-  artifact's address and the token, before running `file`.
+- `dotodos-shows-report-whole` (step): When a draft is routed to `issue` or
+  `comment` and `report` exits 0, do-todos publishes `.todos/report.md` as a
+  private artifact, or shows the file whole where it cannot, and takes one
+  decision over those drafts, naming the artifact's address and the token,
+  before running `file`. When every draft is routed to `skill`, do-todos
+  runs `file` without `report` or a question.
 
 ## need user-annotates-drafts: Comment on a draft where it is read
 

@@ -11,7 +11,7 @@ kind word, as in `TODO(bug):`. This skill drafts an issue for each, or a
 comment on an open issue that already covers it, or routes it to an installed
 skill made for its work. It:
 
-- shows the author every draft;
+- shows the author every draft that reaches GitHub;
 - files the ones approved;
 - marks each TODO handled in its file once its issue or comment exists or its
   route is settled;
@@ -230,21 +230,33 @@ A TODO the author wants left in place does not get a draft.
 
 <!-- seam: judgment: the author approves the report, or a part of it, before file runs -->
 
+Add the `--from` that step 1's `scan` took to `report` and `file`, when it
+took one.
+
+**When every draft is routed to `skill`,** run `file` without `--token`, and
+skip `report` and the question. The batch does not send anything to GitHub,
+and the receiving skill asks the author about each note:
+
+```sh
+TODOS=.todos/todos.py && python3 "$TODOS" file --drafts "${TMPDIR:-/tmp}/todo-drafts.json" --json
+```
+
+**Otherwise,** run `report`:
+
 ```sh
 TODOS=.todos/todos.py && python3 "$TODOS" report --drafts "${TMPDIR:-/tmp}/todo-drafts.json" --json
 ```
-
-Add the `--from` that step 1's `scan` took to `report` and `file`, when it
-took one.
 
 `report` writes the report to the markdown file at `data.report`. The report
 holds:
 
 - the repository the issues go to;
-- each draft whole, with its route;
-- the skill each routed TODO goes to;
+- each draft routed to `issue` or `comment`, whole;
 - the TODOs left in place;
 - `scan`'s warnings.
+
+It leaves out the drafts routed to `skill`. The token does not cover them, so
+a change to one does not call for a new report.
 
 When it exits 0, `data.token` is the approval token, and the file ends with it.
 
@@ -272,10 +284,11 @@ again, and answer in the comment's thread with `ArtifactComments`, saying
 what changed, then resolve the thread. Ask the one question again, with the
 new token, once the threads sent to Claude are answered.
 
-When the author approves a part, take the rest out of the drafts file, run
-`report` again and publish it again. Its TODOs stay in their files. The token
-`file` takes is the one from the report the author approved as a whole, so
-ask again with the new token.
+When the author approves a part, take the rest of the drafts routed to
+`issue` or `comment` out of the drafts file, and keep the ones routed to
+`skill`. Run `report` again and publish it again. The TODOs taken out stay
+in their files. The token `file` takes is the one from the report the author
+approved as a whole, so ask again with the new token.
 
 When the Artifact tool is not available, or refuses to publish, read the file
 at `data.report` and give it whole in your reply, as it stands, then end the
