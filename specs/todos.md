@@ -550,3 +550,36 @@ under "Rate limit", checked when #313 was built.
 
 - `scan-cmd-searches-in-one-query` (test): When `scan` looks for similar
   issues, it sends one GraphQL query for every title.
+
+## constraint github-holds-pending-replies: A reply in a pending review publishes with it
+
+A review comment the user has not submitted belongs to their pending review,
+which only they can see. GitHub's REST list of a pull request's review
+comments leaves it out, and the REST list of the review's own comments gives
+its lines as null. GraphQL gives it, with its lines, in the pull request's
+review threads. While the user has a pending review on a pull request, GitHub
+refuses every REST reply of theirs there, to a submitted comment as well as a
+pending one. GraphQL's `addPullRequestReviewThreadReply`, given the pending
+review's ID, adds the reply to that review, and the reply appears in its
+thread when the user submits the review. Without that ID and with no review
+pending, the reply appears at once.
+
+Source: #538. The probe ran on 2026-10-12 from
+`.claude/worktrees/issue-544-7f886f`, as the owner, on the owner's pull
+request #553. A REST reply to a pending comment, and one to a submitted
+comment while another review was pending, each failed with 422 and "user_id
+can only have one pending review per pull request". Each GraphQL reply given
+the pending review's ID was itself pending, and appeared when the review was
+submitted.
+
+- `scan-cmd-reads-pending-review-todos` (test): When the signed-in user has
+  a pending review on the pull request, `scan --pr` reads the TODOs in its
+  comments as it reads the submitted ones, and says of each TODO whether it
+  is in that review.
+- `file-cmd-replies-into-pending-review` (test): When the signed-in user has
+  a pending review on the pull request, `file` adds each reply it makes there
+  to that review, and says that the reply appears when the user submits it.
+  When the user does not have a pending review, the reply appears at once.
+- `dotodos-names-pending-replies` (step): When `file` added replies to the
+  author's pending review, do-todos tells the author that they appear when
+  the review is submitted.

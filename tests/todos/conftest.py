@@ -186,9 +186,13 @@ class FakeGitHub:
     `searches` maps a search's query to the issues it returns, and `existing`
     maps a number to the issue a lookup finds, as {number, title, state, url}.
     `pulls` maps a number to the pull request `gh pr view` finds, and
-    `reviews` maps it to its review comments, as GitHub's REST API gives them.
-    A reply joins its pull request's review comments, and `fail_replies`
-    names the replies that fail, counting from 1.
+    `reviews` maps it to its review comments, as GitHub's REST API gives them,
+    which GraphQL reads as threads. A comment with `pending` set is in the
+    signed-in user's pending review, and `pending_reviews` maps a number to
+    that review's Node ID. A reply joins its pull request's review comments,
+    and `fail_replies` names the replies that fail, counting from 1, and
+    `reply_gives` replaces the data a successful one gives. As GitHub does,
+    a reply that does not name the pending review fails while there is one.
     """
 
     def __init__(self):
@@ -200,7 +204,9 @@ class FakeGitHub:
         self.existing = {}
         self.pulls = {}
         self.reviews = {}
+        self.pending_reviews = {}
         self.fail_replies = ()
+        self.reply_gives = None
         self.replies = []
         self.calls = []
         self.queries = []
@@ -224,29 +230,6 @@ class FakeGitHub:
             if number not in self.pulls:
                 raise todos.GhFailed("`gh pr view` failed: no pull requests found")
             return json.dumps(self.pulls[number])
-        m = re.match(r"repos/(.+)/pulls/(\d+)/comments$", args[1]) if args[0] == "api" else None
-        if m and args[2:] == ("--paginate", "--jq", ".[]"):
-            assert m.group(1) == self.repository
-            if int(m.group(2)) not in self.reviews:
-                raise todos.GhFailed("`gh api repos/...` failed: HTTP 404")
-            return "".join(json.dumps(c) + "\n" for c in self.reviews[int(m.group(2))])
-        replies = r"repos/(.+)/pulls/(\d+)/comments/(\d+)/replies$"
-        m = re.match(replies, args[1]) if args[0] == "api" else None
-        if m and args[2:] == ("--method", "POST", "--input", "-"):
-            assert m.group(1) == self.repository
-            if len(self.replies) + 1 in self.fail_replies:
-                raise todos.GhFailed("`gh api repos/...` failed: HTTP 502")
-            number, comments = int(m.group(2)), self.reviews[int(m.group(2))]
-            made = {
-                "id": 1000 + len(self.replies),
-                "in_reply_to_id": int(m.group(3)),
-                "body": json.loads(stdin)["body"],
-                "html_url": "%s/pull/%d#discussion_r%d"
-                % (REPOSITORY_URL, number, 1000 + len(self.replies)),
-            }
-            self.replies.append(made)
-            comments.append(made)
-            return json.dumps(made) if self.printed is None else self.printed
         if args[:2] == ("issue", "create"):
             if self.posts() in self.fail:
                 raise todos.GhFailed("`gh issue create` failed: HTTP 502")
@@ -287,6 +270,10 @@ class FakeGitHub:
         """Answer searches and issue lookups as GitHub does, with gh's exit 1
         and the data on stdout when an issue is not found."""
         self.queries.append(query)
+        if "addPullRequestReviewThreadReply" in query:
+            return self.reply(query)
+        if "reviewThreads" in query:
+            return self.threads(query)
         searches = re.findall(r'(s\d+): search\(query: ("(?:[^"\\]|\\.)*")', query)
         if searches:
             data = dict(
@@ -306,6 +293,92 @@ class FakeGitHub:
         if errors:
             raise todos.GhFailed("`gh api graphql` failed: Could not resolve", out)
         return out
+
+    def threads(self, query):
+        """A page of a pull request's review threads, with its pending
+        review, in the shape of GitHub's GraphQL API."""
+        repository = "%s/%s" % tuple(
+            json.loads(v) for v in re.findall(r'(?:owner|name): ("[^"]*")', query)
+        )
+        assert repository == self.repository
+        number = int(re.search(r"pullRequest\(number: (\d+)\)", query).group(1))
+        if number not in self.reviews:
+            raise todos.GhFailed(
+                "`gh api graphql` failed: Could not resolve to a PullRequest with the number of %d"
+                % number
+            )
+        first, after = re.search(
+            r"reviewThreads\(first: (\d+), after: (null|\"\d+\")\)", query
+        ).groups()
+        start = int(json.loads(after)) if after != "null" else 0
+        comments = self.reviews[number]
+        top = [c for c in comments if c.get("in_reply_to_id") is None]
+        page = top[start : start + int(first)]
+        nodes = []
+        for head in page:
+            thread = [head] + [c for c in comments if c.get("in_reply_to_id") == head["id"]]
+            nodes.append(
+                {
+                    "id": "PRRT_%d" % head["id"],
+                    "diffSide": head.get("side"),
+                    "comments": {"nodes": [self.node(c) for c in thread]},
+                }
+            )
+        end = start + len(page)
+        pending = self.pending_reviews.get(number)
+        pull = {
+            "reviews": {"nodes": [{"id": pending}] if pending else []},
+            "reviewThreads": {
+                "pageInfo": {"hasNextPage": end < len(top), "endCursor": str(end)},
+                "nodes": nodes,
+            },
+        }
+        return json.dumps({"data": {"repository": {"pullRequest": pull}}})
+
+    @staticmethod
+    def node(c):
+        commit = c.get("original_commit_id")
+        return {
+            "fullDatabaseId": str(c["id"]),
+            "state": "PENDING" if c.get("pending") else "SUBMITTED",
+            "body": c["body"],
+            "path": c.get("path"),
+            "originalLine": c.get("original_line"),
+            "originalStartLine": c.get("original_start_line"),
+            "originalCommit": {"oid": commit} if commit else None,
+            "url": c["html_url"],
+            "replyTo": None
+            if c.get("in_reply_to_id") is None
+            else {"fullDatabaseId": str(c["in_reply_to_id"])},
+        }
+
+    def reply(self, query):
+        """A reply in a review thread, as addPullRequestReviewThreadReply
+        makes it."""
+        if len(self.replies) + 1 in self.fail_replies:
+            raise todos.GhFailed("`gh api graphql` failed: HTTP 502")
+        top = int(re.search(r'pullRequestReviewThreadId: "PRRT_(\d+)"', query).group(1))
+        body = json.loads(re.search(r'body: ("(?:[^"\\]|\\.)*")', query).group(1))
+        named = re.search(r'pullRequestReviewId: ("[^"]*")', query)
+        review = json.loads(named.group(1)) if named else None
+        number = next(n for n, cs in self.reviews.items() if any(c["id"] == top for c in cs))
+        pending = self.pending_reviews.get(number)
+        if pending is not None and review != pending:
+            raise todos.GhFailed(
+                "`gh api graphql` failed: user_id can only have one pending review per pull request"
+            )
+        made = {
+            "id": 1000 + len(self.replies),
+            "in_reply_to_id": top,
+            "body": body,
+            "pending": review is not None,
+            "html_url": "%s/pull/%d#discussion_r%d"
+            % (REPOSITORY_URL, number, 1000 + len(self.replies)),
+        }
+        self.replies.append(made)
+        self.reviews[number].append(made)
+        gives = {"addPullRequestReviewThreadReply": {"comment": {"url": made["html_url"]}}}
+        return json.dumps({"data": gives if self.reply_gives is None else self.reply_gives})
 
     def add_pull(self, number, branch, comments=()):
         """A pull request from branch, holding review comments."""

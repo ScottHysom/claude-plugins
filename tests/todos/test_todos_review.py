@@ -26,11 +26,12 @@ class Comments:
     def __init__(self):
         self.made = []
 
-    def add(self, path, line, commit, body, start=None, reply_to=None, side="RIGHT"):
+    def add(self, path, line, commit, body, start=None, reply_to=None, side="RIGHT", pending=False):
         n = len(self.made) + 1
         self.made.append(
             {
                 "id": n,
+                "pending": pending,
                 "in_reply_to_id": reply_to,
                 "body": body,
                 "path": path,
@@ -90,12 +91,21 @@ class DescribeReviewTodos:
         assert todo["title"] == "too long"
         assert todo["detail"] == "Split it.\n\n- at the comma"
         assert todo["above"] is None
-        assert todo["comment"] == {"id": made["id"], "url": made["html_url"]}
+        assert todo["comment"] == {"id": made["id"], "url": made["html_url"], "pending": False}
         assert env["data"]["pull_request"] == {
             "number": PR,
             "url": review["url"],
             "branch": review["headRefName"],
         }
+
+    def it_reads_threads_past_the_first_page(self, repo, review, comments, monkeypatch):
+        monkeypatch.setattr(todos, "THREAD_PAGE", 1)
+        repo.write("doc.md", DOC)
+        repo.commit()
+        comments.add("doc.md", 3, repo.head(), "TODO: first")
+        comments.add("doc.md", 5, repo.head(), "TODO: second")
+        found = scan_pr(repo)["data"]["todos"]
+        assert [t["title"] for t in found] == ["first", "second"]
 
     def it_gives_the_lines_a_comment_on_a_range_covers(self, repo, review, comments):
         repo.write("doc.md", DOC)
@@ -319,7 +329,10 @@ class DescribePrOption:
         del github.reviews[PR]
         code, _ = repo.run("scan", "--pr", str(PR))
         assert code == todos.CANNOT_RUN
-        assert "HTTP 404. Run it yourself" in repo.err
+        assert (
+            "Could not resolve to a PullRequest with the number of %d. Run it yourself" % PR
+            in repo.err
+        )
 
     def it_refuses_pr_beside_from(self, repo, capsys):
         with pytest.raises(SystemExit) as exc:
@@ -546,10 +559,10 @@ class DescribeReviewReplies:
         repo.commit()
         comments.add("doc.md", 3, repo.head(), "TODO(prose): wordy")
         [todo] = scan_pr(repo)["data"]["todos"]
-        github.printed = "Not Found"
+        github.reply_gives = {"addPullRequestReviewThreadReply": None}
         code, env = repo.run("file", "--pr", str(PR), "--drafts", repo.drafts([repo.skill(todo)]))
         assert code == todos.PROBLEMS
-        assert "did not print the reply's address, but printed 'Not Found'" in env["errors"][0]
+        assert "did not give the reply's address, but gave" in env["errors"][0]
 
     def it_does_not_reply_twice_when_a_stopped_run_runs_again(self, repo, review, comments, github):
         repo.write("doc.md", DOC)
@@ -586,6 +599,84 @@ class DescribeAnsweredReviewTodos:
         comments.add("doc.md", 3, repo.head(), "Agreed, TODO-HANDLED later", reply_to=top["id"])
         [todo] = scan_pr(repo)["data"]["todos"]
         assert todo["title"] == "still open"
+
+    def it_skips_a_thread_whose_mark_waits_in_a_pending_review(self, repo, review, comments):
+        repo.write("doc.md", DOC)
+        repo.commit()
+        top = comments.add("doc.md", 3, repo.head(), "TODO: done already")
+        reply = "TODO-HANDLED(#4): Filed as #4."
+        comments.add("doc.md", 3, repo.head(), reply, reply_to=top["id"], pending=True)
+        assert scan_pr(repo)["data"]["todos"] == []
+
+
+PENDING = "PRR_pending"
+
+
+@pytest.fixture
+def pending(review, github):
+    """The signed-in user has a pending review on PR."""
+    github.pending_reviews[PR] = PENDING
+    return PENDING
+
+
+@pytest.mark.spec("scan-cmd-reads-pending-review-todos")
+class DescribePendingReviewTodos:
+    def it_reads_a_todo_in_the_pending_review_and_says_so(self, repo, pending, comments):
+        repo.write("doc.md", DOC)
+        repo.commit()
+        comments.add("doc.md", 3, repo.head(), "TODO: submitted")
+        comments.add("doc.md", 5, repo.head(), "TODO: not yet", pending=True)
+        found = scan_pr(repo)["data"]["todos"]
+        assert [(t["title"], t["comment"]["pending"]) for t in found] == [
+            ("submitted", False),
+            ("not yet", True),
+        ]
+
+    def it_names_the_pending_review_in_human_output(self, repo, pending, comments):
+        repo.write("doc.md", DOC)
+        repo.commit()
+        made = comments.add("doc.md", 3, repo.head(), "TODO: not yet", pending=True)
+        code, out, _ = repo.human("scan", "--pr", str(PR))
+        assert code == todos.OK
+        assert "    review comment in your pending review %s" % made["html_url"] in out
+
+
+@pytest.mark.spec("file-cmd-replies-into-pending-review")
+class DescribeRepliesInPendingReview:
+    def it_adds_each_reply_to_the_pending_review(self, repo, pending, comments, github):
+        repo.write("doc.md", DOC)
+        repo.commit()
+        submitted = comments.add("doc.md", 3, repo.head(), "TODO(prose): submitted")
+        waiting = comments.add("doc.md", 5, repo.head(), "TODO(prose): not yet", pending=True)
+        found = scan_pr(repo)["data"]["todos"]
+        code, env = repo.run(
+            "file", "--pr", str(PR), "--drafts", repo.drafts([repo.skill(t) for t in found])
+        )
+        assert code == todos.OK, repo.err
+        assert len(thread(github, submitted)) == 1
+        assert len(thread(github, waiting)) == 1
+        assert all(r["pending"] for r in github.replies)
+        assert [f["reply_pending"] for f in env["data"]["filed"]] == [True, True]
+
+    def it_posts_each_reply_at_once_when_no_review_is_pending(self, repo, review, comments, github):
+        repo.write("doc.md", DOC)
+        repo.commit()
+        comments.add("doc.md", 3, repo.head(), "TODO(prose): wordy")
+        [todo] = scan_pr(repo)["data"]["todos"]
+        code, env = repo.run("file", "--pr", str(PR), "--drafts", repo.drafts([repo.skill(todo)]))
+        assert code == todos.OK, repo.err
+        assert [r["pending"] for r in github.replies] == [False]
+        assert env["data"]["filed"][0]["reply_pending"] is False
+
+    def it_says_each_reply_appears_when_the_review_is_submitted(self, repo, pending, comments):
+        repo.write("doc.md", DOC)
+        repo.commit()
+        comments.add("doc.md", 3, repo.head(), "TODO(prose): not yet", pending=True)
+        [todo] = scan_pr(repo)["data"]["todos"]
+        drafts = repo.drafts([repo.skill(todo)])
+        code, out, _ = repo.human("file", "--pr", str(PR), "--drafts", drafts)
+        assert code == todos.OK
+        assert "The reply is in your pending review, and appears when you submit it." in out
 
 
 def suggesting(title, *lines, fence="```"):

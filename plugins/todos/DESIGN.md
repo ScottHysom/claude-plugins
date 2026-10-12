@@ -119,6 +119,15 @@ write documents, so the write has to happen here, before the hand-off.
 `file` writes only lines that are as the comment saw them, so a suggestion
 never overwrites a later change.
 
+In the review of #527, the owner's second `TODO(prose):` comment was still in
+a pending review. The agent did the work, then could not post the reply, and
+the owner had to submit the review and ask again (#538). The probe recorded
+under `github-holds-pending-replies` in `specs/todos.md` found that GitHub's
+REST API neither lists such a comment nor takes any reply while a review is
+pending. So `scan` reads the threads through GraphQL, and `file` adds each
+reply to the pending review when there is one. The reply then appears with
+the review, and the owner does not have to ask for it.
+
 ## Why a script
 
 The model drafts each issue and decides what to ask the author. The script
