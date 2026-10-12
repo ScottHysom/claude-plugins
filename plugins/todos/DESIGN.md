@@ -89,9 +89,24 @@ edits. When the lines themselves changed, it still places the TODO, since
 dropping a note the owner left is worse than putting it a few lines off, and
 it warns so that the author checks.
 
-A review TODO is not in any file, so `file` does not mark it. Marking it
-where it was left is #537's work. The approval token covers the named
-comments' text, since a comment can be edited after the report.
+A review TODO is not in any file, so `file` does not mark it there. It
+marks the TODO by a reply in the comment's thread, which holds the same
+`TODO-HANDLED(<target>):` a file would. `scan` skips a thread holding one,
+so a second run, or one that stopped part way and runs again, does not
+collect the TODO again or reply twice. In the review of #527, the agent
+replied in each thread by hand after the work was committed, and on the
+owner's second request had to tell the one new TODO comment apart from the
+five it had already answered (#537).
+
+The reply is a mark, so `report` does not show it and the token does not
+cover it. Its words other than the mark are fixed, so two runs on one batch
+reply alike. The only part a project's rules can change is how a reply
+opens, such as this repo's `**Claude:**`, and the skill passes that as
+`--reply-lead`. `file` leaves the thread unresolved, since resolving it is
+the reviewer's call.
+
+The approval token covers the named comments' text, since a comment can be
+edited after the report.
 
 In the same review, three of the five comments gave the owner's own wording.
 update-prose-config learned rules from them as notes on unchanged passages,

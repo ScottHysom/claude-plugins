@@ -96,6 +96,12 @@ you left the comment, Claude leaves them as they are, warns, and passes your
 wording on in the note. When the TODO becomes an issue, the issue keeps the
 suggestion, and your files stay as they are.
 
+In place of a mark in a file, Claude replies in each comment's thread,
+naming the issue, comment or skill the TODO went to, as in
+`TODO-HANDLED(#12): Filed as #12.` The reply opens the way your project's
+rules ask a reply to open, and leaves the thread for you to resolve. A
+comment whose thread holds such a reply is not collected again.
+
 ## Filing them
 
 Ask Claude to file your TODOs. Claude:

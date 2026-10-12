@@ -96,6 +96,20 @@ Source: the owner's ruling while planning, 2026-10-04, recorded in #333.
   letters or digits, or holds one that `file` left after the line's other
   text, `scan` neither reports it nor warns. It also does not read an opening
   one or its detail as another TODO's detail or as the line a TODO sits above.
+- `file-cmd-replies-to-review-todos` (test): When `file` has finished a draft
+  whose TODO came from a review comment, it replies in that comment's thread
+  before it starts the next draft. The reply opens with the text given to
+  `--reply-lead`, if any, then `TODO-HANDLED(<target>):`, with the target
+  `file-cmd-marks-handled-todos` gives, and says where the TODO went. `file`
+  leaves the thread unresolved. When the reply is not posted, `file` gives
+  the reply and the thread's address, stops, and exits 1.
+- `scan-cmd-skips-answered-review-todos` (test): When a review comment's
+  thread holds a reply with `TODO-HANDLED(<target>):`, `scan --pr` does not
+  read that comment as a TODO.
+- `dotodos-leads-review-replies` (step): When do-todos runs `file --pr`, it
+  passes `--reply-lead` with the text the project's rules for replies ask a
+  reply to open with, such as a prefix its CLAUDE.md names, and leaves it out
+  when the rules do not ask for one.
 
 ## need user-collects-from-other-checkout: Collect TODOs left in another checkout
 
@@ -166,11 +180,10 @@ Source: #536, which records the owner's two requests in the review of #527.
   request's head branch checked out. When that branch is not checked out in
   any worktree, it names the branch and exits 2. It refuses `--pr` beside
   `--from`.
-- `file-cmd-leaves-review-todos-unmarked` (test): When `file` finishes a TODO
-  taken from a review comment, it does not write the TODO into the tree's
-  files, and names the comment in place of a mark. The only lines it writes
-  for such a TODO are a suggestion's, under
-  `file-cmd-writes-review-suggestions`.
+- `file-cmd-leaves-tree-for-review-todos` (test): When `file` finishes a
+  TODO taken from a review comment, it does not write the TODO into the
+  tree's files. The only lines it writes for such a TODO are a suggestion's,
+  under `file-cmd-writes-review-suggestions`.
 - `file-cmd-writes-review-suggestions` (test): When a TODO taken from a review
   comment is routed to `skill` and carries a suggestion block, `file` writes
   the block's lines over the lines the comment covers, as an uncommitted
