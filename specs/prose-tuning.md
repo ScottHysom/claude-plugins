@@ -321,6 +321,15 @@ description.
 - `report-cmd-fails-breaching-rewrites` (test): When a rule's pattern matches
   text that a finding's rewrite makes or keeps, `report` names the finding,
   the rule and the matched text, and exits 1.
+- `report-cmd-names-conflicting-rules` (test): When `report` refuses a
+  finding's rewrite for matching another rule's pattern, and an earlier run
+  refused the same finding for the same rule, `report` names both rules, the
+  finding and the matched text, and says to put the conflict to the author.
+  A finding refused for its own rule's pattern, or one that left the batch
+  in between, gets the usual refusal.
+- `applyprose-puts-rule-conflicts-to-author` (step): When `report` names two
+  rules that refuse each other's rewrites, apply-prose puts the conflict to
+  the author and does not rewrite that finding a third time.
 - `applyprose-checks-own-rewrites` (step): When apply-prose writes a
   finding, it reads the rewrite against every rule that does not carry a
   pattern before it runs `report`.
