@@ -463,6 +463,121 @@ class DescribeReportOnRewrites:
         assert envelope["data"]["token"]
 
 
+# A third rule with a pattern, so a rewrite can be refused for one rule and
+# then for another.
+STYLE_SEMICOLON = (
+    STYLE
+    + """
+### standing-no-semicolon: Two sentences over a semicolon
+
+**Pattern.** `;`
+
+> **Before.** It runs; it ships.
+> **After.** It runs. It ships.
+"""
+)
+RULE_SEMICOLON = "standing-no-semicolon"
+
+
+def conflict(rule, text):
+    """The error report gives once finding 1's rewrites have been refused
+    again for the same other rule's pattern."""
+    return (
+        "doc.md  %s and %s refuse each other's rewrites: finding 1 (doc.md:1, %s) was "
+        "refused again for making text that %s's pattern matches, %s; put the conflict "
+        "to the author rather than rewriting it again" % (RULE_OWN, rule, RULE_OWN, rule, text)
+    )
+
+
+def own(prose_repo, replacement):
+    """Finding 1, rewriting its line for its own rule."""
+    return prose_repo.finding(
+        1, file="doc.md", rule=RULE_OWN, text="Able to run.", replacement=replacement
+    )
+
+
+class DescribeReportOnRuleConflicts:
+    @pytest.mark.spec("report-cmd-names-conflicting-rules")
+    def it_names_both_rules_when_a_finding_is_refused_again_for_the_same_rule(self, prose_repo):
+        patterned_doc(prose_repo)
+        code, envelope = prose_repo.report(
+            [own(prose_repo, "It runs — fast."), dismissal(prose_repo)]
+        )
+        assert envelope["errors"] == [breach(1, 1, RULE, '"—"')]
+        assert envelope["data"]["conflicts"] == []
+        code, envelope = prose_repo.report(
+            [own(prose_repo, "It runs — and fast."), dismissal(prose_repo)]
+        )
+        assert code == prose.PROBLEMS
+        assert envelope["errors"] == [conflict(RULE, '"—"')]
+        assert envelope["data"]["conflicts"] == [
+            {
+                "findings": [{"finding": 1, "file": "doc.md", "line": 1, "rule": RULE_OWN}],
+                "breaks": RULE,
+                "text": "—",
+            }
+        ]
+        assert envelope["data"]["token"] is None
+
+    @pytest.mark.spec("report-cmd-names-conflicting-rules")
+    def it_asks_for_a_rewrite_when_the_second_refusal_is_for_another_rule(self, prose_repo):
+        (prose_repo.root / prose.CONFIG_PATH).write_text(STYLE_SEMICOLON)
+        (prose_repo.root / "doc.md").write_text(PATTERNED_DOC)
+        prose_repo.report([own(prose_repo, "It runs — fast."), dismissal(prose_repo)])
+        code, envelope = prose_repo.report(
+            [own(prose_repo, "It runs; it is fast."), dismissal(prose_repo)]
+        )
+        assert code == prose.PROBLEMS
+        assert envelope["errors"] == [breach(1, 1, RULE_SEMICOLON, '";"')]
+        assert envelope["data"]["conflicts"] == []
+
+    @pytest.mark.spec("report-cmd-names-conflicting-rules")
+    def it_names_the_conflict_after_a_refusal_for_another_rule_in_between(self, prose_repo):
+        (prose_repo.root / prose.CONFIG_PATH).write_text(STYLE_SEMICOLON)
+        (prose_repo.root / "doc.md").write_text(PATTERNED_DOC)
+        prose_repo.report([own(prose_repo, "It runs — fast."), dismissal(prose_repo)])
+        prose_repo.report([own(prose_repo, "It runs; it is fast."), dismissal(prose_repo)])
+        code, envelope = prose_repo.report(
+            [own(prose_repo, "It runs — and fast."), dismissal(prose_repo)]
+        )
+        assert envelope["errors"] == [conflict(RULE, '"—"')]
+
+    @pytest.mark.spec("report-cmd-names-conflicting-rules")
+    def it_asks_for_a_rewrite_when_a_finding_still_matches_its_own_rule(self, prose_repo):
+        patterned_doc(prose_repo)
+        kept = prose_repo.finding(
+            3, file="doc.md", rule=RULE, text="In order to", replacement="In order to"
+        )
+        prose_repo.report([rewrite(prose_repo), kept])
+        code, envelope = prose_repo.report([rewrite(prose_repo), kept])
+        assert code == prose.PROBLEMS
+        assert envelope["errors"] == [
+            "doc.md  finding 2 (doc.md:3, %s) makes text that %s's pattern matches, "
+            '"In order to"; rewrite it so that it does not match any rule\'s pattern' % (RULE, RULE)
+        ]
+        assert envelope["data"]["conflicts"] == []
+
+    @pytest.mark.spec("report-cmd-names-conflicting-rules")
+    def it_counts_two_matches_of_one_rule_in_one_run_as_one_refusal(self, prose_repo):
+        patterned_doc(prose_repo)
+        code, envelope = prose_repo.report(
+            [own(prose_repo, "It runs — fast — now."), dismissal(prose_repo)]
+        )
+        assert envelope["errors"] == [breach(1, 1, RULE, '"—"')] * 2
+        assert envelope["data"]["conflicts"] == []
+
+    @pytest.mark.spec("report-cmd-names-conflicting-rules")
+    def it_counts_afresh_for_a_finding_that_left_the_batch(self, prose_repo):
+        patterned_doc(prose_repo)
+        prose_repo.report([own(prose_repo, "It runs — fast."), dismissal(prose_repo)])
+        code, _ = prose_repo.report([dismissal(prose_repo)])
+        assert code == prose.OK
+        code, envelope = prose_repo.report(
+            [own(prose_repo, "It runs — and fast."), dismissal(prose_repo)]
+        )
+        assert envelope["errors"] == [breach(1, 1, RULE, '"—"')]
+
+
 class DescribeDismissal:
     @pytest.mark.spec("apply-cmd-honors-dismissals")
     def it_rejects_dismiss_with_replacement(self, prose_repo):

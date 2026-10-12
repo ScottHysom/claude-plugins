@@ -200,7 +200,7 @@ with its newline, and when a cut takes a whole block `apply` keeps one blank
 line between the blocks either side.
 
 ## Step 4: one approval round
-<!-- spec: applyprose-shows-report-whole, applyprose-revises-on-comment -->
+<!-- spec: applyprose-shows-report-whole, applyprose-revises-on-comment, applyprose-puts-rule-conflicts-to-author -->
 
 ```sh
 python3 "$PROSE" report --findings "${TMPDIR:-/tmp}/prose-findings.json" --json
@@ -226,9 +226,17 @@ The author reads the report there, and nowhere else. Never retype the report
 or a part of it into chat or a dialog, because the author would then approve a
 text other than the one `apply` reads.
 
-When the only errors left are overlaps, publish the report with them, give
-the author its address, and ask them to comment on each overlap saying which
-finding stays and send the comment to Claude. Then end the turn.
+When an error says two rules refuse each other's rewrites, never rewrite
+that finding again yourself. Only the author can say which rule gives way.
+
+When the only errors left are overlaps and such conflicts, publish the report
+with them, give the author its address, and ask them to comment on each one
+and send the comment to Claude. Then end the turn. For an overlap, the comment
+says which finding stays. For a conflict, it gives the wording to use, or
+says to keep the current text. To keep it, drop the finding, or make it a
+dismissal carrying the author's reason when its rule's pattern matches the
+text. Tell the author that the two rules contradict each other,
+and that `update-prose-config` can settle which one gives way.
 
 Once `report` exits 0, put one `AskUserQuestion` to the author, naming the
 artifact's address and `data.token`, with these options:

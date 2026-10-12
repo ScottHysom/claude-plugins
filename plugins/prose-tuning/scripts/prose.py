@@ -110,7 +110,10 @@ Some things in here look like bugs and are not:
    writes its errors and no token, so a stale token never reaches the author.
    config write --dry-run writes .prose-tuning/rules.md for the same reason,
    and a dry run that would write no rule writes no token either. So a dry
-   run writes a file, and only to .prose-tuning/.
+   run writes a file, and only to .prose-tuning/. report also rewrites
+   .prose-tuning/refusals.json on every run: two runs of report on the same
+   findings can give different errors, because the second one counts the
+   refusals of the first (refused_rewrites has why).
 
 Python 3.9 is the floor. No match statements, no X | Y unions.
 """
@@ -189,6 +192,11 @@ COPY_IGNORE_TEXT = b"*\n"
 QUESTIONS_FILE = COPY_DIR + "/questions.md"
 REPORT_FILE = COPY_DIR + "/report.md"
 RULES_FILE = COPY_DIR + "/rules.md"
+# Where report keeps the rewrites it refused for matching another rule's
+# pattern, and how many refusals of one finding for one rule make the two
+# rules a conflict for the author rather than a rewrite for the model.
+REFUSALS_FILE = COPY_DIR + "/refusals.json"
+CONFLICT_REFUSALS = 2
 PAGE_FENCE_INFO = "text"
 RULES_FENCE_INFO = "markdown"
 DEVICE_MOUNT_ROOT = "$HOME/mnt"
@@ -4481,8 +4489,8 @@ def uncovered_matches(repo, config, targets, findings):
     return out
 
 
-def breaching_rewrites(rel, staged, rules):
-    """An error for each pattern match that a finding's rewrite makes or keeps.
+def breaching_rewrites(staged, rules):
+    """(edit, match) for each pattern match that a finding's rewrite makes or keeps.
 
     The patterns run over the file as it would be once every edit in `staged`
     is made, so a match that wraps out of a rewrite into the text beside it
@@ -4511,17 +4519,72 @@ def breaching_rewrites(rel, staged, rules):
         b = text.offset(m["end_line"]) + m["col_end"]
         for x, y, edit in spans:
             if (a < y and x < b) if x < y else a < x < b:
-                out.append(
-                    "%s  %s makes text that %s's pattern matches, %s; rewrite it so "
-                    "that it does not match any rule's pattern"
-                    % (
-                        rel,
-                        EditEngine.describe(edit),
-                        m["rule"],
-                        json.dumps(m["text"], ensure_ascii=False),
-                    )
-                )
+                out.append((edit, m))
     return out
+
+
+# The fields of an entry in REFUSALS_FILE that say which finding was refused
+# and for which rule's pattern.
+REFUSAL_FIELDS = ("file", "line", "rule", "text", "breaks")
+
+
+def refused_rewrites(repo, rows, stagings, rules):
+    """(errors, conflicts) for the rewrites that match another rule's pattern.
+
+    The model rewrites a refused finding and runs report again. When the
+    finding's rule and the rule its rewrite breaks pull opposite ways, every
+    rewrite can break one of the two, and only the author can settle which
+    gives way. A finding is the same one from run to run when its file, line, rule and
+    current text are. REFUSALS_FILE counts, for each finding still in the
+    batch, the runs that refused it for each other rule's pattern. When the
+    count reaches CONFLICT_REFUSALS, the error names the two rules as a
+    conflict for the author, and `conflicts` lists it. A refusal for the
+    finding's own rule is never a conflict: the rewrite has not yet fixed
+    its rule. The file is rewritten on every run, in place like every
+    other file under .prose-tuning/, so a finding that leaves the batch, or
+    becomes a dismissal, starts again from nothing.
+    """
+    by_number = {r["finding"]: r for r in rows}
+    try:
+        with open(repo.abspath(REFUSALS_FILE), encoding="utf-8") as fh:
+            counts = {tuple(e[k] for k in REFUSAL_FIELDS): e["count"] for e in json.load(fh)}
+    except (OSError, ValueError, TypeError, KeyError):
+        counts = {}
+    live = set((r["file"], r["line"], r["rule"], r["current"]) for r in rows)
+    counts = {k: c for k, c in counts.items() if k[:4] in live}
+    breaches, refused = [], set()
+    for rel, staged in stagings:
+        for edit, m in breaching_rewrites(staged, rules):
+            keys = []
+            for ref in edit_refs(edit):
+                r = by_number[ref["finding"]]
+                if r["rule"] != m["rule"]:
+                    keys.append((r["file"], r["line"], r["rule"], r["current"], m["rule"]))
+            refused.update(keys)
+            breaches.append((rel, edit, m, keys))
+    for k in refused:
+        counts[k] = counts.get(k, 0) + 1
+    errors, conflicts = [], []
+    for rel, edit, m, keys in breaches:
+        shown = json.dumps(m["text"], ensure_ascii=False)
+        own = sorted(set(k[2] for k in keys if counts[k] >= CONFLICT_REFUSALS))
+        if own:
+            errors.append(
+                "%s  %s and %s refuse each other's rewrites: %s was refused again for "
+                "making text that %s's pattern matches, %s; put the conflict to the author "
+                "rather than rewriting it again"
+                % (rel, ", ".join(own), m["rule"], EditEngine.describe(edit), m["rule"], shown)
+            )
+            conflicts.append({"findings": edit_refs(edit), "breaks": m["rule"], "text": m["text"]})
+        else:
+            errors.append(
+                "%s  %s makes text that %s's pattern matches, %s; rewrite it so "
+                "that it does not match any rule's pattern"
+                % (rel, EditEngine.describe(edit), m["rule"], shown)
+            )
+    entries = [dict(zip(REFUSAL_FIELDS, k), count=c) for k, c in sorted(counts.items())]
+    write_page(repo, REFUSALS_FILE, json.dumps(entries, indent=1) + "\n")
+    return errors, conflicts
 
 
 def report_markdown(data, rejected):
@@ -4571,13 +4634,15 @@ def cmd_report(args):
     match the model left out fails the report rather than going unmentioned.
     It runs them again over each file as the findings would leave it, and a
     match in a rewrite is an error too, so a rewrite that fixes one rule
-    cannot break another unseen. It ends by naming those rules, so the author can tell them from the rules
-    checked by reading.
+    cannot break another unseen. A finding refused again for the same other
+    rule names the two rules as a conflict; refused_rewrites has how. It ends
+    by naming those rules, so the author can tell them from the rules checked
+    by reading.
     """
     repo, config, scope = load(args)
     raw, findings = read_json_file_bytes(args.findings, "findings")
     by_file, rejected = select_findings(config, findings)
-    rows, overlaps, dismissed, stagings = [], [], [], []
+    rows, overlaps, dismissed, stagings, conflicts = [], [], [], [], []
     for _path, rel, text, numbers, mine in selected_files(repo, by_file, rejected):
         staged = stage_findings(text, Blocks(text), rel, mine, numbers)
         stagings.append((rel, staged))
@@ -4627,8 +4692,8 @@ def cmd_report(args):
             else:
                 rejected.append("%s  no such file" % rel)
         uncovered = uncovered_matches(repo, config, targets, findings)
-        for rel, staged in stagings:
-            rejected.extend(breaching_rewrites(rel, staged, config.patterned()))
+        breached, conflicts = refused_rewrites(repo, rows, stagings, config.patterned())
+        rejected.extend(breached)
     rejected.extend(
         "%s  no finding or dismissal covers this match; add a finding that rewrites it, "
         "or a dismissal if it stays" % match_line(m["file"], m)
@@ -4642,6 +4707,7 @@ def cmd_report(args):
         "findings": rows,
         "dismissed": dismissed,
         "overlaps": overlaps,
+        "conflicts": conflicts,
         "uncovered": uncovered,
         "checked_by_pattern": patterned,
         "token": token,
