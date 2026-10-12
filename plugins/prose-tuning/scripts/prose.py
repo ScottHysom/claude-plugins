@@ -19,7 +19,8 @@ Commands:
     patterns    where each rule's pattern matches those spans
     pass        the rules, segments and patterns together, which apply-prose
                 reads to start a pass
-    evidence    explicit tags + inferred edits
+    evidence    explicit tags + inferred edits, and the edits whose new text
+                a rule's pattern matches
     reproduce   whether the rules' patterns reproduce the edits since HEAD
     config      list | lint | check-id | classify | copy | resolve | write |
                 init
@@ -2270,10 +2271,12 @@ def bare_lines(text):
 
 def inferred_hunks(repo, rel, text, neutral, ref):
     """(hunks, the file at ref as a Text), or (None, None) for a file new
-    since ref. Each hunk is (its record, the index of its first line at ref).
+    since ref. Each hunk is (its record, the index of its first line at ref,
+    the index of its first line in neutral).
 
     Lines are cut as Text cuts them, so a hunk's index at ref addresses the
-    same line in the Text returned.
+    same line in the Text returned, and its index in neutral the same line in
+    Text(neutral).
 
     A hunk that changed only HTML comments is left out. A comment is a note
     for people, such as a FILL marker or a skill's spec marker, and not the
@@ -2309,7 +2312,7 @@ def inferred_hunks(repo, rel, text, neutral, ref):
             "new_lines": new,
             "signal": classify_signal("\n".join(old), "\n".join(new)),
         }
-        out.append((rec, i1))
+        out.append((rec, i1, j1))
     return out, base_text
 
 
@@ -2330,7 +2333,7 @@ def prose_outside_comments(text, blocks, first, stop):
 
 def inferred_records(repo, rel, text, neutral, ref):
     hunks, _base_text = inferred_hunks(repo, rel, text, neutral, ref)
-    return [rec for rec, _first in hunks or []]
+    return [rec for rec, _first, _new_first in hunks or []]
 
 
 def changed_spans(base_text, first, old_lines, new_lines):
@@ -2348,6 +2351,15 @@ def changed_spans(base_text, first, old_lines, new_lines):
             continue
         out.append((hunk_offset(base_text, first, old, a1), hunk_offset(base_text, first, old, a2)))
     return out
+
+
+def new_spans(new_text, first, old_lines, new_lines):
+    """The file offsets in new_text of the text one hunk put there, as (start, end).
+
+    changed_spans read from the other side: first is the hunk's first line in
+    new_text, and a pure deletion is an empty span at the point it was cut.
+    """
+    return changed_spans(new_text, first, new_lines, old_lines)
 
 
 def hunk_offset(base_text, first, old, pos):
@@ -2377,6 +2389,47 @@ def reproduced_by(base_text, matches, spans):
             if (a <= x <= b) if x == y else (x < b and a < y):
                 out.append(m)
                 break
+    return out
+
+
+def breached_by(new_text, matches, spans):
+    """The matches, of those made in new_text, that overlap the text a hunk put there.
+
+    A match overlaps a span when they share a character, and an empty span,
+    where text was cut, when it falls strictly inside the match: the cut
+    joined the text either side into what the pattern found. At the edge of a
+    match, the matched text could have stood there before the cut.
+    """
+    out = []
+    for m in matches:
+        a = new_text.offset(m["line"]) + m["col_start"]
+        b = new_text.offset(m["end_line"]) + m["col_end"]
+        for x, y in spans:
+            if (a < x < b) if x == y else (x < b and a < y):
+                out.append(m)
+                break
+    return out
+
+
+def breaching_edits(source, rel, text, resolved, rules):
+    """The edits to one file since BASE_REF whose new text a rule's pattern matches.
+
+    Each is an edit as reproduce reports it, with matches in place of its
+    verdict. The patterns run over the file with the author's markup resolved,
+    as apply-prose will commit it, so the matches carry that text's line
+    numbers.
+    """
+    hunks, _base_text = inferred_hunks(source, rel, text, resolved, BASE_REF)
+    if not hunks:
+        return []
+    new_text = Text(resolved)
+    matches = pattern_matches(new_text, Blocks(new_text), rules)
+    out = []
+    for rec, _first, new_first in hunks:
+        spans = new_spans(new_text, new_first, rec["old_lines"], rec["new_lines"])
+        found = breached_by(new_text, matches, spans)
+        if found:
+            out.append(dict(rec, matches=found))
     return out
 
 
@@ -2781,7 +2834,16 @@ def other_pending(repo):
 
 def cmd_evidence(args):
     repo, config, source, checkout, scope = load_from(args)
-    explicit, inferred, errors, warnings = [], [], [], []
+    explicit, inferred, breaches, errors, warnings = [], [], [], [], []
+    # reproduce and patterns refuse a rule file lint refuses, since a pattern
+    # it faults may flag the wrong text. evidence still has edits to report,
+    # so it leaves them unchecked rather than stopping the run.
+    rules = [] if config.errors else config.patterned()
+    if config.errors:
+        warnings.append(
+            "%s does not lint, so no edit was checked against its patterns; see: prose.py config lint"
+            % config.rel()
+        )
     for rel in scope.files():
         path = source.abspath(rel)
         if not os.path.exists(path):
@@ -2795,6 +2857,8 @@ def cmd_evidence(args):
         explicit += explicit_records(scanner, text, blocks, rel)
         neutral = neutralize(text, blocks, rel)
         inferred += inferred_records(source, rel, text, neutral, BASE_REF)
+        resolved = resolve_scanned(text, scanner, ACCEPT)
+        breaches += breaching_edits(source, rel, text, resolved, rules)
 
     # A tree with nothing to learn from may be a fresh worktree, opened while
     # the author's edits sit in another checkout of the same repository.
@@ -2833,6 +2897,10 @@ def cmd_evidence(args):
             }
             for r in config.rules
         ],
+        # An edit whose new text breaks a rule already written is an
+        # exception to the rule, a sign it is wrong, or a slip, and only the
+        # author can say which.
+        "breaches": breaches,
         "checkout": checkout,
         "other_worktrees": elsewhere,
     }
@@ -2849,7 +2917,15 @@ def cmd_evidence(args):
         for rec in inferred:
             flag = " (%s)" % rec["signal"] if rec["signal"] else ""
             print("  inferred %s:%d [%s]%s" % (rec["file"], rec["start"], rec["change"], flag))
-        print("\nexplicit: %d  inferred: %d" % (len(explicit), len(inferred)))
+        for rec in breaches:
+            for m in rec["matches"]:
+                print(
+                    "  breaches %s:%d [%s] %r" % (rec["file"], rec["start"], m["rule"], m["text"])
+                )
+        print(
+            "\nexplicit: %d  inferred: %d  breaches: %d"
+            % (len(explicit), len(inferred), len(breaches))
+        )
 
     return emit(args, "evidence", repo.root, data, errors=errors, warnings=warnings, human=human)
 
@@ -2886,7 +2962,7 @@ def cmd_reproduce(args):
         if not hunks:
             continue
         matches = pattern_matches(base_text, Blocks(base_text), rules)
-        for rec, first in hunks:
+        for rec, first, _new_first in hunks:
             spans = changed_spans(base_text, first, rec["old_lines"], rec["new_lines"])
             found = reproduced_by(base_text, matches, spans)
             edits.append(dict(rec, reproduced=bool(found), matches=found))

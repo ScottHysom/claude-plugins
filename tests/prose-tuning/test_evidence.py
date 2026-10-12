@@ -291,7 +291,7 @@ class DescribePlainOutput:
         out = capsys.readouterr().out
         assert "  explicit target.md:7 [del] restates\n" in out
         assert "  inferred target.md:20 [replace]\n" in out
-        assert "explicit: 1  inferred: 1\n" in out
+        assert "explicit: 1  inferred: 1  breaches: 0\n" in out
 
 
 class DescribeRules:
@@ -324,3 +324,125 @@ class DescribeRules:
             ("sentences-own-subject", []),
             ("sentences-no-in-order-to", ["\\bin order to\\b"]),
         ]
+
+
+BREACH_STYLE = """---
+name: Probe
+---
+
+## Register
+
+### register-plain-words: Say it plainly
+
+**Pattern.** `(?i)in order to`
+
+> **Before.** In order to run it.
+> **After.** To run it.
+"""
+
+BREACH_RULE = "register-plain-words"
+
+BREACH_BEFORE = """# Notes
+
+We run it to check the build.
+
+It keeps the notes short, and the lists shorter.
+"""
+
+
+class DescribeBreaches:
+    """The edits whose new text a rule already written would flag. Each is an
+    exception to the rule, a sign the rule is wrong, or a slip in the edit,
+    and update-prose-config asks the author which before it learns from it.
+    """
+
+    def evidence(self, prose_repo, after, style=BREACH_STYLE, before=BREACH_BEFORE):
+        (prose_repo.root / prose.CONFIG_PATH).write_text(style)
+        (prose_repo.root / "target.md").write_text(before)
+        prose_repo.commit()
+        (prose_repo.root / "target.md").write_text(after)
+        code, envelope = prose_repo.run("evidence")
+        assert code == prose.OK, envelope["errors"]
+        return envelope
+
+    @pytest.mark.spec("evidence-cmd-marks-breaching-edits")
+    def it_marks_an_edit_whose_new_text_a_pattern_matches(self, prose_repo):
+        env = self.evidence(prose_repo, BREACH_BEFORE.replace("run it to", "run it in order to"))
+        [edit] = env["data"]["breaches"]
+        assert (edit["file"], edit["start"], edit["new_lines"]) == (
+            "target.md",
+            3,
+            ["We run it in order to check the build."],
+        )
+        assert [(m["rule"], m["line"], m["text"]) for m in edit["matches"]] == [
+            (BREACH_RULE, 3, "in order to")
+        ]
+
+    @pytest.mark.spec("evidence-cmd-marks-breaching-edits")
+    def it_marks_a_paragraph_the_author_added(self, prose_repo):
+        env = self.evidence(prose_repo, BREACH_BEFORE + "\nWe run it in order to see.\n")
+        [edit] = env["data"]["breaches"]
+        assert (edit["change"], edit["matches"][0]["text"]) == ("insert", "in order to")
+
+    @pytest.mark.spec("evidence-cmd-marks-breaching-edits")
+    def it_marks_a_cut_that_joins_text_into_a_match(self, prose_repo):
+        before = BREACH_BEFORE.replace("run it to", "run it in order so as to")
+        env = self.evidence(
+            prose_repo, BREACH_BEFORE.replace("run it to", "run it in order to"), before=before
+        )
+        [edit] = env["data"]["breaches"]
+        assert edit["matches"][0]["text"] == "in order to"
+
+    @pytest.mark.spec("evidence-cmd-marks-breaching-edits")
+    def it_reads_the_authors_markup_as_resolved(self, prose_repo):
+        env = self.evidence(
+            prose_repo, BREACH_BEFORE.replace("run it to", "run it <ins>in order </ins>to")
+        )
+        [edit] = env["data"]["breaches"]
+        assert edit["new_lines"] == ["We run it in order to check the build."]
+        assert [r["kind"] for r in env["data"]["explicit"]] == ["ins"]
+
+    @pytest.mark.spec("evidence-cmd-marks-breaching-edits")
+    def it_does_not_mark_an_edit_beside_a_match_it_did_not_make(self, prose_repo):
+        """The line already broke the rule at the last commit, and the edit
+        changed other words on it, so the author did not write the match.
+        """
+        before = BREACH_BEFORE.replace("run it to", "run it in order to")
+        env = self.evidence(
+            prose_repo, before.replace("the build", "the whole build"), before=before
+        )
+        assert env["data"]["breaches"] == []
+        assert len(env["data"]["inferred"]) == 1
+
+    @pytest.mark.spec("evidence-cmd-marks-breaching-edits")
+    def it_does_not_mark_a_cut_at_the_edge_of_a_match(self, prose_repo):
+        before = BREACH_BEFORE.replace("run it to", "run it in order to, again,")
+        env = self.evidence(prose_repo, before.replace(", again,", ""), before=before)
+        assert env["data"]["breaches"] == []
+
+    @pytest.mark.spec("evidence-cmd-marks-breaching-edits")
+    def it_does_not_mark_an_edit_that_removes_a_match(self, prose_repo):
+        before = BREACH_BEFORE.replace("run it to", "run it in order to")
+        env = self.evidence(prose_repo, BREACH_BEFORE, before=before)
+        assert env["data"]["breaches"] == []
+
+    @pytest.mark.spec("evidence-cmd-marks-breaching-edits")
+    def it_warns_and_checks_nothing_when_the_rule_file_does_not_lint(self, prose_repo):
+        """The pattern still compiles, and lint refuses it for matching the
+        After example, so a check would have found the edit.
+        """
+        style = BREACH_STYLE.replace("**After.** To run it.", "**After.** In order to run it.")
+        env = self.evidence(
+            prose_repo, BREACH_BEFORE.replace("run it to", "run it in order to"), style=style
+        )
+        assert env["data"]["breaches"] == []
+        assert any("does not lint" in w for w in env["warnings"])
+
+    @pytest.mark.spec("repo:command-splits-output-streams-without-json")
+    def it_prints_each_match_an_edit_makes(self, prose_repo, capsys):
+        self.evidence(prose_repo, BREACH_BEFORE.replace("run it to", "run it in order to"))
+        capsys.readouterr()
+        assert prose.main(["evidence", "-C", str(prose_repo.root)]) == prose.OK
+        out = capsys.readouterr().out
+        assert "  breaches target.md:3 [%s] 'in order to'" % BREACH_RULE in out
+        assert "explicit: 0  inferred: 1  breaches: 1" in out
