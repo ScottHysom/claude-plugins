@@ -85,7 +85,16 @@ branch, which has to be checked out in some folder of your project. Lines
 that later commits moved are found where they are now. When a later commit
 changed them, Claude warns, names the comment, and places it as near as it
 can. A comment on a whole file is not read. Claude files these TODOs as it
-files the others, and leaves your files as they are.
+files the others, and does not mark them in your files.
+
+A comment can also give the wording you want, in GitHub's suggestion block.
+When Claude hands that TODO to another skill, such as one that learns your
+prose rules, it first writes your wording over the lines the comment is on,
+as an uncommitted change. The other skill then sees the change as an edit
+you made, and the TODO as your reason for it. When those lines changed after
+you left the comment, Claude leaves them as they are, warns, and passes your
+wording on in the note. When the TODO becomes an issue, the issue keeps the
+suggestion, and your files stay as they are.
 
 In place of a mark in a file, Claude replies in each comment's thread,
 naming the issue, comment or skill the TODO went to, as in

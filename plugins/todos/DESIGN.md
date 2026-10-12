@@ -89,8 +89,8 @@ edits. When the lines themselves changed, it still places the TODO, since
 dropping a note the owner left is worse than putting it a few lines off, and
 it warns so that the author checks.
 
-A review TODO is not in any file, so `file` does not write anything for it.
-It marks the TODO by a reply in the comment's thread, which holds the same
+A review TODO is not in any file, so `file` does not mark it there. It
+marks the TODO by a reply in the comment's thread, which holds the same
 `TODO-HANDLED(<target>):` a file would. `scan` skips a thread holding one,
 so a second run, or one that stopped part way and runs again, does not
 collect the TODO again or reply twice. In the review of #527, the agent
@@ -107,6 +107,17 @@ the reviewer's call.
 
 The approval token covers the named comments' text, since a comment can be
 edited after the report.
+
+In the same review, three of the five comments gave the owner's own wording.
+update-prose-config learned rules from them as notes on unchanged passages,
+writing each rule's After itself, and the agent then typed the wording into
+the files by hand (#539). A suggestion block is GitHub's form for that
+wording, so `file` writes it over the comment's lines before the hand-off.
+The note then reaches update-prose-config as the reason for the author's own
+edit, and the rule's example is that edit. update-prose-config does not
+write documents, so the write has to happen here, before the hand-off.
+`file` writes only lines that are as the comment saw them, so a suggestion
+never overwrites a later change.
 
 In the review of #527, the owner's second `TODO(prose):` comment was still in
 a pending review. The agent did the work, then could not post the reply, and

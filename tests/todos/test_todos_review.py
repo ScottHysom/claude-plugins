@@ -677,3 +677,232 @@ class DescribeRepliesInPendingReview:
         code, out, _ = repo.human("file", "--pr", str(PR), "--drafts", drafts)
         assert code == todos.OK
         assert "The reply is in your pending review, and appears when you submit it." in out
+
+
+def suggesting(title, *lines, fence="```"):
+    """A review comment's body: a TODO, then a suggestion block of lines."""
+    return "\n".join(["TODO(prose): %s" % title, fence + "suggestion", *lines, fence])
+
+
+def hand_off(tree, *drafts_of, dry_run=False):
+    """Run file --pr on skill drafts for the TODOs scan gives, in order.
+    Returns the envelope."""
+    found = scan_pr(tree)["data"]["todos"]
+    drafts = tree.drafts([tree.skill(t) for t in found])
+    extra = ["--dry-run"] if dry_run else []
+    code, env = tree.run("file", "--pr", str(PR), "--drafts", drafts, *extra)
+    assert code == todos.OK, tree.err
+    return env
+
+
+@pytest.mark.spec("scan-cmd-reads-review-todos")
+class DescribeReviewSuggestions:
+    def it_gives_the_lines_of_a_comments_suggestion_block(self, repo, review, comments):
+        repo.write("doc.md", DOC)
+        repo.commit()
+        comments.add("doc.md", 3, repo.head(), suggesting("wordy", "One.", "Two."))
+        [todo] = scan_pr(repo)["data"]["todos"]
+        assert todo["suggestion"] == {"lines": ["One.", "Two."], "current": True}
+
+    def it_runs_a_block_that_is_not_closed_to_the_end(self, repo, review, comments):
+        repo.write("doc.md", DOC)
+        repo.commit()
+        comments.add("doc.md", 3, repo.head(), "TODO: wordy\n~~~~ suggestion\nOne.")
+        [todo] = scan_pr(repo)["data"]["todos"]
+        assert todo["suggestion"]["lines"] == ["One."]
+
+    def it_gives_no_suggestion_for_a_comment_without_one(self, repo, review, comments):
+        repo.write("doc.md", DOC)
+        repo.commit()
+        comments.add("doc.md", 3, repo.head(), "TODO: wordy\n```text\nOne.\n```")
+        [todo] = scan_pr(repo)["data"]["todos"]
+        assert todo["suggestion"] is None
+
+    def it_says_the_suggestion_is_not_current_when_its_lines_changed(self, repo, review, comments):
+        repo.write("doc.md", DOC)
+        repo.commit()
+        comments.add("doc.md", 3, repo.head(), suggesting("wordy", "One."))
+        repo.write("doc.md", DOC.replace("First", "Opening"))
+        [todo] = scan_pr(repo)["data"]["todos"]
+        assert todo["suggestion"]["current"] is False
+
+
+@pytest.mark.spec("file-cmd-writes-review-suggestions")
+class DescribeWritingSuggestions:
+    def it_writes_the_suggestion_over_the_lines_the_comment_covers(self, repo, review, comments):
+        repo.write("doc.md", DOC)
+        repo.commit()
+        made = comments.add("doc.md", 3, repo.head(), suggesting("wordy", "One paragraph."))
+        env = hand_off(repo)
+        assert repo.read("doc.md") == DOC.replace("First paragraph.", "One paragraph.").encode()
+        assert env["data"]["suggested"] == [
+            {"file": "doc.md", "first": 3, "last": 3, "comment": made["html_url"]}
+        ]
+
+    def it_hands_off_the_suggested_lines_as_the_changed_lines(self, repo, review, comments):
+        repo.write("doc.md", DOC)
+        repo.commit()
+        body = suggesting("wordy", "- one", "- two and", "  more") + "\nToo long."
+        comments.add("doc.md", 6, repo.head(), body, start=5)
+        [handoff] = hand_off(repo)["data"]["handoffs"]
+        [item] = handoff["todos"]
+        passage = item["passage"]
+        assert passage["text"] == "- one\n- two and\n  more"
+        assert (passage["first"], passage["last"]) == (5, 7)
+        assert passage["changed"] == [6, 7]
+        assert (item["comment"]["first"], item["comment"]["last"]) == (5, 7)
+        assert item["detail"] == "Too long."
+        assert "suggestion" not in handoff["arguments"]
+
+    def it_moves_the_todos_below_a_suggestion_that_adds_lines(self, repo, review, comments):
+        repo.write("doc.md", DOC)
+        repo.commit()
+        head = repo.head()
+        comments.add("doc.md", 3, head, suggesting("split", "First.", "Paragraph."))
+        comments.add("doc.md", 6, head, suggesting("number", "- 2"))
+        comments.add("doc.md", 7, head, "TODO(prose): plain note")
+        env = hand_off(repo)
+        assert repo.read("doc.md") == (b"# Title\n\nFirst.\nParagraph.\n\n- one\n- 2\n- three\n")
+        items = env["data"]["handoffs"][0]["todos"]
+        assert [i["passage"]["text"] for i in items] == ["First.\nParagraph.", "- 2", "- three"]
+        assert [i["comment"]["first"] for i in items] == [3, 7, 8]
+
+    def it_keeps_the_todos_above_a_suggestion_where_they_are(self, repo, review, comments):
+        repo.write("doc.md", DOC)
+        repo.commit()
+        head = repo.head()
+        comments.add("doc.md", 1, head, "TODO(prose): the title")
+        comments.add("doc.md", 5, head, suggesting("split", "- a", "- b"))
+        items = hand_off(repo)["data"]["handoffs"][0]["todos"]
+        assert [i["comment"]["first"] for i in items] == [1, 5]
+        assert items[0]["passage"]["text"] == "# Title"
+
+    def it_removes_the_lines_of_an_empty_suggestion(self, repo, review, comments):
+        repo.write("doc.md", DOC)
+        repo.commit()
+        comments.add("doc.md", 6, repo.head(), suggesting("cut"))
+        env = hand_off(repo)
+        assert repo.read("doc.md") == DOC.replace("- two\n", "").encode()
+        [item] = env["data"]["handoffs"][0]["todos"]
+        assert (item["comment"]["first"], item["comment"]["last"]) == (6, 6)
+        assert item["passage"]["text"] == "- three"
+
+    def it_keeps_the_files_line_endings(self, repo, review, comments):
+        repo.write("doc.md", DOC.replace("\n", "\r\n").rstrip("\r\n"))
+        repo.commit()
+        comments.add("doc.md", 7, repo.head(), suggesting("split", "- 3", "- 4"))
+        hand_off(repo)
+        assert repo.read("doc.md").endswith(b"- two\r\n- 3\r\n- 4")
+
+    def it_ends_lines_with_a_newline_in_a_one_line_file_without_an_ending(
+        self, repo, review, comments
+    ):
+        repo.write("doc.md", "two")
+        repo.commit()
+        comments.add("doc.md", 1, repo.head(), suggesting("split", "2", "3"))
+        hand_off(repo)
+        assert repo.read("doc.md") == b"2\n3"
+
+    def it_writes_nothing_in_a_dry_run(self, repo, review, comments):
+        repo.write("doc.md", DOC)
+        repo.commit()
+        made = comments.add("doc.md", 3, repo.head(), suggesting("wordy", "One."))
+        found = scan_pr(repo)["data"]["todos"]
+        drafts = repo.drafts([repo.skill(t) for t in found])
+        code, out, _ = repo.human("file", "--pr", str(PR), "--drafts", drafts, "--dry-run")
+        assert code == todos.OK
+        assert repo.read("doc.md") == DOC.encode()
+        assert "would write the suggestion of %s at doc.md:3" % made["html_url"] in out
+        assert "One." in out
+
+    def it_names_what_it_wrote_in_human_output(self, repo, review, comments):
+        repo.write("doc.md", DOC)
+        repo.commit()
+        made = comments.add("doc.md", 3, repo.head(), suggesting("wordy", "One."))
+        found = scan_pr(repo)["data"]["todos"]
+        drafts = repo.drafts([repo.skill(t) for t in found])
+        code, out, _ = repo.human("file", "--pr", str(PR), "--drafts", drafts)
+        assert code == todos.OK
+        assert "wrote the suggestion of %s at doc.md:3" % made["html_url"] in out
+
+    def it_leaves_lines_that_changed_since_the_comment_and_warns(self, repo, review, comments):
+        repo.write("doc.md", DOC)
+        repo.commit()
+        made = comments.add("doc.md", 3, repo.head(), suggesting("wordy", "One."))
+        repo.write("doc.md", DOC.replace("First", "Opening"))
+        repo.commit("reworded")
+        env = hand_off(repo)
+        assert repo.read("doc.md") == DOC.replace("First", "Opening").encode()
+        assert env["data"]["suggested"] == []
+        assert any(
+            w.startswith(made["html_url"]) and "suggestion was not written" in w
+            for w in env["warnings"]
+        )
+        [item] = env["data"]["handoffs"][0]["todos"]
+        assert "One." in item["detail"]
+
+    def it_writes_only_the_first_of_two_overlapping_suggestions(self, repo, review, comments):
+        repo.write("doc.md", DOC)
+        repo.commit()
+        head = repo.head()
+        first = comments.add("doc.md", 6, head, suggesting("both", "- 1", "- 2"), start=5)
+        second = comments.add("doc.md", 6, head, suggesting("two", "- deux"))
+        env = hand_off(repo)
+        assert repo.read("doc.md") == DOC.replace("- one\n- two", "- 1\n- 2").encode()
+        [warning] = env["warnings"]
+        assert warning.startswith(second["html_url"])
+        assert "overlap those of %s" % first["html_url"] in warning
+
+    def it_does_not_write_a_suggestion_that_empties_the_file(self, repo, review, comments):
+        repo.write("doc.md", "only\n")
+        repo.commit()
+        made = comments.add("doc.md", 1, repo.head(), suggesting("cut"))
+        env = hand_off(repo)
+        assert repo.read("doc.md") == b"only\n"
+        [warning] = env["warnings"]
+        assert warning.startswith(made["html_url"])
+        assert "would leave doc.md empty" in warning
+
+    def it_stops_before_filing_when_it_cannot_write_the_file(self, repo, review, comments, github):
+        repo.write("doc.md", DOC)
+        repo.commit()
+        comments.add("doc.md", 3, repo.head(), suggesting("wordy", "One."))
+        comments.add("doc.md", 5, repo.head(), "TODO(bug): broken")
+        found = scan_pr(repo)["data"]["todos"]
+        drafts = repo.drafts([repo.skill(found[0]), repo.draft(found[1])])
+        token = pr_token(repo, drafts)
+        os.chmod(str(repo.root / "doc.md"), 0o444)
+        code, _ = repo.run("file", "--pr", str(PR), "--drafts", drafts, "--token", token)
+        assert code == todos.CANNOT_RUN
+        assert "cannot open doc.md for writing" in repo.err
+        assert github.posts() == 0
+
+
+@pytest.mark.spec("report-cmd-keeps-review-suggestions")
+class DescribeSuggestionsInDrafts:
+    def it_refuses_an_issue_draft_that_leaves_out_the_suggestion(self, repo, review, comments):
+        repo.write("doc.md", DOC)
+        repo.commit()
+        made = comments.add("doc.md", 3, repo.head(), suggesting("wordy", "One."))
+        [todo] = scan_pr(repo)["data"]["todos"]
+        drafts = repo.drafts([repo.draft(todo, body="Too wordy.")])
+        code, env = repo.run("report", "--pr", str(PR), "--drafts", drafts)
+        assert code == todos.PROBLEMS
+        [error] = env["errors"]
+        assert error.startswith("draft 1: its body leaves out the wording")
+        assert made["html_url"] in error
+
+    def it_files_an_issue_that_keeps_the_suggestion_and_writes_no_file(
+        self, repo, review, comments, github
+    ):
+        repo.write("doc.md", DOC)
+        repo.commit()
+        comments.add("doc.md", 3, repo.head(), suggesting("wordy", "One."))
+        [todo] = scan_pr(repo)["data"]["todos"]
+        drafts = repo.drafts([repo.draft(todo)])
+        token = pr_token(repo, drafts)
+        code, env = repo.run("file", "--pr", str(PR), "--drafts", drafts, "--token", token)
+        assert code == todos.OK, repo.err
+        assert repo.read("doc.md") == DOC.encode()
+        assert env["data"]["suggested"] == []
+        assert "```suggestion\nOne.\n```" in github.issues[0]["body"]

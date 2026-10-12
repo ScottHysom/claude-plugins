@@ -83,7 +83,9 @@ branch to check out, and stop.
 - under `--pr`, `comment`, the review comment's `url`, and `pending`, true
   when the comment is in the author's pending review. Its `first` and `last`
   are the lines the comment covers, and its `above` is null. Read those lines
-  in the file in place of `above`.
+  in the file in place of `above`. `suggestion` holds the `lines` of the
+  comment's suggestion block, the wording the author wants for those lines,
+  or is null when it has none.
 
 `data.labels` lists the labels of `data.repository`, the repository the issues
 would go to. Each warning names a line that looks like a TODO and was not read,
@@ -190,7 +192,8 @@ Draft each TODO by its kind, or the kind the author gave in step 2:
 
 Title the problem, not the fix, unless the project's rules say otherwise. Put
 the TODO's detail and the author's answers in the body, with the file and line
-it was left at.
+it was left at. When the TODO has a `suggestion`, keep its suggestion block in
+the body as the detail gives it. `report` refuses a body without its lines.
 
 Route a TODO to an installed skill, rather than drafting an issue, when the
 skill exists to do the work it asks for. The installed skills are the ones
@@ -345,12 +348,15 @@ Tell the author:
   with its `issue`'s `number` and the comment's `url`;
 - each note to be handed off: a `title` under `todos` in `data.handoffs`, and
   the `skill` it goes to;
+- each suggestion written: an entry of `data.suggested`, with its `file`, its
+  `first` and `last` lines and the review `comment` it came from. These are
+  uncommitted edits in the files;
 - each file marked, which is the `file` of each entry in `data.filed` that
   does not have a `comment`, and the checkout it is in when step 1 passed
   `--from`;
 - each reply posted: an entry of `data.filed` that has a `comment`, with its
   `reply_url`. Such an entry came from that review comment, and `file` did
-  not write it into any file. When its `reply_pending` is true, the reply is
+  not mark it in any file. When its `reply_pending` is true, the reply is
   in the author's pending review on the pull request, and appears in its
   thread when the author submits that review. Say so;
 - each TODO left in place: the ones without a draft in step 4's report, and
