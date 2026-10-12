@@ -72,6 +72,27 @@ script run through Bash can open one there for writing. So the todos script
 does not carry any edit across, and marks each TODO in the checkout where it
 sits.
 
+## TODOs in a review
+
+Twice in the review of #527, the owner left `TODO(prose):` review comments and
+asked the agent to process them with do-todos. #536 records how the agent
+then copied each comment into its file by hand, picked one line for each
+comment on a range, and took the markers out again before committing. `--pr`
+lets `scan` read the comments straight from GitHub instead.
+
+A comment names its lines in the commit it was left on, and later commits may
+have moved them. `scan` compares the file at that commit with the file in the
+worktree on the pull request's head branch, with the same shortest edit
+script it uses against the last commit, so it does not trust GitHub's own
+`line`, which knows nothing of commits not yet pushed or of uncommitted
+edits. When the lines themselves changed, it still places the TODO, since
+dropping a note the owner left is worse than putting it a few lines off, and
+it warns so that the author checks.
+
+A review TODO is not in any file, so `file` does not write anything for it.
+Marking it where it was left is #537's work. The approval token covers the
+named comments' text, since a comment can be edited after the report.
+
 ## Why a script
 
 The model drafts each issue and decides what to ask the author. The script

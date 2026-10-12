@@ -34,6 +34,25 @@ When this tree does not hold a pending TODO and another worktree does, scan
 names each such worktree and exits 1, so a session opened in a fresh worktree
 still finds the TODOs left in the checkout where the author reviews.
 
+Review comments. scan, report, file and questions take --pr N instead of
+--from, and read the TODOs left as review comments on pull request N rather
+than the tree's pending TODOs. A TODO is a top-level comment whose body opens
+with `TODO:` or `TODO(<kind>):`. The rest of its first line is the title, and
+the rest of its body the detail. Its `text`, which a draft copies, is that
+first line, and it carries `comment`, the comment's id and address. Its
+`first` and `last` are the lines the comment covers, found in the worktree
+that has the pull request's head branch checked out, as that tree stands.
+GitHub gives each comment's lines in the commit it was left on, so scan
+compares the file at that commit with the tree's, as it compares a file with
+its last commit. When a later change altered the lines, scan warns and places
+the TODO on what is left of them, or after the nearest line kept before them.
+A comment on a whole file or on lines the pull request removes is not read,
+with a warning. `file` files these TODOs and writes no file, since the TODO
+is not in one. Its hand-off's passage runs from the passage around `first` to
+the one around `last`, with `line` null, and the TODO carries the comment's
+address and lines. The token also covers the pull request's number and the
+review comments the drafts name.
+
 Exit codes: 0 clean, 1 ran and found problems, 2 could not run.
 
 Drafts. `--drafts` names a file holding a JSON array, one object per TODO to
@@ -182,11 +201,11 @@ refused question writes the refusals and no question.
 Only `setup`, `report`, `questions` and `file` write, and only in a working
 tree: `setup` its copy in .todos/, `report` .todos/report.md, `questions`
 .todos/questions.md, and `file` the files whose TODOs it marks, in the
-worktree --from names when it is given. `setup`, `report` and `questions` also
-write .todos/.gitignore, so git ignores what they leave there. `report` and
-`questions` do not take --dry-run, because nothing reads a preview of the
-scratch they write, which their next run replaces. Nothing writes to
-git, and every git call passes --no-optional-locks so that even git's own
+worktree --from names when it is given, and none under --pr. `setup`,
+`report` and `questions` also write .todos/.gitignore, so git ignores what
+they leave there. `report` and `questions` do not take --dry-run, because
+nothing reads a preview of the scratch they write, which their next run
+replaces. Nothing writes to git, and every git call passes --no-optional-locks so that even git's own
 index refresh is skipped.
 
 Python 3.9 is the floor. No match statements, no X | Y unions.
@@ -231,6 +250,12 @@ BRANCH_LINE = "branch refs/heads/"
 BARE_LINE = "bare"
 # The command scan names when another worktree holds the pending TODOs.
 FROM_COMMAND = "scan --from %s"
+
+# A review comment that holds a TODO: its body opens with `TODO:` or
+# `TODO(<kind>):`, and the rest of its first line is the title.
+REVIEW_TODO_RE = re.compile(r"^(TODO(?:\(([^()]*)\))?):(.*)$")
+# The side of a pull request's diff that holds the lines it removes.
+REMOVED_SIDE = "LEFT"
 
 # A TODO: indent, marker, then `TODO:` or `TODO(<kind>):`. The third group
 # is the word `file` replaces when it marks the TODO handled.
@@ -458,6 +483,19 @@ class Repo:
             )
         return stdout
 
+    def blob(self, commit, path, comment):
+        """The file at a commit, as checkout would write it, or None when the
+        commit does not hold it. Fatal when the clone does not hold the
+        commit, which the review comment at the address comment was left on."""
+        code, _, _ = self.run("cat-file", "-e", "%s^{commit}" % commit)
+        if code != 0:
+            raise Fatal(
+                "commit %s, which the review comment %s was left on, is not in this clone."
+                " Run `git fetch`, then run again." % (commit[:ABBREV], comment)
+            )
+        code, out, _ = self.run("cat-file", "--filters", "%s:%s" % (commit, path))
+        return out if code == 0 else None
+
     def on_remote(self):
         """Whether a remote-tracking branch holds the last commit."""
         out = self.git("for-each-ref", "--contains", "HEAD", "--format=%(refname)", "refs/remotes")
@@ -563,6 +601,53 @@ def open_tree(args, repo=None):
     return Repo(root), {"root": root, "branch": branch}
 
 
+class Review:
+    """A pull request whose review comments a command reads TODOs from."""
+
+    def __init__(self, github, pull):
+        self.github = github
+        self.number = pull["number"]
+        self.url = pull["url"]
+        self.branch = pull["headRefName"]
+
+    def info(self):
+        return {"number": self.number, "url": self.url, "branch": self.branch}
+
+    def scan(self, repo):
+        return ReviewScan(repo, self)
+
+
+def open_source(args, repo=None):
+    """(the tree a command reads, its checkout, the Review or None).
+
+    Without --pr, as open_tree. With --pr, the tree is the worktree that has
+    the pull request's head branch checked out, and the checkout is None
+    when that is this tree.
+    """
+    repo = repo or Repo(args.repo)
+    if args.pr is None:
+        return (*open_tree(args, repo), None)
+    github = GitHub(repo)
+    review = Review(github, github.pull(args.pr))
+    here = os.path.realpath(repo.root)
+    trees = [(root, branch) for root, branch in repo.trees() if branch == review.branch]
+    if not trees:
+        raise Fatal(
+            "%s, the head branch of #%d, is not checked out in any worktree of this"
+            " repository. Check it out, with `git switch %s` or `git worktree add <folder>"
+            " %s`, then run again." % (review.branch, review.number, review.branch, review.branch)
+        )
+    root, branch = trees[0]
+    if os.path.realpath(root) == here:
+        return repo, None, review
+    return Repo(root), {"root": root, "branch": branch}, review
+
+
+def gather(repo, review):
+    """The TODOs a command reads: the tree's pending ones, or the review's."""
+    return Scan(repo) if review is None else review.scan(repo)
+
+
 # --------------------------------------------------------------------------
 # gh
 # --------------------------------------------------------------------------
@@ -643,6 +728,28 @@ class GitHub:
             "%s. Add a GitHub remote, or choose one with `gh repo set-default`, then run again."
             % exc
         )
+
+    def pull(self, number):
+        """{number, url, headRefName} of a pull request."""
+        args = ("pr", "view", str(number), "--repo", self.name, "--json", "number,url,headRefName")
+        try:
+            return gh_json(self.root, *args)
+        except GhFailed as exc:
+            raise Fatal(
+                "%s. Check that #%d is a pull request of %s, then run again."
+                % (exc, number, self.name)
+            ) from exc
+
+    def review_comments(self, number):
+        """Every review comment on a pull request, each as GitHub's REST API
+        gives it. --jq prints one comment a line, so the pages join as
+        lines."""
+        args = ("api", "repos/%s/pulls/%d/comments" % (self.name, number), "--paginate")
+        try:
+            out = gh(self.root, *args, "--jq", ".[]")
+        except GhFailed as exc:
+            raise Fatal("%s. Run it yourself to see what gh reports." % exc) from exc
+        return [parse_json(line, args) for line in out.splitlines() if line.strip()]
 
     def labels(self):
         """Every label of the repository, as {name, description}."""
@@ -895,6 +1002,16 @@ def commented(lines, skip):
 # --------------------------------------------------------------------------
 
 
+def kind_of(word):
+    """(the kind a TODO's word names, or None; why it is read without one)."""
+    if word is None or word in KINDS:
+        return word, None
+    return None, "`%s` is not a kind, so the TODO is read without one. The kinds are %s" % (
+        word,
+        ", ".join(KINDS),
+    )
+
+
 class FileScan:
     """The TODOs and warnings in one file's added lines.
 
@@ -1071,16 +1188,9 @@ class FileScan:
         elif html_comment_open(self.open[i], self.masked[i][:wrap]):
             wrap = None
         self.marks[i] = (span[0], span[1], wrap)
-        kind = None
-        if word is not None:
-            if decode(word) in KINDS:
-                kind = decode(word)
-            else:
-                self.warn(
-                    i,
-                    "`%s` is not a kind, so the TODO is read without one. The kinds are %s"
-                    % (decode(word), ", ".join(KINDS)),
-                )
+        kind, problem = kind_of(None if word is None else decode(word))
+        if problem:
+            self.warn(i, problem)
         self.todos.append(
             {
                 "file": self.path,
@@ -1133,24 +1243,32 @@ class FileScan:
         text = decode(self.lines[i][: self.cuts.get(i)])
         return {"line": i + 1, "text": text, "base_line": self.base_of.get(i)}
 
-    def passage(self, line):
+    def passage(self, line, last=None):
         """The passage around a 1-based line, as {first, last, changed, text}:
         the lines that are neither blank nor a TODO's, with any trailing TODO
         taken off. In markdown, it is the list item that holds the line, or
-        the lines of the paragraph that come before its first item."""
-        lo = hi = line - 1
-        while lo > 0 and self._in_passage(lo - 1):
-            lo -= 1
-        while hi + 1 < len(self.lines) and self._in_passage(hi + 1):
-            hi += 1
-        if self.markdown:
-            lo, hi = self._item(line - 1, lo, hi)
+        the lines of the paragraph that come before its first item. Given
+        last, it runs from the passage around line to the one around last."""
+        lo, hi = self._span(line - 1)
+        if last is not None:
+            hi = max(hi, self._span(last - 1)[1])
         return {
             "first": lo + 1,
             "last": hi + 1,
             "changed": [k + 1 for k in range(lo, hi + 1) if k in self.added],
             "text": "\n".join(self._own(k)["text"] for k in range(lo, hi + 1)),
         }
+
+    def _span(self, k):
+        """The first and last index of the passage around index k."""
+        lo = hi = k
+        while lo > 0 and self._in_passage(lo - 1):
+            lo -= 1
+        while hi + 1 < len(self.lines) and self._in_passage(hi + 1):
+            hi += 1
+        if self.markdown:
+            lo, hi = self._item(k, lo, hi)
+        return lo, hi
 
     def _in_passage(self, k):
         return bool(self.lines[k].strip()) and k not in self.spans
@@ -1234,6 +1352,98 @@ class Scan:
             self.warnings.extend(pending.found.warnings)
 
 
+class ReviewScan:
+    """The TODOs left as review comments on a pull request, placed on the
+    lines of the tree that has its head branch checked out.
+
+    `files` maps each path a TODO names to its Pending, read against the
+    tree's last commit, for the hand-offs' passages. `pull` is the Review.
+    """
+
+    def __init__(self, repo, review):
+        self.repo = repo
+        self.pull = review
+        self.files = {}
+        self.todos, self.warnings = [], []
+        for comment in review.github.review_comments(review.number):
+            if comment.get("in_reply_to_id") is None:
+                self._read(comment)
+        self.todos.sort(key=lambda t: (t["file"], t["first"], t["comment"]["id"]))
+
+    def _pending(self, path):
+        """The Pending of a file in the tree, or None when it is not a
+        regular file there."""
+        if path not in self.files:
+            raw = read_file(self.repo, path)[0] if regular(self.repo, path) else None
+            self.files[path] = None if raw is None else Pending(path, raw, self.repo.base(path))
+        return self.files[path]
+
+    def _read(self, comment):
+        body = (comment.get("body") or "").replace("\r\n", "\n").lstrip()
+        head, _, rest = body.partition("\n")
+        m = REVIEW_TODO_RE.match(head.rstrip())
+        if not m:
+            return
+        url, path = comment["html_url"], comment["path"]
+        if comment.get("original_line") is None or comment.get("side") == REMOVED_SIDE:
+            self.warnings.append(
+                "%s: the TODO is not on lines of %s as the pull request leaves it, so it was"
+                " not read. Leave it on the lines it is about" % (url, path)
+            )
+            return
+        pending = self._pending(path)
+        if pending is None or not pending.found.lines:
+            self.warnings.append(
+                "%s: %s is not a file with lines in %s, so the TODO was not read"
+                % (url, path, self.repo.root)
+            )
+            return
+        first, last = self._place(comment, pending.found.lines)
+        kind, problem = kind_of(m.group(2))
+        if problem:
+            self.warnings.append("%s: %s" % (url, problem))
+        self.todos.append(
+            {
+                "file": path,
+                "first": first,
+                "last": last,
+                "text": m.group(0),
+                "kind": kind,
+                "marker": "",
+                "title": m.group(3).strip(),
+                "detail": rest.strip(),
+                "above": None,
+                "comment": {"id": comment["id"], "url": url},
+            }
+        )
+
+    def _place(self, comment, lines):
+        """The first and last 1-based line, in the tree, of the lines a
+        comment covers in the commit it was left on. When a later change
+        altered them, a warning, and the lines that are left of them, or the
+        line after the nearest one kept before them."""
+        commit, path, url = comment["original_commit_id"], comment["path"], comment["html_url"]
+        last = comment["original_line"]
+        first = comment.get("original_start_line") or last
+        raw = self.repo.blob(commit, path, url) or b""
+        then = split_lines(raw[len(BOM) :] if raw.startswith(BOM) else raw)
+        kept = dict(kept_lines(then, lines))
+        now = [kept[i] for i in range(first - 1, last) if i in kept]
+        if len(now) == last - first + 1 and now[-1] - now[0] == last - first:
+            return now[0] + 1, now[-1] + 1
+        if not now:
+            before = [kept[i] for i in range(first - 1) if i in kept]
+            line = min(before[-1] + 2 if before else 1, len(lines))
+            now = [line - 1]
+        was = where({"file": path, "first": first, "last": last})
+        placed = where({"file": path, "first": now[0] + 1, "last": now[-1] + 1})
+        self.warnings.append(
+            "%s: the lines the TODO was left on, %s at %s, have changed since, so it is placed"
+            " at %s. Check it there" % (url, was, commit[:ABBREV], placed)
+        )
+        return now[0] + 1, now[-1] + 1
+
+
 def print_labels(github, labels):
     print("Labels in %s:" % github.name)
     for label in labels:
@@ -1251,12 +1461,13 @@ def other_pending(repo):
 
 
 def cmd_scan(args):
-    repo, checkout = open_tree(args)
-    found = Scan(repo)
+    repo, checkout, review = open_source(args)
+    found = gather(repo, review)
     todos = found.todos
     # A tree without a TODO may be a fresh worktree, opened while the
     # author's TODOs sit in another checkout of the same repository.
-    elsewhere = other_pending(repo) if not todos and checkout is None else []
+    look = not todos and checkout is None and review is None
+    elsewhere = other_pending(repo) if look else []
     errors = [
         "this tree does not hold any pending TODO, and %s%s holds TODOs in %s. Ask the author"
         " whether to collect them, then run `%s`, and pass the same --from to report and file"
@@ -1278,8 +1489,13 @@ def cmd_scan(args):
         print_labels(github, labels)
         print()
         short = commit["hash"][:ABBREV]
+        if review is not None:
+            print("TODOs in the review of #%d, placed in %s.\n" % (review.number, repo.root))
         if not todos:
-            print("No pending TODOs in the changes since %s." % short)
+            if review is not None:
+                print("No review comment on #%d opens with a TODO." % review.number)
+            else:
+                print("No pending TODOs in the changes since %s." % short)
             return
         for t in todos:
             where = "%d" % t["first"]
@@ -1290,7 +1506,9 @@ def cmd_scan(args):
             for d in t["detail"].split("\n") if t["detail"] else []:
                 print(("    %s" % d).rstrip())
             above = t["above"]
-            if above:
+            if t.get("comment"):
+                print("    review comment %s" % t["comment"]["url"])
+            elif above:
                 was = "line %d at %s" % (above["base_line"], short) if above["base_line"] else "new"
                 place = "at the end of" if above["line"] == t["first"] else "above"
                 print(
@@ -1311,6 +1529,7 @@ def cmd_scan(args):
         "labels": labels,
         "todos": todos,
         "other_worktrees": elsewhere,
+        "pull_request": None if review is None else review.info(),
     }
     return emit(args, "scan", data, errors=errors, warnings=found.warnings, human=human)
 
@@ -1452,7 +1671,8 @@ def target_problems(draft, targets, github):
 def check_drafts(drafts, found, github, labels):
     """(rows, refused): a row for each draft that names a pending TODO and
     passes every check, and a reason for each that does not."""
-    todos = dict(((t["file"], t["first"]), t) for t in found.todos)
+    # Two review comments can sit on one line, so the text tells them apart.
+    todos = dict(((t["file"], t["first"], t["text"]), t) for t in found.todos)
     label_names = set(label["name"] for label in labels)
     checked = [(n, d, draft_problems(d, github, label_names)) for n, d in enumerate(drafts, 1)]
     numbers = sorted(
@@ -1465,9 +1685,9 @@ def check_drafts(drafts, found, github, labels):
         if problems:
             refused.extend("draft %d %s" % (n, p) for p in problems)
             continue
-        place = (draft["file"], draft["line"])
+        place = (draft["file"], draft["line"], draft["text"])
         todo = todos.get(place)
-        if todo is None or todo["text"] != draft["text"]:
+        if todo is None:
             refused.append(
                 "draft %d: %s:%d does not hold a pending TODO whose first line is %s. Run scan"
                 " again and redraft it" % (n, place[0], place[1], json.dumps(draft["text"]))
@@ -1481,6 +1701,8 @@ def check_drafts(drafts, found, github, labels):
             "last": todo["last"],
             "route": draft["route"],
         }
+        if todo.get("comment"):
+            row["comment"] = todo["comment"]
         if draft["route"] == ROUTE_COMMENT:
             target = targets[draft["issue"]]
             row["issue"] = dict((k, target[k]) for k in ("number", "title", "url"))
@@ -1536,12 +1758,14 @@ class TokenHash:
         return self.digest.hexdigest()[:TOKEN_LENGTH]
 
 
-def approval_token(repo, github, drafts):
+def approval_token(repo, github, drafts, found):
     """The token report prints and file requires, for this batch as it is now.
 
     A sha256 over the drafts routed to GitHub, the repository's name, the last
-    commit, and the path and bytes of every file those drafts name. A draft
-    routed to a skill changes nothing in it.
+    commit, and the path and bytes of every file those drafts name. Under
+    --pr, also the pull request's number and the title and detail of each
+    review comment those drafts name. A draft routed to a skill changes
+    nothing in it.
     """
     drafts = [d for d in drafts if reaches_github(d)]
     digest = TokenHash()
@@ -1552,6 +1776,16 @@ def approval_token(repo, github, drafts):
     for rel in sorted(names):
         digest.part(rel.encode("utf-8"))
         digest.document(os.path.join(repo.root, rel))
+    review = getattr(found, "pull", None)
+    if review is not None:
+        digest.part(b"%d" % review.number)
+        todos = dict(((t["file"], t["first"], t["text"]), t) for t in found.todos)
+        for d in drafts:
+            place = (d.get("file"), d.get("line"), d.get("text"))
+            todo = todos.get(place) if all(is_text(x) or is_number(x) for x in place) else None
+            if todo is not None:
+                named = [todo["comment"]["id"], todo["title"], todo["detail"]]
+                digest.part(json.dumps(named).encode("utf-8"))
     return digest.token()
 
 
@@ -1628,17 +1862,17 @@ def cmd_report(args):
     """The drafts as the author approves them, read against the files now.
     A draft routed to a skill is checked, and not shown."""
     here = Repo(args.repo)
-    repo, _ = open_tree(args, here)
+    repo, _, review = open_source(args, here)
     drafts = read_drafts(args.drafts)
     github = GitHub(repo)
     labels = github.labels()
-    found = Scan(repo)
+    found = gather(repo, review)
     rows, refused = check_drafts(drafts, found, github, labels)
     drafted = set((r["file"], r["first"]) for r in rows)
     left = [t for t in found.todos if (t["file"], t["first"]) not in drafted]
     # No token for a report that failed: the author cannot approve a batch
     # file would refuse.
-    token = None if refused else approval_token(repo, github, drafts)
+    token = None if refused else approval_token(repo, github, drafts, found)
     rows = [r for r in rows if r["route"] != ROUTE_SKILL]
     data = {
         "repository": github.name,
@@ -1725,13 +1959,13 @@ def question_problems(n, q, todos):
             reasons.append("question %d, TODO %d does not give a `file` and a `line`" % (n, i))
             continue
         todo = todos.get((t["file"], t["line"]))
-        if todo is None:
+        if not todo:
             reasons.append(
                 "question %d, TODO %d: %s:%d does not hold a pending TODO. Run scan again and"
                 " name the TODO by its file and first line" % (n, i, t["file"], t["line"])
             )
             continue
-        named.append(todo)
+        named.extend(todo)
     return reasons, named
 
 
@@ -1762,9 +1996,12 @@ def cmd_questions(args):
     """Write the questions to .todos/questions.md, for the author to answer
     on a page when one dialog cannot hold them."""
     here = Repo(args.repo)
-    repo, _ = open_tree(args, here)
+    repo, _, review = open_source(args, here)
     questions = read_questions(args.batch)
-    todos = dict(((t["file"], t["first"]), t) for t in Scan(repo).todos)
+    # A list, since two review comments can sit on one line.
+    todos = {}
+    for t in gather(repo, review).todos:
+        todos.setdefault((t["file"], t["first"]), []).append(t)
     asked, refused = [], []
     for n, q in enumerate(questions, 1):
         reasons, named = question_problems(n, q, todos)
@@ -1834,7 +2071,7 @@ def writable(repo, rel):
 
 
 def cmd_file(args):
-    repo, checkout = open_tree(args)
+    repo, checkout, review = open_source(args)
     drafts = read_drafts(args.drafts)
     github = GitHub(repo)
     data = {
@@ -1844,12 +2081,12 @@ def cmd_file(args):
         "handoffs": [],
         "dry_run": args.dry_run,
     }
+    found = gather(repo, review)
     if any(reaches_github(d) for d in drafts):
         if args.token is None:
             return emit(args, "file", data, errors=[TOKEN_MISSING])
-        if args.token != approval_token(repo, github, drafts):
+        if args.token != approval_token(repo, github, drafts, found):
             return emit(args, "file", data, errors=[TOKEN_STALE])
-    found = Scan(repo)
     rows, refused = check_drafts(drafts, found, github, github.labels())
     if refused:
         refused.append("nothing was filed, posted or written")
@@ -1857,13 +2094,17 @@ def cmd_file(args):
 
     rows.sort(key=lambda r: (r["file"], -r["first"]))
     markings = {}
-    for rel in sorted(set(r["file"] for r in rows)):
+    # A TODO from a review comment is not in any file, so none is written.
+    for rel in sorted(set(r["file"] for r in rows if "comment" not in r)):
         writable(repo, rel)
         markings[rel] = Marking(os.path.join(repo.root, rel), found.files[rel])
 
     def finish(row, target, **fields):
-        """Mark the row's TODO handled, unless this is a dry run."""
-        if not args.dry_run:
+        """Mark the row's TODO handled, unless this is a dry run or it came
+        from a review comment."""
+        if "comment" in row:
+            target = None
+        elif not args.dry_run:
             marking = markings[row["file"]]
             marking.mark(row["first"], row["last"], target)
             marking.write()
@@ -1916,7 +2157,9 @@ def cmd_file(args):
                 verb = "commented on" if comment else "filed"
                 print("%s #%d %s" % (verb, r["number"], r["url"]))
             verb = "mark" if args.dry_run else "marked"
-            if r["handled"] is None:
+            if "comment" in r:
+                print("  from the review comment %s" % r["comment"]["url"])
+            elif r["handled"] is None:
                 print("  and %s %s with the new issue's number" % (verb, where(r)))
             else:
                 print("  and %s %s as %s" % (verb, where(r), r["handled"]))
@@ -1937,11 +2180,17 @@ def handoffs(finished, found, checkout):
         if row["route"] != ROUTE_SKILL:
             continue
         passage = None
-        if row["above"] is not None:
-            passage = dict(found.files[row["file"]].found.passage(row["above"]), file=row["file"])
+        lines = found.files[row["file"]].found
+        if "comment" in row:
+            passage = dict(lines.passage(row["first"], row["last"]), file=row["file"])
+            passage.update(line=None, trailing=False)
+        elif row["above"] is not None:
+            passage = dict(lines.passage(row["above"]), file=row["file"])
             passage.update(line=row["above"], trailing=row["above"] == row["first"])
         todo = {"draft": row["draft"], "title": row["title"], "detail": row["detail"]}
         todo["passage"] = passage
+        if "comment" in row:
+            todo["comment"] = dict(row["comment"], first=row["first"], last=row["last"])
         out.setdefault(row["skill"], []).append(todo)
     return [
         {"skill": skill, "checkout": checkout, "todos": items}
@@ -1967,8 +2216,14 @@ def print_handoff(handoff):
         span = where(passage)
         changed = ", ".join(str(n) for n in passage["changed"]) or "none"
         print("  passage %s, changed since the last commit: %s" % (span, changed))
-        place = "at the end of" if passage["trailing"] else "above"
-        print("  TODO    %s line %d" % (place, passage["line"]))
+        if "comment" in todo:
+            print(
+                "  TODO    in the review comment %s, on %s"
+                % (todo["comment"]["url"], where(dict(todo["comment"], file=passage["file"])))
+            )
+        else:
+            place = "at the end of" if passage["trailing"] else "above"
+            print("  TODO    %s line %d" % (place, passage["line"]))
         print_block("text", passage["text"])
 
 
@@ -1996,13 +2251,23 @@ def build_parser():
         "--drafts", required=True, metavar="FILE", help="the JSON file of drafts to check"
     )
     source = argparse.ArgumentParser(add_help=False)
-    source.add_argument(
+    sources = source.add_mutually_exclusive_group()
+    sources.add_argument(
         "--from",
         dest="source",
         metavar="TREE",
         help=(
             "read the TODOs of another worktree of this repository instead, named by its"
             " folder or by the branch it has checked out"
+        ),
+    )
+    sources.add_argument(
+        "--pr",
+        type=int,
+        metavar="N",
+        help=(
+            "read the TODOs left as review comments on pull request N instead, placed on the"
+            " lines of the worktree that has its head branch checked out"
         ),
     )
 

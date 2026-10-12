@@ -129,6 +129,47 @@ Source: #315, and #301, which found the same split for update-prose-config.
   `AskUserQuestion` which to collect from, if any, and runs `scan --from`
   with the one picked.
 
+## need user-leaves-todos-in-review: Leave a TODO in a review comment
+
+When the user reviews a pull request on GitHub and finds work for later, they
+want to leave a TODO as a review comment on the lines it is about, and have
+do-todos collect it as it collects a TODO left in a file, so the review does
+not have to be copied into the files first.
+
+Source: #536, which records the owner's two requests in the review of #527.
+
+- `scan-cmd-reads-review-todos` (test): When `scan` is given `--pr`, it reads
+  each top-level review comment on that pull request whose body opens with
+  `TODO:` or `TODO(<kind>):`, in place of the tree's pending TODOs. It gives
+  these:
+  - the rest of the comment's first line as the title, and the rest of its
+    body as the detail.
+  - its kind, read as a TODO's kind word is read.
+  - its file, and the first and last of the lines it covers.
+  - the comment's address.
+
+  It skips a comment on a whole file, on lines the pull request removes, or
+  on a file the tree lacks, and warns with the comment's address.
+- `scan-cmd-finds-moved-review-lines` (test): When `scan` reads a review
+  comment, it finds the lines the comment covers in the tree as it stands,
+  also when a later commit moved them. When a later change altered them, it
+  warns naming the comment, and places the TODO on what is left of them, or
+  after the nearest line kept before them. When the clone does not hold the
+  commit the comment was left on, it names the comment and `git fetch`, and
+  exits 2.
+- `command-reads-review-with-pr` (test): When `scan`, `report`, `file` or
+  `questions` is given `--pr` with a pull request's number, it reads the
+  review's TODOs and their passages in the worktree that has the pull
+  request's head branch checked out. When that branch is not checked out in
+  any worktree, it names the branch and exits 2. It refuses `--pr` beside
+  `--from`.
+- `file-cmd-leaves-review-todos-unmarked` (test): When `file` finishes a TODO
+  taken from a review comment, it does not write it, or anything else, into
+  the tree's files, and names the comment in place of a mark.
+- `dotodos-takes-named-pr` (step): When the author asks do-todos to collect
+  the TODOs in a pull request's review, do-todos passes its number to `scan
+  --pr`, and to `report`, `file` and `questions`.
+
 ## need user-keeps-files-working: Keep a file with TODOs working
 
 When the user leaves a TODO in a file, they want to write it in the file's own
@@ -266,7 +307,9 @@ Source: #312, which records the design the owner approved.
   token `report` would print, `file` stops before it files, posts or writes
   anything. The token covers the drafts routed to `issue` or `comment`, the
   files they name, the last commit and the target repository as they are
-  now. When every draft is routed to `skill`, `file` runs without a token.
+  now. Under `--pr`, it also covers the pull request's number and the title
+  and detail of each review comment those drafts name. When every draft is
+  routed to `skill`, `file` runs without a token.
 - `file-cmd-files-in-reported-repo` (test): When `file` calls `gh`, it passes
   the repository `report` named as `--repo`.
 - `file-cmd-never-posts-in-preview` (test): When `file` is given `--dry-run`,
@@ -327,8 +370,11 @@ Source: #319, which quotes the owner's first use case, and CLAUDE.md, under
   `.markdown`, the passage is the list item that holds the TODO's line. When
   that line is not in a list item, the passage is its paragraph, up to the
   paragraph's first list item. Each hand-off names the line the TODO was at the end of, or the line
-  it sat above. When `--from` names another worktree, each hand-off also
-  names that worktree's root and branch.
+  it sat above. For a TODO taken from a review comment, the passage runs from
+  the passage around the first line the comment covers to the one around its
+  last, and the hand-off names the comment's address and those lines in place
+  of a line. When `--from` or `--pr` names another worktree, each hand-off
+  also names that worktree's root and branch.
 - `dotodos-passes-todos-to-skills` (step): When an installed skill's
   description covers the work a TODO asks for, such as a `prose` TODO and a
   skill that learns prose rules, do-todos routes it to that skill, and

@@ -1,6 +1,6 @@
 ---
 name: do-todos
-description: File the TODO comments left in a project's uncommitted changes as GitHub issues, or as comments on open issues that already cover them, or hand each to an installed skill made for its work, and mark each one in its file with where it went. Claude Code only. Uses scripts/todos.py to find every TODO added since the last commit, in any text file, behind a comment marker made of symbols such as #, // or <!--, with the open issues like each, to check the drafts against the files, the issues and the repository's labels, and to file them through gh once the author approves the report. Asks about every TODO that says too little in one round, before drafting. Use when asked to file the TODOs, turn TODO comments into issues, collect the notes left during a review, or clear the TODOs out of a change. Never commits.
+description: File the TODO comments left in a project's uncommitted changes, or left as review comments on a pull request, as GitHub issues, or as comments on open issues that already cover them, or hand each to an installed skill made for its work, and mark each one in its file with where it went. Claude Code only. Uses scripts/todos.py to find every TODO added since the last commit, in any text file, behind a comment marker made of symbols such as #, // or <!--, with the open issues like each, to check the drafts against the files, the issues and the repository's labels, and to file them through gh once the author approves the report. Asks about every TODO that says too little in one round, before drafting. Use when asked to file the TODOs, turn TODO comments into issues, collect the notes left during a review, process the TODOs in a pull request's review comments, or clear the TODOs out of a change. Never commits.
 ---
 
 # File the TODOs as issues
@@ -39,7 +39,7 @@ TODOS=.todos/todos.py && python3 "$TODOS" scan --json
 ```
 
 ## Step 1: gather the TODOs
-<!-- spec: dotodos-reads-todos-from-scan, dotodos-takes-named-checkout, dotodos-asks-which-checkout -->
+<!-- spec: dotodos-reads-todos-from-scan, dotodos-takes-named-checkout, dotodos-asks-which-checkout, dotodos-takes-named-pr -->
 <!-- seam: judgment: the author picks which checkout to collect TODOs from, or none -->
 
 ```sh
@@ -58,6 +58,18 @@ Pass the same `--from "<name>"` to `report` and `file` in step 4. When `scan`
 exits 2, tell the author what it says, with the worktrees it lists, and stop.
 Never guess which checkout a refused name meant.
 
+When the author asks for the TODOs in a pull request's review, as in "see the
+comments on #527", pass its number, in place of any `--from`:
+
+```sh
+TODOS=.todos/todos.py && python3 "$TODOS" scan --pr 527 --json
+```
+
+Pass the same `--pr` to `questions` in step 2, and to `report` and `file` in
+step 4. `scan` then reads the review comments that open with a TODO, and not
+the tree's own. When it exits 2, tell the author what it says, such as the
+branch to check out, and stop.
+
 `data.todos` lists every TODO added since the last commit. Each has:
 
 - its `file`, and its `first` and `last` lines;
@@ -67,7 +79,10 @@ Never guess which checkout a refused name meant.
 - `above`, the line it sits above, or for a TODO at the end of a line, that
   line;
 - `similar`, the open issues GitHub's search returns for its title, each with
-  its `number`, `title` and `url`.
+  its `number`, `title` and `url`;
+- under `--pr`, `comment`, the review comment's `url`. Its `first` and `last`
+  are the lines the comment covers, and its `above` is null. Read those lines
+  in the file in place of `above`.
 
 `data.labels` lists the labels of `data.repository`, the repository the issues
 would go to. Each warning names a line that looks like a TODO and was not read,
@@ -127,7 +142,7 @@ TODOS=.todos/todos.py && python3 "$TODOS" questions --batch - --json <<'END'
 END
 ```
 
-Add the `--from` that step 1's `scan` took, when it took one. Each question
+Add the `--from` or `--pr` that step 1's `scan` took, when it took one. Each question
 gives `question`, its `options`, each with a `label` and optionally a
 `description`, and `todos`: the `file` and `first` of each TODO it asks
 about, as `file` and `line`. When `questions` exits 1, its errors name each
@@ -230,8 +245,8 @@ A TODO the author wants left in place does not get a draft.
 
 <!-- seam: judgment: the author approves the report, or a part of it, before file runs -->
 
-Add the `--from` that step 1's `scan` took to `report` and `file`, when it
-took one.
+Add the `--from` or `--pr` that step 1's `scan` took to `report` and `file`,
+when it took one.
 
 **When every draft is routed to `skill`,** run `file` without `--token`, and
 skip `report` and the question. The batch does not send anything to GitHub,
@@ -316,8 +331,10 @@ Tell the author:
   with its `issue`'s `number` and the comment's `url`;
 - each note to be handed off: a `title` under `todos` in `data.handoffs`, and
   the `skill` it goes to;
-- each file marked, which is the `file` of each entry in `data.filed`, and
-  the checkout it is in when step 1 passed `--from`;
+- each file marked, which is the `file` of each entry in `data.filed` that
+  does not have a `comment`, and the checkout it is in when step 1 passed
+  `--from`. An entry with a `comment` came from that review comment, and
+  `file` did not write it into any file;
 - each TODO left in place: the ones without a draft in step 4's report, and
   each entry of `data.left`.
 
@@ -349,6 +366,11 @@ give:
 
 A TODO whose `passage` is null sat at the end of its file. Hand it on with
 the file alone, and say that it did not sit above a passage.
+
+A TODO with a `comment` was left as a review comment, at the comment's `url`,
+on lines `first` to `last` of the passage's file, and its passage's `line` is
+null. Give the comment's address and lines in place of the line the TODO was
+on.
 
 When the hand-off's `checkout` is not null, the passages were read in another
 checkout. Give its `root` and `branch` in the arguments, and say that each
