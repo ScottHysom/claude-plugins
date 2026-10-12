@@ -294,7 +294,7 @@ positive.
 **Pattern.** `(?i)\b(?<!\bor )(?:not|never|no|nothing|nobody|none|cannot|[a-z]+n['’]t)\b[^.;:]*\b(?<!\bor )(?:not|never|no|nothing|nobody|none|cannot|[a-z]+n['’]t)\b`
 
 > **Before.** Nothing can show that a behavior was never asked for.
-> **After.** No one can know whether a behavior was ever asked for.
+> **After.** A reader cannot tell whether a behavior was ever asked for.
 
 ### sentences-none-names-noun: "None" gives way to the noun it stands for
 

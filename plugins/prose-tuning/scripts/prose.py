@@ -745,6 +745,22 @@ def unquote(s):
     return s
 
 
+# A list item's mark in an example written on one line: a hyphen that opens
+# the example, or that follows the colon of a lead-in or the end of an item.
+INLINE_ITEM = re.compile(r"(?:^|(?<=[.:!?]) )- (?=\S)")
+
+
+def example_markdown(example):
+    """An example's text as the markdown it stands for.
+
+    A worked example is one line of a blockquote, so an example of a list
+    writes its items on that line, as in "The tool: - copies dotfiles. -
+    loses execute bits." Each item mark becomes a line break and the mark,
+    so a pattern reads the hyphens as the list they are and not as dashes.
+    """
+    return INLINE_ITEM.sub(lambda m: "\n- ", example).lstrip("\n") + "\n"
+
+
 class Rule:
     def __init__(self, rid, section, name, title, line):
         self.id = rid
@@ -757,6 +773,7 @@ class Rule:
         self.body = []
         self.before = None
         self.after = None
+        self.after_line = None
         # (line, regex source) for each **Pattern.** line that parses, and
         # whether any did not.
         self.patterns = []
@@ -941,6 +958,7 @@ class Config:
                 current.before = before.group(1)
             elif after:
                 current.after = after.group(1)
+                current.after_line = num
             current.body.append(raw)
 
     def _check(self):
@@ -982,6 +1000,7 @@ class Config:
                     rule.line,
                     "rule %s has half an example; Before and After come as a pair" % rule.id,
                 )
+        self._check_examples_across()
 
     def _check_patterns(self, rule):
         """A rule's patterns against its own worked example.
@@ -1004,6 +1023,29 @@ class Config:
         for line, source, rx in compiled:
             if any(m.group(0) for m in rx.finditer(rule.after)):
                 self._err(line, "pattern %r matches the After example of %s" % (source, rule.id))
+
+    def _check_examples_across(self):
+        """Every rule's patterns against each other rule's After example.
+
+        An After that another rule's pattern matches is a sentence one rule
+        holds up as right and the other refuses, so a rewrite made to follow
+        the first breaks the second. The patterns read the After as report
+        reads a rewrite, through pattern_matches, so a match in a code span
+        is left out. An After that writes a list on one line is read as that
+        list (see example_markdown). Rules with a pattern line that did not
+        parse are left out, as in _check_patterns.
+        """
+        rules = [r for r in self.patterned() if not r.bad_pattern]
+        for rule in [r for r in self.rules if r.before is not None and r.after is not None]:
+            others = [r for r in rules if r is not rule]
+            text = Text(example_markdown(rule.after))
+            for m in pattern_matches(text, Blocks(text), others):
+                self._err(
+                    rule.after_line,
+                    "the After example of %s breaks %s, whose pattern matches %s; "
+                    "rewrite the example, or settle which rule holds"
+                    % (rule.id, m["rule"], json.dumps(m["text"], ensure_ascii=False)),
+                )
 
     def check_id(self, section, name):
         """(id, message or None). Grammar first, then whether it is taken.

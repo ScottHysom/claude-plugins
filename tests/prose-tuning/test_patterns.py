@@ -110,6 +110,38 @@ class DescribePatternLines:
         assert len(envelope["errors"]) == 1
 
     @pytest.mark.spec("lint-cmd-checks-patterns")
+    def it_fails_an_after_example_that_another_rules_pattern_matches(self, prose_repo):
+        style = STYLE.replace(
+            "> **After.** The list is curated, not collected.",
+            "> **After.** The list is curated in order to be read.",
+        )
+        (prose_repo.root / prose.CONFIG_PATH).write_text(style)
+        code, envelope = prose_repo.run("config", "lint")
+        assert code == prose.PROBLEMS
+        assert envelope["errors"] == [
+            "%s:12  the After example of sentences-own-subject breaks "
+            'register-plain-words, whose pattern matches "in order to"; rewrite the '
+            "example, or settle which rule holds" % prose.CONFIG_PATH
+        ]
+
+    @pytest.mark.spec("lint-cmd-checks-patterns")
+    @pytest.mark.parametrize(
+        ("after", "clean"),
+        [
+            ("The list is curated `in order to` be read.", True),
+            ("The list: - is curated. - is short.", True),
+            ("- The list is curated. - It is short.", True),
+            ("The list is curated - and short.", False),
+        ],
+    )
+    def it_reads_another_rules_after_as_report_reads_a_rewrite(self, config_from, after, clean):
+        style = STYLE.replace(
+            "> **After.** The list is curated, not collected.", "> **After.** " + after
+        )
+        config = config_from(style.replace("**Pattern.** `—`", "**Pattern.** `\\s-\\s`"))
+        assert (config.errors == []) == clean, config.errors
+
+    @pytest.mark.spec("lint-cmd-checks-patterns")
     def it_leaves_the_patterns_of_a_rule_with_no_example_unchecked(self, config_from):
         style = rule_with("**Pattern.** `ship`").replace(
             "> **Before.** In order to run it.\n> **After.** To run it.\n", ""

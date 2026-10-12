@@ -215,6 +215,18 @@ class DescribeLintingTheResult:
         assert "matches the After example" in env["data"]["refused"][0]["reason"]
 
     @pytest.mark.spec("write-cmd-lints-clean")
+    def it_refuses_a_pattern_that_matches_another_rules_after_example(self, prose_repo):
+        start = style(prose_repo)
+        code, env = write(prose_repo, [new_rule(patterns=["in order to|curated"])])
+        assert code == prose.PROBLEMS
+        assert style(prose_repo) == start
+        assert [
+            e
+            for e in env["errors"]
+            if "the After example of sentences-own-subject breaks sentences-no-in-order-to" in e
+        ] != []
+
+    @pytest.mark.spec("write-cmd-lints-clean")
     def it_cannot_run_on_a_file_that_does_not_lint_clean(self, prose_repo):
         start = style(prose_repo)
         path = prose_repo.root / prose.CONFIG_PATH

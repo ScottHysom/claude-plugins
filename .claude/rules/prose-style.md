@@ -291,7 +291,7 @@ main clause.
 **Pattern.** `,\s[^,()]+\sincluded\.`
 
 > **Before.** A heading that is not a need or a constraint, a misspelled one included, opens no section.
-> **After.** A heading that is not a need or a constraint (including a misspelled one) does not open a section.
+> **After.** A heading other than a need or a constraint (including a misspelled one) does not open a section.
 
 ### sentences-one-negation: A sentence carries one negation
 
@@ -301,7 +301,7 @@ positive.
 **Pattern.** `(?i)\b(?<!\bor )(?:not|never|no|nothing|nobody|none|cannot|[a-z]+n['’]t)\b[^.;:]*\b(?<!\bor )(?:not|never|no|nothing|nobody|none|cannot|[a-z]+n['’]t)\b`
 
 > **Before.** Nothing can show that a behavior was never asked for.
-> **After.** No one can know whether a behavior was ever asked for.
+> **After.** A reader cannot tell whether a behavior was ever asked for.
 
 ### sentences-none-names-noun: "None" gives way to the noun it stands for
 
@@ -378,7 +378,7 @@ code. A file that instructs Claude is plain literal prose. It says what to do
 and why, without metaphor.
 
 > **Before.** The grep it replaced went blind the moment its pathspec stopped matching and stayed green.
-> **After.** The grep it replaced matched no files once its pathspec went stale, and still passed.
+> **After.** The grep it replaced stopped matching any file once its pathspec went stale, and still passed.
 
 ### register-no-presuming-adjectives: An adjective that presumes the reader's state is cut
 
