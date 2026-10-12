@@ -226,6 +226,13 @@ names the TODO's line, and whether the TODO sat at its end or above it. The
 convention in CLAUDE.md, under "A skill hands work to another plugin's skill
 by convention", says what a hand-off carries.
 
+Each hand-off also carries `arguments`: the whole of what the Skill tool call
+takes, as one markdown block (#535). do-todos passes it unchanged. When the
+model wrote the arguments from the parts, it added claims the parts did not
+hold, such as where the notes came from and what a passage's diff held, and
+could drop or misstate a field. The passage goes in a code fence longer than
+any run of backticks in its text, so a fence in the passage cannot close it.
+
 The receiving skill may end the session's work when it stops, so do-todos
 gives its report first and invokes the skills as its last act.
 

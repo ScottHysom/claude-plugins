@@ -374,7 +374,10 @@ Source: #319, which quotes the owner's first use case, and CLAUDE.md, under
   the passage around the first line the comment covers to the one around its
   last, and the hand-off names the comment's address and those lines in place
   of a line. When `--from` or `--pr` names another worktree, each hand-off
-  also names that worktree's root and branch.
+  also names that worktree's root and branch. Each hand-off also gives, as one
+  block of text, the arguments the Skill tool call takes: every TODO routed to
+  that skill, with the parts above, in the form CLAUDE.md gives under "A
+  skill hands work to another plugin's skill by convention".
 - `dotodos-passes-todos-to-skills` (step): When an installed skill's
   description covers the work a TODO asks for, such as a `prose` TODO and a
   skill that learns prose rules, do-todos routes it to that skill, and
@@ -387,8 +390,8 @@ Source: #319, which quotes the owner's first use case, and CLAUDE.md, under
   do-todos gives its report, with each note, before it invokes any
   skill.
 - `dotodos-invokes-each-skill-once` (step): When `file` prints hand-offs,
-  do-todos invokes each skill named once, with every TODO routed to it, and
-  with the root and branch of the checkout the hand-off names.
+  do-todos invokes each skill named once, and passes the arguments `file`
+  printed for it as they stand.
 
 ## need owner-keeps-approval-label: Keep approved for the owner
 

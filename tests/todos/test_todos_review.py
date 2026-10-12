@@ -433,7 +433,7 @@ class DescribeReviewHandoffs:
         drafts = repo.drafts([repo.skill(todo)])
         code, out, _ = repo.human("file", "--pr", str(PR), "--drafts", drafts)
         assert code == todos.OK
-        assert "in the review comment %s, on doc.md:3" % made["html_url"] in out
+        assert "in the review comment %s, on lines 3-3" % made["html_url"] in out
 
     def it_names_the_worktree_it_read_in(self, repo, worktree, github, comments):
         worktree.write("doc.md", DOC)

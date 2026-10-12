@@ -354,24 +354,7 @@ session's work when it stops. When `data.handoffs` is empty, stop here.
 <!-- no-command: platform. The model invokes each skill through the Skill tool. -->
 
 As the last act of the run, invoke each `skill` in `data.handoffs` once, through
-the Skill tool, with every TODO in its `todos`. For each TODO, the arguments
-give:
-
-- the note: its `title` and `detail`;
-- the passage it sat above, from its `passage`: the `file`, the lines `first`
-  to `last`, the `text`, and the lines in `changed`, which changed since the
-  last commit, or that none did;
-- the line the TODO was on, from the passage's `line`: at the end of that line
-  when `trailing` is true, and above it otherwise.
-
-A TODO whose `passage` is null sat at the end of its file. Hand it on with
-the file alone, and say that it did not sit above a passage.
-
-A TODO with a `comment` was left as a review comment, at the comment's `url`,
-on lines `first` to `last` of the passage's file, and its passage's `line` is
-null. Give the comment's address and lines in place of the line the TODO was
-on.
-
-When the hand-off's `checkout` is not null, the passages were read in another
-checkout. Give its `root` and `branch` in the arguments, and say that each
-passage was read there.
+the Skill tool. Pass its `arguments` as the arguments, as `file` printed them.
+They hold every TODO routed to that skill, with the passage each sat above,
+and the checkout the passages were read in. Do not add to them, cut them or
+reword them.

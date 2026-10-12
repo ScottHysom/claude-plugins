@@ -243,18 +243,32 @@ class DescribeTheHandoffFrom:
         assert real(handoff["checkout"]["root"]) == real(worktree.root)
         assert handoff["checkout"]["branch"] == BRANCH
 
-    def it_names_the_checkout_in_text(self, repo, worktree):
-        code, out, err = repo.human(*self.approved(repo, worktree, BRANCH))
-        assert code == todos.OK, err
-        expected = "hand-off to example:learn-prose-rules\n  read in %s, on %s\n"
-        assert expected % (worktree.root, BRANCH) in out
+    def it_names_the_checkout_in_the_arguments(self, repo, worktree):
+        code, env = repo.run(*self.approved(repo, worktree, BRANCH))
+        assert code == todos.OK, repo.err
+        [handoff] = env["data"]["handoffs"]
+        expected = "Each passage was read in the checkout at `%s`, on branch `%s`.\n"
+        assert expected % (handoff["checkout"]["root"], BRANCH) in handoff["arguments"]
 
-    def it_names_a_detached_checkout_without_a_branch_in_text(self, repo, tmp_path, todo_repo):
+    def it_names_a_detached_checkout_without_a_branch_in_the_arguments(
+        self, repo, tmp_path, todo_repo
+    ):
         root = tmp_path / "detached"
         repo.git("worktree", "add", "-q", "--detach", str(root))
-        code, out, err = repo.human(*self.approved(repo, todo_repo(root), str(root)))
-        assert code == todos.OK, err
-        assert "  read in %s\n" % root in out
+        code, env = repo.run(*self.approved(repo, todo_repo(root), str(root)))
+        assert code == todos.OK, repo.err
+        [handoff] = env["data"]["handoffs"]
+        expected = "Each passage was read in the checkout at `%s`.\n"
+        assert expected % handoff["checkout"]["root"] in handoff["arguments"]
+
+    def it_leaves_the_checkout_out_of_the_arguments_for_this_tree(self, repo):
+        repo.write("a.md", "Some text.\n")
+        repo.commit()
+        repo.write("a.md", "<!-- TODO(prose): too long -->\nSome text.\n")
+        [todo] = repo.scan()[0]
+        code, env = repo.run("file", "--drafts", repo.drafts([repo.skill(todo)]))
+        assert code == todos.OK, repo.err
+        assert "checkout" not in env["data"]["handoffs"][0]["arguments"]
 
 
 @pytest.mark.spec("report-cmd-writes-report-file")

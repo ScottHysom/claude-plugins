@@ -75,8 +75,10 @@ the passage narrows to the list item that holds that line, with the items
 nested in it. When the line comes before a paragraph's first item, the passage
 is the lines before that item. The passage's `line` is the line `above`, and
 `trailing` says whether the TODO sat at the end of it rather than above it.
-Marking never moves a line, so its line numbers are the ones the receiving
-skill sees, and `changed` lists those added since the last commit. A TODO at the end of the
+Each hand-off's `arguments` gives all of this as one markdown block, with the
+checkout's root and branch when --from named another worktree, for the model
+to pass to the Skill tool as it stands. Marking never moves a line, so its
+line numbers are the ones the receiving skill sees, and `changed` lists those added since the last commit. A TODO at the end of the
 file does not sit above anything, and its passage is null. The script cannot
 see which skills are installed, so it does not check the name; the model
 takes it from the skills the session lists.
@@ -365,6 +367,11 @@ example:
    {"file": "README.md", "line": 4, "text": "<!-- TODO(prose): too long -->",
     "route": "skill", "skill": "example:learn-prose-rules"}]
 """
+
+# The line that opens the Skill tool's arguments for a hand-off.
+HANDOFF_LEAD = "Each note below is a TODO the author left on a passage, given with that passage."
+# The shortest markdown code fence.
+MIN_FENCE = 3
 
 TOKEN_LENGTH = 16
 TOKEN_LABEL = "approval token: "
@@ -2173,8 +2180,8 @@ def cmd_file(args):
 
 def handoffs(finished, found, checkout):
     """One hand-off per skill, holding every finished TODO routed to it, in
-    file and line order, with its passage, and the checkout the passages were
-    read in, or None for this tree."""
+    file and line order, with its passage, the checkout the passages were
+    read in, or None for this tree, and the Skill tool's arguments for it."""
     out = {}
     for row in sorted(finished, key=lambda r: (r["file"], r["first"])):
         if row["route"] != ROUTE_SKILL:
@@ -2191,40 +2198,62 @@ def handoffs(finished, found, checkout):
         todo["passage"] = passage
         if "comment" in row:
             todo["comment"] = dict(row["comment"], first=row["first"], last=row["last"])
-        out.setdefault(row["skill"], []).append(todo)
+        out.setdefault(row["skill"], []).append((row["file"], todo))
     return [
-        {"skill": skill, "checkout": checkout, "todos": items}
+        {
+            "skill": skill,
+            "checkout": checkout,
+            "todos": [todo for _, todo in items],
+            "arguments": handoff_arguments(checkout, items),
+        }
         for skill, items in sorted(out.items())
     ]
 
 
-def print_handoff(handoff):
-    print("\nhand-off to %s" % handoff["skill"])
-    checkout = handoff["checkout"]
+def code_fence(text):
+    """A backtick fence longer than any run of backticks in text."""
+    longest = max([len(run) for run in re.findall(r"`+", text)] + [0])
+    return "`" * max(MIN_FENCE, longest + 1)
+
+
+def handoff_arguments(checkout, items):
+    """The Skill tool's arguments for one hand-off, as markdown: each note
+    with its file and the passage it sat above, and the checkout the passages
+    were read in when it is not this tree. items holds (file, todo) pairs."""
+    out = [HANDOFF_LEAD]
     if checkout is not None:
         branch = checkout["branch"]
-        print("  read in %s%s" % (checkout["root"], ", on %s" % branch if branch else ""))
-    for todo in handoff["todos"]:
-        print("\ndraft %d" % todo["draft"])
-        print("  title   %s" % todo["title"])
+        on = ", on branch `%s`" % branch if branch else ""
+        out.append("Each passage was read in the checkout at `%s`%s." % (checkout["root"], on))
+    for rel, todo in items:
+        out += ["", "## Note: %s" % todo["title"]]
         if todo["detail"]:
-            print_block("detail", todo["detail"])
+            out += ["", quoted(todo["detail"])]
+        out += ["", "- **File:** `%s`" % rel]
         passage = todo["passage"]
         if passage is None:
-            print("  passage (none: the TODO was at the end of its file)")
+            out.append("- **Passage:** none. The TODO sat at the end of the file.")
             continue
-        span = where(passage)
         changed = ", ".join(str(n) for n in passage["changed"]) or "none"
-        print("  passage %s, changed since the last commit: %s" % (span, changed))
+        out.append("- **Lines:** %d-%d" % (passage["first"], passage["last"]))
+        out.append("- **Lines changed since the last commit:** %s" % changed)
         if "comment" in todo:
-            print(
-                "  TODO    in the review comment %s, on %s"
-                % (todo["comment"]["url"], where(dict(todo["comment"], file=passage["file"])))
+            comment = todo["comment"]
+            out.append(
+                "- **The TODO sat:** in the review comment %s, on lines %d-%d"
+                % (comment["url"], comment["first"], comment["last"])
             )
         else:
             place = "at the end of" if passage["trailing"] else "above"
-            print("  TODO    %s line %d" % (place, passage["line"]))
-        print_block("text", passage["text"])
+            out.append("- **The TODO sat:** %s line %d" % (place, passage["line"]))
+        fence = code_fence(passage["text"])
+        out += ["", fence + "text", passage["text"], fence]
+    return "\n".join(out) + "\n"
+
+
+def print_handoff(handoff):
+    print("\nhand-off to %s" % handoff["skill"])
+    print_block("arguments", handoff["arguments"].rstrip("\n"))
 
 
 # --------------------------------------------------------------------------
