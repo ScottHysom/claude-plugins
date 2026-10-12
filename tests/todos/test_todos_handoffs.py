@@ -99,6 +99,8 @@ class DescribeTheHandoff:
                             "last": 6,
                             "changed": [],
                             "text": "First line.\nSecond line.",
+                            "line": 5,
+                            "trailing": False,
                         },
                     }
                 ],
@@ -173,6 +175,22 @@ class DescribeTheHandoff:
         assert (passage["first"], passage["last"], passage["changed"]) == (3, 4, [])
         assert passage["text"] == "First line.\nSecond line."
 
+    def it_names_the_line_a_trailing_todo_was_at_the_end_of(self, doc):
+        doc.write("README.md", BASE.replace("Second line.", "Second line. <!-- TODO(prose): x -->"))
+        found, _ = doc.scan()
+        drafts = doc.drafts([doc.skill(found[0])])
+        code, env = doc.file(drafts)
+        assert code == todos.OK, doc.err
+        passage = env["data"]["handoffs"][0]["todos"][0]["passage"]
+        assert (passage["line"], passage["trailing"]) == (4, True)
+
+    def it_says_in_text_which_line_a_trailing_todo_was_at_the_end_of(self, doc):
+        doc.write("README.md", BASE.replace("Second line.", "Second line. <!-- TODO(prose): x -->"))
+        found, _ = doc.scan()
+        drafts = doc.drafts([doc.skill(found[0])])
+        _, out, _ = doc.human("file", "--drafts", drafts, "--token", doc.token(drafts))
+        assert "  TODO    at the end of line 4\n" in out
+
     def it_gives_no_passage_for_a_todo_at_the_end_of_the_file(self, doc):
         doc.write("README.md", BASE + "\n<!-- TODO(prose): the end -->\n")
         found, _ = doc.scan()
@@ -216,6 +234,7 @@ class DescribeTheHandoff:
             "  detail\n"
             "    | split it\n"
             "  passage README.md:5-6, changed since the last commit: 5\n"
+            "  TODO    above line 5\n"
             "  text\n"
             "    | First line!\n"
             "    | Second line.\n"
@@ -324,3 +343,60 @@ class DescribeTheDryRun:
         )
         assert "  passage README.md:6-7, changed since the last commit: none\n" in out
         assert doc.read("README.md") == before
+
+
+LIST = "Lead-in line.\n- First item,\n  wrapped.\n- Second item.\n  - Nested item.\n- Third item.\n"
+
+
+def listed(repo, path, text, base=LIST):
+    """The passage handed off for the one TODO in path, once base is
+    committed there and text written over it."""
+    repo.write(path, base)
+    repo.commit()
+    repo.write(path, text)
+    found, _ = repo.scan()
+    (handoff,) = handoffs(repo, [repo.skill(found[0])])
+    passage = handoff["todos"][0]["passage"]
+    return passage["first"], passage["last"], passage["text"]
+
+
+@pytest.mark.spec("file-cmd-prints-handoffs")
+class DescribeTheMarkdownPassage:
+    def it_gives_the_list_item_a_trailing_todo_was_on(self, repo):
+        text = LIST.replace("  wrapped.", "  wrapped. <!-- TODO(prose): x -->")
+        assert listed(repo, "README.md", text) == (2, 3, "- First item,\n  wrapped.")
+
+    def it_gives_the_list_item_a_todo_sat_above(self, repo):
+        text = LIST.replace("- Second", "<!-- TODO(prose): x -->\n- Second")
+        assert listed(repo, "README.md", text) == (5, 6, "- Second item.\n  - Nested item.")
+
+    def it_takes_the_items_nested_in_the_item(self, repo):
+        text = LIST.replace("- Second item.", "- Second item. <!-- TODO(prose): x -->")
+        assert listed(repo, "README.md", text) == (4, 5, "- Second item.\n  - Nested item.")
+
+    def it_gives_a_nested_item_alone(self, repo):
+        text = LIST.replace("Nested item.", "Nested item. <!-- TODO(prose): x -->")
+        assert listed(repo, "README.md", text) == (5, 5, "  - Nested item.")
+
+    def it_gives_the_lines_before_the_first_item(self, repo):
+        text = LIST.replace("Lead-in line.", "Lead-in line. <!-- TODO(prose): x -->")
+        assert listed(repo, "README.md", text) == (1, 1, "Lead-in line.")
+
+    @pytest.mark.parametrize("marker", ["*", "+", "1.", "2)"])
+    def it_reads_each_list_marker(self, repo, marker):
+        base = LIST.replace("- ", marker + " ")
+        text = base.replace("Third item.", "Third item. <!-- TODO(prose): x -->")
+        assert listed(repo, "README.md", text, base) == (6, 6, marker + " Third item.")
+
+    def it_reads_a_file_ending_markdown(self, repo):
+        text = LIST.replace("- Second", "<!-- TODO(prose): x -->\n- Second")
+        assert listed(repo, "notes.markdown", text) == (5, 6, "- Second item.\n  - Nested item.")
+
+    def it_does_not_read_an_item_in_a_code_fence(self, repo):
+        base = "Lead-in.\n```\n- not an item\n```\n"
+        text = base.replace("Lead-in.", "Lead-in. <!-- TODO(prose): x -->")
+        assert listed(repo, "README.md", text, base) == (1, 4, base.rstrip("\n"))
+
+    def it_keeps_the_whole_run_outside_markdown(self, repo):
+        text = "# TODO(prose): x\nLead-in.\n- One.\n- Two.\n"
+        assert listed(repo, "notes.txt", text, "") == (2, 4, "Lead-in.\n- One.\n- Two.")

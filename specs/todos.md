@@ -323,8 +323,12 @@ Source: #319, which quotes the owner's first use case, and CLAUDE.md, under
   prints the skill's name, the TODO's title and detail, and the passage it sat
   above, with its file and lines and which of them changed since the last
   commit. The passage runs to the nearest blank line or TODO, marked or not,
-  and leaves out the text of a trailing TODO. When `--from` names another
-  worktree, each hand-off also names that worktree's root and branch.
+  and leaves out the text of a trailing TODO. In a file ending `.md` or
+  `.markdown`, the passage is the list item that holds the TODO's line. When
+  that line is not in a list item, the passage is its paragraph, up to the
+  paragraph's first list item. Each hand-off names the line the TODO was at the end of, or the line
+  it sat above. When `--from` names another worktree, each hand-off also
+  names that worktree's root and branch.
 - `dotodos-passes-todos-to-skills` (step): When an installed skill's
   description covers the work a TODO asks for, such as a `prose` TODO and a
   skill that learns prose rules, do-todos routes it to that skill, and

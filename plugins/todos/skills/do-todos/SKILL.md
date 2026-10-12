@@ -343,7 +343,9 @@ give:
 - the note: its `title` and `detail`;
 - the passage it sat above, from its `passage`: the `file`, the lines `first`
   to `last`, the `text`, and the lines in `changed`, which changed since the
-  last commit, or that none did.
+  last commit, or that none did;
+- the line the TODO was on, from the passage's `line`: at the end of that line
+  when `trailing` is true, and above it otherwise.
 
 A TODO whose `passage` is null sat at the end of its file. Hand it on with
 the file alone, and say that it did not sit above a passage.

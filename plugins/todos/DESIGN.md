@@ -196,7 +196,12 @@ routes every TODO to a skill runs `file` without `report` or a token.
 `file` marks a routed TODO like any other, with no call to GitHub, and then
 prints one hand-off per skill. Each holds the TODO's title and detail and the
 passage it sat above. The passage runs from the line `scan` gave as `above` to
-the nearest blank line or TODO, marked or not, on either side. The
+the nearest blank line or TODO, marked or not, on either side. A markdown list
+does not have blank lines between its items, so in markdown the passage
+narrows to the list item that holds that line (#534). A TODO on one item of a
+long requirement list in `specs/` otherwise handed on the whole list, and the
+receiving skill had to guess which item the note meant. Each hand-off also
+names the TODO's line, and whether the TODO sat at its end or above it. The
 convention in CLAUDE.md, under "A skill hands work to another plugin's skill
 by convention", says what a hand-off carries.
 
