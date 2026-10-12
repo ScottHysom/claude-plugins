@@ -408,6 +408,61 @@ class DescribeReportOnPatterns:
         assert envelope["data"]["token"] is None
 
 
+def breach(finding, line, rule, text):
+    """The error report gives for a finding whose rewrite a pattern matches."""
+    return (
+        "doc.md  finding %d (doc.md:%d, %s) makes text that %s's pattern matches, %s; "
+        "rewrite it so that it does not match any rule's pattern"
+        % (finding, line, RULE_OWN, rule, text)
+    )
+
+
+class DescribeReportOnRewrites:
+    @pytest.mark.spec("report-cmd-fails-breaching-rewrites")
+    def it_names_the_rule_and_text_a_rewrite_breaks(self, prose_repo):
+        patterned_doc(prose_repo)
+        dashed = prose_repo.finding(
+            1, file="doc.md", rule=RULE_OWN, text="Able to run.", replacement="It runs — fast."
+        )
+        code, envelope = prose_repo.report([dashed, dismissal(prose_repo)])
+        assert code == prose.PROBLEMS
+        assert envelope["errors"] == [breach(1, 1, RULE, '"—"')]
+        assert envelope["data"]["token"] is None
+
+    @pytest.mark.spec("report-cmd-fails-breaching-rewrites")
+    def it_names_a_match_a_rewrite_keeps_from_the_text_it_replaces(self, prose_repo):
+        patterned_doc(prose_repo)
+        kept = prose_repo.finding(
+            3,
+            file="doc.md",
+            rule=RULE_OWN,
+            text="In order to ship, it ran.",
+            replacement="In order to ship, it runs.",
+        )
+        code, envelope = prose_repo.report([rewrite(prose_repo), kept, dismissal(prose_repo)])
+        assert code == prose.PROBLEMS
+        assert envelope["errors"] == [breach(2, 3, RULE, '"In order to"')]
+
+    @pytest.mark.spec("report-cmd-fails-breaching-rewrites")
+    def it_names_a_match_a_cut_makes_by_joining_the_text_either_side(self, prose_repo):
+        (prose_repo.root / prose.CONFIG_PATH).write_text(STYLE)
+        (prose_repo.root / "doc.md").write_text("In order now to ship.\n")
+        cut = prose_repo.finding(1, file="doc.md", rule=RULE_OWN, text="now ", replacement="")
+        code, envelope = prose_repo.report([cut])
+        assert code == prose.PROBLEMS
+        assert envelope["errors"] == [breach(1, 1, RULE, '"In order to"')]
+
+    @pytest.mark.spec("report-cmd-fails-breaching-rewrites")
+    def it_passes_a_rewrite_beside_a_match_it_does_not_touch(self, prose_repo):
+        patterned_doc(prose_repo)
+        beside = prose_repo.finding(
+            3, file="doc.md", rule=RULE_OWN, text="it ran.", replacement="it runs."
+        )
+        code, envelope = prose_repo.report([rewrite(prose_repo), beside, dismissal(prose_repo)])
+        assert code == prose.OK, envelope["errors"]
+        assert envelope["data"]["token"]
+
+
 class DescribeDismissal:
     @pytest.mark.spec("apply-cmd-honors-dismissals")
     def it_rejects_dismiss_with_replacement(self, prose_repo):

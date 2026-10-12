@@ -4481,6 +4481,49 @@ def uncovered_matches(repo, config, targets, findings):
     return out
 
 
+def breaching_rewrites(rel, staged, rules):
+    """An error for each pattern match that a finding's rewrite makes or keeps.
+
+    The patterns run over the file as it would be once every edit in `staged`
+    is made, so a match that wraps out of a rewrite into the text beside it
+    counts, and one in text the rewrite does not touch does not. A match is
+    counted when it overlaps a rewrite, or holds the point where a cut was.
+    Every rule counts, the finding's own included, since a rewrite that still
+    matches its own rule's pattern has not fixed it. Overlapping edits make no
+    single result to read, so they return nothing here; report already names
+    them.
+    """
+    engine = staged.engine
+    if engine.conflicts():
+        return []
+    spans, shift = [], 0
+    for edit in sorted(engine.edits, key=lambda e: e[0]):
+        start, end, new, _label = edit
+        if edit_refs(edit):
+            spans.append((start + shift, start + shift + len(new), edit))
+        shift += len(new) - (end - start)
+    if not spans:
+        return []
+    text = Text(engine.result())
+    out = []
+    for m in pattern_matches(text, Blocks(text), rules):
+        a = text.offset(m["line"]) + m["col_start"]
+        b = text.offset(m["end_line"]) + m["col_end"]
+        for x, y, edit in spans:
+            if (a < y and x < b) if x < y else a < x < b:
+                out.append(
+                    "%s  %s makes text that %s's pattern matches, %s; rewrite it so "
+                    "that it does not match any rule's pattern"
+                    % (
+                        rel,
+                        EditEngine.describe(edit),
+                        m["rule"],
+                        json.dumps(m["text"], ensure_ascii=False),
+                    )
+                )
+    return out
+
+
 def report_markdown(data, rejected):
     """The report as markdown: what the author reads whole, and approves.
 
@@ -4526,15 +4569,18 @@ def cmd_report(args):
     It runs every rule's pattern itself, as `patterns` does over the same
     paths, and each match no finding or dismissal covers is an error, so a
     match the model left out fails the report rather than going unmentioned.
-    It ends by naming those rules, so the author can tell them from the rules
+    It runs them again over each file as the findings would leave it, and a
+    match in a rewrite is an error too, so a rewrite that fixes one rule
+    cannot break another unseen. It ends by naming those rules, so the author can tell them from the rules
     checked by reading.
     """
     repo, config, scope = load(args)
     raw, findings = read_json_file_bytes(args.findings, "findings")
     by_file, rejected = select_findings(config, findings)
-    rows, overlaps, dismissed = [], [], []
+    rows, overlaps, dismissed, stagings = [], [], [], []
     for _path, rel, text, numbers, mine in selected_files(repo, by_file, rejected):
         staged = stage_findings(text, Blocks(text), rel, mine, numbers)
+        stagings.append((rel, staged))
         rejected.extend(staged.rejected)
         for n, f, a, b in staged.dismissed:
             dismissed.append(
@@ -4581,6 +4627,8 @@ def cmd_report(args):
             else:
                 rejected.append("%s  no such file" % rel)
         uncovered = uncovered_matches(repo, config, targets, findings)
+        for rel, staged in stagings:
+            rejected.extend(breaching_rewrites(rel, staged, config.patterned()))
     rejected.extend(
         "%s  no finding or dismissal covers this match; add a finding that rewrites it, "
         "or a dismissal if it stays" % match_line(m["file"], m)
