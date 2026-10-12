@@ -104,6 +104,23 @@ class DescribeTheHandoff:
                         },
                     }
                 ],
+                "arguments": (
+                    todos.HANDOFF_LEAD + "\n"
+                    "\n"
+                    "## Note: too long\n"
+                    "\n"
+                    "> split it\n"
+                    "\n"
+                    "- **File:** `README.md`\n"
+                    "- **Lines:** 5-6\n"
+                    "- **Lines changed since the last commit:** none\n"
+                    "- **The TODO sat:** above line 5\n"
+                    "\n"
+                    "```text\n"
+                    "First line.\n"
+                    "Second line.\n"
+                    "```\n"
+                ),
             }
         ]
 
@@ -184,12 +201,11 @@ class DescribeTheHandoff:
         passage = env["data"]["handoffs"][0]["todos"][0]["passage"]
         assert (passage["line"], passage["trailing"]) == (4, True)
 
-    def it_says_in_text_which_line_a_trailing_todo_was_at_the_end_of(self, doc):
+    def it_says_in_the_arguments_which_line_a_trailing_todo_was_at_the_end_of(self, doc):
         doc.write("README.md", BASE.replace("Second line.", "Second line. <!-- TODO(prose): x -->"))
         found, _ = doc.scan()
-        drafts = doc.drafts([doc.skill(found[0])])
-        _, out, _ = doc.human("file", "--drafts", drafts, "--token", doc.token(drafts))
-        assert "  TODO    at the end of line 4\n" in out
+        (handoff,) = handoffs(doc, [doc.skill(found[0])])
+        assert "- **The TODO sat:** at the end of line 4\n" in handoff["arguments"]
 
     def it_gives_no_passage_for_a_todo_at_the_end_of_the_file(self, doc):
         doc.write("README.md", BASE + "\n<!-- TODO(prose): the end -->\n")
@@ -213,7 +229,52 @@ class DescribeTheHandoff:
             (OTHER, ["c"]),
         ]
 
-    def it_prints_each_handoff_in_text(self, doc):
+    def it_gives_every_note_for_a_skill_in_one_block_of_arguments(self, doc):
+        doc.write(
+            "README.md",
+            "<!-- TODO(prose): a -->\n"
+            + BASE.replace("First", "<!-- TODO(prose): b -->\nFirst").replace(
+                "Last", "<!-- TODO: c -->\nLast"
+            ),
+        )
+        found, _ = doc.scan()
+        drafts = [doc.skill(found[2], skill=OTHER), doc.skill(found[0]), doc.skill(found[1])]
+        prose, other = handoffs(doc, drafts)
+        assert prose["arguments"].count("## Note: ") == 2
+        assert "## Note: a\n" in prose["arguments"]
+        assert "## Note: b\n" in prose["arguments"]
+        assert "## Note: c\n" in other["arguments"]
+        assert prose["arguments"].count(todos.HANDOFF_LEAD) == 1
+
+    def it_fences_the_passage_past_its_own_backticks(self, doc):
+        doc.write("notes.txt", "Uses ```` here.\n")
+        doc.commit()
+        doc.write("notes.txt", "# TODO(prose): x\nUses ```` here.\n")
+        found, _ = doc.scan()
+        (handoff,) = handoffs(doc, [doc.skill(found[0])])
+        assert "\n`````text\nUses ```` here.\n`````\n" in handoff["arguments"]
+
+    def it_says_in_the_arguments_when_there_is_no_passage(self, doc):
+        doc.write("README.md", BASE + "\n<!-- TODO(prose): the end -->\n")
+        found, _ = doc.scan()
+        (handoff,) = handoffs(doc, [doc.skill(found[0])])
+        assert handoff["arguments"].endswith(
+            "## Note: the end\n"
+            "\n"
+            "- **File:** `README.md`\n"
+            "- **Passage:** none. The TODO sat at the end of the file.\n"
+        )
+
+    def it_names_the_lines_changed_in_the_arguments(self, doc):
+        doc.write(
+            "README.md",
+            BASE.replace("First line.", "<!-- TODO(prose): x -->\nFirst line!"),
+        )
+        found, _ = doc.scan()
+        (handoff,) = handoffs(doc, [doc.skill(found[0])])
+        assert "- **Lines changed since the last commit:** 4\n" in handoff["arguments"]
+
+    def it_prints_each_handoffs_arguments_in_text(self, doc):
         doc.write(
             "README.md",
             BASE.replace("First line.", "<!-- TODO(prose): too long\nsplit it -->\nFirst line!"),
@@ -228,33 +289,23 @@ class DescribeTheHandoff:
             "  and marked README.md:3-4 as TODO-HANDLED(example:learn-prose-rules)\n"
             "\n"
             "hand-off to example:learn-prose-rules\n"
-            "\n"
-            "draft 1\n"
-            "  title   too long\n"
-            "  detail\n"
-            "    | split it\n"
-            "  passage README.md:5-6, changed since the last commit: 5\n"
-            "  TODO    above line 5\n"
-            "  text\n"
+            "  arguments\n"
+            "    | " + todos.HANDOFF_LEAD + "\n"
+            "    |\n"
+            "    | ## Note: too long\n"
+            "    |\n"
+            "    | > split it\n"
+            "    |\n"
+            "    | - **File:** `README.md`\n"
+            "    | - **Lines:** 5-6\n"
+            "    | - **Lines changed since the last commit:** 5\n"
+            "    | - **The TODO sat:** above line 5\n"
+            "    |\n"
+            "    | ```text\n"
             "    | First line!\n"
             "    | Second line.\n"
+            "    | ```\n"
         )
-
-    def it_says_in_text_when_there_is_no_passage(self, doc):
-        doc.write("README.md", BASE + "\n<!-- TODO(prose): the end -->\n")
-        found, _ = doc.scan()
-        drafts = doc.drafts([doc.skill(found[0])])
-        _, out, _ = doc.human("file", "--drafts", drafts, "--token", doc.token(drafts))
-        assert out.endswith(
-            "  title   the end\n  passage (none: the TODO was at the end of its file)\n"
-        )
-
-    def it_says_none_changed_in_text(self, doc):
-        doc.write("README.md", BASE.replace("First", "<!-- TODO(prose): x -->\nFirst"))
-        found, _ = doc.scan()
-        drafts = doc.drafts([doc.skill(found[0])])
-        _, out, _ = doc.human("file", "--drafts", drafts, "--token", doc.token(drafts))
-        assert "changed since the last commit: none\n" in out
 
     @pytest.mark.spec("file-cmd-stops-at-failed-call")
     def it_leaves_out_a_todo_left_by_a_failed_call(self, doc, github):
@@ -341,7 +392,7 @@ class DescribeTheDryRun:
             "would file in owner/project: an issue  [no labels]\n"
             "  and mark README.md:1 with the new issue's number\n"
         )
-        assert "  passage README.md:6-7, changed since the last commit: none\n" in out
+        assert "    | - **Lines:** 6-7\n" in out
         assert doc.read("README.md") == before
 
 
