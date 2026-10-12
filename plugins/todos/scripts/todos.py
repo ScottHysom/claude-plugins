@@ -50,6 +50,11 @@ TODO like any other, then prints a hand-off for each skill, holding every TODO
 routed to it: the TODO's title and detail, and the passage it sat above. The
 passage is the run of lines that are neither blank nor a TODO's, marked or
 not, around the line `scan` gave as `above`, with any trailing TODO taken off.
+A markdown list does not have blank lines between its items, so in markdown
+the passage narrows to the list item that holds that line, with the items
+nested in it. When the line comes before a paragraph's first item, the passage
+is the lines before that item. The passage's `line` is the line `above`, and
+`trailing` says whether the TODO sat at the end of it rather than above it.
 Marking never moves a line, so its line numbers are the ones the receiving
 skill sees, and `changed` lists those added since the last commit. A TODO at the end of the
 file does not sit above anything, and its passage is null. The script cannot
@@ -252,6 +257,8 @@ UNREAD_PART_WAY = (
 MARKER_RE = re.compile(rb"^([ \t]*)([^A-Za-z0-9\s]*)")
 
 FENCE_RE = re.compile(rb"^ {0,3}(`{3,}|~{3,})(.*)$")
+# A markdown line that opens a list item, and its indent.
+ITEM_RE = re.compile(rb"^([ \t]*)(?:[-*+]|[0-9]{1,9}[.)])(?:[ \t]|$)")
 BACKTICKS_RE = re.compile(rb"`+")
 # What a code span's bytes are masked with: a letter, so it never reads as a
 # marker or as `TODO`.
@@ -1123,12 +1130,15 @@ class FileScan:
     def passage(self, line):
         """The passage around a 1-based line, as {first, last, changed, text}:
         the lines that are neither blank nor a TODO's, with any trailing TODO
-        taken off."""
+        taken off. In markdown, it is the list item that holds the line, or
+        the lines of the paragraph that come before its first item."""
         lo = hi = line - 1
         while lo > 0 and self._in_passage(lo - 1):
             lo -= 1
         while hi + 1 < len(self.lines) and self._in_passage(hi + 1):
             hi += 1
+        if self.markdown:
+            lo, hi = self._item(line - 1, lo, hi)
         return {
             "first": lo + 1,
             "last": hi + 1,
@@ -1138,6 +1148,23 @@ class FileScan:
 
     def _in_passage(self, k):
         return bool(self.lines[k].strip()) and k not in self.spans
+
+    def _item(self, k, lo, hi):
+        """The first and last index of the list item holding line k, within
+        the paragraph lo to hi, with the items nested in it. When k comes
+        before the paragraph's first item, the lines before that item."""
+        starts = {}
+        for j in range(lo, hi + 1):
+            m = None if j in self.skip else ITEM_RE.match(self.masked[j])
+            if m:
+                starts[j] = len(m.group(1))
+        above = [j for j in starts if j <= k]
+        top = above[-1] if above else lo
+        depth = starts[top] if above else None
+        for j in starts:
+            if j > k and (depth is None or starts[j] <= depth):
+                return top, j - 1
+        return top, hi
 
     def _above(self, last):
         """The line below a TODO's 1-based last line, past blank lines and
@@ -1906,6 +1933,7 @@ def handoffs(finished, found, checkout):
         passage = None
         if row["above"] is not None:
             passage = dict(found.files[row["file"]].found.passage(row["above"]), file=row["file"])
+            passage.update(line=row["above"], trailing=row["above"] == row["first"])
         todo = {"draft": row["draft"], "title": row["title"], "detail": row["detail"]}
         todo["passage"] = passage
         out.setdefault(row["skill"], []).append(todo)
@@ -1933,6 +1961,8 @@ def print_handoff(handoff):
         span = where(passage)
         changed = ", ".join(str(n) for n in passage["changed"]) or "none"
         print("  passage %s, changed since the last commit: %s" % (span, changed))
+        place = "at the end of" if passage["trailing"] else "above"
+        print("  TODO    %s line %d" % (place, passage["line"]))
         print_block("text", passage["text"])
 
 
