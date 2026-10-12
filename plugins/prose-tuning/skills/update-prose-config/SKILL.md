@@ -211,9 +211,12 @@ id.** Do not add a second rule or mark the old one retired. The id is
 the identity, the body is current truth, and
 `git log -p .claude/rules/prose-style.md` holds what it used to say.
 
-**The script cannot detect a contradiction.** That is why
-every candidate is checked against `rules` from step 2, and why a candidate touching covered ground goes to the
-author instead of into the file. Never reconcile two rules unilaterally.
+**The script detects only the contradictions that the examples show.**
+`config write` refuses a batch in which one rule's pattern matches another
+rule's After example, and names both rules. Put that pair to the author.
+Check every candidate against `rules` from step 2 for a contradiction that
+neither rule's pattern shows, and send a candidate touching covered ground to
+the author instead of into the file. Never reconcile two rules unilaterally.
 
 Do not edit `prose-style.md` yourself. Write every new rule and rewrite to
 one batch file:

@@ -302,8 +302,10 @@ description.
   backticks, and lists them with the rule.
 - `lint-cmd-checks-patterns` (test): When a pattern fails to run, matches
   its rule's After example or misses its Before example, `config
-  lint` names it and exits 1. A rule with no example leaves its patterns
-  unchecked.
+  lint` names it and exits 1. When a pattern matches another rule's After
+  example, `config lint` names both rules and the matched text, and exits 1.
+  An After that writes a list's items on one line is read as that list. A
+  rule with no example leaves its patterns unchecked against it.
 - `patterns-cmd-prints-each-prose-match` (test): When a rule carries a
   pattern, `patterns` prints each place it matches in the segments' spans
   once, with its address, its rule and its text as a JSON string that `apply`

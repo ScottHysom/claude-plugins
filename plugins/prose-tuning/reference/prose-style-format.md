@@ -76,8 +76,7 @@ different name is a different rule, and the one it replaced should have been
 rewritten in place.
 
 A script does not enforce the naming discipline. `config lint` checks the
-grammar and the word count and stops there, the same way it cannot tell that
-two rules contradict each other. Both are left to judgment.
+grammar and the word count and stops there. That is left to judgment.
 
 **A rule does not carry metadata.** Where a rule came from belongs in the commit
 that adds it. Files written by earlier versions of prose-tuning can carry a
@@ -142,6 +141,16 @@ Before text, and none may match the After text. `config lint` fails the file
 otherwise. The example is the evidence the rule was written from, so a pattern
 that misses it finds nothing the rule is about, and one that matches the
 rewrite flags prose the rule holds up as right.
+
+**A pattern answers to every other rule's After example too.** `config lint`
+fails the file when one rule's pattern matches another rule's After, and names
+both rules and the text it matched. A rewrite that follows the one rule would
+break the other. The patterns read an After as `report` reads a rewrite, so a
+match in a code span does not count. An After that shows a list writes its
+items on the one line. Each item opens with a hyphen and a space, at the start
+of the example or after a colon or the end of an item, as in `The tool: -
+copies dotfiles. - loses execute bits.` `config lint` reads those hyphens as
+list marks, not as dashes.
 
 A pattern finds places to look, and the model still judges each one. A
 spaced hyphen can be a minus sign. The pattern does not replace the rule's
