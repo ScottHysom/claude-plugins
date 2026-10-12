@@ -49,8 +49,8 @@ the TODO on what is left of them, or after the nearest line kept before them.
 A comment on a whole file or on lines the pull request removes is skipped,
 with a warning. A comment whose thread holds a reply with
 `TODO-HANDLED(<target>):` is skipped too, since `file` handled it. `file`
-files these TODOs and writes no file, since the TODO is not in one. It marks
-each by a reply in its thread instead: the text --reply-lead gives, then
+files these TODOs and does not mark them in a file, since the TODO is not in
+one. It marks each by a reply in its thread instead: the text --reply-lead gives, then
 `TODO-HANDLED(<target>):` and where the TODO went. The reply is a mark, so the
 token does not cover it, and `file` posts it, under --pr, even in a batch that
 routes every draft to `skill`. A run that stops part way and runs again
@@ -59,6 +59,21 @@ reply. Its hand-off's passage runs from the passage around `first` to the one
 around `last`, with `line` null, and the TODO carries the comment's address
 and lines. The token also covers the pull request's number and the review
 comments the drafts name.
+
+Suggestions. A review comment can hold a suggestion block, a fence marked
+`suggestion` that holds the wording the author wants for the lines it
+covers. scan gives the first block's lines as the TODO's `suggestion`, with
+`current`, whether those lines are as the comment was left on them. For a
+TODO routed to a skill, `file` writes the suggestion over the lines as an
+uncommitted edit before it builds the hand-off, so the receiving skill reads
+the note as the reason for an edit the author made rather than a note on an
+unchanged passage. It plans every suggestion in a file against the file as
+scan read it, writes them together, and moves each TODO of the file to where
+its lines now are. It leaves the lines and warns when they are not current,
+when they overlap a suggestion written first, or when the suggestion would
+empty the file, and the note keeps the block. A draft routed to an issue or
+a comment has to keep the block's lines in its body, so the wording reaches
+GitHub, and `file` does not write them.
 
 Exit codes: 0 clean, 1 ran and found problems, 2 could not run.
 
@@ -211,8 +226,9 @@ refused question writes the refusals and no question.
 Only `setup`, `report`, `questions` and `file` write, and only in a working
 tree: `setup` its copy in .todos/, `report` .todos/report.md, `questions`
 .todos/questions.md, and `file` the files whose TODOs it marks, in the
-worktree --from names when it is given, and none under --pr, where it
-replies on GitHub instead. `setup`,
+worktree --from names when it is given. Under --pr it replies on GitHub
+instead, and writes only the lines a suggestion handed to a skill replaces.
+`setup`,
 `report` and `questions` also write .todos/.gitignore, so git ignores what
 they leave there. `report` and `questions` do not take --dry-run, because
 nothing reads a preview of the scratch they write, which their next run
@@ -267,6 +283,9 @@ FROM_COMMAND = "scan --from %s"
 REVIEW_TODO_RE = re.compile(r"^(TODO(?:\(([^()]*)\))?):(.*)$")
 # The side of a pull request's diff that holds the lines it removes.
 REMOVED_SIDE = "LEFT"
+# The fence that opens a review comment's suggestion block, which holds the
+# wording for the lines the comment covers.
+SUGGESTION_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})[ \t]*suggestion[ \t]*$")
 # A reply that marks the TODO of its thread handled, as `file` writes it.
 REPLY_MARK_RE = re.compile(r"TODO-HANDLED\([^()]*\):")
 # What `file` replies in a review TODO's thread, after the mark and its colon,
@@ -1454,10 +1473,12 @@ class ReviewScan:
                 % (url, path, self.repo.root)
             )
             return
-        first, last = self._place(comment, pending.found.lines)
+        first, last, current = self._place(comment, pending.found.lines)
         kind, problem = kind_of(m.group(2))
         if problem:
             self.warnings.append("%s: %s" % (url, problem))
+        detail = rest.strip()
+        suggested = split_suggestion(detail)[0]
         self.todos.append(
             {
                 "file": path,
@@ -1467,17 +1488,21 @@ class ReviewScan:
                 "kind": kind,
                 "marker": "",
                 "title": m.group(3).strip(),
-                "detail": rest.strip(),
+                "detail": detail,
                 "above": None,
                 "comment": {"id": comment["id"], "url": url},
+                "suggestion": (
+                    None if suggested is None else {"lines": suggested, "current": current}
+                ),
             }
         )
 
     def _place(self, comment, lines):
-        """The first and last 1-based line, in the tree, of the lines a
-        comment covers in the commit it was left on. When a later change
-        altered them, a warning, and the lines that are left of them, or the
-        line after the nearest one kept before them."""
+        """(first, last, current): the first and last 1-based line, in the
+        tree, of the lines a comment covers in the commit it was left on, and
+        whether they are as it was left on them. When a later change altered
+        them, a warning, and the lines that are left of them, or the line
+        after the nearest one kept before them."""
         commit, path, url = comment["original_commit_id"], comment["path"], comment["html_url"]
         last = comment["original_line"]
         first = comment.get("original_start_line") or last
@@ -1486,7 +1511,7 @@ class ReviewScan:
         kept = dict(kept_lines(then, lines))
         now = [kept[i] for i in range(first - 1, last) if i in kept]
         if len(now) == last - first + 1 and now[-1] - now[0] == last - first:
-            return now[0] + 1, now[-1] + 1
+            return now[0] + 1, now[-1] + 1, True
         if not now:
             before = [kept[i] for i in range(first - 1) if i in kept]
             line = min(before[-1] + 2 if before else 1, len(lines))
@@ -1497,7 +1522,27 @@ class ReviewScan:
             "%s: the lines the TODO was left on, %s at %s, have changed since, so it is placed"
             " at %s. Check it there" % (url, was, commit[:ABBREV], placed)
         )
-        return now[0] + 1, now[-1] + 1
+        return now[0] + 1, now[-1] + 1, False
+
+
+def split_suggestion(detail):
+    """(the lines of the first suggestion block in a review comment's detail,
+    the detail without that block), or (None, detail) when it holds none. A
+    block that is not closed runs to the end, as a markdown fence does."""
+    lines = detail.split("\n")
+    for i, line in enumerate(lines):
+        m = SUGGESTION_RE.match(line)
+        if not m:
+            continue
+        fence = m.group(1)
+        end = len(lines)
+        for j in range(i + 1, len(lines)):
+            close = lines[j].strip()
+            if len(close) >= len(fence) and close == fence[0] * len(close):
+                end = j
+                break
+        return lines[i + 1 : end], "\n".join(lines[:i] + lines[end + 1 :]).strip()
+    return None, detail
 
 
 def print_labels(github, labels):
@@ -1749,6 +1794,18 @@ def check_drafts(drafts, found, github, labels):
                 " again and redraft it" % (n, place[0], place[1], json.dumps(draft["text"]))
             )
             continue
+        suggestion = todo.get("suggestion")
+        if (
+            suggestion is not None
+            and reaches_github(draft)
+            and "\n".join(suggestion["lines"]) not in draft["body"]
+        ):
+            refused.append(
+                "draft %d: its body leaves out the wording the review comment %s suggests."
+                " Keep the suggestion block in the body, as the comment gives it"
+                % (n, todo["comment"]["url"])
+            )
+            continue
         claims.setdefault(place, []).append(n)
         row = {
             "draft": n,
@@ -1759,6 +1816,8 @@ def check_drafts(drafts, found, github, labels):
         }
         if todo.get("comment"):
             row["comment"] = todo["comment"]
+        if suggestion is not None:
+            row["suggestion"] = suggestion
         if draft["route"] == ROUTE_COMMENT:
             target = targets[draft["issue"]]
             row["issue"] = dict((k, target[k]) for k in ("number", "title", "url"))
@@ -2154,6 +2213,8 @@ def cmd_file(args):
     for rel in sorted(set(r["file"] for r in rows if "comment" not in r)):
         writable(repo, rel)
         markings[rel] = Marking(os.path.join(repo.root, rel), found.files[rel])
+    for rel in sorted(set(r["file"] for r in rows if suggests(r))):
+        writable(repo, rel)
 
     def finish(row, target, **fields):
         """Mark the row's TODO handled, in its file or, for a TODO from a
@@ -2211,6 +2272,7 @@ def cmd_file(args):
         if stopped:
             data["left"] = rows[i + 1 :]
             break
+    data["suggested"], warnings = write_suggestions(repo, found, data["filed"], args.dry_run)
     data["handoffs"] = handoffs(data["filed"], found, checkout)
 
     def human():
@@ -2243,10 +2305,114 @@ def cmd_file(args):
                 print("  and %s %s as %s" % (verb, where(r), r["handled"]))
         for r in data["left"]:
             print("not filed: draft %d, %s, left in place" % (r["draft"], where(r)))
+        for s in data["suggested"]:
+            verb = "would write" if args.dry_run else "wrote"
+            print("%s the suggestion of %s at %s" % (verb, s["comment"], where(s)))
         for handoff in data["handoffs"]:
             print_handoff(handoff)
 
-    return emit(args, "file", data, errors=errors, human=human)
+    return emit(args, "file", data, errors=errors, warnings=warnings, human=human)
+
+
+def suggests(row):
+    """Whether a row's review comment suggests wording that file writes: it
+    is handed to a skill, and the lines it covers are as it was left on."""
+    suggestion = row.get("suggestion")
+    return row["route"] == ROUTE_SKILL and suggestion is not None and suggestion["current"]
+
+
+def write_suggestions(repo, found, finished, dry_run):
+    """(written, warnings). Write each finished row's suggestion over the
+    lines its comment covers, unless this is a dry run, and read each file
+    written into found again, so the hand-offs' passages hold the suggested
+    lines as uncommitted changes. The edits to a file are planned against
+    its lines as scan read them and written together. Every finished row of
+    the file moves to where its lines now are, and a row whose suggestion
+    was written hands off its detail without the suggestion block."""
+    written, warnings = [], []
+    for row in finished:
+        suggestion = row.get("suggestion")
+        if row["route"] == ROUTE_SKILL and suggestion is not None and not suggestion["current"]:
+            warnings.append(
+                "%s: the lines it covers have changed since it was left, so its suggestion was"
+                " not written over %s. The hand-off gives the suggestion in the note"
+                % (row["comment"]["url"], where(row))
+            )
+    for rel in sorted(set(r["file"] for r in finished if suggests(r))):
+        rows = [r for r in finished if r["file"] == rel]
+        edits = []
+        for row in sorted(filter(suggests, rows), key=lambda r: (r["first"], r["comment"]["id"])):
+            if edits and row["first"] <= edits[-1]["last"]:
+                warnings.append(
+                    "%s: its lines overlap those of %s, whose suggestion was written first, so"
+                    " its own was not. The hand-off gives it in the note"
+                    % (row["comment"]["url"], edits[-1]["comment"]["url"])
+                )
+                continue
+            edits.append(row)
+        pending = found.files[rel]
+        lines = LINE_RE.findall(pending.raw)
+        new, moves, at = [], [], 0
+        for row in edits:
+            first, last = row["first"], row["last"]
+            # The ending of the first line covered, or, when that is the
+            # file's last line and has none, of the line above it. A file of
+            # one line without an ending reads its own line twice here.
+            sep = ENDING_RE.search(lines[first - 1]) or ENDING_RE.search(lines[first - 2])
+            sep = sep.group(0) if sep else b"\n"
+            tail = lines[last - 1][len(ENDING_RE.sub(b"", lines[last - 1])) :]
+            body = [s.encode("utf-8") for s in row["suggestion"]["lines"]]
+            new += lines[at : first - 1]
+            start = len(new) + 1
+            new += [b + sep for b in body[:-1]] + [b + tail for b in body[-1:]]
+            moves.append((first, last, start, len(new)))
+            at = last
+        new += lines[at:]
+        if not new:
+            warnings.append(
+                "%s: its suggestion would leave %s empty, so it was not written. The hand-off"
+                " gives it in the note" % (edits[0]["comment"]["url"], rel)
+            )
+            continue
+        content = (BOM if pending.bom else b"") + b"".join(new)
+        if not dry_run:
+            with open(os.path.join(repo.root, rel), "wb") as fh:
+                fh.write(content)
+        found.files[rel] = Pending(rel, content, repo.base(rel))
+        for row in rows:
+            row["first"], row["last"] = moved(moves, row["first"], row["last"], len(new))
+        for row in edits:
+            row["detail"] = split_suggestion(row["detail"])[1]
+            written.append(
+                {
+                    "file": rel,
+                    "first": row["first"],
+                    "last": row["last"],
+                    "comment": row["comment"]["url"],
+                }
+            )
+    return written, warnings
+
+
+def moved(moves, first, last, count):
+    """Where lines first to last are once each move (old first, old last,
+    new first, new last) has replaced its old lines with its new ones. A
+    line inside a move goes to that move's new lines. A run that a move
+    emptied goes to the line now in its place, or the file's last line."""
+
+    def place(n, end):
+        shift = 0
+        for old_first, old_last, new_first, new_last in moves:
+            if n > old_last:
+                shift += (new_last - new_first) - (old_last - old_first)
+            elif n >= old_first:
+                return new_last if end else new_first
+        return n + shift
+
+    first, last = place(first, False), place(last, True)
+    if last < first:
+        first = last = min(first, count)
+    return first, last
 
 
 def reply_text(lead, row, handled, number):
