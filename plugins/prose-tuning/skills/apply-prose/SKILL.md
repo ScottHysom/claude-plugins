@@ -146,7 +146,7 @@ reading turns up anyway is still a finding. Tell the author the pattern
 missed it, since the pattern is theirs to extend.
 
 ## Step 3: produce findings
-<!-- spec: applyprose-splits-findings-by-rule, applyprose-keeps-facts -->
+<!-- spec: applyprose-splits-findings-by-rule, applyprose-keeps-facts, applyprose-checks-own-rewrites -->
 
 <!-- no-command: judgment. The model writes each finding, and step 4's report checks them. -->
 
@@ -166,6 +166,10 @@ findings, because the author may accept one and reject the other.
 **Rewrite the prose, never the facts.** A rule is about how a sentence reads. A
 proposed rewrite that changes a number, a name, a date or a claim is out of
 scope for this skill no matter how badly the sentence reads.
+
+**Read each rewrite against every rule.** A rewrite that fixes one rule can
+break another. Read each replacement against the rules that do not carry a
+pattern before step 4. `report` checks it against the rules that do.
 
 Write the findings file outside the project, so the run does not leave a stray
 file in it:

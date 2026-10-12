@@ -316,6 +316,12 @@ description.
 - `report-cmd-fails-uncovered-matches` (test): When a pattern matches text
   in a file in scope that no finding or dismissal of the same rule contains,
   `report` names the match and exits 1.
+- `report-cmd-fails-breaching-rewrites` (test): When a rule's pattern matches
+  text that a finding's rewrite makes or keeps, `report` names the finding,
+  the rule and the matched text, and exits 1.
+- `applyprose-checks-own-rewrites` (step): When apply-prose writes a
+  finding, it reads the rewrite against every rule that does not carry a
+  pattern before it runs `report`.
 - `uncovered-names-remedy` (test): When a pattern match is not covered by any
   finding, `report` names it and says to add a finding or a dismissal.
 - `apply-cmd-honors-dismissals` (test): When a finding carries `dismiss`,
