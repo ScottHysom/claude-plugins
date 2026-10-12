@@ -529,3 +529,7 @@ under "Rate limit", checked when #313 was built.
 
 - `scan-cmd-searches-in-one-query` (test): When `scan` looks for similar
   issues, it sends one GraphQL query for every title.
+
+## constraint github-holds-pending-replies: A reply in a pending review publishes with it
+
+Probe in progress for #538.
