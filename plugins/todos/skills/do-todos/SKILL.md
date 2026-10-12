@@ -80,7 +80,8 @@ branch to check out, and stop.
   line;
 - `similar`, the open issues GitHub's search returns for its title, each with
   its `number`, `title` and `url`;
-- under `--pr`, `comment`, the review comment's `url`. Its `first` and `last`
+- under `--pr`, `comment`, the review comment's `url`, and `pending`, true
+  when the comment is in the author's pending review. Its `first` and `last`
   are the lines the comment covers, and its `above` is null. Read those lines
   in the file in place of `above`.
 
@@ -332,7 +333,7 @@ they name, the last commit or the repository has changed since that report,
 and then files nothing. Run `report` again, publish it again and ask again.
 
 ## Step 5: report
-<!-- spec: dotodos-never-commits, dotodos-reports-before-handoffs -->
+<!-- spec: dotodos-never-commits, dotodos-reports-before-handoffs, dotodos-names-pending-replies -->
 
 <!-- no-command: hand-off to the author. The output of file in step 4 is the report. -->
 
@@ -349,7 +350,9 @@ Tell the author:
   `--from`;
 - each reply posted: an entry of `data.filed` that has a `comment`, with its
   `reply_url`. Such an entry came from that review comment, and `file` did
-  not write it into any file;
+  not write it into any file. When its `reply_pending` is true, the reply is
+  in the author's pending review on the pull request, and appears in its
+  thread when the author submits that review. Say so;
 - each TODO left in place: the ones without a draft in step 4's report, and
   each entry of `data.left`.
 

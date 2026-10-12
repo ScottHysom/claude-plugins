@@ -39,7 +39,10 @@ Review comments. scan, report, file and questions take --pr N instead of
 than the tree's pending TODOs. A TODO is a top-level comment whose body opens
 with `TODO:` or `TODO(<kind>):`. The rest of its first line is the title, and
 the rest of its body the detail. Its `text`, which a draft copies, is that
-first line, and it carries `comment`, the comment's id and address. Its
+first line, and it carries `comment`, the comment's id and address, and
+`pending`, which says whether the comment is in the signed-in user's pending
+review. GitHub's REST API leaves such a comment out, so scan reads the
+review threads through GraphQL. Its
 `first` and `last` are the lines the comment covers, found in the worktree
 that has the pull request's head branch checked out, as that tree stands.
 GitHub gives each comment's lines in the commit it was left on, so scan
@@ -51,7 +54,11 @@ with a warning. A comment whose thread holds a reply with
 `TODO-HANDLED(<target>):` is skipped too, since `file` handled it. `file`
 files these TODOs and writes no file, since the TODO is not in one. It marks
 each by a reply in its thread instead: the text --reply-lead gives, then
-`TODO-HANDLED(<target>):` and where the TODO went. The reply is a mark, so the
+`TODO-HANDLED(<target>):` and where the TODO went. While the user has a
+pending review on the pull request, GitHub refuses any other reply of theirs
+there, so every reply joins that review, and appears when they submit it.
+specs/todos.md, under github-holds-pending-replies, records the probe. The
+reply is a mark, so the
 token does not cover it, and `file` posts it, under --pr, even in a batch that
 routes every draft to `skill`. A run that stops part way and runs again
 replies once in each thread, since scan skips a TODO whose thread holds its
@@ -267,6 +274,10 @@ FROM_COMMAND = "scan --from %s"
 REVIEW_TODO_RE = re.compile(r"^(TODO(?:\(([^()]*)\))?):(.*)$")
 # The side of a pull request's diff that holds the lines it removes.
 REMOVED_SIDE = "LEFT"
+# How many review threads, and comments in each, one GraphQL page reads, and
+# the state of a comment in a review its author has not submitted.
+THREAD_PAGE = 100
+PENDING_STATE = "PENDING"
 # A reply that marks the TODO of its thread handled, as `file` writes it.
 REPLY_MARK_RE = re.compile(r"TODO-HANDLED\([^()]*\):")
 # What `file` replies in a review TODO's thread, after the mark and its colon,
@@ -764,39 +775,83 @@ class GitHub:
             ) from exc
 
     def review_comments(self, number):
-        """Every review comment on a pull request, each as GitHub's REST API
-        gives it. --jq prints one comment a line, so the pages join as
-        lines."""
-        args = ("api", "repos/%s/pulls/%d/comments" % (self.name, number), "--paginate")
-        try:
-            out = gh(self.root, *args, "--jq", ".[]")
-        except GhFailed as exc:
-            raise Fatal("%s. Run it yourself to see what gh reports." % exc) from exc
-        return [parse_json(line, args) for line in out.splitlines() if line.strip()]
+        """(comments, review): every review comment on a pull request that
+        the signed-in user can see, and the Node ID of their pending review,
+        or None. Each comment has the keys GitHub's REST API gives it that
+        scan reads, with `thread`, its thread's Node ID, and `pending`.
 
-    def reply(self, number, comment, body):
-        """The address of a new reply in the thread of review comment
-        `comment` on pull request `number`. GhFailed when it was not
-        posted."""
-        path = "repos/%s/pulls/%d/comments/%d/replies" % (self.name, number, comment)
-        out = gh(
-            self.root,
-            "api",
-            path,
-            "--method",
-            "POST",
-            "--input",
-            "-",
-            stdin=json.dumps({"body": body}),
-        )
-        try:
-            url = json.loads(out).get("html_url")
-        except (ValueError, AttributeError):
-            url = None
+        GitHub's REST list leaves out the comments of the user's pending
+        review, and gives their lines as null, so this reads the threads
+        through GraphQL, a page at a time. Only the first THREAD_PAGE
+        comments of a thread are read.
+        """
+        owner, _, name = self.name.partition("/")
+        comments, review, after = [], None, None
+        while True:
+            query = (
+                "query { repository(owner: %s, name: %s) { pullRequest(number: %d) {"
+                " reviews(states: PENDING, first: 1) { nodes { id } }"
+                " reviewThreads(first: %d, after: %s) { pageInfo { hasNextPage endCursor }"
+                " nodes { id diffSide comments(first: %d) { nodes { fullDatabaseId state body"
+                " path originalLine originalStartLine originalCommit { oid } url"
+                " replyTo { fullDatabaseId } } } } } } } }"
+                % (
+                    json.dumps(owner),
+                    json.dumps(name),
+                    number,
+                    THREAD_PAGE,
+                    json.dumps(after),
+                    THREAD_PAGE,
+                )
+            )
+            try:
+                pull = self.graphql(query)["repository"]["pullRequest"]
+            except GhFailed as exc:
+                raise Fatal("%s. Run it yourself to see what gh reports." % exc) from exc
+            pending = pull["reviews"]["nodes"]
+            review = pending[0]["id"] if pending else review
+            threads = pull["reviewThreads"]
+            for thread in threads["nodes"]:
+                for c in thread["comments"]["nodes"]:
+                    comments.append(
+                        {
+                            "id": int(c["fullDatabaseId"]),
+                            "in_reply_to_id": int(c["replyTo"]["fullDatabaseId"])
+                            if c.get("replyTo")
+                            else None,
+                            "body": c.get("body"),
+                            "path": c["path"],
+                            "original_line": c.get("originalLine"),
+                            "original_start_line": c.get("originalStartLine"),
+                            "original_commit_id": (c.get("originalCommit") or {}).get("oid"),
+                            "side": thread.get("diffSide"),
+                            "html_url": c["url"],
+                            "thread": thread["id"],
+                            "pending": c.get("state") == PENDING_STATE,
+                        }
+                    )
+            if not threads["pageInfo"]["hasNextPage"]:
+                return comments, review
+            after = threads["pageInfo"]["endCursor"]
+
+    def reply(self, thread, body, review=None):
+        """The address of a new reply in a review thread, given by its Node
+        ID. GhFailed when it was not posted.
+
+        While the signed-in user has a pending review on the pull request,
+        GitHub refuses any other reply of theirs there, so the reply joins
+        that review, given as `review`, and appears when they submit it.
+        """
+        fields = "pullRequestReviewThreadId: %s, body: %s" % (json.dumps(thread), json.dumps(body))
+        if review is not None:
+            fields += ", pullRequestReviewId: %s" % json.dumps(review)
+        query = "mutation { addPullRequestReviewThreadReply(input: { %s }) { comment { url } } }"
+        data = self.graphql(query % fields)
+        url = ((data.get("addPullRequestReviewThreadReply") or {}).get("comment") or {}).get("url")
         if not is_text(url):
             raise GhFailed(
-                "`gh api %s` did not print the reply's address, but printed %r. Look in the"
-                " thread for the reply before replying again" % (path, out.strip())
+                "`gh api graphql` did not give the reply's address, but gave %r. Look in the"
+                " thread for the reply before replying again" % (data,)
             )
         return url
 
@@ -1407,6 +1462,9 @@ class ReviewScan:
 
     `files` maps each path a TODO names to its Pending, read against the
     tree's last commit, for the hand-offs' passages. `pull` is the Review.
+    `threads` maps each comment's id to its thread's Node ID, and
+    `pending_review` is the Node ID of the signed-in user's pending review,
+    or None, for the replies.
     """
 
     def __init__(self, repo, review):
@@ -1414,7 +1472,8 @@ class ReviewScan:
         self.pull = review
         self.files = {}
         self.todos, self.warnings = [], []
-        comments = review.github.review_comments(review.number)
+        comments, self.pending_review = review.github.review_comments(review.number)
+        self.threads = dict((c["id"], c["thread"]) for c in comments)
         # A thread holding a reply with a mark is a TODO `file` handled.
         answered = set(
             c["in_reply_to_id"]
@@ -1469,7 +1528,7 @@ class ReviewScan:
                 "title": m.group(3).strip(),
                 "detail": rest.strip(),
                 "above": None,
-                "comment": {"id": comment["id"], "url": url},
+                "comment": {"id": comment["id"], "url": url, "pending": comment["pending"]},
             }
         )
 
@@ -1563,7 +1622,8 @@ def cmd_scan(args):
                 print(("    %s" % d).rstrip())
             above = t["above"]
             if t.get("comment"):
-                print("    review comment %s" % t["comment"]["url"])
+                pending = " in your pending review" if t["comment"]["pending"] else ""
+                print("    review comment%s %s" % (pending, t["comment"]["url"]))
             elif above:
                 was = "line %d at %s" % (above["base_line"], short) if above["base_line"] else "new"
                 place = "at the end of" if above["line"] == t["first"] else "above"
@@ -2170,10 +2230,12 @@ def cmd_file(args):
             return False
         entry["reply"] = reply_text(args.reply_lead, row, handled, fields.get("number"))
         entry["reply_url"] = None
+        entry["reply_pending"] = found.pending_review is not None
         if args.dry_run:
             return False
         try:
-            entry["reply_url"] = github.reply(review.number, row["comment"]["id"], entry["reply"])
+            thread = found.threads[row["comment"]["id"]]
+            entry["reply_url"] = github.reply(thread, entry["reply"], found.pending_review)
         except GhFailed as exc:
             errors.append(
                 "draft %d (%s): %s. Its TODO is handled, but the reply that marks it was not"
@@ -2237,6 +2299,8 @@ def cmd_file(args):
             elif "comment" in r:
                 reply = "reply" if args.dry_run else "replied"
                 print("  and %s in %s: %s" % (reply, r["comment"]["url"], r["reply"]))
+                if r["reply_pending"]:
+                    print("  The reply is in your pending review, and appears when you submit it.")
             elif r["handled"] is None:
                 print("  and %s %s with the new issue's number" % (verb, where(r)))
             else:
@@ -2284,7 +2348,13 @@ def handoffs(finished, found, checkout):
         todo = {"draft": row["draft"], "title": row["title"], "detail": row["detail"]}
         todo["passage"] = passage
         if "comment" in row:
-            todo["comment"] = dict(row["comment"], first=row["first"], last=row["last"])
+            comment = row["comment"]
+            todo["comment"] = {
+                "id": comment["id"],
+                "url": comment["url"],
+                "first": row["first"],
+                "last": row["last"],
+            }
         out.setdefault(row["skill"], []).append((row["file"], todo))
     return [
         {

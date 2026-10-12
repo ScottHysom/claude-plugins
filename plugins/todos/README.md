@@ -93,6 +93,11 @@ naming the issue, comment or skill the TODO went to, as in
 rules ask a reply to open, and leaves the thread for you to resolve. A
 comment whose thread holds such a reply is not collected again.
 
+Claude also reads the TODOs in a review you have started and not yet
+submitted. While you have such a review on the pull request, GitHub takes a
+reply of yours there only as part of it. So Claude adds each reply to that
+review, and the replies appear in their threads when you submit it.
+
 ## Filing them
 
 Ask Claude to file your TODOs. Claude:
