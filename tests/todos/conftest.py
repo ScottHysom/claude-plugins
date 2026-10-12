@@ -184,6 +184,8 @@ class FakeGitHub:
     both from 1, and `printed` replaces what a successful one prints.
     `searches` maps a search's query to the issues it returns, and `existing`
     maps a number to the issue a lookup finds, as {number, title, state, url}.
+    `pulls` maps a number to the pull request `gh pr view` finds, and
+    `reviews` maps it to its review comments, as GitHub's REST API gives them.
     """
 
     def __init__(self):
@@ -193,6 +195,8 @@ class FakeGitHub:
         self.printed = None
         self.searches = {}
         self.existing = {}
+        self.pulls = {}
+        self.reviews = {}
         self.calls = []
         self.queries = []
         self.issues = []
@@ -210,6 +214,17 @@ class FakeGitHub:
             return json.dumps(self.labels)
         if args[:2] == ("api", "graphql"):
             return self.graphql(json.loads(stdin)["query"])
+        if args[:2] == ("pr", "view"):
+            number = int(args[2])
+            if number not in self.pulls:
+                raise todos.GhFailed("`gh pr view` failed: no pull requests found")
+            return json.dumps(self.pulls[number])
+        m = re.match(r"repos/(.+)/pulls/(\d+)/comments$", args[1]) if args[0] == "api" else None
+        if m and args[2:] == ("--paginate", "--jq", ".[]"):
+            assert m.group(1) == self.repository
+            if int(m.group(2)) not in self.reviews:
+                raise todos.GhFailed("`gh api repos/...` failed: HTTP 404")
+            return "".join(json.dumps(c) + "\n" for c in self.reviews[int(m.group(2))])
         if args[:2] == ("issue", "create"):
             if self.posts() in self.fail:
                 raise todos.GhFailed("`gh issue create` failed: HTTP 502")
@@ -269,6 +284,13 @@ class FakeGitHub:
         if errors:
             raise todos.GhFailed("`gh api graphql` failed: Could not resolve", out)
         return out
+
+    def add_pull(self, number, branch, comments=()):
+        """A pull request from branch, holding review comments."""
+        url = "https://github.com/%s/pull/%d" % (self.repository, number)
+        self.pulls[number] = {"number": number, "url": url, "headRefName": branch}
+        self.reviews[number] = list(comments)
+        return self.pulls[number]
 
     def add_issue(self, number, title, state="OPEN"):
         """An issue a lookup finds."""
