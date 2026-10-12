@@ -676,6 +676,16 @@ class DescribeWritingSuggestions:
         assert [i["passage"]["text"] for i in items] == ["First.\nParagraph.", "- 2", "- three"]
         assert [i["comment"]["first"] for i in items] == [3, 7, 8]
 
+    def it_keeps_the_todos_above_a_suggestion_where_they_are(self, repo, review, comments):
+        repo.write("doc.md", DOC)
+        repo.commit()
+        head = repo.head()
+        comments.add("doc.md", 1, head, "TODO(prose): the title")
+        comments.add("doc.md", 5, head, suggesting("split", "- a", "- b"))
+        items = hand_off(repo)["data"]["handoffs"][0]["todos"]
+        assert [i["comment"]["first"] for i in items] == [1, 5]
+        assert items[0]["passage"]["text"] == "# Title"
+
     def it_removes_the_lines_of_an_empty_suggestion(self, repo, review, comments):
         repo.write("doc.md", DOC)
         repo.commit()
