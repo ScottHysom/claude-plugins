@@ -89,9 +89,20 @@ edits. When the lines themselves changed, it still places the TODO, since
 dropping a note the owner left is worse than putting it a few lines off, and
 it warns so that the author checks.
 
-A review TODO is not in any file, so `file` does not write anything for it.
-Marking it where it was left is #537's work. The approval token covers the
-named comments' text, since a comment can be edited after the report.
+A review TODO is not in any file, so `file` does not mark it. Marking it
+where it was left is #537's work. The approval token covers the named
+comments' text, since a comment can be edited after the report.
+
+In the same review, three of the five comments gave the owner's own wording.
+update-prose-config learned rules from them as notes on unchanged passages,
+writing each rule's After itself, and the agent then typed the wording into
+the files by hand (#539). A suggestion block is GitHub's form for that
+wording, so `file` writes it over the comment's lines before the hand-off.
+The note then reaches update-prose-config as the reason for the author's own
+edit, and the rule's example is that edit. update-prose-config does not
+write documents, so the write has to happen here, before the hand-off.
+`file` writes only lines that are as the comment saw them, so a suggestion
+never overwrites a later change.
 
 ## Why a script
 

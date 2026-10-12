@@ -147,6 +147,9 @@ Source: #536, which records the owner's two requests in the review of #527.
   - its kind, read as a TODO's kind word is read.
   - its file, and the first and last of the lines it covers.
   - the comment's address.
+  - the lines of its first suggestion block (a fence marked `suggestion`,
+    which holds GitHub's form for the wording the author wants), and whether
+    the lines it covers are as they were when the comment was left.
 
   It skips a comment on a whole file, on lines the pull request removes, or
   on a file the tree lacks, and warns with the comment's address.
@@ -164,8 +167,27 @@ Source: #536, which records the owner's two requests in the review of #527.
   any worktree, it names the branch and exits 2. It refuses `--pr` beside
   `--from`.
 - `file-cmd-leaves-review-todos-unmarked` (test): When `file` finishes a TODO
-  taken from a review comment, it does not write it, or anything else, into
-  the tree's files, and names the comment in place of a mark.
+  taken from a review comment, it does not write the TODO into the tree's
+  files, and names the comment in place of a mark. The only lines it writes
+  for such a TODO are a suggestion's, under
+  `file-cmd-writes-review-suggestions`.
+- `file-cmd-writes-review-suggestions` (test): When a TODO taken from a review
+  comment is routed to `skill` and carries a suggestion block, `file` writes
+  the block's lines over the lines the comment covers, as an uncommitted
+  edit, before it prints the hand-off. The hand-off's passage then holds the
+  suggested lines, they are the lines it lists as changed, and the note's
+  detail leaves out the block. `file` leaves the lines as they are, warns,
+  and keeps the block in the note under any of these conditions:
+  - the lines have changed since the comment was left.
+  - they overlap the lines of a suggestion it wrote first.
+  - the suggestion would leave the file empty.
+
+  Under `--dry-run`, it hands off the passage it would write and writes
+  nothing.
+- `report-cmd-keeps-review-suggestions` (test): When a draft routed to `issue`
+  or `comment` names a TODO whose review comment carries a suggestion block,
+  `report` and `file` refuse it unless its body holds the block's lines, and
+  `file` leaves the lines the comment covers as they are.
 - `dotodos-takes-named-pr` (step): When the author asks do-todos to collect
   the TODOs in a pull request's review, do-todos passes its number to `scan
   --pr`, and to `report`, `file` and `questions`.
