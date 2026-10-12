@@ -303,7 +303,7 @@ class DescribeTheReportFile:
         assert env["data"]["report"] == str(path)
         return code, env, path.read_text(encoding="utf-8")
 
-    def it_writes_each_draft_and_ends_with_the_token(self, two):
+    def it_writes_each_draft_to_github_and_ends_with_the_token(self, two):
         found, _ = two.scan()
         drafts = two.drafts(
             [
@@ -322,11 +322,7 @@ class DescribeTheReportFile:
             "- **Labels:** bug\n\n"
             "> No timeout.\n"
         ) in text
-        assert (
-            "## Draft 2: `run.py:5`, skill\n\n"
-            "- **To:** `example:learn-prose-rules`\n"
-            "- **Title:** tidy up\n"
-        ) in text
+        assert "## Draft 2" not in text
         assert text.endswith("Approval token: `%s`\n" % env["data"]["token"])
 
     def it_keeps_a_body_inside_its_quote(self, two):

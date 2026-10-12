@@ -26,41 +26,36 @@ def handoffs(repo, drafts, *extra):
 
 @pytest.mark.spec("report-cmd-shows-each-draft")
 class DescribeTheReport:
-    def it_prints_the_skill_with_the_todos_title_and_detail(self, doc):
+    def it_leaves_a_skill_draft_out_of_the_text(self, doc):
         doc.write(
-            "README.md", BASE.replace("First", "<!-- TODO(prose): too long\nsplit it -->\nFirst")
+            "README.md",
+            "<!-- TODO: an issue -->\n\n"
+            + BASE.replace("First", "<!-- TODO(prose): too long\nsplit it -->\nFirst"),
         )
         found, _ = doc.scan()
-        code, out, _ = doc.human("report", "--drafts", doc.drafts([doc.skill(found[0])]))
+        drafts = doc.drafts([doc.skill(found[1]), doc.draft(found[0])])
+        code, out, _ = doc.human("report", "--drafts", drafts)
         assert code == todos.OK
-        assert (
-            "draft 1  README.md:3-4  skill\n"
-            "  to      example:learn-prose-rules\n"
-            "  title   too long\n"
-            "  detail\n"
-            "    | split it\n"
-            "\n"
-            "1 draft(s).\n"
-        ) in out
+        assert "draft 2  README.md:1  issue\n" in out
+        assert "draft 1" not in out
+        assert "too long" not in out
+        assert "\n1 draft(s).\n" in out
 
-    def it_leaves_out_an_empty_detail(self, doc):
-        doc.write("README.md", BASE.replace("First", "<!-- TODO(prose): too long -->\nFirst"))
-        found, _ = doc.scan()
-        _, out, _ = doc.human("report", "--drafts", doc.drafts([doc.skill(found[0])]))
-        assert "  title   too long\n\n1 draft(s).\n" in out
-
-    def it_gives_the_skill_in_json(self, doc):
+    def it_leaves_a_skill_draft_out_of_the_json(self, doc):
         doc.write("README.md", BASE.replace("First", "<!-- TODO(prose): too long -->\nFirst"))
         found, _ = doc.scan()
         _, env = doc.run("report", "--drafts", doc.drafts([doc.skill(found[0])]))
-        (row,) = env["data"]["drafts"]
-        assert (row["route"], row["skill"], row["title"], row["detail"]) == (
-            "skill",
-            PROSE,
-            "too long",
-            "",
-        )
-        assert "body" not in row
+        assert env["data"]["drafts"] == []
+        assert env["data"]["left"] == []
+
+    @pytest.mark.spec("report-cmd-writes-report-file")
+    def it_leaves_a_skill_draft_out_of_the_report_file(self, doc):
+        doc.write("README.md", BASE.replace("First", "<!-- TODO(prose): too long -->\nFirst"))
+        found, _ = doc.scan()
+        doc.run("report", "--drafts", doc.drafts([doc.skill(found[0])]))
+        text = (doc.root / todos.REPORT_FILE).read_text(encoding="utf-8")
+        assert "## Draft" not in text
+        assert "too long" not in text
 
 
 @pytest.mark.spec("repo:script-checks-every-answer")
@@ -257,6 +252,54 @@ class DescribeTheHandoff:
         assert code == todos.PROBLEMS
         assert env["data"]["handoffs"] == []
         assert [r["draft"] for r in env["data"]["left"]] == [2, 1]
+
+
+@pytest.mark.spec("file-cmd-requires-token")
+class DescribeTheToken:
+    @pytest.fixture
+    def mixed(self, doc):
+        """README.md holds a TODO for a skill, and a.py one for an issue."""
+        doc.write("a.py", "x = 1\n")
+        doc.commit()
+        doc.write("a.py", "# TODO: an issue\nx = 1\n")
+        doc.write("README.md", BASE.replace("First", "<!-- TODO(prose): too long -->\nFirst"))
+        found, _ = doc.scan()
+        return doc, dict((t["file"], t) for t in found)
+
+    def it_files_a_batch_of_only_handoffs_without_a_token(self, doc, github):
+        doc.write("README.md", BASE.replace("First", "<!-- TODO(prose): too long -->\nFirst"))
+        found, _ = doc.scan()
+        code, env = doc.run("file", "--drafts", doc.drafts([doc.skill(found[0])]))
+        assert code == todos.OK, doc.err
+        assert [h["skill"] for h in env["data"]["handoffs"]] == [PROSE]
+        assert github.posts() == 0
+
+    def it_refuses_a_batch_with_an_issue_and_no_token(self, mixed, github):
+        doc, found = mixed
+        before = doc.read("README.md")
+        drafts = doc.drafts([doc.skill(found["README.md"]), doc.draft(found["a.py"])])
+        code, env = doc.run("file", "--drafts", drafts)
+        assert code == todos.PROBLEMS
+        assert env["errors"] == [todos.TOKEN_MISSING]
+        assert github.posts() == 0
+        assert doc.read("README.md") == before
+
+    def it_keeps_the_token_when_a_handoff_changes(self, mixed):
+        doc, found = mixed
+        drafts = doc.drafts([doc.skill(found["README.md"]), doc.draft(found["a.py"])])
+        token = doc.token(drafts)
+        doc.drafts([doc.skill(found["README.md"], skill=OTHER), doc.draft(found["a.py"])])
+        code, env = doc.run("file", "--drafts", drafts, "--token", token)
+        assert code == todos.OK, doc.err
+        assert [h["skill"] for h in env["data"]["handoffs"]] == [OTHER]
+
+    def it_keeps_the_token_when_only_a_handoffs_file_changes(self, mixed):
+        doc, found = mixed
+        drafts = doc.drafts([doc.skill(found["README.md"]), doc.draft(found["a.py"])])
+        token = doc.token(drafts)
+        doc.write("README.md", doc.read("README.md").decode("utf-8") + "\nMore.\n")
+        code, _ = doc.run("file", "--drafts", drafts, "--token", token)
+        assert code == todos.OK, doc.err
 
 
 @pytest.mark.spec("file-cmd-never-posts-in-preview", "repo:command-never-writes-in-preview")
