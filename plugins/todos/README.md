@@ -72,6 +72,21 @@ folder you review in does, Claude names the folder, with its branch and files,
 and asks whether to collect them from there. Their issues are filed the same
 way, and the TODOs are marked in the files in that folder.
 
+## Leaving a TODO in a review
+
+You can also leave a TODO as a review comment on a pull request, on the lines
+it is about. Start the comment with `TODO:` or a kind word, as in
+`TODO(prose):`. The rest of its first line is the title, and the rest of the
+comment (including any list) is the detail. Then ask Claude to file the TODOs in
+that pull request's review, by its number.
+
+Claude finds the lines each comment is on in your copy of the pull request's
+branch, which has to be checked out in some folder of your project. Lines
+that later commits moved are found where they are now. When a later commit
+changed them, Claude warns, names the comment, and places it as near as it
+can. A comment on a whole file is not read. Claude files these TODOs as it
+files the others, and leaves your files as they are.
+
 ## Filing them
 
 Ask Claude to file your TODOs. Claude:
