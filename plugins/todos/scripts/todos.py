@@ -46,12 +46,19 @@ GitHub gives each comment's lines in the commit it was left on, so scan
 compares the file at that commit with the tree's, as it compares a file with
 its last commit. When a later change altered the lines, scan warns and places
 the TODO on what is left of them, or after the nearest line kept before them.
-A comment on a whole file or on lines the pull request removes is not read,
-with a warning. `file` files these TODOs and writes no file, since the TODO
-is not in one. Its hand-off's passage runs from the passage around `first` to
-the one around `last`, with `line` null, and the TODO carries the comment's
-address and lines. The token also covers the pull request's number and the
-review comments the drafts name.
+A comment on a whole file or on lines the pull request removes is skipped,
+with a warning. A comment whose thread holds a reply with
+`TODO-HANDLED(<target>):` is skipped too, since `file` handled it. `file`
+files these TODOs and writes no file, since the TODO is not in one. It marks
+each by a reply in its thread instead: the text --reply-lead gives, then
+`TODO-HANDLED(<target>):` and where the TODO went. The reply is a mark, so the
+token does not cover it, and `file` posts it, under --pr, even in a batch that
+routes every draft to `skill`. A run that stops part way and runs again
+replies once in each thread, since scan skips a TODO whose thread holds its
+reply. Its hand-off's passage runs from the passage around `first` to the one
+around `last`, with `line` null, and the TODO carries the comment's address
+and lines. The token also covers the pull request's number and the review
+comments the drafts name.
 
 Exit codes: 0 clean, 1 ran and found problems, 2 could not run.
 
@@ -95,7 +102,8 @@ The token. `report` ends with a token that hashes the drafts routed to
 commit and every file those drafts name. `file` refuses a token that does not
 match them as they are now, so what it files is what the author approved, in
 the repository the report named. A batch that routes every draft to `skill`
-sends nothing to GitHub, so `file` runs it without a token. Every later gh call passes that repository as --repo, so a fork cannot
+files and posts nothing for the author to approve, so `file` runs it without
+a token. Every later gh call passes that repository as --repo, so a fork cannot
 send issues to its upstream.
 
 Filing. A filed issue cannot be counted on to come back, since deleting one
@@ -203,7 +211,8 @@ refused question writes the refusals and no question.
 Only `setup`, `report`, `questions` and `file` write, and only in a working
 tree: `setup` its copy in .todos/, `report` .todos/report.md, `questions`
 .todos/questions.md, and `file` the files whose TODOs it marks, in the
-worktree --from names when it is given, and none under --pr. `setup`,
+worktree --from names when it is given, and none under --pr, where it
+replies on GitHub instead. `setup`,
 `report` and `questions` also write .todos/.gitignore, so git ignores what
 they leave there. `report` and `questions` do not take --dry-run, because
 nothing reads a preview of the scratch they write, which their next run
@@ -258,6 +267,13 @@ FROM_COMMAND = "scan --from %s"
 REVIEW_TODO_RE = re.compile(r"^(TODO(?:\(([^()]*)\))?):(.*)$")
 # The side of a pull request's diff that holds the lines it removes.
 REMOVED_SIDE = "LEFT"
+# A reply that marks the TODO of its thread handled, as `file` writes it.
+REPLY_MARK_RE = re.compile(r"TODO-HANDLED\([^()]*\):")
+# What `file` replies in a review TODO's thread, after the mark and its colon,
+# for an issue, a comment on one and a hand-off.
+REPLY_ISSUE = "Filed as #%d."
+REPLY_COMMENT = "Added to #%d as a comment."
+REPLY_SKILL = "Handed to the skill `%s`."
 
 # A TODO: indent, marker, then `TODO:` or `TODO(<kind>):`. The third group
 # is the word `file` replaces when it marks the TODO handled.
@@ -757,6 +773,32 @@ class GitHub:
         except GhFailed as exc:
             raise Fatal("%s. Run it yourself to see what gh reports." % exc) from exc
         return [parse_json(line, args) for line in out.splitlines() if line.strip()]
+
+    def reply(self, number, comment, body):
+        """The address of a new reply in the thread of review comment
+        `comment` on pull request `number`. GhFailed when it was not
+        posted."""
+        path = "repos/%s/pulls/%d/comments/%d/replies" % (self.name, number, comment)
+        out = gh(
+            self.root,
+            "api",
+            path,
+            "--method",
+            "POST",
+            "--input",
+            "-",
+            stdin=json.dumps({"body": body}),
+        )
+        try:
+            url = json.loads(out).get("html_url")
+        except (ValueError, AttributeError):
+            url = None
+        if not is_text(url):
+            raise GhFailed(
+                "`gh api %s` did not print the reply's address, but printed %r. Look in the"
+                " thread for the reply before replying again" % (path, out.strip())
+            )
+        return url
 
     def labels(self):
         """Every label of the repository, as {name, description}."""
@@ -1372,8 +1414,15 @@ class ReviewScan:
         self.pull = review
         self.files = {}
         self.todos, self.warnings = [], []
-        for comment in review.github.review_comments(review.number):
-            if comment.get("in_reply_to_id") is None:
+        comments = review.github.review_comments(review.number)
+        # A thread holding a reply with a mark is a TODO `file` handled.
+        answered = set(
+            c["in_reply_to_id"]
+            for c in comments
+            if c.get("in_reply_to_id") is not None and REPLY_MARK_RE.search(c.get("body") or "")
+        )
+        for comment in comments:
+            if comment.get("in_reply_to_id") is None and comment["id"] not in answered:
                 self._read(comment)
         self.todos.sort(key=lambda t: (t["file"], t["first"], t["comment"]["id"]))
 
@@ -2107,42 +2156,61 @@ def cmd_file(args):
         markings[rel] = Marking(os.path.join(repo.root, rel), found.files[rel])
 
     def finish(row, target, **fields):
-        """Mark the row's TODO handled, unless this is a dry run or it came
-        from a review comment."""
-        if "comment" in row:
-            target = None
-        elif not args.dry_run:
-            marking = markings[row["file"]]
-            marking.mark(row["first"], row["last"], target)
-            marking.write()
+        """Mark the row's TODO handled, in its file or, for a TODO from a
+        review comment, by a reply in the comment's thread, unless this is a
+        dry run. Whether the reply failed, with an error saying so."""
         handled = None if target is None else decode(HANDLED % target.encode("utf-8"))
-        data["filed"].append(dict(row, handled=handled, **fields))
+        entry = dict(row, handled=handled, **fields)
+        data["filed"].append(entry)
+        if "comment" not in row:
+            if not args.dry_run:
+                marking = markings[row["file"]]
+                marking.mark(row["first"], row["last"], target)
+                marking.write()
+            return False
+        entry["reply"] = reply_text(args.reply_lead, row, handled, fields.get("number"))
+        entry["reply_url"] = None
+        if args.dry_run:
+            return False
+        try:
+            entry["reply_url"] = github.reply(review.number, row["comment"]["id"], entry["reply"])
+        except GhFailed as exc:
+            errors.append(
+                "draft %d (%s): %s. Its TODO is handled, but the reply that marks it was not"
+                " posted in %s. Post %s there, or scan reads the TODO again. Filing stopped"
+                " there, and the TODOs of the drafts not filed or posted are as they were"
+                % (row["draft"], where(row), exc, row["comment"]["url"], json.dumps(entry["reply"]))
+            )
+            return True
+        return False
 
     errors = []
     for i, row in enumerate(rows):
         if row["route"] == ROUTE_SKILL:
-            finish(row, row["skill"])
-            continue
-        if args.dry_run:
+            stopped = finish(row, row["skill"])
+        elif args.dry_run:
             comment = row["route"] == ROUTE_COMMENT
             target = COMMENT_TARGET % row["issue"]["number"] if comment else None
-            finish(row, target, number=None, url=None)
-            continue
-        try:
-            if row["route"] == ROUTE_COMMENT:
-                number = row["issue"]["number"]
-                url = github.comment(number, row["body"])
-            else:
-                number, url = github.create(row["title"], row["body"], row["labels"])
-        except GhFailed as exc:
-            errors.append(
-                "draft %d (%s): %s. Filing stopped there, and the TODOs of the drafts not"
-                " filed or posted are still in their files" % (row["draft"], where(row), exc)
-            )
-            data["left"] = rows[i:]
+            stopped = finish(row, target, number=None, url=None)
+        else:
+            try:
+                if row["route"] == ROUTE_COMMENT:
+                    number = row["issue"]["number"]
+                    url = github.comment(number, row["body"])
+                else:
+                    number, url = github.create(row["title"], row["body"], row["labels"])
+            except GhFailed as exc:
+                errors.append(
+                    "draft %d (%s): %s. Filing stopped there, and the TODOs of the drafts not"
+                    " filed or posted are still in their files" % (row["draft"], where(row), exc)
+                )
+                data["left"] = rows[i:]
+                break
+            target = (COMMENT_TARGET if row["route"] == ROUTE_COMMENT else ISSUE_TARGET) % number
+            stopped = finish(row, target, number=number, url=url)
+        if stopped:
+            data["left"] = rows[i + 1 :]
             break
-        target = (COMMENT_TARGET if row["route"] == ROUTE_COMMENT else ISSUE_TARGET) % number
-        finish(row, target, number=number, url=url)
     data["handoffs"] = handoffs(data["filed"], found, checkout)
 
     def human():
@@ -2164,8 +2232,11 @@ def cmd_file(args):
                 verb = "commented on" if comment else "filed"
                 print("%s #%d %s" % (verb, r["number"], r["url"]))
             verb = "mark" if args.dry_run else "marked"
-            if "comment" in r:
-                print("  from the review comment %s" % r["comment"]["url"])
+            if "comment" in r and r["reply"] is None:
+                print("  and reply in %s with the new issue's number" % r["comment"]["url"])
+            elif "comment" in r:
+                reply = "reply" if args.dry_run else "replied"
+                print("  and %s in %s: %s" % (reply, r["comment"]["url"], r["reply"]))
             elif r["handled"] is None:
                 print("  and %s %s with the new issue's number" % (verb, where(r)))
             else:
@@ -2176,6 +2247,22 @@ def cmd_file(args):
             print_handoff(handoff)
 
     return emit(args, "file", data, errors=errors, human=human)
+
+
+def reply_text(lead, row, handled, number):
+    """The reply that marks a review TODO handled: lead, the mark, and where
+    the TODO went. None when the mark is not known, as in a dry run of a
+    draft routed to `issue`."""
+    if handled is None:
+        return None
+    if row["route"] == ROUTE_ISSUE:
+        went = REPLY_ISSUE % number
+    elif row["route"] == ROUTE_COMMENT:
+        went = REPLY_COMMENT % row["issue"]["number"]
+    else:
+        went = REPLY_SKILL % row["skill"]
+    text = "%s: %s" % (handled, went)
+    return "%s %s" % (lead.strip(), text) if lead and lead.strip() else text
 
 
 def handoffs(finished, found, checkout):
@@ -2340,6 +2427,14 @@ def build_parser():
         "--token",
         help=(
             "the approval token report printed, which a batch with a draft routed to GitHub needs"
+        ),
+    )
+    p.add_argument(
+        "--reply-lead",
+        metavar="TEXT",
+        help=(
+            "under --pr, the text each reply in a review TODO's thread opens with, as the"
+            " project's rules for replies ask"
         ),
     )
     p.set_defaults(func=cmd_file)

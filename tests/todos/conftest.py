@@ -181,11 +181,14 @@ class FakeGitHub:
     """gh, answering for one repository. Records every call.
 
     `fail` names the issue create and issue comment calls that fail, counting
-    both from 1, and `printed` replaces what a successful one prints.
+    both from 1, and `printed` replaces what a successful one, or a reply,
+    prints.
     `searches` maps a search's query to the issues it returns, and `existing`
     maps a number to the issue a lookup finds, as {number, title, state, url}.
     `pulls` maps a number to the pull request `gh pr view` finds, and
     `reviews` maps it to its review comments, as GitHub's REST API gives them.
+    A reply joins its pull request's review comments, and `fail_replies`
+    names the replies that fail, counting from 1.
     """
 
     def __init__(self):
@@ -197,6 +200,8 @@ class FakeGitHub:
         self.existing = {}
         self.pulls = {}
         self.reviews = {}
+        self.fail_replies = ()
+        self.replies = []
         self.calls = []
         self.queries = []
         self.issues = []
@@ -225,6 +230,23 @@ class FakeGitHub:
             if int(m.group(2)) not in self.reviews:
                 raise todos.GhFailed("`gh api repos/...` failed: HTTP 404")
             return "".join(json.dumps(c) + "\n" for c in self.reviews[int(m.group(2))])
+        replies = r"repos/(.+)/pulls/(\d+)/comments/(\d+)/replies$"
+        m = re.match(replies, args[1]) if args[0] == "api" else None
+        if m and args[2:] == ("--method", "POST", "--input", "-"):
+            assert m.group(1) == self.repository
+            if len(self.replies) + 1 in self.fail_replies:
+                raise todos.GhFailed("`gh api repos/...` failed: HTTP 502")
+            number, comments = int(m.group(2)), self.reviews[int(m.group(2))]
+            made = {
+                "id": 1000 + len(self.replies),
+                "in_reply_to_id": int(m.group(3)),
+                "body": json.loads(stdin)["body"],
+                "html_url": "%s/pull/%d#discussion_r%d"
+                % (REPOSITORY_URL, number, 1000 + len(self.replies)),
+            }
+            self.replies.append(made)
+            comments.append(made)
+            return json.dumps(made) if self.printed is None else self.printed
         if args[:2] == ("issue", "create"):
             if self.posts() in self.fail:
                 raise todos.GhFailed("`gh issue create` failed: HTTP 502")
