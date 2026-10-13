@@ -465,7 +465,8 @@ Source: CLAUDE.md, under "Skills and scripts", and #97.
   of a pipeline, `check-skills.py fences` fails it and names the file, line
   and command.
 - `fences-cmd-requires-info-strings` (test): When a fence has no info
-  string, `fences` fails it.
+  string, or is labeled `bash` or `shell` rather than `sh`, `fences` fails
+  it.
 - `fences-cmd-allows-setup-commands` (test): When a shell fence runs an
   allowed setup command where it may stand, `fences` passes it, and fails the
   same command anywhere else.
