@@ -355,7 +355,11 @@ class DescribeReportOnPatterns:
         code = prose.main(["report", "--findings", path, "-C", str(prose_repo.root)])
         out = capsys.readouterr().out.splitlines()
         assert code == prose.OK
-        assert ("checked by pattern: %s. Every other rule was checked by reading." % RULE) in out
+        assert out[-4:-1] == [
+            "checked by pattern: %s" % RULE,
+            "checked by reading:",
+            "  %s  target.md" % RULE_OWN,
+        ]
 
     @pytest.mark.spec("report-cmd-fails-uncovered-matches", "uncovered-names-remedy")
     def it_names_an_uncovered_match(self, prose_repo):
