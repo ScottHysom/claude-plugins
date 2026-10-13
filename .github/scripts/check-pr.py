@@ -7,12 +7,19 @@ it and what happens after it. The owner reviews from that section. Agents
 post under the owner's account, so a description in another shape reaches
 the owner as though the owner had written it, unless CI fails it first.
 
-`description` fails a description when either holds:
+`description` fails a description when any of these holds:
 
   - the description's first heading is not `## Scenario`, or it has no
     heading.
   - its Scenario section, up to the next heading of level 1 or 2, holds
     nothing but blank lines and HTML comments.
+  - the Scenario section lacks a `### Before` or a `### After` subsection
+    with text under it, or puts `### After` first.
+  - outside a code fence or an HTML comment, a paragraph or a list item
+    continues onto a second line. GitHub renders that newline in a pull
+    request body as a line break, where a markdown file in the repository
+    joins the lines, so the paragraph reads as a ragged column. Each such
+    line is named by its number in the description.
 
 It reads the pull request from $GITHUB_EVENT_PATH, so it runs in CI on a
 pull_request event. The validate workflow runs it on `edited` as well, so a
@@ -42,8 +49,9 @@ Commands:
 
   draft        make an empty file for a drafted description, named so that
                no other run gets it, and print its path
-  description  the description opens with a `## Scenario` section that says
-               something
+  description  the description opens with a `## Scenario` section that gives
+               its before and its after, and writes each paragraph and list
+               item on one line
   open         open a pull request from a drafted description that passes
                `description`
 
@@ -60,6 +68,11 @@ Things that look like bugs and are not:
   fenced code block or an HTML comment is not a heading, as GitHub does not
   render one, so a description that quotes CLAUDE.md's example passes or
   fails on its own headings.
+- A line that opens a list item, a table row, a blockquote line, an HTML
+  block, a thematic break or an indented code block is not a continuation,
+  even straight under a paragraph. A line with a trailing hard break (two
+  spaces or a backslash) is still one: the description puts each paragraph
+  on one line.
 - Text before the first heading is allowed. The check holds the description
   to its first heading, which is what CLAUDE.md names.
 - `open` pushes before it opens, because `gh pr create` run without a
@@ -85,6 +98,9 @@ REMOTE = "origin"
 SCENARIO = "Scenario"
 SCENARIO_LEVEL = 2
 SCENARIO_HEADING = "%s %s" % ("#" * SCENARIO_LEVEL, SCENARIO)
+# The Scenario section's subsections, in the order they come.
+BEFORE, AFTER = "Before", "After"
+SUBSECTION_LEVEL = 3
 # `draft`: the name of the file a run of the open-pr skill writes its draft to.
 DRAFT_PREFIX, DRAFT_SUFFIX = "pr-", ".md"
 WHERE = 'CLAUDE.md, under "Workflow", says what a pull request description covers.'
@@ -96,6 +112,13 @@ CLOSING_HASHES_RE = re.compile(r"(?:^|[ \t]+)#+$")
 # A code fence's opening line: its character and its length.
 FENCE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 COMMENT_RE = re.compile(r"<!--.*?-->", re.S)
+# A line that opens a list item: a bullet, or a number and its delimiter.
+LIST_ITEM_RE = re.compile(r"^\s*(?:[-*+]|\d{1,9}[.)])(?:[ \t]|$)")
+# A line indented far enough to be code, when it opens an indented block.
+INDENTED_CODE_RE = re.compile(r"^(?: {4}|\t)")
+# A line that is not paragraph text: a table row, a blockquote, an HTML
+# block, or a thematic break or setext underline.
+NOT_TEXT_RE = re.compile(r"^\s*(?:\||>|<|(?:[-*_=][ \t]*){3,}$|=+[ \t]*$)")
 
 
 class Fatal(Exception):
@@ -189,9 +212,82 @@ def headings(text):
     return out
 
 
+def blank_comments(body):
+    """`body` with each HTML comment emptied, keeping its line breaks.
+
+    Every line keeps its number, so a fault names the line the author wrote.
+    """
+    return COMMENT_RE.sub(lambda m: "\n" * m.group(0).count("\n"), body)
+
+
+def split_line_problems(body):
+    """A fault for each line that continues a paragraph or a list item."""
+    text = blank_comments(body)
+    errors = []
+    previous = None
+    code = False
+    for i, line in lines_outside_fences(text):
+        # An indented code block opens after a line that is not text, and
+        # runs while its lines stay indented or blank.
+        indented = INDENTED_CODE_RE.match(line) is not None
+        if code:
+            code = indented or not line.strip()
+        else:
+            code = indented and previous != i - 1
+        is_text = (
+            bool(line.strip())
+            and not code
+            and not HEADING_RE.match(line)
+            and not NOT_TEXT_RE.match(line)
+        )
+        if is_text and previous == i - 1 and not LIST_ITEM_RE.match(line):
+            errors.append(
+                "line %d continues the paragraph or list item above it. GitHub renders the "
+                "newline as a line break, so join the line to the one above." % (i + 1)
+            )
+        previous = i if is_text else None
+    return errors
+
+
+def subsection_problems(text, found, start, end):
+    """What is wrong with the Before and After subsections of the Scenario.
+
+    `found` is every heading in `text`, and the section runs from line
+    `start` up to line `end`.
+    """
+    lines = text.splitlines()
+    inside = [h for h in found if h[0] > start and (end is None or h[0] < end)]
+    at = {}
+    for n, (i, level, title) in enumerate(inside):
+        if level != SUBSECTION_LEVEL or title not in (BEFORE, AFTER):
+            continue
+        stop = next((j for j, lvl, _ in inside[n + 1 :] if lvl <= SUBSECTION_LEVEL), end)
+        at[title] = (i, any(line.strip() for line in lines[i + 1 : stop]))
+    errors = []
+    before, after = ("%s %s" % ("#" * SUBSECTION_LEVEL, t) for t in (BEFORE, AFTER))
+    for title, says in (
+        (BEFORE, "what happened before the change"),
+        (AFTER, "what happens after it"),
+    ):
+        heading = "%s %s" % ("#" * SUBSECTION_LEVEL, title)
+        if title not in at:
+            errors.append(
+                "the `%s` section has no `%s` subsection. Give %s under `%s`."
+                % (SCENARIO_HEADING, heading, says, heading)
+            )
+        elif not at[title][1]:
+            errors.append("the `%s` subsection is empty. Give %s under it." % (heading, says))
+    if BEFORE in at and AFTER in at and at[AFTER][0] < at[BEFORE][0]:
+        errors.append(
+            "the `%s` section puts `%s` before `%s`. Move `%s` and its text first."
+            % (SCENARIO_HEADING, after, before, before)
+        )
+    return errors
+
+
 def scenario_problems(body):
     """The first heading, the Scenario section's text, and what is wrong."""
-    text = COMMENT_RE.sub("", body)
+    text = blank_comments(body)
     found = headings(text)
     if not found:
         return (
@@ -221,7 +317,13 @@ def scenario_problems(body):
                 "what happened before it and what happens after it." % SCENARIO_HEADING
             ],
         )
-    return first, section, []
+    return first, section, subsection_problems(text, found, start, end)
+
+
+def description_problems(body):
+    """The first heading, the Scenario section's text, and every fault."""
+    first, section, errors = scenario_problems(body)
+    return first, section, errors + split_line_problems(body)
 
 
 def cmd_draft(args):
@@ -256,7 +358,7 @@ def cmd_description(args):
         body = read_body_file(args.body_file)
     else:
         body = load_event(args.environ).get("body") or ""
-    first, section, errors = scenario_problems(body)
+    first, section, errors = description_problems(body)
 
     def human():
         if not errors:
@@ -287,7 +389,7 @@ def run(repo, cmd):
 
 def cmd_open(args):
     body = read_body_file(args.body_file)
-    first, section, errors = scenario_problems(body)
+    first, section, errors = description_problems(body)
     data = {"first_heading": first, "scenario": section, "branch": None, "url": None}
     if not errors:
         repo = args.repo
@@ -340,7 +442,7 @@ def build_parser():
     p = sub.add_parser(
         "description",
         parents=[common],
-        help="the description opens with a Scenario section that says something",
+        help="the Scenario has a Before and an After, and each paragraph is on one line",
     )
     p.add_argument(
         "--body-file",

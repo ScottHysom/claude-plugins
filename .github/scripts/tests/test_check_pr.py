@@ -19,7 +19,10 @@ _spec.loader.exec_module(cpr)
 
 SCENARIO = (
     "## Scenario\n\n"
-    "An agent opens a pull request. Before, CI passed any description. After, "
+    "An agent opens a pull request.\n\n"
+    "### Before\n\n"
+    "CI passed any description.\n\n"
+    "### After\n\n"
     "CI fails one that does not open with its scenario.\n\n"
     "## Change\n\n"
     "Adds `check-pr.py description`.\n\n"
@@ -123,7 +126,7 @@ class DescribeDescription:
     def it_counts_a_subheading_as_part_of_the_scenario(self, run):
         body = "## Scenario\n\n### Before\n\nCI passed it.\n\n## Change\n\nA check.\n"
         code, _, err = run(body)
-        assert code == cpr.OK, err
+        assert "section is empty" not in err
 
     @pytest.mark.spec("description-cmd-requires-scenario-first")
     def it_ends_the_scenario_at_a_top_level_heading(self, run):
@@ -135,6 +138,127 @@ class DescribeDescription:
     def it_reads_a_description_written_with_crlf(self, run):
         code, _, err = run(SCENARIO.replace("\n", "\r\n"))
         assert code == cpr.OK, err
+
+
+def scenario(before="CI passed it.\n\n", after="CI fails it.\n\n"):
+    """A description whose Scenario holds `before` and `after` as given."""
+    return "## Scenario\n\nAn agent opens a pull request.\n\n" + before + after + "## Change\n"
+
+
+class DescribeBeforeAndAfter:
+    @pytest.mark.spec("description-cmd-requires-before-after")
+    def it_passes_a_before_and_an_after_of_several_paragraphs(self, run):
+        body = scenario("### Before\n\nOne.\n\nTwo.\n\n", "### After\n\nThree.\n\n- four\n\n")
+        code, _, err = run(body)
+        assert code == cpr.OK, err
+
+    @pytest.mark.spec("description-cmd-requires-before-after")
+    @pytest.mark.parametrize(
+        ("before", "after", "missing"),
+        [
+            ("Before: CI passed it.\n\n", "### After\n\nCI fails it.\n\n", "### Before"),
+            ("### Before\n\nCI passed it.\n\n", "After: CI fails it.\n\n", "### After"),
+            ("#### Before\n\nCI passed it.\n\n", "### After\n\nCI fails it.\n\n", "### Before"),
+        ],
+    )
+    def it_fails_a_scenario_without_either_subsection(self, run, before, after, missing):
+        code, out, err = run(scenario(before, after))
+        assert code == cpr.PROBLEMS
+        assert out == ""
+        assert "has no `%s` subsection" % missing in err
+        assert 'CLAUDE.md, under "Workflow"' in err
+
+    @pytest.mark.spec("description-cmd-requires-before-after")
+    def it_fails_a_subsection_after_the_scenario_ends(self, run):
+        body = scenario("### Before\n\nCI passed it.\n\n", "") + "\n### After\n\nCI fails it.\n"
+        code, _, err = run(body)
+        assert code == cpr.PROBLEMS
+        assert "has no `### After` subsection" in err
+
+    @pytest.mark.spec("description-cmd-requires-before-after")
+    @pytest.mark.parametrize(
+        ("before", "after", "empty"),
+        [
+            ("### Before\n\n", "### After\n\nCI fails it.\n\n", "### Before"),
+            ("### Before\n\n<!-- todo -->\n\n", "### After\n\nCI fails it.\n\n", "### Before"),
+            ("### Before\n\nCI passed it.\n\n", "### After\n\n", "### After"),
+        ],
+    )
+    def it_fails_an_empty_subsection(self, run, before, after, empty):
+        code, _, err = run(scenario(before, after))
+        assert code == cpr.PROBLEMS
+        assert "the `%s` subsection is empty" % empty in err
+
+    @pytest.mark.spec("description-cmd-requires-before-after")
+    def it_fails_an_after_that_comes_first(self, run):
+        body = scenario("### After\n\nCI fails it.\n\n", "### Before\n\nCI passed it.\n\n")
+        code, _, err = run(body)
+        assert code == cpr.PROBLEMS
+        assert "puts `### After` before `### Before`" in err
+
+    @pytest.mark.spec("description-cmd-requires-before-after")
+    def it_reads_a_deeper_heading_as_part_of_the_subsection(self, run):
+        after = "### After\n\nCI fails it.\n\n"
+        code, _, err = run(scenario("### Before\n\n#### Detail\n\nCI passed it.\n\n", after))
+        assert code == cpr.OK, err
+
+
+class DescribeSplitLines:
+    @pytest.mark.spec("description-cmd-refuses-split-lines")
+    def it_names_each_line_that_continues_a_paragraph(self, run):
+        body = SCENARIO.replace("CI passed any description.", "CI passed\nany\ndescription.")
+        code, out, err = run(body)
+        assert code == cpr.PROBLEMS
+        assert out == ""
+        lines = body.splitlines()
+        named = [int(e.split()[1]) for e in err.splitlines() if e.startswith("line ")]
+        assert [lines[n - 1] for n in named] == ["any", "description."]
+        assert "join the line to the one above" in err
+
+    @pytest.mark.spec("description-cmd-refuses-split-lines")
+    def it_names_a_line_that_continues_a_list_item(self, run):
+        body = SCENARIO + "\n- adds a check\n  that fails it\n- and a test\n"
+        code, _, err = run(body)
+        assert code == cpr.PROBLEMS
+        assert "line %d continues" % len(body.splitlines()[:-1]) in err
+        assert err.count("continues the paragraph") == 1
+
+    @pytest.mark.spec("description-cmd-refuses-split-lines")
+    @pytest.mark.parametrize(
+        "block",
+        [
+            "- one\n- two\n  - nested\n1. three\n2) four\n",
+            "| a | b |\n|---|---|\n| 1 | 2 |\n",
+            "> quoted\n> still quoted\n",
+            "<details>\n<summary>more</summary>\n</details>\n",
+            "Text\n---\n",
+            "Text\n===\n",
+            "```sh\npython3 x.py\n  --json\n```\n",
+            "<!--\nnote\nmore note\n-->\n",
+            "Text\n\n    code line\n    more code\n\n    still code\n",
+            "Text\n<!-- spec: x -->\n",
+            "Text\n### Heading\nText\n",
+        ],
+    )
+    def it_passes_lines_that_github_does_not_join(self, run, block):
+        code, _, err = run(SCENARIO + "\n" + block)
+        assert code == cpr.OK, err
+
+    @pytest.mark.spec("description-cmd-refuses-split-lines")
+    def it_names_the_line_the_author_wrote_after_a_long_comment(self, run):
+        body = "<!--\none\ntwo\n-->\n" + SCENARIO + "\nfirst\nsecond\n"
+        code, _, err = run(body)
+        assert code == cpr.PROBLEMS
+        assert "line %d continues" % len(body.splitlines()) in err
+
+    @pytest.mark.spec("description-cmd-refuses-split-lines", "open-cmd-refuses-failing-draft")
+    def it_stops_open_from_pushing_a_split_draft(self, capsys, draft, shell):
+        fake = shell()
+        body = SCENARIO.replace("CI passed any description.", "CI passed\nany description.")
+        code = cpr.main(["open", "--title", "t", "--body-file", draft(body)])
+        assert code == cpr.PROBLEMS
+        assert fake.calls == []
+        assert "continues the paragraph" in capsys.readouterr().err
 
 
 class DescribeDescriptionOutput:
