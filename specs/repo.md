@@ -307,6 +307,13 @@ filed by hand, recorded in #359.
   to approve a plan, it shows the report file whole, as a private artifact (a
   page Claude publishes on claude.ai) or, where it cannot publish one, in its
   reply, rather than a summary of its own.
+- `plandraft-cmd-makes-own-file` (test): When `issues.py plan draft` runs, it
+  makes an empty file in the temporary directory, named so that no other run
+  gets the same file, and prints its literal path.
+- `fileplan-drafts-in-own-file` (step): When the file-plan skill drafts a
+  plan, it writes the plan to the file `plan draft` made for that run, and
+  every later step of the run reads that file, so a plan another session
+  drafts does not replace it.
 
 ## need owner-sees-held-issues: See from the issue list which issues are held
 
@@ -789,6 +796,13 @@ Source: #566, #567, and CLAUDE.md, under "Workflow".
 - `openpr-opens-through-script` (step): When the cold read finds nothing to
   revise, the open-pr skill opens the pull request with `open`, from the file
   it checked, rather than with `gh pr create`.
+- `draft-cmd-makes-own-file` (test): When `check-pr.py draft` runs, it makes
+  an empty file in the temporary directory, named so that no other run gets
+  the same file, and prints its literal path.
+- `openpr-drafts-in-own-file` (step): When the open-pr skill drafts a
+  description, it writes the draft to the file `draft` made for that run, and
+  every later step of the run reads that file, so the pull request does not
+  open with a description another session drafted.
 
 ## constraint marketplace-serves-repo-as-is: The marketplace is this repository as it stands
 

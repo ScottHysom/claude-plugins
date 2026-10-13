@@ -20,17 +20,28 @@ corrected description clears the failure. Given --body-file, it reads a
 drafted description from that file instead, so the open-pr skill can check a
 draft before anyone reads it.
 
+`draft` makes an empty file in the temporary directory for the open-pr skill
+to write its draft to, and prints its path. Every Claude Code session on a
+machine shares that directory, so a fixed name there lets one session's
+draft replace another's, and the pull request would open with the other
+session's description. The path it prints is literal, because a session that
+Claude Code isolates in a worktree refuses a command that expands
+${TMPDIR:-/tmp} as too complex to verify.
+
 `open` makes the same check on a drafted description, and refuses it the same
 way. When the draft passes, it pushes the current branch and opens a pull
 request against main, with the file as its description. The open-pr skill, at
 .claude/skills/open-pr/SKILL.md, opens every agent's pull request through it.
 
+    python3 .github/scripts/check-pr.py draft
     python3 .github/scripts/check-pr.py description
     python3 .github/scripts/check-pr.py description --body-file pr.md
     python3 .github/scripts/check-pr.py open --title "fix(repo): ..." --body-file pr.md
 
 Commands:
 
+  draft        make an empty file for a drafted description, named so that
+               no other run gets it, and print its path
   description  the description opens with a `## Scenario` section that says
                something
   open         open a pull request from a drafted description that passes
@@ -43,7 +54,8 @@ Exit codes: 0 clean, 1 ran and found problems, 2 could not run.
 
 Things that look like bugs and are not:
 
-- `description` takes no -C/--repo, since it reads nothing from a clone.
+- `description` and `draft` take no -C/--repo, since they read nothing from
+  a clone.
 - Only ATX headings, the ones that open with `#`, are read. A heading in a
   fenced code block or an HTML comment is not a heading, as GitHub does not
   render one, so a description that quotes CLAUDE.md's example passes or
@@ -60,6 +72,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 
 ENVELOPE_VERSION = 1
 
@@ -72,6 +85,8 @@ REMOTE = "origin"
 SCENARIO = "Scenario"
 SCENARIO_LEVEL = 2
 SCENARIO_HEADING = "%s %s" % ("#" * SCENARIO_LEVEL, SCENARIO)
+# `draft`: the name of the file a run of the open-pr skill writes its draft to.
+DRAFT_PREFIX, DRAFT_SUFFIX = "pr-", ".md"
 WHERE = 'CLAUDE.md, under "Workflow", says what a pull request description covers.'
 
 # An ATX heading: up to three spaces, one to six #, then a space or the end.
@@ -209,6 +224,22 @@ def scenario_problems(body):
     return first, section, []
 
 
+def cmd_draft(args):
+    try:
+        fd, path = tempfile.mkstemp(prefix=DRAFT_PREFIX, suffix=DRAFT_SUFFIX)
+    except OSError as exc:
+        raise Fatal(
+            "cannot make a file for the draft in %s: %s. Set TMPDIR to a directory you can "
+            "write and run this again." % (tempfile.gettempdir(), exc)
+        ) from exc
+    os.close(fd)
+
+    def human():
+        print(path)
+
+    return emit(args, "draft", {"path": path}, None, None, human)
+
+
 def read_body_file(path):
     try:
         with open(path, encoding="utf-8") as fh:
@@ -298,6 +329,13 @@ def build_parser():
         prog=PROG, description="Check a pull request's description, and open one."
     )
     sub = ap.add_subparsers(dest="command", required=True)
+
+    p = sub.add_parser(
+        "draft",
+        parents=[common],
+        help="make an empty file for a draft that no other run is given, and print its path",
+    )
+    p.set_defaults(func=cmd_draft)
 
     p = sub.add_parser(
         "description",

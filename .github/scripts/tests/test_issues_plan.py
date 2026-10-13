@@ -172,6 +172,41 @@ def file_plan(capsys, repo, plan, token, *more):
     return run_json(capsys, repo, "plan", "file", "--drafts", str(plan), "--token", token, *more)
 
 
+class DescribePlanDraft:
+    @pytest.mark.spec("plandraft-cmd-makes-own-file")
+    def it_makes_an_empty_file_in_the_temporary_directory(
+        self, capsys, repo, monkeypatch, tmp_path
+    ):
+        temp = tmp_path / "temp"
+        temp.mkdir()
+        monkeypatch.setattr(cli.tempfile, "tempdir", str(temp))
+        code, data = run_json(capsys, repo, "plan", "draft")
+        assert code == cli.OK
+        path = Path(data["data"]["path"])
+        assert path.parent == temp
+        assert path.name.startswith("plan-")
+        assert path.suffix == ".json"
+        assert path.read_bytes() == b""
+
+    @pytest.mark.spec("plandraft-cmd-makes-own-file")
+    def it_gives_each_run_a_file_of_its_own(self, capsys, repo, monkeypatch, tmp_path):
+        monkeypatch.setattr(cli.tempfile, "tempdir", str(tmp_path))
+        paths = {run(capsys, repo, "plan", "draft")[1].out.strip() for _ in range(5)}
+        assert len(paths) == 5
+        assert all(Path(p).is_file() for p in paths)
+
+    @pytest.mark.spec("script-exits-2-when-unrunnable", "script-names-remedy-on-stop")
+    def it_stops_when_the_temporary_directory_cannot_take_a_file(
+        self, capsys, repo, monkeypatch, tmp_path
+    ):
+        monkeypatch.setattr(cli.tempfile, "tempdir", str(tmp_path / "missing"))
+        code, out = run(capsys, repo, "plan", "draft")
+        assert code == cli.CANNOT_RUN
+        assert out.out == ""
+        assert out.err.startswith("issues.py: cannot make a file for the plan in ")
+        assert "Set TMPDIR" in out.err
+
+
 class DescribePlanReportDrafts:
     @pytest.mark.parametrize(
         ("draft", "says"),

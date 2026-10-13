@@ -26,6 +26,7 @@ Run from anywhere in a clone, with git and an authenticated gh on PATH:
     python3 .github/scripts/issues.py stale
     python3 .github/scripts/issues.py clear 12
     python3 .github/scripts/issues.py sweep --dry-run
+    python3 .github/scripts/issues.py plan draft
     python3 .github/scripts/issues.py plan report --drafts plan.json
     python3 .github/scripts/issues.py plan file --drafts plan.json --token 3f9a1c0e7b2d4a68
 
@@ -45,6 +46,8 @@ Commands:
                 worktree on it to a detached origin/main.
     sweep       delete every local branch but main whose work is on main,
                 and name each branch kept with the reason.
+    plan draft  make an empty file in the temporary directory for a plan's
+                drafts, named so that no other run gets it, and print its path.
     plan report check a plan's drafts, print the plan as it will be filed,
                 ending with an approval token, and write the same report to
                 .issues-plan/report.md.
@@ -61,7 +64,7 @@ disagree, a plan is
 refused or not filed as it says), 2 could not run.
 
 Plans. The file-plan skill, at .claude/skills/file-plan/SKILL.md, drives the
-two plan commands. `plan report --help` shows the shape of the plan file. The
+plan commands. `plan report --help` shows the shape of the plan file. The
 model writes a plan's issues as JSON, each under a key of its own, and names
 another issue of the plan in a body as {KEY}. `plan report` checks each draft
 against CLAUDE.md's rules for issues, and checks the plan's keys and links.
@@ -72,6 +75,13 @@ A refused plan's report holds the faults and no token. An issue that is open
 already joins a plan by its number in place of a draft. The report shows it
 as GitHub holds it, and `plan file` links it and adds it as a sub-issue
 without filing or editing it.
+
+`plan draft` gives each run of the skill a plan file of its own. Every Claude
+Code session on a machine shares one temporary directory, so a fixed name
+there lets one session's plan replace another's between the skill's steps.
+It prints a literal path, because a session that Claude Code isolates in a
+worktree refuses a command that expands ${TMPDIR:-/tmp} as too complex to
+verify.
 
 The token hashes the plan file's bytes, the repository gh resolves for the
 clone, and its labels. `plan file` refuses a token that does not match them
@@ -157,6 +167,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 
 ENVELOPE_VERSION = 2
 
@@ -195,6 +206,8 @@ ISSUE_KEYS = ("key", "title", "labels", "body", "blocked_by")
 FILED_KEYS = ("key", "number", "blocked_by")
 FILED_FIELDS = "number,title,state,labels,body,url"
 TRACKING_KEYS = ("title", "plan")
+# `plan draft`: the name of the file a run of the file-plan skill writes its plan to.
+DRAFT_PREFIX, DRAFT_SUFFIX = "plan-", ".json"
 KEY_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_-]*$")
 REFERENCE_RE = re.compile(r"\{([A-Za-z][A-Za-z0-9_-]*)\}")
 FENCE_RE = re.compile(r"^[ \t]*(`{3,}|~{3,})")
@@ -1338,6 +1351,22 @@ def checked(args, repo):
 # --------------------------------------------------------------------------
 
 
+def cmd_plan_draft(args, repo):
+    try:
+        fd, path = tempfile.mkstemp(prefix=DRAFT_PREFIX, suffix=DRAFT_SUFFIX)
+    except OSError as exc:
+        raise Fatal(
+            "cannot make a file for the plan in %s: %s. Set TMPDIR to a directory you can "
+            "write and run this again." % (tempfile.gettempdir(), exc)
+        ) from exc
+    os.close(fd)
+
+    def human():
+        print(path)
+
+    return emit(args, "plan draft", {"path": path}, human=human)
+
+
 def cmd_plan_report(args, repo):
     raw, where, labels, rows, tracking, ledger, faults, warnings = checked(args, repo)
     numbers = plan_numbers(ledger, rows)
@@ -1611,6 +1640,13 @@ def build_parser():
     plans = p.add_subparsers(dest="plan_command", required=True)
     drafts = argparse.ArgumentParser(add_help=False)
     drafts.add_argument("--drafts", required=True, metavar="FILE", help="the plan, as JSON")
+
+    p = plans.add_parser(
+        "draft",
+        parents=[common],
+        help="make an empty file for the plan that no other run is given, and print its path",
+    )
+    p.set_defaults(func=cmd_plan_draft)
 
     p = plans.add_parser(
         "report",

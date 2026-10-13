@@ -15,8 +15,7 @@ Run every command from the root of the clone, on the branch to open, with the
 work committed. Never open a pull request with `gh pr create` directly.
 
 ## Step 1: draft the description
-<!-- spec: openpr-drafts-description -->
-<!-- no-command: judgment. The model writes the title and the description, and step 2 checks them. -->
+<!-- spec: openpr-drafts-description, openpr-drafts-in-own-file, draft-cmd-makes-own-file -->
 
 Write the title as a Conventional Commit subject, as `git log` shows them.
 
@@ -28,10 +27,19 @@ attribution line the session gives for pull requests.
 Define on first use each term the plugin, a spec or a skill gives its own
 meaning, as `standing-define-terms` in `.claude/rules/prose-style.md` asks.
 
-Write the draft outside the project:
+Make a file for the draft:
 
 ```sh
-cat > "${TMPDIR:-/tmp}/pr.md" <<'END'
+python3 .github/scripts/check-pr.py draft --json
+```
+
+`data.path` is a file that no other run is given. Write the draft there, and
+name it in every later step by the path exactly as `draft` printed it, never
+through `$TMPDIR` or another variable. The commands below show it as
+`/var/folders/k2/T/pr-x8q1zv.md`.
+
+```sh
+cat > /var/folders/k2/T/pr-x8q1zv.md <<'END'
 ## Scenario
 
 <who, by role, does what; what happened before the change; what happens after it>
@@ -46,7 +54,7 @@ END
 <!-- spec: openpr-checks-draft, description-cmd-reads-body-file -->
 
 ```sh
-python3 .github/scripts/check-pr.py description --body-file "${TMPDIR:-/tmp}/pr.md" --json
+python3 .github/scripts/check-pr.py description --body-file /var/folders/k2/T/pr-x8q1zv.md --json
 ```
 
 When it exits 1, its `errors` name each fault. Fix them in the draft and run
@@ -109,7 +117,7 @@ scenario matches the change.
 <!-- spec: openpr-opens-through-script, open-cmd-refuses-failing-draft, open-cmd-opens-from-file -->
 
 ```sh
-python3 .github/scripts/check-pr.py open --title "<the title>" --body-file "${TMPDIR:-/tmp}/pr.md" --json
+python3 .github/scripts/check-pr.py open --title "<the title>" --body-file /var/folders/k2/T/pr-x8q1zv.md --json
 ```
 
 It checks the file again, pushes the branch and opens the pull request
