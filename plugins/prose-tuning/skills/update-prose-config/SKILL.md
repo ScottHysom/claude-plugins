@@ -50,7 +50,7 @@ project's rules instead, pass `--from <path to its .claude/rules/prose-style.md>
 with no rules at all, pass `--empty`.
 
 ## Step 2: gather the evidence
-<!-- spec: updateproseconfig-asks-about-signals, updateproseconfig-reads-named-checkout, updateproseconfig-asks-which-checkout, updateproseconfig-takes-handed-notes, updateproseconfig-reads-notes-on-edits, updateproseconfig-runs-on-notes-alone -->
+<!-- spec: updateproseconfig-asks-about-signals, updateproseconfig-asks-about-breaching-edits, updateproseconfig-reads-named-checkout, updateproseconfig-asks-which-checkout, updateproseconfig-takes-handed-notes, updateproseconfig-reads-notes-on-edits, updateproseconfig-runs-on-notes-alone -->
 <!-- seam: judgment: the author picks which checkout to learn from, when two or more hold edits -->
 
 ```sh
@@ -99,6 +99,12 @@ prose, not a factual correction. The exception is the `signal` field. A hunk
 marked `numeric-only`, `link-only` or `whitespace-only` may be a fact that got
 fixed in passing. Those go into the interview, never straight into a rule.
 
+**`breaches`** lists each edit whose new text an existing rule's pattern
+matches, with the markup resolved. Its `matches` name the rule and the
+matched text. Such an edit is an exception the rule should allow, a sign the
+rule is wrong, or a slip in the edit. Only the author can say which, so it
+goes into the interview, and no rule is learned from it until they answer.
+
 **A note handed to the run** comes from the author, or from another skill
 through the Skill tool. Each one gives the note, and the passage it sat above:
 its file, its lines, its text, and which of those lines changed since the last
@@ -137,7 +143,7 @@ with no commentary is a rule about one sentence, and it will fire on every
 document in the project forever.
 
 ## Step 4: the interview, once
-<!-- spec: updateproseconfig-asks-in-one-batch, updateproseconfig-asks-on-page, updateproseconfig-asks-about-vague-notes -->
+<!-- spec: updateproseconfig-asks-in-one-batch, updateproseconfig-asks-on-page, updateproseconfig-asks-about-vague-notes, updateproseconfig-asks-about-breaching-edits -->
 
 **Budget: one round of questions, plus one approval at the end.** A second
 round means the first asked the wrong things.
@@ -147,6 +153,8 @@ What always belongs in the round:
 - every hunk with a `signal`, asked as one question, not one question each
 - every single-occurrence candidate with no commentary
 - every candidate that touches a subject an existing rule already covers
+- every edit in `breaches`, one question each, with these options: an
+  exception the rule should allow, a sign the rule is wrong, and a slip
 - every note on an unchanged passage that does not state a rule, such as one
   that says the passage reads badly without saying what makes it so
 
@@ -205,6 +213,11 @@ by reading. The page the author approves shows each pattern beside its rule,
 since a word list is a guess about scope that the author settles. When a rule already
 in the file gains a new form in this run's evidence, extend its pattern rather
 than adding a rule.
+
+**An edit in `breaches` is written as the author answered.** An exception or
+a wrong rule rewrites the rule its `matches` name: narrow or correct its
+body, and change its patterns so they no longer match the edit's new text. A
+slip keeps the edit out of every rule, new or rewritten.
 
 **When a new rule contradicts an existing one, rewrite the body of the existing
 id.** Do not add a second rule or mark the old one retired. The id is
@@ -319,7 +332,7 @@ as one entry in `edits`:
 - **`reproduced: false`** means that none of the patterns did. Check the edit
   by reading it against the rules listed in `unpatterned`, which a command
   cannot check. An edit the interview settled as a fact rather than a style
-  choice does not need a rule.
+  choice, or as a slip, does not need a rule.
 
 An edit that is not reproduced by any pattern or accounted for by any
 unpatterned rule shows a rule that is wrong or incomplete. Say which, and fix

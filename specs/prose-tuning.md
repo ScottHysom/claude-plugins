@@ -62,9 +62,19 @@ rule are the owner's figure, in the ruling on #132.
   only HTML comments, `evidence` leaves it out.
 - `evidence-gives-rules` (test): When `evidence` runs, it reports every rule
   in `prose-style.md` with its id, body and patterns.
+- `evidence-cmd-marks-breaching-edits` (test): When an edit since the last
+  commit, read with the author's markup resolved, puts text where a rule's
+  pattern matches, `evidence` reports the edit under `breaches` with each
+  match's rule and text. A rule file that does not lint leaves every edit
+  unchecked, with a warning.
 - `updateproseconfig-asks-about-signals` (step): When a hunk carries a signal,
   update-prose-config takes it to the interview and never straight into a
   rule.
+- `updateproseconfig-asks-about-breaching-edits` (step): When `evidence`
+  reports an edit under `breaches`, update-prose-config asks the author in the
+  interview's one round whether the edit is an exception the rule should
+  allow, a sign the rule is wrong, or a slip. An exception or a wrong rule
+  rewrites the existing rule, and a slip keeps the edit out of every rule.
 - `updateproseconfig-makes-rules-at-threshold` (step): When a candidate meets
   any of these conditions, update-prose-config makes it a rule, and anything
   else a question:
