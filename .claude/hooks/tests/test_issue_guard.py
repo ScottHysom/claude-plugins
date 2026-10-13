@@ -46,7 +46,6 @@ BLOCKED = [
     "gh label edit repo --name approved",
     "gh label edit repo -napproved",
     "gh label edit repo -n=approved",
-    "gh label create approved --color 0e8a16",
     # shlex cannot split an unclosed quote, so the plain text match decides.
     "gh issue edit 12 --add-label approved 'unclosed",
 ]
@@ -61,6 +60,8 @@ ALLOWED = [
     "gh pr create --title x --body 'Closes #12, which is approved'",
     "gh label list",
     "gh label edit approved --description 'new words'",
+    # The label exists, so GitHub refuses to create it again.
+    "gh label create approved --color 0e8a16",
     "gh api repos/o/r/issues/12 --jq .labels",
     "echo approved label",
     "git commit -m 'docs: explain the approved label'",
