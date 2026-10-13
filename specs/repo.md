@@ -929,6 +929,10 @@ line its paragraphs were broken at.
 - `description-cmd-refuses-split-lines` (test): When a description continues
   a paragraph or a list item onto a second line, outside a code fence or an
   HTML comment, `check-pr.py description` fails it and names each line.
+- `planreport-cmd-refuses-split-lines` (test): When a plan's draft (an
+  issue's body or the tracking issue's plan) continues a paragraph or a list
+  item onto a second line, outside a code fence or an HTML comment,
+  `issues.py plan report` refuses the draft and names each line.
 
 ## constraint artifact-sends-comments: A comment sent to Claude reaches the session
 

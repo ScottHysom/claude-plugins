@@ -67,7 +67,9 @@ back them. What agents do:
   problem per issue. Search first (`gh issue list --search`), and comment on a
   match rather than opening a second.
 - **Title the problem, not the fix.** The body starts with `**Claude:**`, as
-  review replies do, then these headings:
+  review replies do. Each paragraph and each list item in it sits on one
+  line, because GitHub renders a newline inside one as a line break. The body
+  gives these headings:
   - **What's wrong**: what happens, and a command that shows it.
   - **Evidence**: file and line, commit, pull request, output.
   - **Done when**: what a fix has to make true.
