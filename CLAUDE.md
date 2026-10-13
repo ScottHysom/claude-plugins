@@ -37,12 +37,22 @@ back them. What agents do:
     or the id a bug breaks.
 - **Label it** with one of `bug`, `enhancement` or `docs`, and one area:
   `plugin:<name>` or `repo`. Never `approved`.
-- **File a tracking issue only when the owner asks for one.** It groups one
-  plan's issues as sub-issues and carries the `tracking` label alone. Its body
-  gives the plan and the order to work the sub-issues in, instead of the four
-  headings. File a plan's issues and its tracking issue with the file-plan
-  skill, never one `gh` call at a time. Never claim or work a tracking issue.
-  README.md, under "Tracking issues", has the convention.
+- **File a plan as issues.** When the owner asks for a plan, or for a fix
+  that splits into more than one problem, file the work as issues once the
+  owner approves the plan, rather than doing it. A fix of one problem is done
+  directly.
+  - A plan of one problem is one issue, filed under the rules above.
+  - A plan of several issues is filed with the file-plan skill, never one
+    `gh` call at a time. The skill adds a tracking issue, which groups the
+    plan's issues as sub-issues and carries the `tracking` label alone.
+  - A tracking issue's body gives the plan instead of the four headings. The
+    plan says:
+    - what problem it fixes.
+    - how its issues together fix it.
+    - why they come in their order.
+
+  Never claim or work a tracking issue. Issues filed in passing do not get
+  a tracking issue. README.md, under "Tracking issues", has the convention.
 - **Work only on issues labeled `approved`.** The owner may also ask for work
   directly, without an issue; that does not need a label.
 - **Claim an issue before any work on it**, whether the owner named it or you
