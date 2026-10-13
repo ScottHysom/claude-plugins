@@ -354,10 +354,10 @@ ALLOWED = (
     ),
     Allowed(
         "draft heredoc",
-        re.compile(r"^cat > /[\w.-]+(?:/[\w.-]+)* <<-? \w+$"),
+        re.compile(r"^cat >>? /[\w.-]+(?:/[\w.-]+)* <<-? \w+$"),
         ALONE,
         "writes the model's draft to the literal path the script's draft command printed, "
-        "since a worktree session refuses ${TMPDIR:-/tmp}; the body is data, and unread",
+        "or adds to its end, since a worktree session refuses ${TMPDIR:-/tmp}; the body is data, and unread",
     ),
     Allowed(
         "change directory",

@@ -101,13 +101,13 @@ python3 "$PROSE" scope --all
 which prints every markdown file with the pattern that included or excluded it.
 
 ## Step 3: read each part and write its findings
-<!-- spec: applyprose-reads-in-parts, applyprose-reads-segments-only, applyprose-judges-each-match, applyprose-splits-findings-by-rule, applyprose-keeps-facts, applyprose-checks-own-rewrites -->
+<!-- spec: applyprose-reads-in-parts, applyprose-reads-segments-only, applyprose-judges-each-match, applyprose-splits-findings-by-rule, applyprose-keeps-facts, applyprose-checks-own-rewrites, applyprose-findings-in-own-file, batch-cmd-makes-own-file -->
 
-Start the findings file empty, outside the project, so the run does not leave
-a stray file in it:
+Make the findings file as `$ROOT/reference/batch.md` says, and start it
+empty:
 
 ```sh
-cat > "${TMPDIR:-/tmp}/prose-findings.json" <<'END'
+cat > /var/folders/k2/T/prose-x8q1zv.json <<'END'
 []
 END
 ```
@@ -132,7 +132,7 @@ findings and its read record to the end of the findings file, even when the
 part has no finding:
 
 ```sh
-cat >> "${TMPDIR:-/tmp}/prose-findings.json" <<'END'
+cat >> /var/folders/k2/T/prose-x8q1zv.json <<'END'
 [{"file":"notes.md","line":42,"rule":"sentences-own-subject",
   "text":"<the current text, copied from the segment>",
   "replacement":"<the rewrite>"},
@@ -250,7 +250,7 @@ To revise a finding later, edit it in the findings file where it stands.
 <!-- spec: applyprose-shows-report-whole, applyprose-revises-on-comment, applyprose-puts-rule-conflicts-to-author -->
 
 ```sh
-python3 "$PROSE" report --findings "${TMPDIR:-/tmp}/prose-findings.json" --json
+python3 "$PROSE" report --findings /var/folders/k2/T/prose-x8q1zv.json --json
 ```
 
 `report` reads each finding's current text from the file as it is now, and
@@ -331,7 +331,7 @@ Run it once, in the checkout `report` ran in. The report the author approved
 is the preview.
 
 ```sh
-python3 "$PROSE" apply --findings "${TMPDIR:-/tmp}/prose-findings.json" \
+python3 "$PROSE" apply --findings /var/folders/k2/T/prose-x8q1zv.json \
   --token 3f9a1c0e7b2d4a68 --only sentences-own-subject --file landscape.md
 ```
 

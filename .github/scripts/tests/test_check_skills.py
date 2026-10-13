@@ -979,6 +979,13 @@ class DescribeFences:
         assert code == cs.OK, err
 
     @pytest.mark.spec("fences-cmd-allows-setup-commands")
+    def it_allows_a_draft_heredoc_that_adds_to_a_literal_path(self, make_repo, run):
+        fence = sh("cat >> /var/folders/k2/T/foo-x8q1zv.json <<'END'", "[]", "END")
+        root = make_repo(uses(fence))
+        code, _, err = run("fences", "-C", str(root))
+        assert code == cs.OK, err
+
+    @pytest.mark.spec("fences-cmd-allows-setup-commands")
     def it_rejects_a_draft_heredoc_sharing_its_line(self, make_repo, run):
         line = "python3 \"$FOO\" lint && cat > /var/folders/k2/T/foo-x8q1zv.md <<'END'"
         root = make_repo(uses(sh(line, "x", "END")))
