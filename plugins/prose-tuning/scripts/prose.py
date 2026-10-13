@@ -92,9 +92,10 @@ Some things in here look like bugs and are not:
    file reads and git show.
 
 3. report prints an approval token, and apply refuses to run without the same
-   one. The token is a hash of the findings, every document a finding names
-   and prose-style.md, so a batch or a file that changed after the author
-   approved the report is refused rather than written. Nothing records the
+   one. The token is a hash of the checkout's root, the findings, every
+   document a finding names and prose-style.md, so a batch or a file that
+   changed after the author approved the report is refused rather than
+   written, and so is a run in a copy of the checkout. Nothing records the
    token on disk: apply recomputes it, because a state file on the Cowork
    bridge could never be deleted. approval_token has what it covers.
    config write --dry-run prints a token in the same way, and config write
@@ -150,6 +151,7 @@ TOKEN_LABEL = "approval token: "
 TOKEN_STALE = (
     "the findings, a document they name or %s changed since report ran, "
     "apply was not given the files report was, "
+    "apply ran in another checkout than report did, "
     "or the token is not the one it printed; run report again and show it to the author"
 )
 RULES_TOKEN_STALE = (
@@ -4466,8 +4468,10 @@ class TokenHash:
 def approval_token(repo, config, raw, findings, paths, rules=None):
     """The token report prints and apply requires, for this batch as it is now.
 
-    A sha256 over the findings' bytes, the path and bytes of every document any
-    finding names, and prose-style.md's bytes. report takes no filter, so the
+    A sha256 over the checkout's root, the findings' bytes, the path and bytes
+    of every document any finding names, and prose-style.md's bytes. The root
+    makes a copy of the checkout refuse the token, so apply cannot run in a
+    copy before the author has approved the report (#545). report takes no filter, so the
     token covers every finding it printed. apply's --only and --file are left
     out: they select within the approved set, so they must not change what
     was approved. The files report was given are what it checked for
@@ -4476,6 +4480,7 @@ def approval_token(repo, config, raw, findings, paths, rules=None):
     --rule gave report.
     """
     digest = TokenHash()
+    digest.part(repo.root.encode("utf-8"))
     digest.part(raw)
     names = set()
     if isinstance(findings, list):
