@@ -235,6 +235,22 @@ class DescribePatternMatches:
         got = matches(tmp_path, "Run ``a ` in order to`` then in order to ship.\n")
         assert [m["col_start"] for m in got] == [29]
 
+    @pytest.mark.spec("patterns-cmd-prints-each-prose-match")
+    def it_finds_a_match_whose_ends_lie_in_prose_either_side_of_a_code_span(self, tmp_path):
+        style = rule_with(r"**Pattern.** `order to [^.]*\b(?:it|ship)\b`")
+        got = matches(tmp_path, "In order to run `make` we ship.\n", style)
+        assert [m["text"] for m in got] == ["order to run `make` we ship"]
+
+    @pytest.mark.spec("patterns-cmd-prints-each-prose-match")
+    @pytest.mark.parametrize(
+        "doc",
+        ["Run `in order` to ship.\n", "Run in order `to ship`.\n"],
+        ids=["starts-inside", "ends-inside"],
+    )
+    def it_leaves_out_a_match_with_one_end_inside_a_code_span(self, tmp_path, doc):
+        style = rule_with(r"**Pattern.** `order\W*to`")
+        assert matches(tmp_path, doc, style) == []
+
 
 class DescribePatternsCommand:
     @pytest.mark.spec("patterns-cmd-prints-each-prose-match")
@@ -263,6 +279,25 @@ class DescribePatternsCommand:
         code, _ = prose_repo.apply([finding])
         assert code == prose.OK
         assert prose_repo.read("doc.md") == "It ran to ship.\n"
+
+    @pytest.mark.spec("patterns-cmd-prints-each-prose-match")
+    def it_hands_out_a_text_across_a_code_span_that_apply_accepts(self, prose_repo):
+        style = rule_with(r"**Pattern.** `order to [^.]*\b(?:it|ship)\b`")
+        (prose_repo.root / prose.CONFIG_PATH).write_text(style)
+        (prose_repo.root / "doc.md").write_text("In order to run `make` we ship.\n")
+        code, envelope = prose_repo.run("patterns")
+        assert code == prose.OK
+        [m] = envelope["data"]["matches"]
+        finding = prose_repo.finding(
+            m["line"],
+            file=m["file"],
+            rule=m["rule"],
+            text=m["text"],
+            replacement="order to run `make`, we deliver",
+        )
+        code, _ = prose_repo.apply([finding])
+        assert code == prose.OK
+        assert prose_repo.read("doc.md") == "In order to run `make`, we deliver.\n"
 
     @pytest.mark.spec("patterns-cmd-refuses-unlinted-rules")
     def it_refuses_to_run_on_a_rule_file_lint_refuses(self, prose_repo):

@@ -124,8 +124,9 @@ never searches these parts of a document:
 - HTML comments
 - a table's delimiter row
 
-A match that touches a code span is dropped too, since a code span quotes
-code. The lines of one paragraph or list item are searched as one passage,
+A match that starts or ends inside a code span is dropped too, since a code
+span quotes code. A match whose two ends lie in prose is kept, with any code
+span between them in its text. The lines of one paragraph or list item are searched as one passage,
 with each line break read as a single space, so `in order to` finds a
 sentence that wraps after `order`.
 
