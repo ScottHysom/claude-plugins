@@ -460,6 +460,8 @@ and for update-prose-config. A tracking issue:
 
 - carries `tracking` and no kind or area label, since its sub-issues can span
   several plugins.
+- states the plan: what problem it fixes, how its sub-issues together fix
+  it, and why they come in their order.
 - lists its sub-issues in the order to work them, and holds what waits on what
   as "blocked by" links between them.
 - carries `approved` once the owner approves the plan. Each sub-issue still
@@ -468,7 +470,8 @@ and for update-prose-config. A tracking issue:
 
 The owner closes it when its last sub-issue closes.
 
-An agent files a plan through the file-plan skill, at
+When the owner asks for a plan that splits into several issues, an agent
+files it through the file-plan skill, at
 `.claude/skills/file-plan/SKILL.md`, which runs two commands of
 `.github/scripts/issues.py`:
 
