@@ -234,8 +234,21 @@ update-prose-config description.
 - `report-cmd-refuses-undefined-rules` (test): When a finding names a rule
   `prose-style.md` does not define, `report` and `apply` refuse it.
 - `report-cmd-names-pattern-rules` (test): When `report` runs, it names
-  the rules it checked by pattern, and says every other rule was checked by
-  reading.
+  the rules it checked by pattern, and lists, for each rule that does not
+  carry a pattern, the files read against it.
+- `report-cmd-fails-unread-rules` (test): When a part that `pass` lists holds
+  a rule that does not carry a pattern, and the findings do not carry the
+  part's read record as `pass --part` prints it now, `report` names the part,
+  says to run `pass --part` on it, and exits 1. It refuses a read record
+  that holds anything but its `read` and `digest` strings.
+- `report-cmd-reads-joined-findings` (test): When the findings file holds
+  one JSON array or object after another, `report` and `apply` read every
+  entry, and take an entry that carries `read` as a read record rather than
+  a finding.
+- `applyprose-reads-in-parts` (step): When apply-prose checks the
+  documents, it runs `pass --part` on each part `pass` lists, judges it, and
+  adds the read record the part ends with to the findings, including when
+  the part has no finding.
 - `applyprose-splits-findings-by-rule` (step): When a passage breaks two
   rules, apply-prose writes two findings, one for each rule, including where
   the two would rewrite the same text.
@@ -355,9 +368,15 @@ description.
   rule rewrites text that a dismissal of another rule covers, `report` shows
   each beside the other, and says that rejecting the finding leaves the
   dismissed match in the file.
-- `pass-cmd-gives-rules-segments-matches` (test): When `pass` runs, it prints the rules,
-  the segments of every file it reads and every pattern match in them, in one
-  output.
+- `pass-cmd-lists-parts` (test): When `pass` runs without `--part`, it
+  lists the parts of every file it reads, one line each. A part is one
+  section's rules over a run of one file's lines, and the same files and
+  rules always give the same parts.
+- `pass-cmd-gives-rules-segments-matches` (test): When `pass` is given
+  `--part` with an id from its list, it prints that part's rules, the
+  segments of its lines, the matches of its rules' patterns there and its
+  read record. Given an id that the files do not have, it says how to list
+  the parts and exits 2.
 - `applyprose-judges-each-match` (step): When `pass` prints a match,
   apply-prose makes it a finding or a dismissal, and never searches the prose
   with a command of its own.
@@ -441,8 +460,8 @@ ruling on #133.
   blocks either side and none at either end of the file, and keeps a line that
   also takes a rewrite.
 - `applyprose-reads-segments-only` (step): When apply-prose judges whether
-  prose conforms, it reads only the segments `pass` prints, never the raw
-  file.
+  prose conforms, it reads only the segments `pass --part` prints, never the
+  raw file.
 - `script-keeps-every-byte` (test): When the script reads a file into lines and
   writes it back, every byte (including line endings) comes back as it was.
 
@@ -776,8 +795,8 @@ up are rewritten without a pass over every rule.
 Source: #543, which records the searches the agent made by hand in the review
 of #527.
 
-- `pass-cmd-reads-named-rules` (test): When `pass` is given `--rule`, it
-  prints only the rules named, and only the matches of their patterns.
+- `pass-cmd-reads-named-rules` (test): When `pass` is given `--rule`, its
+  parts hold only the rules named, and only the matches of their patterns.
 - `report-cmd-checks-named-rules` (test): When `report` is given `--rule`, it
   refuses a finding of any other rule, and fails only on uncovered matches of
   the named rules' patterns. It still runs every rule's pattern over each
@@ -804,6 +823,20 @@ under "Packaging". The owner confirmed the constraint in the ruling on #134.
   container, it copies the script and the shipped rules byte for byte into
   `.prose-tuning/`, and gives the prefix `PROSE=.prose-tuning/prose.py`,
   which reaches the copy from the project root.
+
+## constraint bash-cuts-long-results: A Bash result past 30,000 characters is cut short
+
+Claude Code cuts a Bash tool result short at 30,000 characters by default. A
+command whose output the model must read whole has to fit under that, or the
+model saves the output to a file and slices it by hand.
+
+Source: the owner's addition to #532, which records `pass` printing 596,546
+bytes over every file in scope at 0ea3bcb (#525).
+
+- `pass-cmd-fits-each-part` (test): When a file's segments would make a part
+  longer than 30,000 characters, `pass` cuts the file into runs of whole
+  lines, so `pass --part` prints each part, read record included, in fewer
+  characters than that.
 
 ## constraint cowork-loads-rules-partly: Cowork does not always load .claude/rules/
 

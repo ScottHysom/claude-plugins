@@ -347,9 +347,10 @@ ALLOWED = (
     ),
     Allowed(
         "findings heredoc",
-        re.compile(r"^cat > \$\{TMPDIR:-/tmp\}/[\w.-]+ <<-? \w+$"),
+        re.compile(r"^cat >>? \$\{TMPDIR:-/tmp\}/[\w.-]+ <<-? \w+$"),
         ALONE,
-        "writes the model's findings to a file the script reads; the body is data, and unread",
+        "writes the model's findings to a file the script reads, or adds to its end; "
+        "the body is data, and unread",
     ),
     Allowed(
         "change directory",

@@ -946,6 +946,13 @@ class DescribeFences:
         assert code == cs.OK, err
 
     @pytest.mark.spec("fences-cmd-allows-setup-commands")
+    def it_allows_a_heredoc_that_adds_to_the_findings_file(self, make_repo, run):
+        fence = sh("cat >> \"${TMPDIR:-/tmp}/foo-findings.json\" <<'END'", "[]", "END")
+        root = make_repo(uses(fence))
+        code, _, err = run("fences", "-C", str(root))
+        assert code == cs.OK, err
+
+    @pytest.mark.spec("fences-cmd-allows-setup-commands")
     def it_does_not_scan_a_heredoc_body(self, make_repo, run):
         fence = sh("python3 \"$FOO\" lint --file - <<'END'", "grep -v x | awk '{print}'", "END")
         root = make_repo(uses(fence))

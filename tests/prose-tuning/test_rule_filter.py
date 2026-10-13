@@ -72,29 +72,30 @@ def dash_finding():
 
 class DescribeThePassCommandGivenRules:
     @pytest.mark.spec("pass-cmd-reads-named-rules")
-    def it_prints_only_the_named_rules_and_their_matches(self, rule_repo):
+    def it_lists_parts_of_only_the_named_rules(self, rule_repo):
         code, envelope = rule_repo.run("pass", "doc.md", "--rule", PLAIN)
         assert code == prose.OK
-        data = envelope["data"]
-        assert [r["id"] for r in data["rules"]] == [PLAIN]
-        assert [m["rule"] for m in data["matches"]] == [PLAIN]
-        assert data["patterned"] == [PLAIN]
+        assert [(p["id"], p["rules"]) for p in envelope["data"]["parts"]] == [
+            ("register@doc.md:1-5", [PLAIN])
+        ]
 
     @pytest.mark.spec("pass-cmd-reads-named-rules")
-    def it_prints_only_the_named_rules_under_the_rules_heading(self, rule_repo, capsys):
-        code = prose.main(["pass", "doc.md", "--rule", PLAIN, "-C", str(rule_repo.root)])
+    def it_prints_only_the_named_rules_and_their_matches_in_a_part(self, rule_repo, capsys):
+        argv = ["pass", "--part", "standing@doc.md:1-5", "--rule", DASH]
+        code = prose.main([*argv, "-C", str(rule_repo.root)])
         rules = capsys.readouterr().out.split("== segments ==\n")[0]
         assert code == prose.OK
-        assert "### %s:" % PLAIN in rules
+        assert "### %s:" % DASH in rules
         assert "### sentences-own-subject:" not in rules
-        assert "### %s:" % DASH not in rules
+        assert "### %s:" % PLAIN not in rules
+        _, envelope = rule_repo.run(*argv)
+        assert [m["rule"] for m in envelope["data"]["matches"]] == [DASH]
 
     @pytest.mark.spec("pass-cmd-reads-named-rules")
-    def it_prints_every_rule_named_in_the_file_order(self, rule_repo):
+    def it_lists_the_parts_of_every_rule_named_in_the_file_order(self, rule_repo):
         code, envelope = rule_repo.run("pass", "doc.md", "--rule", DASH, "--rule", PLAIN)
         assert code == prose.OK
-        assert [m["rule"] for m in envelope["data"]["matches"]] == [PLAIN, DASH]
-        assert [r["id"] for r in envelope["data"]["rules"]] == [PLAIN, DASH]
+        assert [p["rules"] for p in envelope["data"]["parts"]] == [[PLAIN], [DASH]]
 
 
 class DescribeTheReportCommandGivenRules:
@@ -105,9 +106,7 @@ class DescribeTheReportCommandGivenRules:
         assert envelope["data"]["checked_by_pattern"] == [PLAIN]
         assert envelope["data"]["rules"] == [PLAIN]
         page = (rule_repo.root / prose.REPORT_FILE).read_text()
-        assert "Every other rule given to --rule was checked by reading. Given: `%s`." % PLAIN in (
-            page
-        )
+        assert "Given to --rule: `%s`." % PLAIN in page
 
     @pytest.mark.spec("report-cmd-checks-named-rules")
     def it_fails_on_an_uncovered_match_of_a_named_rule(self, rule_repo):

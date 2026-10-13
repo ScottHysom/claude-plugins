@@ -17,8 +17,8 @@ Commands:
     scope       which files the prose rules govern
     segments    the prose-eligible spans of each file, one per line
     patterns    where each rule's pattern matches those spans
-    pass        the rules, segments and patterns together, which apply-prose
-                reads to start a pass
+    pass        the parts of an apply-prose pass, and with --part one part's
+                rules, segments and pattern matches, and its read record
     evidence    explicit tags + inferred edits, and the edits whose new text
                 a rule's pattern matches
     reproduce   whether the rules' patterns reproduce the edits since HEAD
@@ -140,6 +140,20 @@ ENVELOPE_VERSION = 5
 
 # Opens each part of pass's output: the rules, the segments, the matches.
 PASS_HEADING = "== %s =="
+# The most characters a part that `pass --part` prints may hold. Claude Code
+# cuts a Bash result short at 30,000 by default, and a part cut short sends
+# the model back to slicing it by hand. The margin keeps room for the read
+# record and the line breaks between the pieces.
+PART_LIMIT = 30000
+PART_MARGIN = 500
+# A part's id: its rules' section, then the file and the lines its segments span.
+PART_ID = "%s@%s:%d-%d"
+PART_LINES = re.compile(r"^\d+-\d+$")
+# The keys of a read record in the findings, and what its digest hashes first,
+# so it can never equal a token.
+READ_KEY = "read"
+DIGEST_KEY = "digest"
+READ_DOMAIN = b"read"
 
 OK, PROBLEMS, CANNOT_RUN = 0, 1, 2
 
@@ -2470,12 +2484,50 @@ def read_json_bytes(source, what):
 
 def read_json_file_bytes(path, what):
     """(raw bytes, parsed JSON) from a file, where - is a file of that name."""
+    return parse_json_bytes(read_file_bytes(path, what), what)
+
+
+def read_file_bytes(path, what):
+    """A file's bytes, or Fatal naming what could not be read."""
     try:
         with open(path, "rb") as fh:
-            raw = fh.read()
+            return fh.read()
     except OSError as exc:
         raise Fatal("cannot read %s: %s" % (what, exc)) from exc
-    return parse_json_bytes(raw, what)
+
+
+# What may sit between two JSON values in a findings file.
+JSON_GAP = re.compile(r"\s*")
+
+
+def read_findings(path):
+    """(raw bytes, every entry, the findings, the read records) from a findings file.
+
+    The file holds one JSON array or object after another, so the model can
+    add each part's findings and its read record to the end of the file
+    rather than rewrite it. An array's items are entries of their own. An
+    entry that carries READ_KEY is a read record, and every other entry is a
+    finding, numbered among the findings alone.
+    """
+    what = "findings"
+    raw = read_file_bytes(path, what)
+    entries = []
+    try:
+        s = raw.decode("utf-8")
+        decoder, i, values = json.JSONDecoder(), JSON_GAP.match(s).end(), 0
+        while i < len(s):
+            value, i = decoder.raw_decode(s, i)
+            i = JSON_GAP.match(s, i).end()
+            values += 1
+            entries.extend(value if isinstance(value, list) else [value])
+        if not values:
+            # Raises the error an empty file gives.
+            json.loads(s)
+    except ValueError as exc:
+        raise Fatal("%s is not valid JSON: %s" % (what, exc)) from exc
+    reads = [e for e in entries if isinstance(e, dict) and READ_KEY in e]
+    findings = [e for e in entries if not (isinstance(e, dict) and READ_KEY in e)]
+    return raw, entries, findings, reads
 
 
 def parse_json_bytes(raw, what):
@@ -2724,9 +2776,15 @@ def print_matches(matches, files, ids):
     """patterns' output: a line per match, then the count and the rules checked."""
     for m in matches:
         print(match_line(m["file"], m))
-    print(
-        "\n%d match(es) in %d file(s). Checked by pattern: %s"
-        % (len(matches), files, ", ".join(ids) or "no rule carries one")
+    print("\n" + matches_summary(len(matches), files, ids))
+
+
+def matches_summary(count, files, ids):
+    """The line that ends a list of matches: the count and the rules checked."""
+    return "%d match(es) in %d file(s). Checked by pattern: %s" % (
+        count,
+        files,
+        ", ".join(ids) or "no rule carries one",
     )
 
 
@@ -2735,40 +2793,213 @@ def rule_text(rule):
     return "\n\n".join(x for x in ("### %s: %s" % (rule.id, rule.title), rule.body_text()) if x)
 
 
-def cmd_pass(args):
-    """What an apply-prose pass reads, in one output: config list, segments, patterns.
+class Part:
+    """One section's rules over a run of one file's lines: what the model
+    judges in one read.
 
-    The three commands ran one after another with nothing decided between
-    them, so the model only carried their output across (#196). Each stays a
-    command of its own; this one composes them over one read of each file.
+    The model reads every rule against every segment, and one read of a
+    whole scope against every rule misses breaches without a trace (#532). So
+    `pass` splits the read by the rules' section and by the file, and cuts a
+    file whose segments would push the part past PART_LIMIT into runs of whole
+    lines. The split depends only on the files and the rules, so every run
+    gives the same parts.
+    """
+
+    def __init__(self, section, rel, rules, segments, matches):
+        self.section = section
+        self.rel = rel
+        self.rules = rules
+        self.segments = segments
+        self.matches = matches
+        self.first = segments[0]["line"]
+        self.last = segments[-1]["line"]
+
+    @property
+    def id(self):
+        return PART_ID % (self.section, self.rel, self.first, self.last)
+
+    def unpatterned(self):
+        """The ids of the part's rules that only reading checks."""
+        return [r.id for r in self.rules if not r.patterns]
+
+    def body(self):
+        """What `pass --part` prints before the read record."""
+        out = [PASS_HEADING % "rules"]
+        out += [rule_text(rule) + "\n" for rule in self.rules]
+        out.append(PASS_HEADING % "segments")
+        out += [segment_line(self.rel, seg) for seg in self.segments]
+        out += ["", PASS_HEADING % "matches"]
+        out += [match_line(self.rel, m) for m in self.matches]
+        out.append(matches_summary(len(self.matches), 1, [r.id for r in self.rules if r.patterns]))
+        return "\n".join(out) + "\n"
+
+    def digest(self):
+        """A hash of what the part shows, so a read of it goes stale when the
+        file's lines or the rules change."""
+        digest = TokenHash()
+        digest.part(READ_DOMAIN)
+        digest.part(self.body().encode("utf-8"))
+        return digest.token()
+
+    def record(self):
+        """The read record the model adds to the findings once it has judged the part."""
+        return {READ_KEY: self.id, DIGEST_KEY: self.digest()}
+
+    def as_dict(self):
+        return {
+            "id": self.id,
+            "file": self.rel,
+            "section": self.section,
+            "lines": [self.first, self.last],
+            "rules": [r.id for r in self.rules],
+            "unpatterned": self.unpatterned(),
+            "size": len(self.body()),
+        }
+
+
+def sections_of(rules):
+    """[(section, [rule, ...])] in the order the sections first appear."""
+    out = {}
+    for r in rules:
+        out.setdefault(r.section, []).append(r)
+    return list(out.items())
+
+
+def line_runs(costs, budget):
+    """costs, one per line, cut into runs of lines that each cost at most
+    budget, as [(start, end)] indexes. A line that alone passes the budget is
+    a run of its own.
+    """
+    runs, start, size = [], 0, 0
+    for i, cost in enumerate(costs):
+        if i > start and size + cost > budget:
+            runs.append((start, i))
+            start, size = i, 0
+        size += cost
+    if start < len(costs):
+        runs.append((start, len(costs)))
+    return runs
+
+
+def file_parts(rel, text, rules):
+    """The parts of one file, section by section, for these rules."""
+    blocks = Blocks(text)
+    segments = segments_for(text, blocks)
+    if not segments or not rules:
+        return []
+    matches = [
+        dict(m, file=rel) for m in pattern_matches(text, blocks, [r for r in rules if r.patterns])
+    ]
+    lines = []
+    for seg in segments:
+        if not lines or lines[-1][0] != seg["line"]:
+            lines.append((seg["line"], []))
+        lines[-1][1].append(seg)
+    parts = []
+    for section, group in sections_of(rules):
+        ids = set(r.id for r in group)
+        mine = [m for m in matches if m["rule"] in ids]
+        by_line = {}
+        for m in mine:
+            by_line.setdefault(m["line"], []).append(m)
+        empty = Part(section, rel, group, [segments[0]], [])
+        budget = PART_LIMIT - PART_MARGIN - len(empty.body())
+        costs = [
+            sum(len(segment_line(rel, seg)) + 1 for seg in segs)
+            + sum(len(match_line(rel, m)) + 1 for m in by_line.get(line, []))
+            for line, segs in lines
+        ]
+        for start, end in line_runs(costs, budget):
+            first, last = lines[start][0], lines[end - 1][0]
+            parts.append(
+                Part(
+                    section,
+                    rel,
+                    group,
+                    [seg for _line, segs in lines[start:end] for seg in segs],
+                    [m for m in mine if first <= m["line"] <= last],
+                )
+            )
+    return parts
+
+
+def plan_parts(texts, rules):
+    """Every part of texts, [(rel, Text)], for these rules, file by file."""
+    parts = []
+    for rel, text in sorted(texts, key=lambda t: t[0]):
+        parts.extend(file_parts(rel, text, rules))
+    return parts
+
+
+def part_file(part_id):
+    """The file a part's id names, or None when the id is not one."""
+    head, sep, lines = part_id.rpartition(":")
+    section, at, rel = head.partition("@")
+    if not (sep and at and section and rel and PART_LINES.match(lines)):
+        return None
+    return rel
+
+
+def cmd_pass(args):
+    """What an apply-prose pass reads, a part at a time.
+
+    With no --part, the parts of every file read, one line each: its id, how
+    many rules it holds and how long it is. With --part, that part: its rules
+    as prose-style.md words them, the segments of its lines, the matches of
+    its rules' patterns there, and the read record the model adds to the
+    findings once it has judged the part. report checks the records.
+
+    The parts exist because Claude Code cuts a Bash result short at 30,000
+    characters, and pass over a whole scope printed twenty times that (#532).
+    Part has how the split is made.
     """
     repo, config, scope = load(args)
     if config.errors:
         return unlinted(args, "pass", repo, config)
     rules = named_rules(config, args.rule)
-    patterned = [r for r in rules if r.patterns]
+    if args.part:
+        rel = part_file(args.part)
+        if rel is None or not os.path.isfile(repo.abspath(rel)):
+            raise Fatal(
+                "--part %s: not a part of any file; run pass with no --part to list them"
+                % args.part
+            )
+        parts = file_parts(rel, Text.read(repo.abspath(rel)), rules)
+        found = [p for p in parts if p.id == args.part]
+        if not found:
+            raise Fatal(
+                "--part %s: %s does not have that part with these rules, or its lines changed; "
+                "run pass with no --part, with the same --rule, to list its parts"
+                % (args.part, rel)
+            )
+        part = found[0]
+        data = dict(
+            part.as_dict(),
+            segments=part.segments,
+            matches=part.matches,
+            record=part.record(),
+        )
+
+        def human():
+            sys.stdout.write(part.body())
+            print(PASS_HEADING % "read")
+            print(json.dumps(part.record()))
+
+        return emit(args, "pass", repo.root, data, human=human)
+
     targets = args.paths or scope.files()
     texts, errors = read_targets(repo, targets)
-    segments = {rel: segments_for(text, Blocks(text)) for rel, text in texts}
-    matches = all_matches(texts, patterned)
-    data = {
-        "rules": [r.as_dict() for r in rules],
-        "files": len(targets),
-        "segments": segments,
-        "matches": matches,
-        "patterned": [r.id for r in patterned],
-    }
+    parts = plan_parts(texts, rules)
+    data = {"files": len(targets), "parts": [p.as_dict() for p in parts]}
 
     def human():
-        print(PASS_HEADING % "rules")
-        for rule in rules:
-            print(rule_text(rule) + "\n")
-        print(PASS_HEADING % "segments")
-        for rel in sorted(segments):
-            for seg in segments[rel]:
-                print(segment_line(rel, seg))
-        print("\n" + PASS_HEADING % "matches")
-        print_matches(matches, len(targets), data["patterned"])
+        print(PASS_HEADING % "parts")
+        for p in parts:
+            print(
+                "%s  %d rule(s), %d checked by reading, %d characters"
+                % (p.id, len(p.rules), len(p.unpatterned()), len(p.body()))
+            )
+        print("\n%d part(s) in %d file(s)." % (len(parts), len(targets)))
 
     return emit(args, "pass", repo.root, data, errors=errors, human=human)
 
@@ -4428,6 +4659,15 @@ findings:
   report runs every rule's pattern over every file in scope, and fails on a
   match that no finding or dismissal of the same rule contains.
 
+read records:
+  The read record that pass --part prints, {"read": <part id>, "digest":
+  <digest>}, goes in the file beside the findings, copied as it stands.
+  report fails on a part holding a rule without a pattern until the file
+  holds that part's record, made from the part as it is now.
+
+  The file holds one JSON array or object after another, so each part's
+  findings and read record can be added to its end.
+
 example:
   [{"file": "notes.md", "line": 12, "rule": "sentences-own-subject",
     "text": "Able to state\\n  what is inside the file.",
@@ -4755,14 +4995,58 @@ def refused_rewrites(repo, rows, stagings, rules):
     return errors, conflicts
 
 
-def checked_by_reading(rules):
-    """What report says of the rules it did not check by pattern: every other
-    rule, or every other one --rule named, listed."""
-    if rules is None:
-        return "Every other rule was checked by reading."
-    return "Every other rule given to --rule was checked by reading. Given: %s." % ", ".join(
-        "`%s`" % r for r in rules
-    )
+def checked_by_reading(parts, reads, rules):
+    """(errors, {rule id: [file, ...]}) for the rules that only reading checks.
+
+    A part that holds such a rule is read when the findings carry a read
+    record with its id and its digest as it is now. Each one that is not is
+    an error. The map gives each of these rules, in prose-style.md's order,
+    the files whose every part holding it is read.
+    """
+    errors, digests = [], {}
+    for n, r in enumerate(reads, 1):
+        if set(r) != {READ_KEY, DIGEST_KEY} or not all(isinstance(v, str) for v in r.values()):
+            errors.append(
+                "read record %d  holds something other than a read and a digest string; "
+                "copy the record pass --part prints as it stands" % n
+            )
+            continue
+        digests.setdefault(r[READ_KEY], set()).add(r[DIGEST_KEY])
+    seen, unread = {}, set()
+    for p in parts:
+        ids = p.unpatterned()
+        if not ids:
+            continue
+        for rid in ids:
+            seen.setdefault(rid, set()).add(p.rel)
+        if p.digest() in digests.get(p.id, ()):
+            continue
+        unread.update((rid, p.rel) for rid in ids)
+        if p.id in digests:
+            errors.append(
+                "%s  was read before its lines or its rules changed; run pass --part %s "
+                "again, judge it, and replace its read record" % (p.id, p.id)
+            )
+        else:
+            errors.append(
+                "%s  has not been read; run pass --part %s, judge it, and add the read "
+                "record it ends with to the findings" % (p.id, p.id)
+            )
+    read = {}
+    for rule in rules:
+        if not rule.patterns:
+            read[rule.id] = sorted(f for f in seen.get(rule.id, ()) if (rule.id, f) not in unread)
+    return errors, read
+
+
+def reading_lines(read):
+    """The report's list of the files read against each rule without a pattern."""
+    if not read:
+        return ["Checked by reading: none."]
+    out = ["Checked by reading:", ""]
+    for rid, files in read.items():
+        out.append("- `%s`: %s" % (rid, ", ".join("`%s`" % f for f in files) or "no file"))
+    return out
 
 
 def rewritten_note(finding, rule):
@@ -4811,12 +5095,13 @@ def report_markdown(data, rejected):
         out.append("%d match(es) dismissed." % len(data["dismissed"]))
     out += [
         "",
-        "Checked by pattern: %s. %s"
-        % (
-            ", ".join("`%s`" % r for r in data["checked_by_pattern"]) or "none",
-            checked_by_reading(data["rules"]),
-        ),
+        "Checked by pattern: %s."
+        % (", ".join("`%s`" % r for r in data["checked_by_pattern"]) or "none"),
+        "",
     ]
+    out += reading_lines(data["read"])
+    if data["rules"]:
+        out += ["", "Given to --rule: %s." % ", ".join("`%s`" % r for r in data["rules"])]
     if data["token"]:
         out += ["", "%s`%s`" % (TOKEN_LABEL.capitalize(), data["token"])]
     return "\n".join(out) + "\n"
@@ -4846,7 +5131,7 @@ def cmd_report(args):
     """
     repo, config, scope = load(args)
     rules = named_rules(config, args.rule)
-    raw, findings = read_json_file_bytes(args.findings, "findings")
+    raw, entries, findings, reads = read_findings(args.findings)
     by_file, rejected = select_findings(config, findings)
     if args.rule:
         named = set(r.id for r in rules)
@@ -4895,7 +5180,7 @@ def cmd_report(args):
             )
     rows.sort(key=lambda r: (r["file"], r["line"], r["finding"]))
     dismissed.sort(key=lambda r: (r["file"], r["line"], r["finding"]))
-    uncovered = []
+    uncovered, read = [], {}
     if config.errors:
         # A pattern that cannot run would check nothing, and every match it
         # missed would pass as covered.
@@ -4909,6 +5194,9 @@ def cmd_report(args):
             else:
                 rejected.append("%s  no such file" % rel)
         uncovered = uncovered_matches(repo, [r for r in rules if r.patterns], targets, findings)
+        texts = [(rel, Text.read(repo.abspath(rel))) for rel in targets]
+        unread, read = checked_by_reading(plan_parts(texts, rules), reads, rules)
+        rejected.extend(unread)
         breached, conflicts = refused_rewrites(repo, rows, stagings, config.patterned())
         rejected.extend(breached)
     rejected.extend(
@@ -4921,7 +5209,7 @@ def cmd_report(args):
     # apply would refuse.
     token = None
     if not rejected:
-        token = approval_token(repo, config, raw, findings, args.paths, args.rule)
+        token = approval_token(repo, config, raw, entries, args.paths, args.rule)
     data = {
         "findings": rows,
         "dismissed": dismissed,
@@ -4929,6 +5217,7 @@ def cmd_report(args):
         "conflicts": conflicts,
         "uncovered": uncovered,
         "checked_by_pattern": patterned,
+        "read": read,
         "rules": [r.id for r in rules] if args.rule else None,
         "token": token,
     }
@@ -4955,10 +5244,12 @@ def cmd_report(args):
         print("%d finding(s) in %d file(s)" % (len(rows), len(set(r["file"] for r in rows))))
         if dismissed:
             print("%d match(es) dismissed" % len(dismissed))
-        print(
-            "checked by pattern: %s. %s"
-            % (", ".join(patterned) or "none", checked_by_reading(data["rules"]))
-        )
+        print("checked by pattern: %s" % (", ".join(patterned) or "none"))
+        print("checked by reading:%s" % ("" if read else " none"))
+        for rid, files in read.items():
+            print("  %s  %s" % (rid, ", ".join(files) or "no file"))
+        if data["rules"]:
+            print("given to --rule: %s" % ", ".join(data["rules"]))
         if token:
             print(TOKEN_LABEL + token)
 
@@ -4968,8 +5259,8 @@ def cmd_report(args):
 def cmd_apply(args):
     repo, config, _ = load(args)
     named_rules(config, args.rule)
-    raw, findings = read_json_file_bytes(args.findings, "findings")
-    if args.token != approval_token(repo, config, raw, findings, args.paths, args.rule):
+    raw, entries, findings, _reads = read_findings(args.findings)
+    if args.token != approval_token(repo, config, raw, entries, args.paths, args.rule):
         stale = TOKEN_STALE % config.rel()
         return emit(args, "apply", repo.root, {"applied": []}, errors=[stale])
     by_file, rejected = select_findings(config, findings, args.only, args.file)
@@ -5297,10 +5588,16 @@ def build_parser():
     p = sub.add_parser(
         "pass",
         parents=[common, rule],
-        help="the rules, the segments and the pattern matches, for an apply-prose pass",
-        description="Print every rule as prose-style.md words it, then what segments prints, "
-        "then what patterns prints, each part under its own == heading ==. With no path, "
-        "every file in scope.",
+        help="the parts of an apply-prose pass, or one part's rules, segments and matches",
+        description="List the parts of a pass, one line each: one section's rules over a "
+        "run of one file's lines. With --part, print that part's rules as prose-style.md "
+        "words them, its segments and its pattern matches, each under its own == heading ==, "
+        "then the read record to add to the findings. With no path, every file in scope.",
+    )
+    p.add_argument(
+        "--part",
+        metavar="ID",
+        help="print this part, by the id the list gives; give the same --rule as the list",
     )
     p.add_argument("paths", nargs="*", help="files to read (default: every file in scope)")
     p.set_defaults(func=cmd_pass)
@@ -5416,7 +5713,7 @@ def build_parser():
         "--findings",
         required=True,
         metavar="FILE",
-        help="a file holding the JSON array of findings described below",
+        help="a file holding the findings and read records described below",
     )
 
     p = sub.add_parser(
