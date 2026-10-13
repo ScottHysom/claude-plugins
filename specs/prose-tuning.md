@@ -241,6 +241,10 @@ update-prose-config description.
   part's read record as `pass --part` prints it now, `report` names the part,
   says to run `pass --part` on it, and exits 1. It refuses a read record
   that holds anything but its `read` and `digest` strings.
+- `pass-cmd-fits-each-part` (test): When a file's segments would make a part
+  longer than 30,000 characters, `pass` cuts the file into runs of whole
+  lines, so `pass --part` prints each part, read record included, in fewer
+  characters than that.
 - `report-cmd-reads-joined-findings` (test): When the findings file holds
   one JSON array or object after another, `report` and `apply` read every
   entry, and take an entry that carries `read` as a read record rather than
@@ -825,20 +829,6 @@ under "Packaging". The owner confirmed the constraint in the ruling on #134.
   container, it copies the script and the shipped rules byte for byte into
   `.prose-tuning/`, and gives the prefix `PROSE=.prose-tuning/prose.py`,
   which reaches the copy from the project root.
-
-## constraint bash-cuts-long-results: A Bash result past 30,000 characters is cut short
-
-Claude Code cuts a Bash tool result short at 30,000 characters by default. A
-command whose output the model must read whole has to fit under that, or the
-model saves the output to a file and slices it by hand.
-
-Source: the owner's addition to #532, which records `pass` printing 596,546
-bytes over every file in scope at 0ea3bcb (#525).
-
-- `pass-cmd-fits-each-part` (test): When a file's segments would make a part
-  longer than 30,000 characters, `pass` cuts the file into runs of whole
-  lines, so `pass --part` prints each part, read record included, in fewer
-  characters than that.
 
 ## constraint cowork-loads-rules-partly: Cowork does not always load .claude/rules/
 
