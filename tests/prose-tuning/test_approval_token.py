@@ -6,6 +6,8 @@ a document or the rules changed since the author approved. In the run behind
 report now prints a token over what it read, and apply refuses any other.
 """
 
+import shutil
+
 import pytest
 
 import prose
@@ -90,6 +92,19 @@ class DescribeApprovalToken:
         before = prose_repo.read()
         code, envelope = apply_with(prose_repo, token)
         assert_refused(prose_repo, code, envelope, before)
+
+    @pytest.mark.spec("apply-cmd-requires-token")
+    def it_refuses_the_token_in_a_copy_of_the_checkout(
+        self, prose_repo, target_lines, tmp_path, capsys
+    ):
+        # In the run behind #545 the model copied the checkout and applied
+        # there with the token, before the author had read the report.
+        token = reported_token(prose_repo, [closing(prose_repo, target_lines)])
+        copy = type(prose_repo)(tmp_path / "copy", capsys)
+        shutil.copytree(str(prose_repo.root), str(copy.root))
+        before = copy.read()
+        code, envelope = apply_with(copy, token)
+        assert_refused(copy, code, envelope, before)
 
     @pytest.mark.spec("report-cmd-prints-approval-token")
     def it_prints_no_token_when_report_fails(self, prose_repo, target_lines, capsys):

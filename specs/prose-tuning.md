@@ -297,9 +297,9 @@ description.
   showed. When it is given `--rule`, its token covers the rules named, and
   `apply` refuses the token unless it is given the same `--rule`s.
 - `apply-cmd-requires-token` (test): When the token passed to `apply
-  --token` is not the one `report` would print for the findings, the documents
-  they name and `prose-style.md` as they are now, `apply` refuses the batch
-  and writes nothing.
+  --token` is not the one `report` would print for the findings, the checkout
+  `apply` runs in, the documents they name and `prose-style.md` as they are
+  now, `apply` refuses the batch and writes nothing.
 - `apply-cmd-writes-approved` (test): When `apply` runs with a current
   token, it writes each selected finding's rewrite in place, and reports the
   edits per file and per rule.
@@ -385,8 +385,10 @@ description.
   whole where it cannot, and takes one decision over the whole set, a set of
   rule ids or a set of files, naming the artifact's address and the token.
 - `applyprose-applies-once` (step): When the author has approved the report,
-  apply-prose runs `apply` once, with the token `report` printed and the
-  filters the approval names.
+  apply-prose runs `apply` once, in the checkout `report` ran in, with the
+  token `report` printed and the filters the approval names. Before that
+  approval, apply-prose does not run `apply` in any checkout, including a copy
+  it makes.
 
 ## need user-annotates-findings: Comment on a finding where it is read
 

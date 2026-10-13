@@ -263,8 +263,14 @@ proposed text. A dismissal shows its reason in place of a proposed text.
 When `report` exits 0, `data.token` is the approval token, and the file ends
 with it. Step 5 takes the token from the report the author approved.
 
+**Never run `apply` before the author approves,** in this checkout or in a
+copy of it, even to learn whether the rewrites keep the project's own checks
+passing. `apply` refuses the token in any checkout other than the one `report`
+ran in.
+
 `report` exits 1 when a finding cannot apply, or a part has not been read.
-Each error names the finding, match or part, and says what to do about it. Never drop a side of an overlap
+Each error names the finding, match or part, and says what to do about it.
+Never drop a side of an overlap
 yourself.
 
 Publish the file at `data.report` as a private artifact with the Artifact
@@ -321,7 +327,8 @@ The flags select within the approved set and leave the token as it is.
 | by file | `--file landscape.md --file resources.md`, one per file |
 | rule ids in some files | both; a finding must pass each |
 
-Run it once. The report the author approved is the preview.
+Run it once, in the checkout `report` ran in. The report the author approved
+is the preview.
 
 ```sh
 python3 "$PROSE" apply --findings "${TMPDIR:-/tmp}/prose-findings.json" \
