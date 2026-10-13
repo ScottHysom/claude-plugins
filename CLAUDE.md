@@ -325,6 +325,13 @@ requirement is admitted.
   one of these directories, and `.github/scripts/check-tests.py placement`
   fails a pull request with a test file anywhere else, including under
   `plugins/`. README.md, under "Running the tests", has the detail.
+- **Run the whole suite in the background.** A Bash call that runs `pytest`
+  over the whole suite, with or without `--cov`, sets `run_in_background: true`
+  and waits for the notification that the run finished. The Bash tool stops
+  waiting after 120 seconds, and the suite's run time grows with each test
+  added and with the load other sessions put on the machine. A larger
+  `timeout` stops working at the tool's 600-second ceiling. One test file or
+  one plugin's suite can run in the foreground.
 - **A plugin's own README mentions tests nowhere**, neither a path nor a link.
   That README is what the desktop app shows someone who installed the plugin.
   What a contributor needs to know about a suite goes here instead.
