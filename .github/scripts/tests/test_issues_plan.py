@@ -285,12 +285,78 @@ class DescribePlanReportDrafts:
         assert len(data["data"]["token"]) == cli.TOKEN_LENGTH
 
 
+class DescribePlanReportSplitLines:
+    @pytest.mark.spec("planreport-cmd-refuses-split-lines")
+    def it_names_each_line_that_continues_a_paragraph(self, capsys, tmp_path, repo, hub):
+        hub()
+        body = BODY.replace("It breaks.", "It\nbreaks\nbadly.")
+        code, data = report(capsys, repo, write_plan(tmp_path, issue("A", body=body), issue("B")))
+        assert code == cli.PROBLEMS
+        assert data["data"]["token"] is None
+        lines = body.splitlines()
+        named = [int(e.split("line ")[1].split()[0]) for e in data["errors"]]
+        assert [lines[n - 1] for n in named] == ["breaks", "badly."]
+        assert all(e.startswith("`A`'s body: line") for e in data["errors"])
+        assert "join the line to the one above" in data["errors"][0]
+
+    @pytest.mark.spec("planreport-cmd-refuses-split-lines")
+    def it_names_a_line_that_continues_a_list_item_of_the_plan(self, capsys, tmp_path, repo, hub):
+        hub()
+        plan = "Fix it.\n\n- first\n  still first\n- second\n"
+        code, data = report(capsys, repo, write_plan(tmp_path, issue("A"), plan=plan))
+        assert code == cli.PROBLEMS
+        assert data["errors"] == [
+            "the tracking issue's plan: line 4 continues the paragraph or list item above it. "
+            "GitHub renders the newline as a line break, so join the line to the one above"
+        ]
+
+    @pytest.mark.spec("planreport-cmd-refuses-split-lines")
+    @pytest.mark.parametrize(
+        "block",
+        [
+            "- one\n- two\n  - nested\n1. three\n2) four\n",
+            "| a | b |\n|---|---|\n| 1 | 2 |\n",
+            "> quoted\n> still quoted\n",
+            "<details>\n<summary>more</summary>\n</details>\n",
+            "Text\n---\n",
+            "Text\n===\n",
+            "```sh\npython3 x.py\n  --json\n```\n",
+            "<!--\nnote\nmore note\n-->\n",
+            "Text\n\n    code line\n    more code\n\n    still code\n",
+            "Text\n<!-- spec: x -->\n",
+            "Text\n### Heading\nText\n",
+        ],
+    )
+    def it_passes_lines_that_github_does_not_join(self, capsys, tmp_path, repo, hub, block):
+        hub()
+        body = BODY + "\n" + block
+        code, data = report(capsys, repo, write_plan(tmp_path, issue("A", body=body), plan=block))
+        assert code == cli.OK, data["errors"]
+
+    @pytest.mark.spec("planreport-cmd-refuses-split-lines")
+    def it_names_the_line_the_author_wrote_after_a_long_comment(self, capsys, tmp_path, repo, hub):
+        hub()
+        body = BODY.replace("It breaks.", "<!--\none\ntwo\n-->\nIt\nbreaks.")
+        code, data = report(capsys, repo, write_plan(tmp_path, issue("A", body=body)))
+        assert code == cli.PROBLEMS
+        assert body.splitlines()[9] == "breaks."
+        assert "line 10 continues" in data["errors"][0]
+
+    @pytest.mark.spec("planreport-cmd-refuses-split-lines")
+    def it_does_not_check_an_issue_filed_already(self, capsys, tmp_path, repo, hub):
+        gh = hub(outside=[(40, "OPEN")])
+        gh.issues[40]["body"] = "Filed\nby hand.\n"
+        plan = write_plan(tmp_path, {"key": "A", "number": 40})
+        code, data = report(capsys, repo, plan)
+        assert code == cli.OK, data["errors"]
+
+
 class DescribePlanReportLinks:
     @pytest.mark.parametrize(
         ("issues", "says"),
         [
             ((issue("A"), issue("A")), "the key `A` names more than one issue"),
-            ((issue("A", body=BODY + "See #{Z}."),), "`A`'s body names {Z}, and no issue"),
+            ((issue("A", body=BODY + "\nSee #{Z}."),), "`A`'s body names {Z}, and no issue"),
             ((issue("A", "Z"),), "`A` is blocked by `Z`, and no issue in the plan has that key"),
             ((issue("A", 7),), "`A` is blocked by #7, which is closed"),
             ((issue("A", 9),), "`A` is blocked by #9, which cannot be read"),
@@ -301,7 +367,7 @@ class DescribePlanReportLinks:
             ),
             ((issue("A", "A"),), "the links form a cycle: `A` is blocked by `A`"),
             (
-                (issue("A", body=BODY + "Then #{B}."), issue("B")),
+                (issue("A", body=BODY + "\nThen #{B}."), issue("B")),
                 "`A`'s body names {B}, which is filed after it",
             ),
         ],
@@ -328,7 +394,7 @@ class DescribePlanReportLinks:
     @pytest.mark.spec("planreport-cmd-checks-plan-links")
     def it_leaves_a_key_in_code_alone(self, capsys, tmp_path, repo, hub):
         hub()
-        body = BODY + "Write `{KEY}` for an issue.\n\n```text\n{OTHER}\n```\n"
+        body = BODY + "\nWrite `{KEY}` for an issue.\n\n```text\n{OTHER}\n```\n"
         code, data = report(capsys, repo, write_plan(tmp_path, issue("A", body=body)))
         assert code == cli.OK, data["errors"]
 
@@ -349,7 +415,7 @@ class DescribePlanReportOrder:
             tmp_path,
             issue("D", "B"),
             issue("A"),
-            issue("B", "C", 8, body=BODY + "After #{C}."),
+            issue("B", "C", 8, body=BODY + "\nAfter #{C}."),
             issue("C"),
             issue("E"),
         )
@@ -375,7 +441,7 @@ class DescribePlanReportFile:
         self, capsys, tmp_path, repo, hub
     ):
         hub()
-        plan = write_plan(tmp_path, issue("A"), issue("B", "A", body=BODY + "After #{A}."))
+        plan = write_plan(tmp_path, issue("A"), issue("B", "A", body=BODY + "\nAfter #{A}."))
         code, out = run(capsys, repo, "plan", "report", "--drafts", str(plan))
         assert code == cli.OK
         assert out.err == ""
@@ -406,7 +472,7 @@ class DescribePlanReportFile:
 def filed_plan(tmp_path):
     return write_plan(
         tmp_path,
-        issue("B", "A", 8, body=BODY + "After #{A}, not `{A}`."),
+        issue("B", "A", 8, body=BODY + "\nAfter #{A}, not `{A}`."),
         issue("A"),
         issue("C", labels=("docs", "plugin:todos")),
         plan="Start with {A}.",
@@ -429,7 +495,7 @@ class DescribePlanFile:
             ("B", b),
             ("C", c),
         ]
-        assert gh.issues[b]["body"] == BODY + "After #100, not `{A}`."
+        assert gh.issues[b]["body"] == BODY + "\nAfter #100, not `{A}`."
         assert gh.issues[c]["labels"] == ["docs", "plugin:todos"]
         assert gh.blocked == {b: [8, a]}
         assert gh.issues[t]["labels"] == ["tracking"]
@@ -478,7 +544,7 @@ class DescribePlanFiledIssue:
     def it_lets_a_draft_name_a_filed_issue_listed_after_it(self, capsys, tmp_path, repo, hub):
         hub(outside=[(40, "OPEN")])
         plan = write_plan(
-            tmp_path, issue("A", body=BODY + "Before #{B}."), {"key": "B", "number": 40}
+            tmp_path, issue("A", body=BODY + "\nBefore #{B}."), {"key": "B", "number": 40}
         )
         code, data = report(capsys, repo, plan)
         assert code == cli.OK, data["errors"]
@@ -518,7 +584,7 @@ class DescribePlanFiledIssue:
             tmp_path,
             {"key": "B", "number": 40, "blocked_by": ["A"]},
             issue("A"),
-            issue("C", "B", body=BODY + "After #{B}."),
+            issue("C", "B", body=BODY + "\nAfter #{B}."),
         )
         token = token_for(capsys, repo, plan)
         code, data = file_plan(capsys, repo, plan, token)
@@ -530,7 +596,7 @@ class DescribePlanFiledIssue:
             ("C", c, True),
         ]
         assert gh.issues[40]["body"] == OLD_BODY
-        assert gh.issues[c]["body"] == BODY + "After #40."
+        assert gh.issues[c]["body"] == BODY + "\nAfter #40."
         assert gh.blocked == {40: [a], c: [40]}
         assert gh.subs == {t: [a, 40, c]}
         assert "2. #40 old #40, blocked by #100\n" in gh.issues[t]["body"]

@@ -40,6 +40,10 @@ expect it to get. Filing puts the issue's number in place of `{KEY}`. A body
 can name only an issue filed before it, so name a blocker from the issue it
 blocks, not the other way round.
 
+Write each paragraph and each list item of a body, and of the tracking
+issue's plan, on one line. GitHub renders a newline inside one as a line
+break.
+
 The tracking issue takes a `title` and a `plan`. The plan says:
 
 - what problem the plan fixes;
