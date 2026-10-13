@@ -769,6 +769,9 @@ Source: #566, #567, and CLAUDE.md, under "Workflow".
     `## Scenario`.
   - its Scenario section, up to the next heading of level 1 or 2, holds more
     than blank lines and HTML comments.
+- `description-cmd-requires-before-after` (test): When a description's
+  Scenario section lacks a `### Before` or a `### After` subsection with text
+  under it, or puts `### After` first, `description` fails it and says which.
 - `ci-runs-description` (check): When a pull request is opened, edited or
   updated, CI runs `description`.
 - `description-cmd-reads-body-file` (test): When `description` is given
@@ -899,6 +902,19 @@ Source: Claude Code's Bash tool description, and #573 and #577.
 - `suite-runs-across-cores` (check): When a pull request is opened or updated,
   CI runs the whole suite with the `-n auto` that pytest.ini gives every run,
   one pytest-xdist worker per core, as a contributor's `pytest` runs it.
+
+## constraint github-breaks-body-lines: GitHub breaks a body's lines where a repository file joins them
+
+GitHub renders a newline inside a paragraph or a list item of a pull request
+or issue body as a line break, where a markdown file in the repository joins
+the lines into one paragraph.
+
+Source: #589, and the rendered body of #587, which holds a `<br>` for each
+line its paragraphs were broken at.
+
+- `description-cmd-refuses-split-lines` (test): When a description continues
+  a paragraph or a list item onto a second line, outside a code fence or an
+  HTML comment, `check-pr.py description` fails it and names each line.
 
 ## constraint artifact-sends-comments: A comment sent to Claude reaches the session
 
