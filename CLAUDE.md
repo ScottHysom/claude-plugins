@@ -8,6 +8,48 @@ on a summary here; this file holds what the README does not.
 
 - Work on a branch off `main` (for an issue, the one claiming makes; see
   "Issues"), and open a pull request. The owner reviews and merges.
+- A pull request description stands without the issue, for an owner who has
+  not read it. It uses these headings, in this order, in place of
+  `## Summary`:
+  - `## Scenario` says:
+    - who, by role, does what.
+    - what happened before the change.
+    - what happens after it.
+
+    A change that nobody meets in use, such as a refactor or a CI fix, names
+    who would notice it and why it is made.
+  - `## Change` says what the pull request changes. When the fix departs from
+    what the issue proposed, it says what the issue proposed and why the fix
+    differs.
+  - `## Requirements` names each requirement id the pull request adds,
+    changes or removes, or says that it does not change any.
+  - `## Test plan` says what ran.
+
+  `Closes #N` follows them. #559's opening, in this shape:
+
+  ```markdown
+  ## Scenario
+
+  An author runs apply-prose over their docs. Where a rule's pattern matches,
+  the model writes a **finding** (a rewrite the author approves or rejects)
+  or a **dismissal** (a note that the match is not a breach). `prose.py
+  report` shows the author every finding to approve.
+
+  Before: when two findings under different rules rewrote the same sentence,
+  the model could dismiss one, saying the other rewrites it. The author saw
+  one finding. Rejecting it left the other rule's breach in the file, and the
+  author was never asked about it.
+
+  After: `report` shows that dismissal beside the finding it depends on, and
+  says under the finding that rejecting it leaves the dismissed match in the
+  file.
+
+  ## Change
+
+  `report` does not refuse such a dismissal. The issue proposed refusing it,
+  but the author settles two overlapping findings the same way: they keep
+  one, and the one they turn down becomes a dismissal.
+  ```
 - Until agents have their own GitHub identity, everything posts under Scott's
   account. Start every reply to a review comment with `**Claude:**`, so the
   thread does not read as one person answering themselves.
@@ -99,7 +141,8 @@ requirement is admitted.
 - **When the work lacks a requirement, propose one and wait for the
   owner.** A new need or constraint goes in the issue, and enters `specs/`
   only once the owner approves that issue. A new requirement under an existing
-  need or constraint is listed in the pull request description.
+  need or constraint is listed under the pull request description's
+  `## Requirements`.
 - **Asked why a behavior exists, answer with its requirement and its need.** If
   it has no requirement, say so and file an issue. Do not argue for it from the
   design's own consistency.
