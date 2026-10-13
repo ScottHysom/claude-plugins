@@ -700,7 +700,8 @@ Source: #114, #129, and SPEC-METHODOLOGY.md, under "The chain".
 - `trace-cmd-checks-spec-grammar` (test): When `trace` reads a spec file,
   it fails each of these it finds:
   - a requirement outside a need or a constraint.
-  - a malformed requirement.
+  - a malformed requirement, at or below the section's `Source:` line or
+    its first requirement.
   - a need, constraint or requirement id not in the form SPEC-METHODOLOGY.md
     gives under "Ids".
   - a duplicate id.
@@ -752,6 +753,19 @@ Source: #114, #129, and SPEC-METHODOLOGY.md, under "The chain".
   fails it.
 - `ci-runs-changes` (check): When a pull request is opened, edited or
   updated, CI runs `changes`.
+
+## need owner-styles-specs-like-docs: Hold a spec's text to the house prose style
+
+When a contributor runs a style pass over `specs/`, the owner wants a spec to
+follow `.claude/rules/prose-style.md` as every other document does, so a style
+pass never has to leave a rule's breach in place because the spec grammar
+refuses its fix.
+
+Source: #530, raised in the review of #527.
+
+- `trace-cmd-reads-lists-in-text` (test): When a need's or a constraint's
+  text holds a bulleted list above its `Source:` line and its first
+  requirement, `trace` reads the list as text.
 
 ## need owner-reviews-from-description: Review a pull request from its scenario
 

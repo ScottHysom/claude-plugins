@@ -434,9 +434,14 @@ Source: README.md, under "Checking your documents".
 ## need user-protects-non-prose: Leave what is not prose alone
 
 When the user applies the house style, they want only the document's own
-prose checked and rewritten, never its code, front matter, comments, a table's
-structure or someone else's words, so a style pass puts only prose at
-risk.
+prose checked and rewritten, so a style pass puts only prose at risk. They
+want it never to touch:
+
+- the document's code.
+- its front matter.
+- its comments.
+- a table's structure.
+- someone else's words.
 
 Source: the apply-prose description. The owner confirmed the need in the
 ruling on #133.
