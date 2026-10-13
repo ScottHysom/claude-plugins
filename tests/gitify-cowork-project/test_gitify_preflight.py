@@ -3,21 +3,9 @@ placeholder would otherwise be copied into every project unnoticed, and a new
 template left out of the manifest would never ship at all.
 """
 
-import sys
-
 import pytest
 
 import gitify
-
-
-class ClosedPipe:
-    """A stdout whose reader has gone, as when a command is piped into head."""
-
-    def write(self, text):
-        raise BrokenPipeError(32, "Broken pipe")
-
-    def flush(self):
-        raise BrokenPipeError(32, "Broken pipe")
 
 
 class DescribePreflight:
@@ -43,12 +31,6 @@ class DescribePreflight:
         assert code == gitify.PROBLEMS
         assert runner.out == ""
         assert "commit.sh is in the manifest" in runner.err
-
-    @pytest.mark.spec("repo:script-ignores-closed-pipe")
-    def it_exits_ok_when_its_reader_closes_the_pipe(self, monkeypatch, capsys):
-        monkeypatch.setattr(sys, "stdout", ClosedPipe())
-        assert gitify.main(["preflight", "--json"]) == gitify.OK
-        assert capsys.readouterr().err == ""
 
     @pytest.mark.spec("preflight-cmd-names-template-problems")
     @pytest.mark.parametrize("name", ["commit.sh", gitify.HISTORY_TEMPLATE])

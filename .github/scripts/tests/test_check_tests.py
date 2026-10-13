@@ -296,6 +296,16 @@ class DescribeMain:
         assert ct.main(["placement", "-C", str(root)]) == ct.OK
         assert capsys.readouterr().err == ""
 
+    @pytest.mark.spec("script-ignores-closed-pipe")
+    @pytest.mark.parametrize(
+        "command", [["placement"], ["naming"], ["--help"], ["naming", "--help"]]
+    )
+    def it_exits_ok_without_a_traceback_when_its_reader_has_gone(
+        self, make_repo, closed_pipe_child, command
+    ):
+        root = make_repo(MOVED)
+        assert closed_pipe_child(_PATH, *command, "-C", str(root)) == (ct.OK, "")
+
     @pytest.mark.spec("script-exits-2-when-unrunnable")
     def it_rejects_an_unknown_command(self, run):
         with pytest.raises(SystemExit) as exc:

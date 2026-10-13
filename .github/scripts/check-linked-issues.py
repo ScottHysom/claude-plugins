@@ -62,6 +62,8 @@ import sys
 import urllib.error
 import urllib.request
 
+import closed_pipe
+
 OK, PROBLEMS, CANNOT_RUN = 0, 1, 2
 
 LABEL = "approved"
@@ -238,6 +240,7 @@ def claim_problems(pr, ours, repo, token, fetch):
     return out
 
 
+@closed_pipe.exits_ok
 def main(environ=None, fetch=get):
     env = os.environ if environ is None else environ
     try:

@@ -322,3 +322,10 @@ class DescribeMain:
         closed_pipe()
         assert cc.main(["floors", "-C", str(repo)]) == cc.OK
         assert capsys.readouterr().err == ""
+
+    @pytest.mark.spec("script-ignores-closed-pipe")
+    @pytest.mark.parametrize("command", [["pragmas"], ["--help"], ["diff", "--help"]])
+    def it_exits_ok_without_a_traceback_when_its_reader_has_gone(
+        self, repo, closed_pipe_child, command
+    ):
+        assert closed_pipe_child(_PATH, *command, "-C", str(repo)) == (cc.OK, "")

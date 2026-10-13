@@ -971,6 +971,12 @@ class DescribeMain:
         assert cli.main(["next", "-C", str(clone("a"))]) == cli.OK
         assert capsys.readouterr().err == ""
 
+    # Every other command asks GitHub, which only the test process can fake.
+    @pytest.mark.spec("script-ignores-closed-pipe")
+    @pytest.mark.parametrize("command", [["--help"], ["next", "--help"], ["claim", "--help"]])
+    def it_exits_ok_without_a_traceback_when_its_reader_has_gone(self, closed_pipe_child, command):
+        assert closed_pipe_child(_PATH, *command) == (cli.OK, "")
+
 
 _CLAUDE_MD = _PATH.parents[2] / "CLAUDE.md"
 
