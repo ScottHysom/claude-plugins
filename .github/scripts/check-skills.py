@@ -346,13 +346,6 @@ ALLOWED = (
         "says why the ls before it failed",
     ),
     Allowed(
-        "findings heredoc",
-        re.compile(r"^cat >>? \$\{TMPDIR:-/tmp\}/[\w.-]+ <<-? \w+$"),
-        ALONE,
-        "writes the model's findings to a file the script reads, or adds to its end; "
-        "the body is data, and unread",
-    ),
-    Allowed(
         "draft heredoc",
         re.compile(r"^cat >>? /[\w.-]+(?:/[\w.-]+)* <<-? \w+$"),
         ALONE,

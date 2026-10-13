@@ -934,23 +934,12 @@ class DescribeFences:
         assert "%s:21: fence has no info string" % SKILL in err
 
     @pytest.mark.spec("fences-cmd-allows-setup-commands")
-    def it_allows_the_findings_heredoc(self, make_repo, run):
-        fence = sh(
-            "cat > \"${TMPDIR:-/tmp}/foo-findings.json\" <<'END'",
-            '{"findings": []}',
-            "END",
-            'python3 "$FOO" lint --file "${TMPDIR:-/tmp}/foo-findings.json"',
-        )
+    def it_rejects_a_heredoc_to_a_fixed_name_in_tmpdir(self, make_repo, run):
+        fence = sh("cat > \"${TMPDIR:-/tmp}/foo-findings.json\" <<'END'", "[]", "END")
         root = make_repo(uses(fence))
         code, _, err = run("fences", "-C", str(root))
-        assert code == cs.OK, err
-
-    @pytest.mark.spec("fences-cmd-allows-setup-commands")
-    def it_allows_a_heredoc_that_adds_to_the_findings_file(self, make_repo, run):
-        fence = sh("cat >> \"${TMPDIR:-/tmp}/foo-findings.json\" <<'END'", "[]", "END")
-        root = make_repo(uses(fence))
-        code, _, err = run("fences", "-C", str(root))
-        assert code == cs.OK, err
+        assert code == cs.PROBLEMS
+        assert "`cat`" in err
 
     @pytest.mark.spec("fences-cmd-allows-setup-commands")
     def it_does_not_scan_a_heredoc_body(self, make_repo, run):
@@ -960,7 +949,7 @@ class DescribeFences:
         assert code == cs.OK, err
 
     @pytest.mark.spec("fences-cmd-allows-setup-commands")
-    def it_rejects_a_heredoc_that_is_not_the_findings_file(self, make_repo, run):
+    def it_rejects_a_heredoc_to_a_relative_path(self, make_repo, run):
         root = make_repo(uses(sh("cat > notes.txt <<'END'", "x", "END")))
         code, _, err = run("fences", "-C", str(root))
         assert code == cs.PROBLEMS
@@ -989,14 +978,6 @@ class DescribeFences:
     def it_rejects_a_draft_heredoc_sharing_its_line(self, make_repo, run):
         line = "python3 \"$FOO\" lint && cat > /var/folders/k2/T/foo-x8q1zv.md <<'END'"
         root = make_repo(uses(sh(line, "x", "END")))
-        code, _, err = run("fences", "-C", str(root))
-        assert code == cs.PROBLEMS
-        assert "`cat`" in err
-
-    @pytest.mark.spec("fences-cmd-allows-setup-commands")
-    def it_rejects_the_findings_heredoc_sharing_its_line(self, make_repo, run):
-        line = 'python3 "$FOO" lint && cat > "${TMPDIR:-/tmp}/foo-findings.json" <<\'END\''
-        root = make_repo(uses(sh(line, "{}", "END")))
         code, _, err = run("fences", "-C", str(root))
         assert code == cs.PROBLEMS
         assert "`cat`" in err
@@ -1078,7 +1059,6 @@ class DescribeFences:
         assert code == cs.OK, err
         allowed = set(c["allowed"] for c in json.loads(out)["data"]["commands"])
         assert cs.INVOCATION in allowed
-        assert "findings heredoc" in allowed
         assert "draft heredoc" in allowed
 
     @pytest.mark.spec("fences-cmd-requires-info-strings")
