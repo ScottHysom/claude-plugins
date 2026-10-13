@@ -270,7 +270,8 @@ description.
   prints a token as its last line, and otherwise does not print a token.
 - `report-cmd-shows-whole-batch` (test): When `report` is given `--only` or
   `--file`, it refuses them and exits 2, so its token covers only findings it
-  showed.
+  showed. When it is given `--rule`, its token covers the rules named, and
+  `apply` refuses the token unless it is given the same `--rule`s.
 - `apply-cmd-requires-token` (test): When the token passed to `apply
   --token` is not the one `report` would print for the findings, the documents
   they name and `prose-style.md` as they are now, `apply` refuses the batch
@@ -748,6 +749,31 @@ plugin knows only itself", for the hand-off convention.
 - `updateproseconfig-writes-note-examples` (step): When a rule comes from a
   note on an unchanged passage, update-prose-config writes its worked example
   from that passage.
+
+## need user-applies-new-rules: Check the documents against the rules just written
+
+When update-prose-config has written rules from notes left in a review, the
+author wants the documents checked against just those rules, with the same
+report and approval as a full pass, so the other places a noted problem turns
+up are rewritten without a pass over every rule.
+
+Source: #543, which records the searches the agent made by hand in the review
+of #527.
+
+- `pass-cmd-reads-named-rules` (test): When `pass` is given `--rule`, it
+  prints only the rules named, and only the matches of their patterns.
+- `report-cmd-checks-named-rules` (test): When `report` is given `--rule`, it
+  refuses a finding of any other rule, and fails only on uncovered matches of
+  the named rules' patterns. It still runs every rule's pattern over each
+  rewrite, and names the rules it was given.
+- `report-cmd-names-unknown-rule-ids` (test): When `pass`, `report` or `apply` is
+  given a `--rule` that `prose-style.md` does not define, it names the id and
+  exits 2.
+- `applyprose-checks-named-rules` (step): When apply-prose is given rule ids,
+  it passes each as `--rule` to `pass`, `report` and `apply`.
+- `updateproseconfig-names-written-rules` (step): When update-prose-config
+  hands off, it names the id of each rule it wrote, and tells the author to
+  commit the edits and then run apply-prose with those ids.
 
 ## constraint shell-starts-fresh: Each shell call starts without the last one's variables
 

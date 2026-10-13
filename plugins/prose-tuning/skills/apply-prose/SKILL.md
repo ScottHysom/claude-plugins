@@ -61,7 +61,7 @@ two list items ends the list. Then stop. Tell the author to commit the
 resolved files and run this skill again to conform them.
 
 ## Step 2: the rules, the prose and the pattern matches
-<!-- spec: applyprose-passes-named-documents, applyprose-judges-each-match, applyprose-reads-segments-only -->
+<!-- spec: applyprose-passes-named-documents, applyprose-checks-named-rules, applyprose-judges-each-match, applyprose-reads-segments-only -->
 <!-- seam: platform: the author asks why a file was skipped, and scope --all answers -->
 
 ```sh
@@ -72,6 +72,14 @@ When the author named the documents to check, name the same files after
 `pass` here, and after `report` and `apply` in the steps below, as in
 `pass notes.md`. With no file, each of them reads every file in scope.
 `apply` refuses the token unless it is given the files `report` was.
+
+When the arguments name rule ids, such as the ones `update-prose-config` just
+wrote, check the documents against those rules alone. Add `--rule` with each
+id to `pass` here, and to `report` and `apply` in the steps below, as in
+`pass --rule sentences-own-subject --rule headings-noun-phrase`. `pass` then
+prints only those rules and their matches. `report` refuses a finding of any
+other rule, and still checks each rewrite against every rule's pattern.
+`apply` refuses the token unless it is given the same `--rule`s.
 
 `pass` prints three parts, each under its own heading:
 
@@ -278,7 +286,8 @@ python3 "$PROSE" apply --findings "${TMPDIR:-/tmp}/prose-findings.json" \
 ```
 
 The `--file` flags select from the approved findings. Any files the author
-named in step 2 go after the flags, as they did for `report`.
+named in step 2 go after the flags, as they did for `report`, and so does
+each `--rule` that step 2 passed.
 
 A rule id or file that does not match any finding is an error rather than an
 empty run.
