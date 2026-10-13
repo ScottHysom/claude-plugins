@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fail a pull request whose description does not open with its scenario.
+"""Check a pull request's description, and open one from a checked draft.
 
 CLAUDE.md, under "Workflow", says what a pull request description covers, and
 that it opens with `## Scenario`: who meets the change, what happened before
@@ -7,7 +7,7 @@ it and what happens after it. The owner reviews from that section. Agents
 post under the owner's account, so a description in another shape reaches
 the owner as though the owner had written it, unless CI fails it first.
 
-`description` fails a pull request when either holds:
+`description` fails a description when either holds:
 
   - the description's first heading is not `## Scenario`, or it has no
     heading.
@@ -16,34 +16,49 @@ the owner as though the owner had written it, unless CI fails it first.
 
 It reads the pull request from $GITHUB_EVENT_PATH, so it runs in CI on a
 pull_request event. The validate workflow runs it on `edited` as well, so a
-corrected description clears the failure.
+corrected description clears the failure. Given --body-file, it reads a
+drafted description from that file instead, so the open-pr skill can check a
+draft before anyone reads it.
+
+`open` makes the same check on a drafted description, and refuses it the same
+way. When the draft passes, it pushes the current branch and opens a pull
+request against main, with the file as its description. The open-pr skill, at
+.claude/skills/open-pr/SKILL.md, opens every agent's pull request through it.
 
     python3 .github/scripts/check-pr.py description
+    python3 .github/scripts/check-pr.py description --body-file pr.md
+    python3 .github/scripts/check-pr.py open --title "fix(repo): ..." --body-file pr.md
 
 Commands:
 
   description  the description opens with a `## Scenario` section that says
                something
+  open         open a pull request from a drafted description that passes
+               `description`
 
-Every command takes --json.
+Every command takes --json. `open` also takes -C/--repo, for the clone whose
+branch it pushes.
 
 Exit codes: 0 clean, 1 ran and found problems, 2 could not run.
 
 Things that look like bugs and are not:
 
-- It takes no -C/--repo, since it reads nothing from a clone.
+- `description` takes no -C/--repo, since it reads nothing from a clone.
 - Only ATX headings, the ones that open with `#`, are read. A heading in a
   fenced code block or an HTML comment is not a heading, as GitHub does not
   render one, so a description that quotes CLAUDE.md's example passes or
   fails on its own headings.
 - Text before the first heading is allowed. The check holds the description
   to its first heading, which is what CLAUDE.md names.
+- `open` pushes before it opens, because `gh pr create` run without a
+  terminal stops on a branch the remote does not have yet.
 """
 
 import argparse
 import json
 import os
 import re
+import subprocess
 import sys
 
 ENVELOPE_VERSION = 1
@@ -52,6 +67,8 @@ OK, PROBLEMS, CANNOT_RUN = 0, 1, 2
 
 PROG = "check-pr.py"
 EVENT_ENV = "GITHUB_EVENT_PATH"
+BASE = "main"
+REMOTE = "origin"
 SCENARIO = "Scenario"
 SCENARIO_LEVEL = 2
 SCENARIO_HEADING = "%s %s" % ("#" * SCENARIO_LEVEL, SCENARIO)
@@ -192,9 +209,23 @@ def scenario_problems(body):
     return first, section, []
 
 
+def read_body_file(path):
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return fh.read()
+    except (OSError, UnicodeDecodeError) as exc:
+        raise Fatal(
+            "cannot read the description at %s: %s. Write the draft there and run "
+            "this again." % (path, exc)
+        ) from exc
+
+
 def cmd_description(args):
-    pr = load_event(args.environ)
-    first, section, errors = scenario_problems(pr.get("body") or "")
+    if args.body_file:
+        body = read_body_file(args.body_file)
+    else:
+        body = load_event(args.environ).get("body") or ""
+    first, section, errors = scenario_problems(body)
 
     def human():
         if not errors:
@@ -202,6 +233,56 @@ def cmd_description(args):
 
     data = {"first_heading": first, "scenario": section}
     return emit(args, "description", data, errors, None, human)
+
+
+# --------------------------------------------------------------------------
+# opening a pull request
+# --------------------------------------------------------------------------
+
+
+def run(repo, cmd):
+    """Run git or gh in `repo` and return its stdout. Tests replace this."""
+    try:
+        proc = subprocess.run(cmd, cwd=repo, capture_output=True, text=True)
+    except OSError as exc:
+        raise Fatal("cannot run %s in %s: %s" % (cmd[0], repo, exc)) from exc
+    if proc.returncode != 0:
+        raise Fatal(
+            "`%s` failed: %s. Fix what it names and run `open` again."
+            % (" ".join(cmd), proc.stderr.strip())
+        )
+    return proc.stdout
+
+
+def cmd_open(args):
+    body = read_body_file(args.body_file)
+    first, section, errors = scenario_problems(body)
+    data = {"first_heading": first, "scenario": section, "branch": None, "url": None}
+    if not errors:
+        repo = args.repo
+        data["branch"] = run(repo, ["git", "rev-parse", "--abbrev-ref", "HEAD"]).strip()
+        run(repo, ["git", "push", "-u", REMOTE, "HEAD"])
+        out = run(
+            repo,
+            [
+                "gh",
+                "pr",
+                "create",
+                "--base",
+                BASE,
+                "--title",
+                args.title,
+                "--body-file",
+                os.path.abspath(args.body_file),
+            ],
+        )
+        data["url"] = out.strip().splitlines()[-1] if out.strip() else None
+
+    def human():
+        if data["url"]:
+            print(data["url"])
+
+    return emit(args, "open", data, errors, None, human)
 
 
 # --------------------------------------------------------------------------
@@ -213,7 +294,9 @@ def build_parser():
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument("--json", action="store_true", help="machine-readable envelope on stdout")
 
-    ap = argparse.ArgumentParser(prog=PROG, description="Check a pull request's description.")
+    ap = argparse.ArgumentParser(
+        prog=PROG, description="Check a pull request's description, and open one."
+    )
     sub = ap.add_subparsers(dest="command", required=True)
 
     p = sub.add_parser(
@@ -221,7 +304,24 @@ def build_parser():
         parents=[common],
         help="the description opens with a Scenario section that says something",
     )
+    p.add_argument(
+        "--body-file",
+        metavar="FILE",
+        help="check a drafted description in FILE, in place of the pull request event",
+    )
     p.set_defaults(func=cmd_description)
+
+    p = sub.add_parser(
+        "open",
+        parents=[common],
+        help="push the branch and open a pull request from a description that passes",
+    )
+    p.add_argument("--title", required=True, help="the pull request's title")
+    p.add_argument("--body-file", metavar="FILE", required=True, help="the drafted description")
+    p.add_argument(
+        "-C", "--repo", metavar="DIR", default=".", help="a directory in the clone to push from"
+    )
+    p.set_defaults(func=cmd_open)
 
     return ap
 
