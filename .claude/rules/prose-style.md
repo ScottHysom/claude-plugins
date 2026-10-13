@@ -39,14 +39,23 @@ this repo.
 
 ### standing-define-terms: Define jargon and acronyms on first use
 
-First use is per document, not per project. A pointer to a glossary is not a
-definition. One clause is enough.
+First use is per document, not per project. A pull request description, an
+issue and a commit message are each a document of their own. A pointer to a
+glossary is not a definition. One clause is enough.
+
+A term that a plugin, a spec or a skill defines is jargon in such a document,
+and gets defined there. apply-prose's finding and dismissal are two. The agent
+has that vocabulary in context from the work, and the owner reads the
+description without it.
 
 A term the document gives its own meaning is bolded in the sentence that
 defines it, and only there.
 
 > **Before.** A need says who wants what outcome, and why.
 > **After.** A **need** says who wants what outcome, and why.
+
+> **Before.** A dismissal can stand in for one side of an overlap.
+> **After.** In apply-prose, a **finding** is a rewrite the model proposes for a rule breach, and a **dismissal** is a note that a pattern match is not a breach. When two findings would rewrite the same text, a dismissal can stand in for one of them.
 
 ### standing-no-assumed-familiarity: Do not assume familiarity with a named tool or technique
 
