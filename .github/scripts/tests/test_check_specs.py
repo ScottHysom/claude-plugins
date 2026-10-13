@@ -15,8 +15,10 @@ import json
 import re
 import sqlite3
 import subprocess
+import sys
 from pathlib import Path
 
+import coverage
 import pytest
 
 _PATH = Path(__file__).resolve().parent.parent / "check-specs.py"
@@ -654,22 +656,28 @@ RAN = {
 }
 
 
-def measured_repo(make_repo, changes=None, contexts=True, arcs=True):
+def measured_repo(make_repo, changes=None, contexts=True, arcs=True, schema=None):
     """A clone after a coverage run: its JSON report, and the data file under it.
 
     The data file holds RAN as coverage.py stores it: a branch run as arcs into
     each line, a run without branches as a bitmap of lines per test. Without
     `contexts`, every line is filed under the empty context, as a run without
-    --cov-context=test files it.
+    --cov-context=test files it. `schema` overrides the layout version the file
+    records.
     """
     report = json.dumps({"files": {SCRIPT: {"missing_lines": [4, 5, 6, 14]}}})
     root = make_repo(dict(changes or {}, **{cp.DEFAULT_REPORT: report}))
     db = sqlite3.connect(str(root / cp.DATA_FILE))
     db.executescript(
+        "create table coverage_schema (version integer);"
         "create table file (id integer primary key, path text);"
         "create table context (id integer primary key, context text);"
         "create table arc (file_id integer, context_id integer, fromno integer, tono integer);"
         "create table line_bits (file_id integer, context_id integer, numbits blob);"
+    )
+    db.execute(
+        "insert into coverage_schema values (?)",
+        (cp.COVERAGE_SCHEMA if schema is None else schema,),
     )
     db.execute("insert into file values (1, ?)", (str(root / SCRIPT),))
     contexts_of = {}
@@ -830,12 +838,71 @@ class DescribeInventory:
         assert code == cp.CANNOT_RUN
         assert "cannot read the coverage data %s" % cp.DATA_FILE in err
 
+    @pytest.mark.spec("inventory-cmd-refuses-unknown-coverage-schema")
+    def it_stops_on_a_data_file_of_another_schema_version(self, make_repo, run):
+        root = measured_repo(make_repo, schema=cp.COVERAGE_SCHEMA + 1)
+        code, out, err = run("inventory", "foo", "-C", str(root))
+        assert code == cp.CANNOT_RUN
+        assert out == ""
+        assert "schema version %d" % (cp.COVERAGE_SCHEMA + 1) in err
+        assert "reads version %d" % cp.COVERAGE_SCHEMA in err
+
     @pytest.mark.spec("inventory-cmd-lists-parser-surface")
     def it_stops_on_a_plugin_with_no_script(self, make_repo, run):
         root = measured_repo(make_repo)
         code, _, err = run("inventory", "bar", "-C", str(root))
         assert code == cp.CANNOT_RUN
         assert "Name a plugin that has one: foo." in err
+
+
+# Measures MEASURED_SOURCE with coverage.py's own API, under two named
+# contexts, and saves the data file. It runs in a process of its own, so it
+# does not start a second measurement inside the one pytest --cov runs.
+MEASURE = """import importlib.util, sys
+import coverage
+
+data_file, source, branch = sys.argv[1], sys.argv[2], sys.argv[3] == "branch"
+cov = coverage.Coverage(data_file=data_file, branch=branch, config_file=False)
+cov.start()
+spec = importlib.util.spec_from_file_location("measured", source)
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+cov.switch_context("tests/foo/test_foo.py::DescribeA::it_takes_one|run")
+module.pick(True)
+cov.switch_context("tests/foo/test_foo.py::DescribeB::it_takes_two|run")
+module.pick(False)
+cov.stop()
+cov.save()
+"""
+MEASURED_SOURCE = "def pick(flag):\n    if flag:\n        return 1\n    return 2\n"
+
+
+class DescribeLoadContexts:
+    @pytest.mark.spec("inventory-cmd-lists-tests")
+    @pytest.mark.parametrize("measure", ["branch", "line"])
+    def it_reads_what_coverage_py_reads_from_its_own_data_file(self, tmp_path, measure):
+        script = tmp_path / SCRIPT
+        script.parent.mkdir(parents=True)
+        script.write_text(MEASURED_SOURCE)
+        driver = tmp_path / "measure.py"
+        driver.write_text(MEASURE)
+        data_file = tmp_path / cp.DATA_FILE
+        subprocess.run(
+            [sys.executable, "-I", str(driver), str(data_file), str(script), measure],
+            check=True,
+            capture_output=True,
+            cwd=str(tmp_path),
+        )
+        data = coverage.CoverageData(basename=str(data_file))
+        data.read()
+        assert data.has_arcs() == (measure == "branch")
+        expected = {
+            line: set(names) for line, names in data.contexts_by_lineno(str(script)).items()
+        }
+        got = cp.load_contexts(str(tmp_path), [SCRIPT])[SCRIPT]
+        assert got == expected
+        assert got[3] == {"tests/foo/test_foo.py::DescribeA::it_takes_one|run"}
+        assert got[4] == {"tests/foo/test_foo.py::DescribeB::it_takes_two|run"}
 
 
 # A step KNOWN_SEAMS lists. The test sets the entry itself, so it outlives

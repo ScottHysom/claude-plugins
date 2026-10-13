@@ -729,6 +729,9 @@ Source: #114, #129, and SPEC-METHODOLOGY.md, under "The chain".
 - `inventory-cmd-requires-per-test-report` (test): When the coverage
   report does not say which test ran each line, `inventory` stops and names
   the command that writes one that does.
+- `inventory-cmd-refuses-unknown-coverage-schema` (test): When the
+  coverage data file records a schema version other than the one
+  `inventory` reads, `inventory` stops and names both versions.
 - `surface-cmd-fails-unnamed-options` (test): When a subcommand, option or
   `choices` value of a plugin script or a repo script is not named in backticks by
   any requirement in its component's spec or in `specs/repo.md`,

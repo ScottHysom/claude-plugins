@@ -118,8 +118,9 @@ Things that look like bugs and are not:
   loosely, and counts a bare option for every command that takes it.
 - `inventory` reads .coverage with sqlite3 rather than through coverage.py,
   so the check stays in the standard library. coverage.py does not promise
-  the file's tables, which are as coverage 7.10 writes them: `arc` holds a
-  branch run's lines, and `line_bits` a line run's. A JSON report that lists
+  the file's tables, so `inventory` stops on a file whose `coverage_schema`
+  is not COVERAGE_SCHEMA. In that layout, `arc` holds a branch run's lines,
+  and `line_bits` a line run's. A JSON report that lists
   each line's tests repeats them under every function and class too, and runs
   to gigabytes over the whole suite.
 - `inventory` reads the parser through argparse's own attributes, `_actions`
@@ -186,6 +187,10 @@ REPORT_REMEDY = (
     "Run `pytest --cov --cov-context=test --cov-report=json:%s` from the clone first."
     % DEFAULT_REPORT
 )
+# The layout version of the data file that load_contexts reads, as coverage.py
+# records it in the file's coverage_schema table.
+COVERAGE_SCHEMA = 7
+SCHEMA_SQL = "select version from coverage_schema"
 PER_TEST_SQL = "select 1 from context where instr(context, ?) limit 1"
 ARCS_SQL = (
     "select c.context, a.fromno, a.tono from arc a"
@@ -1141,6 +1146,14 @@ def load_contexts(root, scripts):
     try:
         db = sqlite3.connect(full)
         try:
+            row = db.execute(SCHEMA_SQL).fetchone()
+            found = row[0] if row else None
+            if found != COVERAGE_SCHEMA:
+                raise Fatal(
+                    "%s has coverage schema version %s, and inventory reads version %d."
+                    " Update inventory's reading of the data file for the new layout."
+                    % (DATA_FILE, found, COVERAGE_SCHEMA)
+                )
             if not db.execute(PER_TEST_SQL, (NODE_SEPARATOR,)).fetchone():
                 raise Fatal(
                     "%s does not say which test ran each line. %s" % (DATA_FILE, REPORT_REMEDY)
