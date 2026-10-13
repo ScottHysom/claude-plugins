@@ -229,6 +229,15 @@ Hypothesis strategy is built from, goes in a helper module named after the
 plugin, like `tests/prose-tuning/prose_samples.py`. `ruff check` fails on a
 `conftest` import.
 
+A fixture that hands a test a git repository copies one built once per run,
+rather than running `git init` for each test. Starting a git process is slow
+on macOS. `tests/conftest.py` holds the two fixtures that do it:
+
+- `git_init` copies an empty repository to a path.
+- `repo_copy` copies whatever a builder function makes.
+
+`.github/scripts/tests/conftest.py` loads both from that file.
+
 CI runs the suite on Python 3.9 and 3.13. The scripts have to run under
 whatever Python is already on the machine, which on macOS is still 3.9, so the
 scripts use neither a walrus in a comprehension nor `X | Y` unions. The floor
@@ -329,7 +338,9 @@ rules on what the code does that no need covers. SPEC-METHODOLOGY.md, under
 "An existing codebase", has the steps.
 
 `inventory` lists what a plugin's backfill has to trace. It reads a coverage
-report that records which test ran each line:
+run that records which test ran each line. The run leaves `.coverage`, which
+holds each line's tests, and `coverage.json`, which holds the lines no test
+ran:
 
 ```sh
 pytest --cov --cov-context=test --cov-report=json:coverage.json

@@ -69,10 +69,8 @@ def report(files, branch=True):
     )
 
 
-@pytest.fixture
-def repo(tmp_path):
-    """A clone with one plugin script committed on `main`, at a floor of 80."""
-    root = tmp_path / "repo"
+def floored(root):
+    """Build the clone the repo fixture starts from."""
     root.mkdir()
     git(root, "init", "-q", "-b", "main")
     write(
@@ -84,7 +82,12 @@ def repo(tmp_path):
         },
     )
     commit(root)
-    return root
+
+
+@pytest.fixture
+def repo(tmp_path, repo_copy):
+    """A clone with one plugin script committed on `main`, at a floor of 80."""
+    return repo_copy(floored, tmp_path / "repo")
 
 
 @pytest.fixture

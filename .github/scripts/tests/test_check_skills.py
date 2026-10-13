@@ -94,13 +94,13 @@ def no_known_gaps(monkeypatch):
 
 
 @pytest.fixture
-def make_repo(tmp_path):
+def make_repo(tmp_path, git_init):
     """A throwaway clone holding exactly the files a test names."""
 
     def build(files):
         root = tmp_path / "repo"
-        root.mkdir(exist_ok=True)
-        subprocess.run(["git", "init", "-q", str(root)], check=True, capture_output=True)
+        if not root.exists():
+            git_init(root)
         for rel, text in files.items():
             path = root / rel
             path.parent.mkdir(parents=True, exist_ok=True)

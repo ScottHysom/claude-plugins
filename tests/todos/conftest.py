@@ -438,23 +438,24 @@ def init(root):
     subprocess.run(["git", "init", "-q", str(root)], check=True, capture_output=True)
 
 
-@pytest.fixture
-def repo(tmp_path, capsys):
-    """A clone holding one commit, with nothing pending."""
-    root = tmp_path / "repo"
+def committed(root):
+    """Build the repository the repo fixture starts from."""
     init(root)
-    r = TodoRepo(root, capsys)
+    r = TodoRepo(root, None)
     r.write("README.md", "# Probe\n")
     r.commit()
-    return r
 
 
 @pytest.fixture
-def bare_repo(tmp_path, capsys):
+def repo(tmp_path, capsys, repo_copy):
+    """A clone holding one commit, with nothing pending."""
+    return TodoRepo(repo_copy(committed, tmp_path / "repo"), capsys)
+
+
+@pytest.fixture
+def bare_repo(tmp_path, capsys, git_init):
     """A clone with no commit yet."""
-    root = tmp_path / "repo"
-    init(root)
-    return TodoRepo(root, capsys)
+    return TodoRepo(git_init(tmp_path / "repo"), capsys)
 
 
 # The branch the worktree fixture checks out.
@@ -473,12 +474,6 @@ def worktree(repo, tmp_path, capsys):
 def todo_repo(capsys):
     """A TodoRepo for a working tree a test made some other way."""
     return lambda root: TodoRepo(root, capsys)
-
-
-@pytest.fixture
-def git_init():
-    """`git init` at a path, for a test that needs a second repository."""
-    return init
 
 
 @pytest.fixture

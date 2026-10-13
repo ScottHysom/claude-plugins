@@ -8,7 +8,6 @@ and a test that the check says so.
 
 import importlib.util
 import json
-import subprocess
 from pathlib import Path
 
 import pytest
@@ -39,7 +38,7 @@ def isolated_git(monkeypatch):
 
 
 @pytest.fixture
-def make_repo(tmp_path):
+def make_repo(tmp_path, git_init):
     """A throwaway clone with the given catalog and plugin manifests.
 
     `plugins` maps a directory under plugins/ to its plugin.json, or to None
@@ -48,8 +47,8 @@ def make_repo(tmp_path):
 
     def build(entries, plugins=None):
         root = tmp_path / "repo"
-        root.mkdir(exist_ok=True)
-        subprocess.run(["git", "init", "-q", str(root)], check=True, capture_output=True)
+        if not root.exists():
+            git_init(root)
         if entries is not None:
             path = root / MARKETPLACE
             path.parent.mkdir(parents=True, exist_ok=True)
