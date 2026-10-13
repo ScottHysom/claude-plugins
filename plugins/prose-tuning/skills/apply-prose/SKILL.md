@@ -60,8 +60,8 @@ resolved inside a list is the one case to read closely, because a tag between
 two list items ends the list. Then stop. Tell the author to commit the
 resolved files and run this skill again to conform them.
 
-## Step 2: the rules, the prose and the pattern matches
-<!-- spec: applyprose-passes-named-documents, applyprose-checks-named-rules, applyprose-judges-each-match, applyprose-reads-segments-only -->
+## Step 2: the parts
+<!-- spec: applyprose-passes-named-documents, applyprose-checks-named-rules -->
 <!-- seam: platform: the author asks why a file was skipped, and scope --all answers -->
 
 ```sh
@@ -75,18 +75,22 @@ When the author named the documents to check, name the same files after
 
 When the arguments name rule ids, such as the ones `update-prose-config` just
 wrote, check the documents against those rules alone. Add `--rule` with each
-id to `pass` here, and to `report` and `apply` in the steps below, as in
-`pass --rule sentences-own-subject --rule headings-noun-phrase`. `pass` then
-prints only those rules and their matches. `report` refuses a finding of any
-other rule, and still checks each rewrite against every rule's pattern.
+id to `pass` here, to `pass --part` in step 3, and to `report` and `apply` in
+the steps below, as in
+`pass --rule sentences-own-subject --rule headings-noun-phrase`. The parts
+then hold only those rules and their matches. `report` refuses a finding of
+any other rule, and still checks each rewrite against every rule's pattern.
 `apply` refuses the token unless it is given the same `--rule`s.
 
-`pass` prints three parts, each under its own heading:
+`pass` lists the parts of the pass, one line each:
 
-- `== rules ==`: every rule in `prose-style.md`, as the file words it.
-- `== segments ==`: the prose a rule may touch, one span per line.
-- `== matches ==`: every place a rule's pattern matches those spans, then
-  the rules checked by pattern.
+```text
+sentences@notes.md:1-212  19 rule(s), 12 checked by reading, 21094 characters
+```
+
+A part is the rules of one section of `prose-style.md`, such as every
+`sentences-` rule, over a run of one file's lines. The id comes first, then
+how many rules the part holds and how many of them carry no pattern.
 
 When the author asks why a file was skipped:
 
@@ -95,6 +99,50 @@ python3 "$PROSE" scope --all
 ```
 
 which prints every markdown file with the pattern that included or excluded it.
+
+## Step 3: read each part and write its findings
+<!-- spec: applyprose-reads-in-parts, applyprose-reads-segments-only, applyprose-judges-each-match, applyprose-splits-findings-by-rule, applyprose-keeps-facts, applyprose-checks-own-rewrites -->
+
+Start the findings file empty, outside the project, so the run does not leave
+a stray file in it:
+
+```sh
+cat > "${TMPDIR:-/tmp}/prose-findings.json" <<'END'
+[]
+END
+```
+
+Then take the parts in the order `pass` listed them, one at a time:
+
+```sh
+python3 "$PROSE" pass --part sentences@notes.md:1-212
+```
+
+`pass --part` prints four pieces, each under its own heading:
+
+- `== rules ==`: the part's rules, as `prose-style.md` words them.
+- `== segments ==`: the prose of the part's lines that a rule may touch,
+  one span per line.
+- `== matches ==`: every place one of the part's rules' patterns matches
+  those spans, then the rules checked by pattern.
+- `== read ==`: the part's read record.
+
+Judge every segment against every rule the part prints. Then add the part's
+findings and its read record to the end of the findings file, even when the
+part has no finding:
+
+```sh
+cat >> "${TMPDIR:-/tmp}/prose-findings.json" <<'END'
+[{"file":"notes.md","line":42,"rule":"sentences-own-subject",
+  "text":"<the current text, copied from the segment>",
+  "replacement":"<the rewrite>"},
+ {"read":"sentences@notes.md:1-212","digest":"3f9a1c0e7b2d4a68"}]
+END
+```
+
+Copy the read record as the part prints it. `report` fails on a part with a
+rule that does not carry a pattern until the findings hold that part's
+record, and on a record made before the part's lines or rules changed.
 
 ### The segments
 
@@ -122,8 +170,8 @@ the prose either side of it comes back as separate segments.
 ### The matches
 
 A rule can carry a regular expression that finds its breaches, such as a
-spaced hyphen for `standing-no-em-dash`. `pass` runs every one over the
-segments, and prints one line per match:
+spaced hyphen for `standing-no-em-dash`. `pass --part` runs the part's
+patterns over its segments, and prints one line per match:
 
 ```text
 notes.md:12:40-42  standing-no-em-dash  " -"
@@ -133,19 +181,19 @@ notes.md:30:61-31:4  register-plain-words  "in order\n  to"
 The address is `file:line:col_start-col_end`, with `end_line:col_end` after
 the dash when the match wraps onto the next line. Then come the rule id and
 the matched text, as a JSON string that goes into a finding's `text` as it
-stands. The last line names the rules checked by pattern.
+stands. The last line names the part's rules checked by pattern.
 
-When it says that none of the rules carries one, the project's rules were written before
+When no part's rules carry a pattern, the project's rules were written before
 rules could, and every rule is checked by reading. Tell the author that
 `copy-prose` from the shipped rules brings in their patterns.
 
 A pattern finds places to look, so judge each match. A spaced hyphen can be a
-minus sign. Every match that breaks its rule becomes a finding in step 3,
-usually with a longer `text` than the match, since the rewrite is of the
-sentence. A match that stays as it is becomes a finding with `dismiss` and the
-reason in place of `replacement`. A match that another rule's finding rewrites
-does not stay, so it gets a finding of its own rule. `report` runs the patterns again, and fails
-on a match that no finding or dismissal of its rule contains.
+minus sign. Every match that breaks its rule becomes a finding, usually with a
+longer `text` than the match, since the rewrite is of the sentence. A match
+that stays as it is becomes a finding with `dismiss` and the reason in place
+of `replacement`. A match that another rule's finding rewrites does not stay,
+so it gets a finding of its own rule. `report` runs the patterns again, and
+fails on a match that no finding or dismissal of its rule contains.
 
 **Never search the prose with a command of your own,** such as `grep` over
 the segments. A search written during a run finds a different set on
@@ -154,12 +202,9 @@ pattern is checked by reading the segments. A break of a patterned rule that
 reading turns up anyway is still a finding. Tell the author the pattern
 missed it, since the pattern is theirs to extend.
 
-## Step 3: produce findings
-<!-- spec: applyprose-splits-findings-by-rule, applyprose-keeps-facts, applyprose-checks-own-rewrites -->
+### The findings
 
-<!-- no-command: judgment. The model writes each finding, and step 4's report checks them. -->
-
-Each finding is one JSON object in a findings file:
+Each finding is one JSON object:
 
 | Field | Content |
 |---|---|
@@ -179,18 +224,8 @@ scope for this skill no matter how badly the sentence reads.
 
 **Read each rewrite against every rule.** A rewrite that fixes one rule can
 break another. Read each replacement against the rules that do not carry a
-pattern before step 4. `report` checks it against the rules that do.
-
-Write the findings file outside the project, so the run does not leave a stray
-file in it:
-
-```sh
-cat > "${TMPDIR:-/tmp}/prose-findings.json" <<'END'
-[{"file":"landscape.md","line":42,"rule":"sentences-own-subject",
-  "text":"<the current text, copied from the segment>",
-  "replacement":"<the rewrite>"}]
-END
-```
+pattern, in the other parts of its file as well as its own, before step 4.
+`report` checks it against the rules that do.
 
 `file` and `line` come from the segment's address, and `text` is copied
 exactly from the segment's text. Leave the columns out: `apply` finds the text
@@ -209,6 +244,8 @@ To cut text, give `"replacement":""`. A line that the cuts cover whole goes
 with its newline, and when a cut takes a whole block `apply` keeps one blank
 line between the blocks either side.
 
+To revise a finding later, edit it in the findings file where it stands.
+
 ## Step 4: one approval round
 <!-- spec: applyprose-shows-report-whole, applyprose-revises-on-comment, applyprose-puts-rule-conflicts-to-author -->
 
@@ -219,7 +256,8 @@ python3 "$PROSE" report --findings "${TMPDIR:-/tmp}/prose-findings.json" --json
 `report` reads each finding's current text from the file as it is now, and
 writes the report to the markdown file at `data.report`: each finding with its
 `file:line`, rule id, current text and proposed text, then the rules
-checked by pattern in the files step 2 read. Each line of a text sits between
+checked by pattern in the files step 2 read, and the files read against
+each rule that does not. Each line of a text sits between
 `|` marks, so a space at either end shows. `(cut)` stands for an empty
 proposed text. A dismissal shows its reason in place of a proposed text.
 When `report` exits 0, `data.token` is the approval token, and the file ends
@@ -230,8 +268,9 @@ copy of it, even to learn whether the rewrites keep the project's own checks
 passing. `apply` refuses the token in any checkout other than the one `report`
 ran in.
 
-`report` exits 1 when a finding cannot apply. Each error names the finding
-or match, and says what to do about it. Never drop a side of an overlap
+`report` exits 1 when a finding cannot apply, or a part has not been read.
+Each error names the finding, match or part, and says what to do about it.
+Never drop a side of an overlap
 yourself.
 
 Publish the file at `data.report` as a private artifact with the Artifact

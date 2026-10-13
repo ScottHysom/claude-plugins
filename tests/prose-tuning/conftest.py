@@ -233,15 +233,35 @@ class ProseRepo:
         config = prose.Config(prose.config_path(repo))
         return prose.approval_token(repo, config, raw, json.loads(raw), [])
 
-    def report(self, findings, *flags):
+    def report(self, findings, *flags, read=True):
         """Run `prose.py report` on these findings. Returns what run() does."""
-        return self.run("report", "--findings", self.findings_file(findings), *flags)
+        path = self.findings_file(findings, *flags, read=read)
+        return self.run("report", "--findings", path, *flags)
 
-    def findings_file(self, findings):
-        """Write findings where a command can read them, and return the path."""
+    def findings_file(self, findings, *flags, read=True):
+        """Write findings where a command can read them, and return the path.
+
+        With read, a list of findings ends with the read record of every part
+        that `pass` lists for these flags, as the model adds them once it has
+        judged each part, so a test of anything else passes report's check of
+        the reading.
+        """
+        if read and isinstance(findings, list):
+            findings = findings + self.reads(*flags)
         path = self.root / "findings.json"
         path.write_text(json.dumps(findings))
         return str(path)
+
+    def reads(self, *flags):
+        """The read record of every part `pass` lists, given report's flags."""
+        rules = [x for before, x in zip(flags, flags[1:]) if before == "--rule"]
+        rule_flags = [f for r in rules for f in ("--rule", r)]
+        _code, listed = self.run("pass", *flags)
+        records = []
+        for part in listed["data"].get("parts", []) if listed else []:
+            _code, shown = self.run("pass", "--part", part["id"], *rule_flags)
+            records.append(shown["data"]["record"])
+        return records
 
 
 @pytest.fixture

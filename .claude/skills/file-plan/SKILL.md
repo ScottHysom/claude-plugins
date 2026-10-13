@@ -41,9 +41,14 @@ expect it to get. Filing puts the issue's number in place of `{KEY}`. A body
 can name only an issue filed before it, so name a blocker from the issue it
 blocks, not the other way round.
 
-The tracking issue takes a `title` and a `plan`: what the plan is for and why
-its issues come in their order. `plan report` adds the opening `**Claude:**`
-and an Order section written from the links, so write neither.
+The tracking issue takes a `title` and a `plan`. The plan says:
+
+- what problem the plan fixes;
+- how its issues together fix it;
+- why they come in their order.
+
+`plan report` adds the opening `**Claude:**` and an Order section written
+from the links, so write neither.
 
 Write the plan outside the project:
 
@@ -55,7 +60,7 @@ cat > "${TMPDIR:-/tmp}/plan.json" <<'END'
   {"key": "B", "title": "<the title>", "labels": ["enhancement", "repo"],
    "blocked_by": ["A"], "body": "**Claude:**\n\n## What's wrong\n\nOnce #{A} lands, <...>"},
   {"key": "C", "number": 416, "blocked_by": ["B"]}],
- "tracking": {"title": "<the plan's title>", "plan": "<what it is for, and why this order>"}}
+ "tracking": {"title": "<the plan's title>", "plan": "<the problem, how the issues fix it, and why this order>"}}
 END
 ```
 
