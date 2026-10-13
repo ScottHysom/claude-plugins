@@ -170,9 +170,7 @@ Ask nothing when every TODO is clear. Keep every question in the one round, and
 never ask again after drafting starts.
 
 ## Step 3: route and draft
-<!-- spec: dotodos-follows-project-rules, dotodos-follows-todo-kind, dotodos-reuses-open-issues, dotodos-passes-todos-to-skills, dotodos-withholds-facts-from-prose -->
-
-<!-- no-command: judgment. The model writes each draft, and step 4's report checks them. -->
+<!-- spec: dotodos-follows-project-rules, dotodos-follows-todo-kind, dotodos-reuses-open-issues, dotodos-passes-todos-to-skills, dotodos-withholds-facts-from-prose, dotodos-drafts-in-own-file, drafts-cmd-makes-own-file -->
 
 Read the project's own rules for issues first: its `CLAUDE.md`, and any
 templates under `.github/ISSUE_TEMPLATE/`. Follow them for the title, the
@@ -221,10 +219,22 @@ drafting a new one. Write the comment's body as what the TODO adds to the
 issue, with the file and line it was left at, and follow the project's rules
 for replies, such as a prefix its `CLAUDE.md` asks for.
 
-Write the drafts outside the project, one object per TODO:
+Write the drafts outside the project, to a file of this run's own. Make it
+with:
 
 ```sh
-cat > "${TMPDIR:-/tmp}/todo-drafts.json" <<'END'
+TODOS=.todos/todos.py && python3 "$TODOS" drafts --json
+```
+
+`data.path` is a file that no other run is given. Name it in every later
+step by the path exactly as `drafts` printed it, never through `$TMPDIR` or
+another variable. The commands below show it as
+`/var/folders/k2/T/todo-drafts-x8q1zv.json`.
+
+Write one object per TODO:
+
+```sh
+cat > /var/folders/k2/T/todo-drafts-x8q1zv.json <<'END'
 [{"file": "src/run.py", "line": 12, "text": "# TODO(bug): run() waits forever",
   "route": "issue", "title": "<the title>", "body": "<the body>",
   "labels": ["bug"]},
@@ -258,7 +268,7 @@ replies ask a reply to open with some text, such as a prefix its `CLAUDE.md`
 names, pass that text to `file` as `--reply-lead`:
 
 ```sh
-TODOS=.todos/todos.py && python3 "$TODOS" file --pr 527 --reply-lead "**Claude:**" --drafts "${TMPDIR:-/tmp}/todo-drafts.json" --token 3f9a1c0e7b2d4a68 --json
+TODOS=.todos/todos.py && python3 "$TODOS" file --pr 527 --reply-lead "**Claude:**" --drafts /var/folders/k2/T/todo-drafts-x8q1zv.json --token 3f9a1c0e7b2d4a68 --json
 ```
 
 The reply is a mark, as `TODO-HANDLED` is in a file, so the report does not
@@ -270,13 +280,13 @@ but the replies that mark review TODOs, and the receiving skill asks the
 author about each note:
 
 ```sh
-TODOS=.todos/todos.py && python3 "$TODOS" file --drafts "${TMPDIR:-/tmp}/todo-drafts.json" --json
+TODOS=.todos/todos.py && python3 "$TODOS" file --drafts /var/folders/k2/T/todo-drafts-x8q1zv.json --json
 ```
 
 **Otherwise,** run `report`:
 
 ```sh
-TODOS=.todos/todos.py && python3 "$TODOS" report --drafts "${TMPDIR:-/tmp}/todo-drafts.json" --json
+TODOS=.todos/todos.py && python3 "$TODOS" report --drafts /var/folders/k2/T/todo-drafts-x8q1zv.json --json
 ```
 
 `report` writes the report to the markdown file at `data.report`. The report
@@ -327,7 +337,7 @@ at `data.report` and give it whole in your reply, as it stands, then end the
 turn. The author's reply is the decision, and it names the token.
 
 ```sh
-TODOS=.todos/todos.py && python3 "$TODOS" file --drafts "${TMPDIR:-/tmp}/todo-drafts.json" --token 3f9a1c0e7b2d4a68 --json
+TODOS=.todos/todos.py && python3 "$TODOS" file --drafts /var/folders/k2/T/todo-drafts-x8q1zv.json --token 3f9a1c0e7b2d4a68 --json
 ```
 
 Give the Bash call a timeout of at least a minute for each draft, since each

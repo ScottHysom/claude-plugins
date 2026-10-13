@@ -24,6 +24,8 @@ Commands:
     questions
             write the questions about TODOs that say too little to
             .todos/questions.md, for the author to answer on a page
+    drafts  make an empty file for a run's drafts, named so that no other
+            run gets it, and print its path
 
 scan, report, file and questions take --from with another worktree of the repository,
 named by its folder or by the branch it has checked out, and read that
@@ -215,6 +217,13 @@ Things that look like bugs and are not:
    by pairing each `<!--` with the next `-->`, outside the fences and code
    spans of item 2, with no other markdown rule applied.
 
+8. `drafts` makes the file a run writes its drafts to in the temporary
+   directory, rather than at a fixed name there. Every Claude Code session on
+   a machine shares that directory, so a fixed name lets another session's
+   drafts replace this run's between the skill's steps. It prints a literal
+   path, because a session that Claude Code isolates in a worktree refuses a
+   command that expands ${TMPDIR:-/tmp} as too complex to verify.
+
 The report file. Claude Code shows a command's output to the model, and not
 reliably to the author, so `report` also writes the report as markdown to
 .todos/report.md, for the skill to publish where the author reads it whole.
@@ -230,11 +239,12 @@ each title from its own scan, so a question about a TODO that is not pending
 is refused. Like the report, the file goes in the -C tree, and a batch with a
 refused question writes the refusals and no question.
 
-Only `setup`, `report`, `questions` and `file` write, and only in a working
-tree: `setup` its copy in .todos/, `report` .todos/report.md, `questions`
+Only `setup`, `report`, `questions` and `file` write in a working tree:
+`setup` its copy in .todos/, `report` .todos/report.md, `questions`
 .todos/questions.md, and `file` the files whose TODOs it marks, in the
 worktree --from names when it is given. Under --pr it replies on GitHub
 instead, and writes only the lines a suggestion handed to a skill replaces.
+`drafts` writes only the empty file it makes, outside any working tree.
 `setup`,
 `report` and `questions` also write .todos/.gitignore, so git ignores what
 they leave there. `report` and `questions` do not take --dry-run, because
@@ -254,6 +264,7 @@ import re
 import shlex
 import subprocess
 import sys
+import tempfile
 
 ENVELOPE_VERSION = 1
 
@@ -363,6 +374,8 @@ REPORT_FILE = COPY_DIR + "/report.md"
 QUESTIONS_FILE = COPY_DIR + "/questions.md"
 # What --batch takes in place of a path to read from stdin.
 STDIN_PATH = "-"
+# `drafts`: the name of the file a run writes its drafts to.
+DRAFTS_PREFIX, DRAFTS_SUFFIX = "todo-drafts-", ".json"
 
 # Every gh call times out, and none prompts or checks for gh's own updates.
 GH_TIMEOUT = 60
@@ -1726,6 +1739,19 @@ def cmd_setup(args):
     return emit(args, "setup", data, human=human)
 
 
+def cmd_drafts(args):
+    """An empty file for one run's drafts. The module docstring has why."""
+    try:
+        fd, path = tempfile.mkstemp(prefix=DRAFTS_PREFIX, suffix=DRAFTS_SUFFIX)
+    except OSError as exc:
+        raise Fatal(
+            "cannot make a file for the drafts in %s: %s. Set TMPDIR to a directory you can "
+            "write and run this again." % (tempfile.gettempdir(), exc)
+        ) from exc
+    os.close(fd)
+    return emit(args, "drafts", {"path": path}, human=lambda: print(path))
+
+
 # --------------------------------------------------------------------------
 # drafts
 # --------------------------------------------------------------------------
@@ -2585,8 +2611,9 @@ def print_handoff(handoff):
 
 
 def build_parser():
-    common = argparse.ArgumentParser(add_help=False)
-    common.add_argument("--json", action="store_true", help="machine-readable envelope on stdout")
+    output = argparse.ArgumentParser(add_help=False)
+    output.add_argument("--json", action="store_true", help="machine-readable envelope on stdout")
+    common = argparse.ArgumentParser(add_help=False, parents=[output])
     common.add_argument(
         "-C", "--repo", metavar="DIR", default=".", help="the clone to read (default: here)"
     )
@@ -2690,6 +2717,14 @@ def build_parser():
         ),
     )
     p.set_defaults(func=cmd_questions)
+
+    # No -C: drafts reads nothing from a repo, and writes outside it.
+    p = sub.add_parser(
+        "drafts",
+        parents=[output],
+        help="make an empty file for a run's drafts, and print its path",
+    )
+    p.set_defaults(func=cmd_drafts)
 
     return ap
 
