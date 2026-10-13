@@ -235,6 +235,22 @@ class DescribePatternMatches:
         got = matches(tmp_path, "Run ``a ` in order to`` then in order to ship.\n")
         assert [m["col_start"] for m in got] == [29]
 
+    @pytest.mark.spec("patterns-cmd-prints-each-prose-match")
+    def it_finds_a_match_whose_ends_lie_in_prose_either_side_of_a_code_span(self, tmp_path):
+        style = rule_with(r"**Pattern.** `order to [^.]*\b(?:it|ship)\b`")
+        got = matches(tmp_path, "In order to run `make` we ship.\n", style)
+        assert [m["text"] for m in got] == ["order to run `make` we ship"]
+
+    @pytest.mark.spec("patterns-cmd-prints-each-prose-match")
+    @pytest.mark.parametrize(
+        "doc",
+        ["Run `in order` to ship.\n", "Run in order `to ship`.\n"],
+        ids=["starts-inside", "ends-inside"],
+    )
+    def it_leaves_out_a_match_with_one_end_inside_a_code_span(self, tmp_path, doc):
+        style = rule_with(r"**Pattern.** `order\W*to`")
+        assert matches(tmp_path, doc, style) == []
+
 
 class DescribePatternsCommand:
     @pytest.mark.spec("patterns-cmd-prints-each-prose-match")
@@ -263,6 +279,25 @@ class DescribePatternsCommand:
         code, _ = prose_repo.apply([finding])
         assert code == prose.OK
         assert prose_repo.read("doc.md") == "It ran to ship.\n"
+
+    @pytest.mark.spec("patterns-cmd-prints-each-prose-match")
+    def it_hands_out_a_text_across_a_code_span_that_apply_accepts(self, prose_repo):
+        style = rule_with(r"**Pattern.** `order to [^.]*\b(?:it|ship)\b`")
+        (prose_repo.root / prose.CONFIG_PATH).write_text(style)
+        (prose_repo.root / "doc.md").write_text("In order to run `make` we ship.\n")
+        code, envelope = prose_repo.run("patterns")
+        assert code == prose.OK
+        [m] = envelope["data"]["matches"]
+        finding = prose_repo.finding(
+            m["line"],
+            file=m["file"],
+            rule=m["rule"],
+            text=m["text"],
+            replacement="order to run `make`, we deliver",
+        )
+        code, _ = prose_repo.apply([finding])
+        assert code == prose.OK
+        assert prose_repo.read("doc.md") == "In order to run `make`, we deliver.\n"
 
     @pytest.mark.spec("patterns-cmd-refuses-unlinted-rules")
     def it_refuses_to_run_on_a_rule_file_lint_refuses(self, prose_repo):
@@ -374,6 +409,7 @@ class DescribeReportOnPatterns:
                 "rule": RULE,
                 "current": "In order to",
                 "reason": REASON,
+                "rewritten_by": [],
             }
         ]
         assert envelope["data"]["token"]
@@ -643,6 +679,59 @@ class DescribeDismissal:
         assert prose_repo.read("doc.md") == PATTERNED_DOC.replace("Able to run.", "It runs.")
 
 
+def sentence(prose_repo):
+    """Finding 1, rewriting line 3 whole for a rule that has no pattern."""
+    return prose_repo.finding(
+        3, file="doc.md", rule=RULE_OWN, text="In order to ship, it ran.", replacement="It ran."
+    )
+
+
+def inside(prose_repo):
+    """Finding 2, dismissing the match that finding 1 rewrites."""
+    return dict(dismissal(prose_repo), dismiss="finding 1 rewrites this sentence")
+
+
+class DescribeDismissalInsideAnotherRewrite:
+    @pytest.mark.spec("report-cmd-pairs-dismissals-with-rewrites")
+    def it_names_the_finding_that_rewrites_a_dismissed_match(self, prose_repo):
+        patterned_doc(prose_repo)
+        code, envelope = prose_repo.report([sentence(prose_repo), inside(prose_repo)])
+        assert code == prose.OK, envelope["errors"]
+        assert envelope["data"]["dismissed"][0]["rewritten_by"] == [1]
+
+    @pytest.mark.spec("report-cmd-pairs-dismissals-with-rewrites")
+    def it_shows_the_pair_in_the_report_the_author_reads(self, prose_repo):
+        patterned_doc(prose_repo)
+        _, envelope = prose_repo.report([sentence(prose_repo), inside(prose_repo)])
+        page = (prose_repo.root / envelope["data"]["report"]).read_text()
+        assert (
+            "This rewrite also changes finding 2, a match of `%s` that is dismissed. "
+            "Rejecting this finding leaves that match in the file." % RULE
+        ) in page
+        assert "Finding 1, `%s`, rewrites this text." % RULE_OWN in page
+
+    @pytest.mark.spec("report-cmd-pairs-dismissals-with-rewrites")
+    def it_shows_the_pair_on_stdout(self, prose_repo, capsys):
+        patterned_doc(prose_repo)
+        path = prose_repo.findings_file([sentence(prose_repo), inside(prose_repo)])
+        capsys.readouterr()
+        code = prose.main(["report", "--findings", path, "-C", str(prose_repo.root)])
+        out = capsys.readouterr().out
+        assert code == prose.OK
+        assert "Rejecting this finding leaves that match in the file." in out
+        assert "  dismissed finding 1 rewrites this sentence\n" in out
+        assert "Finding 1, `%s`, rewrites this text.\n" % RULE_OWN in out
+
+    @pytest.mark.spec("report-cmd-pairs-dismissals-with-rewrites")
+    def it_leaves_a_dismissal_beside_another_rewrite_unpaired(self, prose_repo):
+        patterned_doc(prose_repo)
+        code, envelope = prose_repo.report([rewrite(prose_repo), inside(prose_repo)])
+        assert code == prose.OK, envelope["errors"]
+        assert envelope["data"]["dismissed"][0]["rewritten_by"] == []
+        page = (prose_repo.root / envelope["data"]["report"]).read_text()
+        assert "rewrites this text" not in page
+
+
 # The shipped rules whose patterns DescribeShippedPatterns checks by example,
 # beside the dash and spelling rules that have cases of their own.
 NEGATE = "sentences-negate-the-verb"
@@ -748,6 +837,14 @@ class DescribeShippedPatterns:
             (NEGATE, "No skill in this plugin commits anything.", ["No skill in"]),
             (NEGATE, "It is short, so no run spends context.", ["so no run spends"]),
             (NEGATE, "If no test covers it, add one.", ["If no test covers"]),
+            (NEGATE, "No test ran the lint code.", ["No test ran"]),
+            (NEGATE, "No test returned a row.", ["No test returned"]),
+            (NEGATE, "So no test could cite a requirement.", ["So no test could"]),
+            (NEGATE, "It runs; no test covers it.", ["; no test covers"]),
+            (NEGATE, "It moves; nothing at the root needs editing.", ["; nothing at"]),
+            (NEGATE, "So no contributor-only file ships.", ["So no contributor-only file ships"]),
+            (NEGATE, "When no SKILL.md has a step, it fails.", ["When no SKILL.md has"]),
+            (NEGATE, "No file at the root needs editing.", ["No file at"]),
             (THAT, "Read those for behavior no test runs.", ["behavior no test runs"]),
             (THAT, "It is a step nobody runs.", ["a step nobody runs"]),
             (THAT, "It warns nothing changes.", ["warns nothing changes"]),
@@ -805,6 +902,12 @@ class DescribeShippedPatterns:
             (NEGATE, "So no more runs."),
             (NEGATE, "No retired rules"),
             (NEGATE, "It has specs and no tests for them."),
+            (NEGATE, "It runs; no one minds."),
+            (NEGATE, "It ran; no longer does."),
+            (NEGATE, "No matter what it ran, it stops."),
+            (NEGATE, "It has no SKILL.md and no tests."),
+            (NEGATE, "No contributor-only files"),
+            (NEGATE, "No-op runs."),
             (THAT, "Read those for behavior that no test runs."),
             (THAT, "The rule is no longer used."),
             (THAT, "It is a step nothing else needs."),

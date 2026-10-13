@@ -2140,9 +2140,11 @@ def pattern_matches(text, blocks, rules):
     Returns dicts of rule, line, col_start, end_line, col_end and text, where
     text is exactly what the file holds there, newline and indent included when
     the match wraps, so it can be copied into a finding as it stands. A match
-    that touches a code span is left out: a code span quotes code, which a
-    prose rule has nothing to say about. So is an empty match, and a second
-    pattern of the same rule matching the same text.
+    that starts or ends inside a code span is left out: a code span quotes
+    code, which a prose rule has nothing to say about. A match whose two ends
+    lie in prose is kept, even with a code span between them, since the breach
+    is in the prose around it. An empty match is left out too, and so is a
+    second pattern of the same rule matching the same text.
     """
     spans = blocks.code_span_offsets(blocks.protected_offsets())
     compiled = [(r.id, re.compile(source)) for r in rules for _line, source in r.patterns]
@@ -2155,7 +2157,7 @@ def pattern_matches(text, blocks, rules):
                 if where is None:
                     continue
                 a, b = where
-                if (rid, a, b) in seen or any(x < b and a < y for x, y in spans):
+                if (rid, a, b) in seen or any(x <= a < y or x < b <= y for x, y in spans):
                     continue
                 seen.add((rid, a, b))
                 line, end_line = text.line_of(a), text.line_of(b)
@@ -4637,6 +4639,24 @@ def uncovered_matches(repo, rules, targets, findings):
     return out
 
 
+def rewritten_dismissals(staged):
+    """{dismissal number: [finding number, ...]} for each dismissal whose text
+    a finding of another rule rewrites.
+
+    Such a dismissal stays only while that finding is applied. The author who
+    turns the finding down leaves the dismissed match in the file, so report
+    shows the two together for the author to decide as a pair. A dismissal
+    cannot be refused for it: it is also how the side of an overlap that the
+    author turned down stays covered.
+    """
+    out = {}
+    for n, f, a, b in staged.dismissed:
+        for m, g, x, y in staged.accepted:
+            if g["rule"] != f["rule"] and ((a < y and x < b) if x < y else a < x < b):
+                out.setdefault(n, []).append(m)
+    return out
+
+
 def breaching_rewrites(staged, rules):
     """(edit, match) for each pattern match that a finding's rewrite makes or keeps.
 
@@ -4745,6 +4765,20 @@ def checked_by_reading(rules):
     )
 
 
+def rewritten_note(finding, rule):
+    """What a report says under a dismissal whose text a finding rewrites."""
+    return "Finding %d, `%s`, rewrites this text." % (finding, rule)
+
+
+def rewrites_note(dismissal):
+    """What a report says under a finding that rewrites a dismissal's text."""
+    return (
+        "This rewrite also changes finding %d, a match of `%s` that is dismissed. "
+        "Rejecting this finding leaves that match in the file."
+        % (dismissal["finding"], dismissal["rule"])
+    )
+
+
 def report_markdown(data, rejected):
     """The report as markdown: what the author reads whole, and approves.
 
@@ -4755,6 +4789,7 @@ def report_markdown(data, rejected):
     if rejected:
         out += ["", "## Refused", "", "Settle these and run report again:", ""]
         out += ["- %s" % e for e in rejected]
+    rules = dict((r["finding"], r["rule"]) for r in data["findings"])
     for r in data["findings"] + data["dismissed"]:
         out += [
             "",
@@ -4763,8 +4798,13 @@ def report_markdown(data, rejected):
         out += ["", "Current:", "", fenced(report_text(r["current"]))]
         if "reason" in r:
             out += ["", "Dismissed: %s" % r["reason"]]
+            for m in r["rewritten_by"]:
+                out += ["", rewritten_note(m, rules[m])]
             continue
         out += ["", "Proposed:", "", fenced(report_text(r["proposed"]))]
+        for d in data["dismissed"]:
+            if r["finding"] in d["rewritten_by"]:
+                out += ["", rewrites_note(d)]
     rows = data["findings"]
     out += ["", "%d finding(s) in %d file(s)." % (len(rows), len(set(r["file"] for r in rows)))]
     if data["dismissed"]:
@@ -4822,6 +4862,7 @@ def cmd_report(args):
         staged = stage_findings(text, Blocks(text), rel, mine, numbers)
         stagings.append((rel, staged))
         rejected.extend(staged.rejected)
+        rewritten = rewritten_dismissals(staged)
         for n, f, a, b in staged.dismissed:
             dismissed.append(
                 {
@@ -4831,6 +4872,7 @@ def cmd_report(args):
                     "rule": f["rule"],
                     "current": text.s[a:b],
                     "reason": f[DISMISS_KEY],
+                    "rewritten_by": rewritten.get(n, []),
                 }
             )
         for n, f, a, b in staged.accepted:
@@ -4892,16 +4934,23 @@ def cmd_report(args):
     }
     data["report"] = write_page(repo, REPORT_FILE, report_markdown(data, rejected))
 
+    rules_of = dict((r["finding"], r["rule"]) for r in rows)
+
     def human():
         for r in rows:
             print("%s:%d  %s  (finding %d)" % (r["file"], r["line"], r["rule"], r["finding"]))
             print(report_field("current", report_text(r["current"])))
             print(report_field("proposed", report_text(r["proposed"])))
+            for d in dismissed:
+                if r["finding"] in d["rewritten_by"]:
+                    print(report_field("", rewrites_note(d)))
             print()
         for r in dismissed:
             print("%s:%d  %s  (finding %d)" % (r["file"], r["line"], r["rule"], r["finding"]))
             print(report_field("current", report_text(r["current"])))
             print(report_field("dismissed", r["reason"]))
+            for m in r["rewritten_by"]:
+                print(report_field("", rewritten_note(m, rules_of[m])))
             print()
         print("%d finding(s) in %d file(s)" % (len(rows), len(set(r["file"] for r in rows))))
         if dismissed:
