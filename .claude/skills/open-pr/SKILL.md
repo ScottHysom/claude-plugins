@@ -22,7 +22,8 @@ Write the title as a Conventional Commit subject, as `git log` shows them.
 Write the description with the headings CLAUDE.md gives under "Workflow", in
 its order: `## Scenario`, `## Change`, `## Requirements` and `## Test plan`.
 Follow them with `Closes #N` for the issue the branch works, and end with the
-attribution line the session gives for pull requests.
+attribution line the session gives for pull requests. Write each paragraph
+and each list item on one line, as CLAUDE.md says there.
 
 Define on first use each term the plugin, a spec or a skill gives its own
 meaning, as `standing-define-terms` in `.claude/rules/prose-style.md` asks.
@@ -42,7 +43,15 @@ through `$TMPDIR` or another variable. The commands below show it as
 cat > /var/folders/k2/T/pr-x8q1zv.md <<'END'
 ## Scenario
 
-<who, by role, does what; what happened before the change; what happens after it>
+<who, by role, does what>
+
+### Before
+
+<what happened before the change>
+
+### After
+
+<what happens after it>
 
 ## Change
 

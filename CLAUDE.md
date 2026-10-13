@@ -12,10 +12,9 @@ on a summary here; this file holds what the README does not.
 - A pull request description stands without the issue, for an owner who has
   not read it. It uses these headings, in this order, in place of
   `## Summary`:
-  - `## Scenario` says:
-    - who, by role, does what.
-    - what happened before the change.
-    - what happens after it.
+  - `## Scenario` opens with who, by role, does what. Then it gives:
+    - what happened before the change, under `### Before`.
+    - what happens after it, under `### After`.
 
     A change that nobody meets in use, such as a refactor or a CI fix, names
     who would notice it and why it is made.
@@ -26,30 +25,26 @@ on a summary here; this file holds what the README does not.
     changes or removes, or says that it does not change any.
   - `## Test plan` says what ran.
 
-  `Closes #N` follows them. #559's opening, in this shape:
+  `Closes #N` follows them. Each paragraph and each list item sits on one
+  line, because GitHub renders a newline inside one as a line break.
+  #559's opening, in this shape:
 
   ```markdown
   ## Scenario
 
-  An author runs apply-prose over their docs. Where a rule's pattern matches,
-  the model writes a **finding** (a rewrite the author approves or rejects)
-  or a **dismissal** (a note that the match is not a breach). `prose.py
-  report` shows the author every finding to approve.
+  An author runs apply-prose over their docs. Where a rule's pattern matches, the model writes a **finding** (a rewrite the author approves or rejects) or a **dismissal** (a note that the match is not a breach). `prose.py report` shows the author every finding to approve.
 
-  Before: when two findings under different rules rewrote the same sentence,
-  the model could dismiss one, saying the other rewrites it. The author saw
-  one finding. Rejecting it left the other rule's breach in the file, and the
-  author was never asked about it.
+  ### Before
 
-  After: `report` shows that dismissal beside the finding it depends on, and
-  says under the finding that rejecting it leaves the dismissed match in the
-  file.
+  When two findings under different rules rewrote the same sentence, the model could dismiss one, saying the other rewrites it. The author saw one finding. Rejecting it left the other rule's breach in the file, and the author was never asked about it.
+
+  ### After
+
+  `report` shows that dismissal beside the finding it depends on, and says under the finding that rejecting it leaves the dismissed match in the file.
 
   ## Change
 
-  `report` does not refuse such a dismissal. The issue proposed refusing it,
-  but the author settles two overlapping findings the same way: they keep
-  one, and the one they turn down becomes a dismissal.
+  `report` does not refuse such a dismissal. The issue proposed refusing it, but the author settles two overlapping findings the same way: they keep one, and the one they turn down becomes a dismissal.
   ```
 - Until agents have their own GitHub identity, everything posts under Scott's
   account. Start every reply to a review comment with `**Claude:**`, so the
