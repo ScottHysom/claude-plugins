@@ -32,3 +32,11 @@ shellcheck-py==0.11.0.1
 coverage==7.10.7; python_version < "3.10"
 coverage==7.16.1; python_version >= "3.10"
 pytest-cov==7.1.0
+
+# Runs the suite in one worker process per core, which pytest.ini turns on for
+# every run with `-n auto`. In one process, the suite runs past the 120 seconds
+# Claude Code's Bash tool waits for a command. Pinned exactly, so both CI legs
+# run the same version. 3.8.0 needs Python 3.9 or later, so a bump checks that
+# the new release still installs on 3.9. pytest-cov combines the workers'
+# coverage into one report.
+pytest-xdist==3.8.0
