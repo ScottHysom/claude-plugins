@@ -13,6 +13,7 @@ which line.
 import importlib.util
 import json
 import re
+import sqlite3
 import subprocess
 from pathlib import Path
 
@@ -644,23 +645,53 @@ class DescribeTraceProjectSkills:
         assert "cites `foo-does-x`, which specs/repo.md does not hold" in err
 
 
-def coverage_report(contexts=True):
-    ran = {
-        "3": [""],
-        "10": [TEST_ID + "|run"],
-        "11": [TEST_ID + "[p1]|run", TEST_ID + "[p2]|setup"],
-        "12": [TEST_ID + "|run"],
-    }
-    entry = {"missing_lines": [4, 5, 6, 14]}
-    if contexts:
-        entry["contexts"] = ran
-    return json.dumps({"meta": {"show_contexts": contexts}, "files": {SCRIPT: entry}})
+# The tests that ran each line of SCRIPT, as pytest-cov names them.
+RAN = {
+    3: [""],
+    10: [TEST_ID + "|run"],
+    11: [TEST_ID + "[p1]|run", TEST_ID + "[p2]|setup"],
+    12: [TEST_ID + "|run"],
+}
+
+
+def measured_repo(make_repo, changes=None, contexts=True, arcs=True):
+    """A clone after a coverage run: its JSON report, and the data file under it.
+
+    The data file holds RAN as coverage.py stores it: a branch run as arcs into
+    each line, a run without branches as a bitmap of lines per test. Without
+    `contexts`, every line is filed under the empty context, as a run without
+    --cov-context=test files it.
+    """
+    report = json.dumps({"files": {SCRIPT: {"missing_lines": [4, 5, 6, 14]}}})
+    root = make_repo(dict(changes or {}, **{cp.DEFAULT_REPORT: report}))
+    db = sqlite3.connect(str(root / cp.DATA_FILE))
+    db.executescript(
+        "create table file (id integer primary key, path text);"
+        "create table context (id integer primary key, context text);"
+        "create table arc (file_id integer, context_id integer, fromno integer, tono integer);"
+        "create table line_bits (file_id integer, context_id integer, numbits blob);"
+    )
+    db.execute("insert into file values (1, ?)", (str(root / SCRIPT),))
+    contexts_of = {}
+    for line, names in RAN.items():
+        for name in names if contexts else [""]:
+            context_id = contexts_of.setdefault(name, len(contexts_of) + 1)
+            if arcs:
+                db.execute("insert into arc values (1, ?, ?, ?)", (context_id, -line, line))
+            else:
+                bits = bytearray(line // 8 + 1)
+                bits[line // 8] |= 1 << line % 8
+                db.execute("insert into line_bits values (1, ?, ?)", (context_id, bytes(bits)))
+    db.executemany("insert into context values (?, ?)", [(i, c) for c, i in contexts_of.items()])
+    db.commit()
+    db.close()
+    return root
 
 
 class DescribeInventory:
     @pytest.fixture
     def listed(self, make_repo, run):
-        root = make_repo({cp.DEFAULT_REPORT: coverage_report()})
+        root = measured_repo(make_repo)
         code, out, err = run("inventory", "foo", "--json", "-C", str(root))
         assert code == cp.OK, err
         return json.loads(out)["data"]
@@ -707,7 +738,7 @@ class DescribeInventory:
             "to leave one out.\n",
             "to leave one out.\n\nRun `stop --skip`, or pass `--skip` alone.\n",
         )
-        root = make_repo({SCRIPT: source, SKILL: text, cp.DEFAULT_REPORT: coverage_report()})
+        root = measured_repo(make_repo, {SCRIPT: source, SKILL: text})
         code, out, err = run("inventory", "foo", "--json", "-C", str(root))
         assert code == cp.OK, err
         data = json.loads(out)["data"]
@@ -752,19 +783,27 @@ class DescribeInventory:
 
     @pytest.mark.spec("inventory-cmd-lists-parser-surface")
     def it_prints_each_section_without_json(self, make_repo, run):
-        root = make_repo({cp.DEFAULT_REPORT: coverage_report()})
+        root = measured_repo(make_repo)
         code, out, _ = run("inventory", "foo", "-C", str(root))
         assert code == cp.OK
         assert "option go --skip: %s:22" % SKILL in out
         assert "choice go --mode b: named by no skill text" in out
         assert "%s: %s 10-12" % (TEST_ID, SCRIPT) in out
 
+    @pytest.mark.spec("inventory-cmd-lists-tests")
+    def it_lists_the_lines_of_a_run_without_branches(self, make_repo, run):
+        root = measured_repo(make_repo, arcs=False)
+        code, out, err = run("inventory", "foo", "--json", "-C", str(root))
+        assert code == cp.OK, err
+        assert json.loads(out)["data"]["tests"][0]["runs"] == {SCRIPT: ["10-12"]}
+
     @pytest.mark.spec("inventory-cmd-requires-per-test-report")
-    def it_stops_on_a_report_that_does_not_name_each_line_s_tests(self, make_repo, run):
-        root = make_repo({cp.DEFAULT_REPORT: coverage_report(contexts=False)})
+    def it_stops_on_data_that_does_not_name_each_line_s_tests(self, make_repo, run):
+        root = measured_repo(make_repo, contexts=False)
         code, out, err = run("inventory", "foo", "-C", str(root))
         assert code == cp.CANNOT_RUN
         assert out == ""
+        assert "does not say which test ran each line" in err
         assert "--cov-context=test" in err
 
     @pytest.mark.spec("inventory-cmd-requires-per-test-report")
@@ -772,10 +811,28 @@ class DescribeInventory:
         code, _, err = run("inventory", "foo", "-C", str(make_repo()))
         assert code == cp.CANNOT_RUN
         assert "no coverage report" in err
+        assert "--cov-context=test" in err
+
+    @pytest.mark.spec("inventory-cmd-requires-per-test-report")
+    def it_stops_when_the_run_left_no_data_file(self, make_repo, run):
+        root = measured_repo(make_repo)
+        (root / cp.DATA_FILE).unlink()
+        code, _, err = run("inventory", "foo", "-C", str(root))
+        assert code == cp.CANNOT_RUN
+        assert "no coverage data at %s" % cp.DATA_FILE in err
+        assert "--cov-context=test" in err
+
+    @pytest.mark.spec("inventory-cmd-requires-per-test-report")
+    def it_stops_on_a_data_file_it_cannot_read(self, make_repo, run):
+        root = measured_repo(make_repo)
+        (root / cp.DATA_FILE).write_text("not a database")
+        code, _, err = run("inventory", "foo", "-C", str(root))
+        assert code == cp.CANNOT_RUN
+        assert "cannot read the coverage data %s" % cp.DATA_FILE in err
 
     @pytest.mark.spec("inventory-cmd-lists-parser-surface")
     def it_stops_on_a_plugin_with_no_script(self, make_repo, run):
-        root = make_repo({cp.DEFAULT_REPORT: coverage_report()})
+        root = measured_repo(make_repo)
         code, _, err = run("inventory", "bar", "-C", str(root))
         assert code == cp.CANNOT_RUN
         assert "Name a plugin that has one: foo." in err

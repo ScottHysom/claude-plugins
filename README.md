@@ -338,7 +338,9 @@ rules on what the code does that no need covers. SPEC-METHODOLOGY.md, under
 "An existing codebase", has the steps.
 
 `inventory` lists what a plugin's backfill has to trace. It reads a coverage
-report that records which test ran each line:
+run that records which test ran each line. The run leaves `.coverage`, which
+holds each line's tests, and `coverage.json`, which holds the lines no test
+ran:
 
 ```sh
 pytest --cov --cov-context=test --cov-report=json:coverage.json
