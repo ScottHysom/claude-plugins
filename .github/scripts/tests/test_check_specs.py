@@ -420,6 +420,25 @@ class DescribeTrace:
         assert code == cp.PROBLEMS
         assert "is not a requirement" in err
 
+    @pytest.mark.spec("trace-cmd-reads-lists-in-text")
+    def it_reads_a_list_above_the_source_line_as_the_needs_text(self, make_repo, run):
+        spec = FOO_SPEC.replace(
+            "they want them done.\n\n",
+            "they want them done:\n\n- quickly.\n- once.\n\nSource: the owner.\n\n",
+        )
+        code, _, err = run("trace", "-C", str(make_repo({"specs/foo.md": spec})))
+        assert code == cp.OK, err
+
+    @pytest.mark.spec("trace-cmd-checks-spec-grammar")
+    def it_fails_a_malformed_first_requirement_below_the_source_line(self, make_repo, run):
+        spec = FOO_SPEC.replace(
+            "they want them done.\n\n",
+            "they want them done.\n\nSource: the owner.\n\n- Just a note.\n",
+        )
+        code, _, err = run("trace", "-C", str(make_repo({"specs/foo.md": spec})))
+        assert code == cp.PROBLEMS
+        assert "specs/foo.md:13: a bullet under need or constraint" in err
+
     @pytest.mark.spec("trace-cmd-checks-spec-grammar")
     def it_fails_a_duplicate_id(self, make_repo, run):
         spec = FOO_SPEC + "- `foo-does-x` (test): When asked again, foo does x.\n"

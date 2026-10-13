@@ -283,7 +283,10 @@ and `id` parts, and fails a spec file that breaks them. How it reads them:
 - Any `##` heading ends the section above it. A heading other than a need
   or a constraint (including a misspelled one) does not open a section, so a
   requirement under it fails as one outside any need.
-- Under a need or a constraint, every bullet must be a requirement.
+- A need's or a constraint's text may hold a bulleted list, above its
+  `Source:` line. From the `Source:` line on, every bullet must be a
+  requirement. A section without a `Source:` line starts its requirements at
+  the first bullet that opens like one, with an id in backticks and a kind.
 - A continuation line is indented, and follows its requirement without a blank
   line between.
 - It checks every need, constraint and requirement id against the form
