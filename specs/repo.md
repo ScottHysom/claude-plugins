@@ -859,6 +859,29 @@ name it after close, fix or resolve, or one of their variants, as `#N` or
 
 Source: GitHub's "Linking a pull request to an issue", and #15.
 
+## constraint github-ignores-name-case: GitHub reads label and repository names without case
+
+GitHub finds a label or a repository whatever the case of the name it is
+given, and refuses a second label whose name differs from one already there
+only in case. So `Approved` on an issue is the `approved` label renamed, and
+`scotthysom/Claude-Plugins` names this repository.
+
+Source: the probe recorded in #227, where `gh api` returned `bug` for
+`labels/BUG` and `labels/Bug`, and `ScottHysom/claude-plugins` for
+`repos/SCOTTHYSOM/CLAUDE-PLUGINS`; and git-bug's report that GitHub refuses
+the label `Bug` beside `bug` with "Name has already been taken".
+
+- `checklinkedissues-cmd-ignores-name-case` (test): When an issue a pull
+  request closes carries `approved` in another case, or a closing keyword
+  names this repository in another case, check-linked-issues.py reads the
+  label as `approved` and the issue as one in this repository.
+- `claim-cmd-ignores-label-case` (test): When an issue carries `approved` in
+  another case, `issues.py claim` claims it as it claims one labeled
+  `approved`.
+- `changes-cmd-ignores-label-case` (test): When an issue a pull request closes
+  was given `approved` in another case, `changes` reads that as the time it
+  was approved.
+
 ## constraint hook-blocks-on-exit-2: A Claude Code hook that exits 2 blocks the call
 
 A PreToolUse hook is a command that Claude Code runs before each tool call. One

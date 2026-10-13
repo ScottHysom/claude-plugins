@@ -1,7 +1,6 @@
 {
   "steps": {},
   "tests": {
-    ".github/scripts/tests/test_check_linked_issues.py::DescribeTheApprovedLabelRule::it_compares_label_names_without_case": 227,
     ".github/scripts/tests/test_check_manifest_consistency.py::DescribeCheck::it_rejects_a_name_that_is_not_kebab_case": 247,
     ".github/scripts/tests/test_check_manifest_consistency.py::DescribeCheck::it_rejects_a_source_that_is_not_a_directory": 247,
     ".github/scripts/tests/test_check_manifest_consistency.py::DescribeCheck::it_reports_an_entry_with_no_name": 247,

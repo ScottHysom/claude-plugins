@@ -1631,7 +1631,7 @@ def cmd_changes(args, root):
         approvals = [
             e["createdAt"]
             for e in (issue.get("timelineItems") or {}).get("nodes") or []
-            if e and (e.get("label") or {}).get("name") == APPROVED
+            if e and ((e.get("label") or {}).get("name") or "").lower() == APPROVED
         ]
         edited = issue.get("lastEditedAt")
         if approvals and edited and edited > max(approvals):
