@@ -60,11 +60,12 @@ backfill: every subcommand, option and `choices` value its script's
 build_parser() accepts, with the skill text that names each; every module-level
 set, tuple or list of strings; every test, with the script lines it runs;
 every skill step, with the commands it runs; and every script line no test
-runs. The lines each test runs come from a coverage report measured per test:
+runs. The lines each test runs come from a coverage run measured per test:
 
     pytest --cov --cov-context=test --cov-report=json:coverage.json
 
-.coveragerc has the report carry each line's tests.
+It reads the tests that ran each line from the coverage data file the run
+leaves, .coverage, and the lines no test runs from the JSON report.
 
 Run from anywhere in the clone:
 
@@ -115,6 +116,12 @@ Things that look like bugs and are not:
   credits it to no command. It lists both places, and leaves to the backfill
   what a mention in prose counts for. `surface` reads a requirement more
   loosely, and counts a bare option for every command that takes it.
+- `inventory` reads .coverage with sqlite3 rather than through coverage.py,
+  so the check stays in the standard library. coverage.py does not promise
+  the file's tables, which are as coverage 7.10 writes them: `arc` holds a
+  branch run's lines, and `line_bits` a line run's. A JSON report that lists
+  each line's tests repeats them under every function and class too, and runs
+  to gigabytes over the whole suite.
 - `inventory` reads the parser through argparse's own attributes, `_actions`
   and the subparsers' `choices`, since argparse has no public way to list a
   parser's options.
@@ -150,6 +157,7 @@ import json
 import os
 import re
 import shlex
+import sqlite3
 import subprocess
 import sys
 import urllib.error
@@ -171,6 +179,22 @@ WORKFLOWS = ".github/workflows/"
 WORKFLOW_SUFFIXES = (".yml", ".yaml")
 PYTEST_INI = "pytest.ini"
 DEFAULT_REPORT = "coverage.json"
+# coverage.py's data file, which the same run leaves at the clone's root. It
+# holds the tests that ran each line, and the JSON report the lines no test ran.
+DATA_FILE = ".coverage"
+REPORT_REMEDY = (
+    "Run `pytest --cov --cov-context=test --cov-report=json:%s` from the clone first."
+    % DEFAULT_REPORT
+)
+PER_TEST_SQL = "select 1 from context where instr(context, ?) limit 1"
+ARCS_SQL = (
+    "select c.context, a.fromno, a.tono from arc a"
+    " join context c on c.id = a.context_id where a.file_id = ?"
+)
+LINE_BITS_SQL = (
+    "select c.context, l.numbits from line_bits l"
+    " join context c on c.id = l.context_id where l.file_id = ?"
+)
 HERE = os.path.dirname(os.path.abspath(__file__))
 # check-skills.py, beside this script, reads the steps and the invocations.
 CHECK_SKILLS = os.path.join(HERE, "check-skills.py")
@@ -1083,30 +1107,66 @@ def string_collections(path, text):
 
 
 def load_report(root, path):
-    """coverage.py's JSON report measured per test, keyed by path in the clone."""
+    """coverage.py's JSON report, keyed by path in the clone."""
     full = os.path.join(root, path)
-    remedy = (
-        "Run `pytest --cov --cov-context=test --cov-report=json:%s` from the clone first; "
-        ".coveragerc has the report carry each line's tests." % DEFAULT_REPORT
-    )
     if not os.path.isfile(full):
-        raise Fatal("no coverage report at %s. %s" % (path, remedy))
+        raise Fatal("no coverage report at %s. %s" % (path, REPORT_REMEDY))
     try:
         with open(full, encoding="utf-8") as fh:
             report = json.load(fh)
     except (OSError, ValueError) as exc:
         raise Fatal("cannot read the coverage report %s: %s" % (path, exc)) from exc
     files = {}
-    per_test = False
     for name, entry in report.get("files", {}).items():
         if os.path.isabs(name):
             name = os.path.relpath(name, root)
         files[name.replace(os.sep, "/")] = entry
-        for tests in entry.get("contexts", {}).values():
-            per_test = per_test or any(NODE_SEPARATOR in t for t in tests)
-    if not per_test:
-        raise Fatal("%s does not say which test ran each line. %s" % (path, remedy))
     return files
+
+
+def numbits_lines(numbits):
+    """The line numbers a coverage.py numbits blob sets: bit n of the blob is line n."""
+    return [i * 8 + bit for i, byte in enumerate(numbits) for bit in range(8) if byte >> bit & 1]
+
+
+def load_contexts(root, scripts):
+    """Each line of `scripts` that a test ran, with the tests that ran it.
+
+    Read from the coverage data file, which holds each line's tests once. Only
+    the rows of `scripts` are read, however many files the run measured.
+    """
+    full = os.path.join(root, DATA_FILE)
+    if not os.path.isfile(full):
+        raise Fatal("no coverage data at %s. %s" % (DATA_FILE, REPORT_REMEDY))
+    try:
+        db = sqlite3.connect(full)
+        try:
+            if not db.execute(PER_TEST_SQL, (NODE_SEPARATOR,)).fetchone():
+                raise Fatal(
+                    "%s does not say which test ran each line. %s" % (DATA_FILE, REPORT_REMEDY)
+                )
+            ids = {}
+            for file_id, name in db.execute("select id, path from file"):
+                if os.path.isabs(name):
+                    name = os.path.relpath(name, root)
+                name = name.replace(os.sep, "/")
+                if name in scripts:
+                    ids[file_id] = name
+            out = {}
+            for file_id, script in ids.items():
+                lines = out.setdefault(script, {})
+                for context, a, b in db.execute(ARCS_SQL, (file_id,)):
+                    for line in (a, b):
+                        if line > 0:
+                            lines.setdefault(line, set()).add(context)
+                for context, numbits in db.execute(LINE_BITS_SQL, (file_id,)):
+                    for line in numbits_lines(numbits):
+                        lines.setdefault(line, set()).add(context)
+        finally:
+            db.close()
+    except sqlite3.Error as exc:
+        raise Fatal("cannot read the coverage data %s: %s" % (DATA_FILE, exc)) from exc
+    return out
 
 
 def test_of(context):
@@ -1133,6 +1193,7 @@ def cmd_inventory(args, root):
             )
         )
     report = load_report(root, args.report)
+    ran_by = load_contexts(root, scripts)
 
     instructions = sorted(cs.instruction_files(files).get(plugin, []))
     _, invocations, _ = cs.find_invocations(root, {plugin: instructions})
@@ -1162,10 +1223,10 @@ def cmd_inventory(args, root):
 
     runs = {}
     for script in scripts:
-        for line, contexts in report.get(script, {}).get("contexts", {}).items():
+        for line, contexts in ran_by.get(script, {}).items():
             for context in contexts:
                 if NODE_SEPARATOR in context:
-                    runs.setdefault(test_of(context), {}).setdefault(script, set()).add(int(line))
+                    runs.setdefault(test_of(context), {}).setdefault(script, set()).add(line)
 
     tests = []
     for t in find_tests(root, files, errors):
