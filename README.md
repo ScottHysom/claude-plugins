@@ -215,6 +215,11 @@ of scripts does need its `tests/` added to `testpaths`: pytest does not walk
 into directories whose names start with a dot, so these roots are listed by
 path.
 
+The CI scripts import one module of their own, `.github/scripts/closed_pipe.py`,
+whose docstring says what it does. A script finds it because running the
+script puts its directory on `sys.path`. Loading a script by path does not, so
+`.github/scripts/tests/conftest.py` adds the directory.
+
 A directory under `tests/` does not get an `__init__.py`. Without one, pytest
 puts each test file's own directory on `sys.path` and names the module by its
 bare stem, which is what lets a helper like `prose_samples.py` resolve and what

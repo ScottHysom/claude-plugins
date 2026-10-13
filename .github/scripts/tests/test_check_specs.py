@@ -993,6 +993,21 @@ class DescribeSurface:
         assert code == cp.OK, err
         assert "5 item(s) of 1 parser(s); 5 named" in out
 
+    @pytest.mark.spec("script-ignores-closed-pipe")
+    def it_exits_ok_when_its_reader_closes_the_pipe(self, make_repo, capsys, closed_pipe):
+        root = make_repo({"specs/foo.md": NAMING_SPEC})
+        closed_pipe()
+        assert cp.main(["surface", "-C", str(root)], environ={}, graphql=no_graphql) == cp.OK
+        assert capsys.readouterr().err == ""
+
+    @pytest.mark.spec("script-ignores-closed-pipe")
+    @pytest.mark.parametrize("command", [["surface"], ["--help"], ["surface", "--help"]])
+    def it_exits_ok_without_a_traceback_when_its_reader_has_gone(
+        self, make_repo, closed_pipe_child, command
+    ):
+        root = make_repo({"specs/foo.md": NAMING_SPEC})
+        assert closed_pipe_child(_PATH, *command, "-C", str(root)) == (cp.OK, "")
+
     @pytest.mark.spec("surface-cmd-fails-unnamed-options")
     def it_fails_an_unnamed_subcommand_option_and_choice(self, make_repo, run):
         code, _, err = run("surface", "-C", str(make_repo()))

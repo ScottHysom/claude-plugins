@@ -1205,3 +1205,11 @@ class DescribeMain:
         closed_pipe()
         assert cs.main(["descriptions", "-C", str(root)]) == cs.OK
         assert capsys.readouterr().err == ""
+
+    @pytest.mark.spec("script-ignores-closed-pipe")
+    @pytest.mark.parametrize("command", [["descriptions"], ["--help"], ["descriptions", "--help"]])
+    def it_exits_ok_without_a_traceback_when_its_reader_has_gone(
+        self, make_repo, closed_pipe_child, command
+    ):
+        root = make_repo({SKILL: described("Does foo.")})
+        assert closed_pipe_child(_PATH, *command, "-C", str(root)) == (cs.OK, "")

@@ -42,6 +42,8 @@ import re
 import subprocess
 import sys
 
+import closed_pipe
+
 ENVELOPE_VERSION = 1
 
 OK, PROBLEMS, CANNOT_RUN = 0, 1, 2
@@ -245,6 +247,7 @@ def build_parser():
     return ap
 
 
+@closed_pipe.exits_ok
 def main(argv=None):
     args = build_parser().parse_args(argv)
     try:
@@ -252,8 +255,6 @@ def main(argv=None):
     except Fatal as exc:
         sys.stderr.write("%s: %s\n" % (PROG, exc))
         return CANNOT_RUN
-    except BrokenPipeError:
-        return OK
 
 
 if __name__ == "__main__":

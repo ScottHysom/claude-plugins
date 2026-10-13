@@ -8,6 +8,7 @@ each call.
 
 import importlib.util
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -312,6 +313,16 @@ class DescribeDescriptionOutsideCI:
         closed_pipe()
         assert cpr.main(["description"], environ={cpr.EVENT_ENV: str(path)}) == cpr.OK
         assert capsys.readouterr().err == ""
+
+    @pytest.mark.spec("script-ignores-closed-pipe")
+    @pytest.mark.parametrize("command", [["description"], ["--help"], ["description", "--help"]])
+    def it_exits_ok_without_a_traceback_when_its_reader_has_gone(
+        self, tmp_path, closed_pipe_child, command
+    ):
+        path = tmp_path / "event.json"
+        path.write_text(json.dumps({"pull_request": {"body": SCENARIO}}))
+        env = dict(os.environ, **{cpr.EVENT_ENV: str(path)})
+        assert closed_pipe_child(_PATH, *command, env=env) == (cpr.OK, "")
 
 
 @pytest.fixture

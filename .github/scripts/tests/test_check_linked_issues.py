@@ -295,6 +295,14 @@ class DescribeMain:
         assert out.out == "No linked issues.\n"
         assert out.err == ""
 
+    # Run as a child, it would ask GitHub for the commits, so this test drives
+    # main() here, with a fake GitHub.
+    @pytest.mark.spec("script-ignores-closed-pipe")
+    def it_exits_ok_when_its_reader_closes_the_pipe(self, tmp_path, capsys, closed_pipe):
+        closed_pipe()
+        code, out = run(tmp_path, capsys, event(), FakeGitHub())
+        assert (code, out.err) == (cli.OK, "")
+
     @pytest.mark.spec(
         "checklinkedissues-cmd-requires-approved-issues",
         "command-splits-output-streams-without-json",

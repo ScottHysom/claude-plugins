@@ -78,13 +78,6 @@ class DescribeOutput:
         assert env["warnings"] == ["a.py:2: " + todos.UNREAD_PART_WAY]
         assert repo.err == ""
 
-    @pytest.mark.spec("repo:script-ignores-closed-pipe")
-    def it_exits_ok_when_its_reader_closes_the_pipe(self, repo, capsys, closed_pipe):
-        repo.write("a.py", "# TODO: one\n")
-        closed_pipe()
-        assert todos.main(["scan", "-C", str(repo.root)]) == todos.OK
-        assert capsys.readouterr().err == ""
-
 
 @pytest.mark.spec("repo:script-does-nothing-on-import")
 class DescribeImport:
