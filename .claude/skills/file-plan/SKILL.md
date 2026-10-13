@@ -16,8 +16,7 @@ Run every command from the root of the clone. Never file, link or group an
 issue with `gh` directly.
 
 ## Step 1: draft the plan
-<!-- spec: planreport-cmd-checks-each-draft, planreport-cmd-checks-plan-links -->
-<!-- no-command: judgment. The model splits the plan into issues and writes each one, and step 2's report checks them. -->
+<!-- spec: planreport-cmd-checks-each-draft, planreport-cmd-checks-plan-links, fileplan-drafts-in-own-file, plandraft-cmd-makes-own-file -->
 
 Split the plan into issues, one problem each, as CLAUDE.md asks under
 "Issues". Give each issue:
@@ -50,10 +49,19 @@ The tracking issue takes a `title` and a `plan`. The plan says:
 `plan report` adds the opening `**Claude:**` and an Order section written
 from the links, so write neither.
 
-Write the plan outside the project:
+Make a file for the plan:
 
 ```sh
-cat > "${TMPDIR:-/tmp}/plan.json" <<'END'
+python3 .github/scripts/issues.py plan draft --json
+```
+
+`data.path` is a file that no other run is given. Write the plan there, and
+name it in every later step by the path exactly as `plan draft` printed it,
+never through `$TMPDIR` or another variable. The commands below show it as
+`/var/folders/k2/T/plan-x8q1zv.json`.
+
+```sh
+cat > /var/folders/k2/T/plan-x8q1zv.json <<'END'
 {"issues": [
   {"key": "A", "title": "<the title>", "labels": ["bug", "repo"],
    "body": "**Claude:**\n\n## What's wrong\n\n<...>"},
@@ -68,7 +76,7 @@ END
 <!-- spec: planreport-cmd-checks-each-draft, planreport-cmd-checks-plan-links, planreport-cmd-orders-by-links, planreport-cmd-writes-report-file, planreport-cmd-shows-filed-issue -->
 
 ```sh
-python3 .github/scripts/issues.py plan report --drafts "${TMPDIR:-/tmp}/plan.json" --json
+python3 .github/scripts/issues.py plan report --drafts /var/folders/k2/T/plan-x8q1zv.json --json
 ```
 
 When it exits 1, its `errors` name every fault in the plan. Fix them all in
@@ -116,7 +124,7 @@ On "file nothing", stop.
 <!-- spec: planfile-cmd-requires-token, planfile-cmd-files-in-order, planfile-cmd-resumes-after-failed-call, planfile-cmd-groups-filed-issue -->
 
 ```sh
-python3 .github/scripts/issues.py plan file --drafts "${TMPDIR:-/tmp}/plan.json" --token 3f9a1c0e7b2d4a68 --json
+python3 .github/scripts/issues.py plan file --drafts /var/folders/k2/T/plan-x8q1zv.json --token 3f9a1c0e7b2d4a68 --json
 ```
 
 Pass the token from the report the owner approved. Give the Bash call a

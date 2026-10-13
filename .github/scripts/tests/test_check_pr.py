@@ -225,6 +225,41 @@ class DescribeDescriptionOfADraft:
         assert "Write the draft there" in err
 
 
+class DescribeDraft:
+    @pytest.mark.spec("draft-cmd-makes-own-file")
+    def it_makes_an_empty_file_in_the_temporary_directory(self, capsys, monkeypatch, tmp_path):
+        monkeypatch.setattr(cpr.tempfile, "tempdir", str(tmp_path))
+        code = cpr.main(["draft", "--json"], environ={})
+        assert code == cpr.OK
+        path = Path(json.loads(capsys.readouterr().out)["data"]["path"])
+        assert path.parent == tmp_path
+        assert path.name.startswith("pr-")
+        assert path.suffix == ".md"
+        assert path.read_bytes() == b""
+
+    @pytest.mark.spec("draft-cmd-makes-own-file")
+    def it_gives_each_run_a_file_of_its_own(self, capsys, monkeypatch, tmp_path):
+        monkeypatch.setattr(cpr.tempfile, "tempdir", str(tmp_path))
+        paths = set()
+        for _ in range(5):
+            assert cpr.main(["draft"], environ={}) == cpr.OK
+            paths.add(capsys.readouterr().out.strip())
+        assert len(paths) == 5
+        assert all(Path(p).is_file() for p in paths)
+
+    @pytest.mark.spec("script-exits-2-when-unrunnable", "script-names-remedy-on-stop")
+    def it_stops_when_the_temporary_directory_cannot_take_a_file(
+        self, capsys, monkeypatch, tmp_path
+    ):
+        monkeypatch.setattr(cpr.tempfile, "tempdir", str(tmp_path / "missing"))
+        code = cpr.main(["draft"], environ={})
+        assert code == cpr.CANNOT_RUN
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert captured.err.startswith("check-pr.py: cannot make a file for the draft in ")
+        assert "Set TMPDIR" in captured.err
+
+
 class FakeShell:
     """Stands in for git and gh, recording each call."""
 

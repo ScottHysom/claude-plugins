@@ -193,9 +193,9 @@ Things that look like bugs and are not, in `fences`:
 - An ALLOWED entry holds only in its position. `cd` may open a line but not
   end one, and `echo` may only follow `ls "$VAR" ||`, so a bare
   `echo "$x" | cut -f1` still fails.
-- A heredoc's body is not read, as in `commands`. The findings heredoc is
-  allowed because its body is the model's judgment, written for the script
-  to read.
+- A heredoc's body is not read, as in `commands`. The findings and draft
+  heredocs are allowed because their body is the model's judgment, written
+  for the script to read.
 - It fails when it finds no shell fence at all, for the same reason as
   `repeats`.
 
@@ -351,6 +351,13 @@ ALLOWED = (
         ALONE,
         "writes the model's findings to a file the script reads, or adds to its end; "
         "the body is data, and unread",
+    ),
+    Allowed(
+        "draft heredoc",
+        re.compile(r"^cat > /[\w.-]+(?:/[\w.-]+)* <<-? \w+$"),
+        ALONE,
+        "writes the model's draft to the literal path the script's draft command printed, "
+        "since a worktree session refuses ${TMPDIR:-/tmp}; the body is data, and unread",
     ),
     Allowed(
         "change directory",
