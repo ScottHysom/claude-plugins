@@ -4637,6 +4637,24 @@ def uncovered_matches(repo, rules, targets, findings):
     return out
 
 
+def rewritten_dismissals(staged):
+    """{dismissal number: [finding number, ...]} for each dismissal whose text
+    a finding of another rule rewrites.
+
+    Such a dismissal stays only while that finding is applied. The author who
+    turns the finding down leaves the dismissed match in the file, so report
+    shows the two together for the author to decide as a pair. A dismissal
+    cannot be refused for it: it is also how the side of an overlap that the
+    author turned down stays covered.
+    """
+    out = {}
+    for n, f, a, b in staged.dismissed:
+        for m, g, x, y in staged.accepted:
+            if g["rule"] != f["rule"] and ((a < y and x < b) if x < y else a < x < b):
+                out.setdefault(n, []).append(m)
+    return out
+
+
 def breaching_rewrites(staged, rules):
     """(edit, match) for each pattern match that a finding's rewrite makes or keeps.
 
@@ -4745,6 +4763,20 @@ def checked_by_reading(rules):
     )
 
 
+def rewritten_note(finding, rule):
+    """What a report says under a dismissal whose text a finding rewrites."""
+    return "Finding %d, `%s`, rewrites this text." % (finding, rule)
+
+
+def rewrites_note(dismissal):
+    """What a report says under a finding that rewrites a dismissal's text."""
+    return (
+        "This rewrite also changes finding %d, a match of `%s` that is dismissed. "
+        "Rejecting this finding leaves that match in the file."
+        % (dismissal["finding"], dismissal["rule"])
+    )
+
+
 def report_markdown(data, rejected):
     """The report as markdown: what the author reads whole, and approves.
 
@@ -4755,6 +4787,7 @@ def report_markdown(data, rejected):
     if rejected:
         out += ["", "## Refused", "", "Settle these and run report again:", ""]
         out += ["- %s" % e for e in rejected]
+    rules = dict((r["finding"], r["rule"]) for r in data["findings"])
     for r in data["findings"] + data["dismissed"]:
         out += [
             "",
@@ -4763,8 +4796,13 @@ def report_markdown(data, rejected):
         out += ["", "Current:", "", fenced(report_text(r["current"]))]
         if "reason" in r:
             out += ["", "Dismissed: %s" % r["reason"]]
+            for m in r["rewritten_by"]:
+                out += ["", rewritten_note(m, rules[m])]
             continue
         out += ["", "Proposed:", "", fenced(report_text(r["proposed"]))]
+        for d in data["dismissed"]:
+            if r["finding"] in d["rewritten_by"]:
+                out += ["", rewrites_note(d)]
     rows = data["findings"]
     out += ["", "%d finding(s) in %d file(s)." % (len(rows), len(set(r["file"] for r in rows)))]
     if data["dismissed"]:
@@ -4822,6 +4860,7 @@ def cmd_report(args):
         staged = stage_findings(text, Blocks(text), rel, mine, numbers)
         stagings.append((rel, staged))
         rejected.extend(staged.rejected)
+        rewritten = rewritten_dismissals(staged)
         for n, f, a, b in staged.dismissed:
             dismissed.append(
                 {
@@ -4831,6 +4870,7 @@ def cmd_report(args):
                     "rule": f["rule"],
                     "current": text.s[a:b],
                     "reason": f[DISMISS_KEY],
+                    "rewritten_by": rewritten.get(n, []),
                 }
             )
         for n, f, a, b in staged.accepted:
@@ -4892,16 +4932,23 @@ def cmd_report(args):
     }
     data["report"] = write_page(repo, REPORT_FILE, report_markdown(data, rejected))
 
+    rules_of = dict((r["finding"], r["rule"]) for r in rows)
+
     def human():
         for r in rows:
             print("%s:%d  %s  (finding %d)" % (r["file"], r["line"], r["rule"], r["finding"]))
             print(report_field("current", report_text(r["current"])))
             print(report_field("proposed", report_text(r["proposed"])))
+            for d in dismissed:
+                if r["finding"] in d["rewritten_by"]:
+                    print(report_field("", rewrites_note(d)))
             print()
         for r in dismissed:
             print("%s:%d  %s  (finding %d)" % (r["file"], r["line"], r["rule"], r["finding"]))
             print(report_field("current", report_text(r["current"])))
             print(report_field("dismissed", r["reason"]))
+            for m in r["rewritten_by"]:
+                print(report_field("", rewritten_note(m, rules_of[m])))
             print()
         print("%d finding(s) in %d file(s)" % (len(rows), len(set(r["file"] for r in rows))))
         if dismissed:
