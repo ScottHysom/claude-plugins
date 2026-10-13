@@ -74,12 +74,17 @@ Reply in exactly this form:
 SCENARIO: <in your own words: who meets this change, what happened before
 it, and what happens after it>
 
-UNDEFINED:
+BLOCKING:
 - <term>: <the sentence it first appears in>
 
-List under UNDEFINED each word or phrase the description uses with a meaning
-the owner would have to guess, and that the description does not define
-where it first uses it. Write "none" when there is none.
+BORDERLINE:
+- <term>: <the sentence it first appears in>
+
+List each word or phrase the description uses with a meaning the owner would
+have to guess, and that the description does not define where it first uses
+it. Put it under BLOCKING when the owner could not follow the scenario or the
+change without it, and under BORDERLINE when the owner could guess it from
+the text around it. Write "none" under a heading that lists nothing.
 
 The description:
 
@@ -88,15 +93,17 @@ The description:
 
 Compare the reply with the change:
 
-- Each term under UNDEFINED gets a definition at its first use, in one
+- Each term under BLOCKING gets a definition at its first use, in one
   clause, or gives way to a plain word.
+- A term under BORDERLINE gets the same when one clause does it. Otherwise
+  leave it, since each new definition can bring terms of its own.
 - When the subagent's scenario misstates who meets the change, or what
   happens before or after it, the Scenario section is rewritten until a
   reader without the work would state it correctly.
 
 After any revision, go back to step 2, and give the revised draft to a new
-subagent. Go on to step 4 only when a subagent lists "none" and its scenario
-matches the change.
+subagent. Go on to step 4 only when a subagent lists "none" under BLOCKING and its
+scenario matches the change.
 
 ## Step 4: open the pull request
 <!-- spec: openpr-opens-through-script, open-cmd-refuses-failing-draft, open-cmd-opens-from-file -->

@@ -782,9 +782,10 @@ Source: #566, #567, and CLAUDE.md, under "Workflow".
   open-pr skill gives it to a subagent (a second Claude session that starts
   with only the prompt it is given) with nothing else from the session. The
   subagent states the scenario in its own words and lists each term the
-  draft uses without defining it. The skill revises the draft and checks it
-  again until that list is empty and the subagent's scenario matches the
-  change.
+  draft uses without defining it, as blocking when the owner could not
+  follow the scenario or the change without it, and otherwise as borderline.
+  The skill revises the draft and checks it again until the blocking list is
+  empty and the subagent's scenario matches the change.
 - `openpr-opens-through-script` (step): When the cold read finds nothing to
   revise, the open-pr skill opens the pull request with `open`, from the file
   it checked, rather than with `gh pr create`.
