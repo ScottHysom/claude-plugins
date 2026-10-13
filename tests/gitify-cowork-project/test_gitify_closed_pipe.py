@@ -59,3 +59,12 @@ class DescribeClosedPipe:
         assert code == gitify.OK
         assert capsys.readouterr().err == ""
         assert (tmp_path / "out").read_text() == ""
+
+
+class DescribeUsageError:
+    @pytest.mark.spec("repo:script-exits-2-when-unrunnable")
+    def it_exits_cannot_run_through_main_when_stdout_is_open(self, capsys):
+        with pytest.raises(SystemExit) as exc:
+            gitify.main(["nonsense"])
+        assert exc.value.code == gitify.CANNOT_RUN
+        assert "invalid choice" in capsys.readouterr().err
