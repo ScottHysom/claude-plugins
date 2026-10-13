@@ -105,6 +105,10 @@ Things that look like bugs and are not:
   Needs, constraints and requirements share one set of ids. `eval` is a kind
   SPEC-METHODOLOGY.md names, and nothing in this repo runs an eval yet, so a
   requirement of that kind fails.
+- A section's requirements start at its `Source:` line, or at its first
+  requirement bullet when that comes sooner. A bullet above both is part of
+  the need's or the constraint's text, so the text can hold a list. A
+  malformed requirement below them is still an error.
 - A citation of a requirement of another kind is allowed. A test may cite a
   `step` requirement it also exercises; what `trace` holds a requirement to is
   that its own kind cites it.
@@ -234,6 +238,8 @@ BULLET_RE = re.compile(r"^[-*+][ \t]")
 # A bullet that means to be a requirement: an id in backticks, then a kind.
 REQUIREMENT_START_RE = re.compile(r"^- `[^`]*` \(")
 REQUIREMENT_RE = re.compile(r"^- `([^`]+)` \(([^)]*)\): \S")
+# The line that ends a need's or a constraint's text. Its requirements follow it.
+SOURCE_RE = re.compile(r"^Source:[ \t]")
 # A line that continues the bullet above it.
 CONTINUATION_RE = re.compile(r"^[ \t]+\S")
 # The form of an id a pull request adds, from SPEC-METHODOLOGY.md, under "Ids".
@@ -475,10 +481,13 @@ def parse_spec(path, text, errors):
     """The requirements of one spec file, as {id: {"kind", "line", "under", "text"}}.
 
     A requirement's text is its bullet and the indented lines that continue it.
+    A bullet above the section's `Source:` line, and above its first requirement,
+    belongs to the need's or the constraint's own text.
     """
     requirements = {}
     ids = {}
     under = None
+    listing = False
     current = None
     for number, line in enumerate(text.splitlines(), 1):
         where = "%s:%d" % (path, number)
@@ -489,6 +498,7 @@ def parse_spec(path, text, errors):
         if SECTION_RE.match(line):
             heading = HEADING_RE.match(line)
             under = heading.group(2) if heading else None
+            listing = False
             if heading:
                 kind = heading.group(1)
                 if not not_an_id(where, under, errors):
@@ -502,7 +512,9 @@ def parse_spec(path, text, errors):
                     "the `## need` or `## constraint` it serves." % where
                 )
             continue
-        if not BULLET_RE.match(line):
+        if SOURCE_RE.match(line) or REQUIREMENT_START_RE.match(line):
+            listing = True
+        if not listing or not BULLET_RE.match(line):
             continue
         m = REQUIREMENT_RE.match(line)
         if not m:
