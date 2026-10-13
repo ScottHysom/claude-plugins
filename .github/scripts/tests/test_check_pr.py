@@ -1,7 +1,9 @@
 """What check-pr.py promises about a pull request's description.
 
-Each test writes the event GitHub Actions would, with the description as the
-pull request's body, and runs `description` on it.
+The tests of `description` in CI write the event GitHub Actions would, with
+the description as the pull request's body. The tests of a draft write it to
+a file, and the tests of `open` replace git and gh with a fake that records
+each call.
 """
 
 import importlib.util
@@ -186,3 +188,135 @@ class DescribeDescriptionOutsideCI:
         closed_pipe()
         assert cpr.main(["description"], environ={cpr.EVENT_ENV: str(path)}) == cpr.OK
         assert capsys.readouterr().err == ""
+
+
+@pytest.fixture
+def draft(tmp_path):
+    """Write `body` to a draft file and return its path."""
+
+    def write(body):
+        path = tmp_path / "pr.md"
+        path.write_text(body)
+        return str(path)
+
+    return write
+
+
+class DescribeDescriptionOfADraft:
+    @pytest.mark.spec("description-cmd-reads-body-file")
+    def it_checks_the_file_in_place_of_the_event(self, capsys, draft):
+        code = cpr.main(["description", "--body-file", draft(SCENARIO)], environ={})
+        assert code == cpr.OK
+        assert capsys.readouterr().out == "The description opens with `## Scenario`.\n"
+
+    @pytest.mark.spec("description-cmd-reads-body-file")
+    def it_fails_a_draft_the_event_check_would_fail(self, capsys, draft):
+        code = cpr.main(["description", "--body-file", draft("## Summary\n")], environ={})
+        assert code == cpr.PROBLEMS
+        assert "first heading is `## Summary`" in capsys.readouterr().err
+
+    @pytest.mark.spec("script-exits-2-when-unrunnable", "script-names-remedy-on-stop")
+    def it_stops_on_a_draft_it_cannot_read(self, capsys, tmp_path):
+        missing = str(tmp_path / "missing.md")
+        code = cpr.main(["description", "--body-file", missing], environ={})
+        assert code == cpr.CANNOT_RUN
+        err = capsys.readouterr().err
+        assert err.startswith("check-pr.py: cannot read the description at %s" % missing)
+        assert "Write the draft there" in err
+
+
+class FakeShell:
+    """Stands in for git and gh, recording each call."""
+
+    def __init__(self, fail=None, url="https://github.com/o/r/pull/7\n"):
+        self.calls = []
+        self.fail = fail
+        self.url = url
+
+    def __call__(self, repo, cmd):
+        self.calls.append((repo, cmd))
+        if self.fail and cmd[:2] == self.fail:
+            raise cpr.Fatal("`%s` failed: boom. Fix what it names and run `open` again." % cmd[0])
+        if cmd[:2] == ["git", "rev-parse"]:
+            return "issue/567\n"
+        if cmd[:2] == ["gh", "pr"]:
+            return self.url
+        return ""
+
+
+@pytest.fixture
+def shell(monkeypatch):
+    def install(**kwargs):
+        fake = FakeShell(**kwargs)
+        monkeypatch.setattr(cpr, "run", fake)
+        return fake
+
+    return install
+
+
+class DescribeOpen:
+    @pytest.mark.spec("open-cmd-opens-from-file")
+    def it_pushes_the_branch_and_opens_the_pull_request_from_the_file(self, capsys, draft, shell):
+        fake = shell()
+        path = draft(SCENARIO)
+        code = cpr.main(["open", "--title", "feat: x", "--body-file", path, "-C", "/clone"])
+        assert code == cpr.OK
+        assert [cmd for _, cmd in fake.calls] == [
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            ["git", "push", "-u", "origin", "HEAD"],
+            ["gh", "pr", "create", "--base", "main", "--title", "feat: x", "--body-file", path],
+        ]
+        assert {repo for repo, _ in fake.calls} == {"/clone"}
+        captured = capsys.readouterr()
+        assert captured.out == "https://github.com/o/r/pull/7\n"
+        assert captured.err == ""
+
+    @pytest.mark.spec("open-cmd-opens-from-file", "command-prints-json-envelope")
+    def it_prints_the_address_and_branch_in_the_envelope(self, capsys, draft, shell):
+        shell()
+        code = cpr.main(["open", "--title", "t", "--body-file", draft(SCENARIO), "--json"])
+        assert code == cpr.OK
+        captured = capsys.readouterr()
+        assert captured.err == ""
+        result = json.loads(captured.out)
+        assert result["command"] == "open"
+        assert result["data"]["url"] == "https://github.com/o/r/pull/7"
+        assert result["data"]["branch"] == "issue/567"
+        assert result["data"]["first_heading"] == "## Scenario"
+
+    @pytest.mark.spec("open-cmd-refuses-failing-draft")
+    @pytest.mark.parametrize("body", ["## Summary\n\nA check.\n", "## Scenario\n\n## Change\n"])
+    def it_refuses_a_draft_that_description_fails_without_pushing(self, capsys, draft, shell, body):
+        fake = shell()
+        code = cpr.main(["open", "--title", "t", "--body-file", draft(body)])
+        assert code == cpr.PROBLEMS
+        assert fake.calls == []
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert 'CLAUDE.md, under "Workflow"' in captured.err
+
+    @pytest.mark.spec("script-exits-2-when-unrunnable", "script-names-remedy-on-stop")
+    def it_stops_when_the_push_fails_without_opening(self, capsys, draft, shell):
+        fake = shell(fail=["git", "push"])
+        code = cpr.main(["open", "--title", "t", "--body-file", draft(SCENARIO)])
+        assert code == cpr.CANNOT_RUN
+        assert not [cmd for _, cmd in fake.calls if cmd[0] == "gh"]
+        assert "run `open` again" in capsys.readouterr().err
+
+
+class DescribeRun:
+    @pytest.mark.spec("script-exits-2-when-unrunnable")
+    def it_stops_when_the_clone_is_missing(self, tmp_path):
+        with pytest.raises(cpr.Fatal, match="cannot run git"):
+            cpr.run(str(tmp_path / "missing"), ["git", "status"])
+
+    @pytest.mark.spec("script-names-remedy-on-stop")
+    def it_names_the_failed_command_and_the_remedy(self, tmp_path):
+        with pytest.raises(cpr.Fatal) as exc:
+            cpr.run(str(tmp_path), ["git", "rev-parse", "--show-toplevel"])
+        assert "`git rev-parse --show-toplevel` failed" in str(exc.value)
+        assert "run `open` again" in str(exc.value)
+
+    @pytest.mark.spec("open-cmd-opens-from-file")
+    def it_returns_the_command_output(self, tmp_path):
+        assert cpr.run(str(tmp_path), ["git", "--version"]).startswith("git version")

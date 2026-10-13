@@ -749,7 +749,7 @@ When the owner reviews a pull request, the owner wants its description to
 set up the scenario it changes, in terms the owner can read without the
 plugin's code, so the review starts from what changes for whom.
 
-Source: #566, and CLAUDE.md, under "Workflow".
+Source: #566, #567, and CLAUDE.md, under "Workflow".
 
 - `description-cmd-requires-scenario-first` (test): When a pull request
   description fails either of these, `check-pr.py description` fails it, and
@@ -761,6 +761,34 @@ Source: #566, and CLAUDE.md, under "Workflow".
     than blank lines and HTML comments.
 - `ci-runs-description` (check): When a pull request is opened, edited or
   updated, CI runs `description`.
+- `description-cmd-reads-body-file` (test): When `description` is given
+  `--body-file <file>`, it checks the description in that file, in place of
+  the pull request event, and fails it as it would fail the same description
+  in CI.
+- `open-cmd-refuses-failing-draft` (test): When `check-pr.py open --title
+  <title> --body-file <file>` reads a description that `description` would
+  fail, it exits 1 naming each fault, and pushes and opens nothing.
+- `open-cmd-opens-from-file` (test): When `open` reads a description that
+  passes, it pushes the current branch, opens a pull request against `main`
+  with that title and the file as its description, and prints its address.
+  `-C/--repo` names the clone it pushes from.
+- `openpr-drafts-description` (step): When the open-pr skill drafts a pull
+  request description, it writes the title and the file with the headings
+  CLAUDE.md, under "Workflow", names, and `Closes #N` after them.
+- `openpr-checks-draft` (step): When the open-pr skill has a draft, it runs
+  `description --body-file` on it, and fixes each fault before anyone reads
+  the draft.
+- `openpr-gives-draft-to-cold-reader` (step): When the draft passes, the
+  open-pr skill gives it to a subagent (a second Claude session that starts
+  with only the prompt it is given) with nothing else from the session. The
+  subagent states the scenario in its own words and lists each term the
+  draft uses without defining it, as blocking when the owner could not
+  follow the scenario or the change without it, and otherwise as borderline.
+  The skill revises the draft and checks it again until the blocking list is
+  empty and the subagent's scenario matches the change.
+- `openpr-opens-through-script` (step): When the cold read finds nothing to
+  revise, the open-pr skill opens the pull request with `open`, from the file
+  it checked, rather than with `gh pr create`.
 
 ## constraint marketplace-serves-repo-as-is: The marketplace is this repository as it stands
 

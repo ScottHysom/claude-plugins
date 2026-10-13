@@ -7,7 +7,8 @@ on a summary here; this file holds what the README does not.
 ## Workflow
 
 - Work on a branch off `main` (for an issue, the one claiming makes; see
-  "Issues"), and open a pull request. The owner reviews and merges.
+  "Issues"), and open a pull request with the open-pr skill, rather than with
+  `gh pr create`. The owner reviews and merges.
 - A pull request description stands without the issue, for an owner who has
   not read it. It uses these headings, in this order, in place of
   `## Summary`:
