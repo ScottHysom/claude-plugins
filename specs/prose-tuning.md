@@ -237,7 +237,8 @@ update-prose-config description.
   the rules it checked by pattern, and says every other rule was checked by
   reading.
 - `applyprose-splits-findings-by-rule` (step): When a passage breaks two
-  rules, apply-prose writes two findings, one for each rule.
+  rules, apply-prose writes two findings, one for each rule, including where
+  the two would rewrite the same text.
 - `lint-cmd-checks-id-grammar` (test): When a rule's id is anything but a
   lower-case section word and a name of one to four lower-case words, none
   starting with a digit, `config lint` names it once and exits 1. A name that
@@ -350,6 +351,10 @@ description.
 - `apply-cmd-honors-dismissals` (test): When a finding carries `dismiss`,
   `report` prints its reason and `apply` leaves its text alone. A dismissal
   with no reason, or with a `replacement`, is refused.
+- `report-cmd-pairs-dismissals-with-rewrites` (test): When a finding of one
+  rule rewrites text that a dismissal of another rule covers, `report` shows
+  each beside the other, and says that rejecting the finding leaves the
+  dismissed match in the file.
 - `pass-cmd-gives-rules-segments-matches` (test): When `pass` runs, it prints the rules,
   the segments of every file it reads and every pattern match in them, in one
   output.
