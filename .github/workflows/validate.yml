@@ -166,7 +166,9 @@ jobs:
       # round-trip property - insert then strip returns the file byte-identical
       # - is the only thing standing between a tagging pass and a mangled
       # document, so it runs on every push.
-      # spec: ci-runs-suite-under-coverage
+      # pytest.ini's `-n auto` spreads it across the runner's cores, as it
+      # does on a contributor's machine.
+      # spec: ci-runs-suite-under-coverage, suite-runs-across-cores
       - name: Run the test suite
         run: pytest --cov --cov-report=json:coverage.json --cov-report=term-missing:skip-covered
 

@@ -184,6 +184,11 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
+`pytest.ini` passes `-n auto`, so pytest-xdist runs the tests in one worker
+process per core. Run in one process, the whole suite takes longer than the
+120 seconds that Claude Code's Bash tool waits for a command. `pytest -n 0`
+runs it in one process, which `--pdb` needs.
+
 Where a suite goes depends on where the script it tests lives:
 
 | Script in | Suite in |

@@ -884,6 +884,19 @@ Source: Claude Code's Bash tool description, and the owner's report in #334.
   git ignores. The file ends with the approval token, or holds the faults and
   no token.
 
+## constraint bash-stops-waiting: The Bash tool stops waiting for a command after 120 seconds
+
+Claude Code's Bash tool stops waiting for a command after 120 seconds, unless
+the call sets a longer `timeout`, and after 600 seconds at most. So the whole
+suite, run as README.md gives it, has to finish within 120 seconds for an agent
+to see its result.
+
+Source: Claude Code's Bash tool description, and #573 and #577.
+
+- `suite-runs-across-cores` (check): When a pull request is opened or updated,
+  CI runs the whole suite with the `-n auto` that pytest.ini gives every run,
+  one pytest-xdist worker per core, as a contributor's `pytest` runs it.
+
 ## constraint artifact-sends-comments: A comment sent to Claude reaches the session
 
 An artifact published from Claude Code is private by default. A comment its
