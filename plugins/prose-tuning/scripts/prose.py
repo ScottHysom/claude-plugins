@@ -5513,16 +5513,39 @@ def build_parser():
 
 
 def main(argv=None):
-    args = build_parser().parse_args(argv)
-    if not hasattr(args, "paths"):
-        args.paths = []
+    # stdout is flushed inside the try, where a closed pipe is caught, rather
+    # than by Python at exit, where it would print a traceback and exit 120.
     try:
-        return args.func(args)
+        try:
+            args = build_parser().parse_args(argv)
+        except SystemExit:
+            # argparse exits here after printing --help.
+            sys.stdout.flush()
+            raise
+        if not hasattr(args, "paths"):
+            args.paths = []
+        code = args.func(args)
+        sys.stdout.flush()
+        return code
     except Fatal as exc:
         sys.stderr.write("prose.py: %s\n" % exc)
         return CANNOT_RUN
     except BrokenPipeError:
+        silence_stdout()
         return OK
+
+
+def silence_stdout():
+    """Point stdout at the null device, so the flush at exit cannot fail.
+
+    The output still buffered when the pipe closed stays in the buffer, and
+    Python flushes it again at exit.
+    """
+    devnull = os.open(os.devnull, os.O_WRONLY)
+    try:
+        os.dup2(devnull, sys.stdout.fileno())
+    finally:
+        os.close(devnull)
 
 
 if __name__ == "__main__":
