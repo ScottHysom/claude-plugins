@@ -46,6 +46,11 @@ def repo_copy(tmp_path_factory):
                 env.setenv("GIT_TEMPLATE_DIR", str(template))
                 env.setenv("GIT_CONFIG_GLOBAL", "/dev/null")
                 env.setenv("GIT_CONFIG_NOSYSTEM", "1")
+                # A commit can start `git maintenance` in the background, which
+                # would still be writing to the template while it is copied.
+                env.setenv("GIT_CONFIG_COUNT", "1")
+                env.setenv("GIT_CONFIG_KEY_0", "maintenance.auto")
+                env.setenv("GIT_CONFIG_VALUE_0", "false")
                 build(src)
             built[build] = src
         shutil.copytree(str(built[build]), str(dest), symlinks=True)
