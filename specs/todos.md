@@ -356,6 +356,13 @@ Source: #312, which records the design the owner approved.
   decision over those drafts, naming the artifact's address and the token,
   before running `file`. When every draft is routed to `skill`, do-todos
   runs `file` without `report` or a question.
+- `drafts-cmd-makes-own-file` (test): When `drafts` runs, it makes an empty
+  file in the temporary directory, named so that no other run gets the same
+  file, and prints its literal path.
+- `dotodos-drafts-in-own-file` (step): When do-todos writes its drafts, it
+  writes them to the file `drafts` made for that run, and every later step of
+  the run reads that file, so the report does not show drafts another session
+  wrote.
 
 ## need user-annotates-drafts: Comment on a draft where it is read
 
