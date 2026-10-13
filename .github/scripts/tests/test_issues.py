@@ -36,17 +36,28 @@ def isolated_git(monkeypatch):
         monkeypatch.setenv("GIT_%s_DATE" % who, MAIN_DATE)
 
 
-@pytest.fixture
-def remote(tmp_path):
-    bare = tmp_path / "remote.git"
-    git(tmp_path, "init", "--quiet", "--bare", "-b", cli.BASE, str(bare))
-    seed = tmp_path / "seed"
-    git(tmp_path, "clone", "--quiet", str(bare), str(seed))
+def seeded(world):
+    """Build the bare repository the remote fixture starts from.
+
+    Beside it sits `seed`, the clone that made its first commit, which a test
+    uses to move main. Its origin is a relative path, so it still names the
+    bare repository beside it once the two are copied.
+    """
+    world.mkdir()
+    bare = world / "remote.git"
+    git(world, "init", "--quiet", "--bare", "-b", cli.BASE, str(bare))
+    seed = world / "seed"
+    git(world, "clone", "--quiet", str(bare), str(seed))
+    git(seed, "remote", "set-url", cli.REMOTE, "../remote.git")
     (seed / "README").write_text("seed\n")
     git(seed, "add", "README")
     git(seed, "commit", "--quiet", "-m", "seed")
     git(seed, "push", "--quiet", cli.REMOTE, "HEAD:" + cli.BASE)
-    return bare
+
+
+@pytest.fixture
+def remote(tmp_path, repo_copy):
+    return repo_copy(seeded, tmp_path / "world") / "remote.git"
 
 
 @pytest.fixture

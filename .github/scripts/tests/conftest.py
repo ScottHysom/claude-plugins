@@ -1,8 +1,18 @@
 """Fixtures every CI script's suite shares."""
 
+import importlib.util
 import sys
+from pathlib import Path
 
 import pytest
+
+# repo_copy and git_init, from the plugin suites' shared conftest.
+_PATH = Path(__file__).resolve().parents[3] / "tests" / "conftest.py"
+_spec = importlib.util.spec_from_file_location("repo_fixtures", _PATH)
+_repos = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_repos)
+repo_copy = _repos.repo_copy
+git_init = _repos.git_init
 
 
 class ClosedPipe:

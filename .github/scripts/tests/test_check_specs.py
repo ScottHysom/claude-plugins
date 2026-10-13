@@ -139,13 +139,11 @@ def isolated_git(monkeypatch):
 
 
 @pytest.fixture
-def make_repo(tmp_path):
+def make_repo(tmp_path, git_init):
     """A clone holding BASE, with `changes` applied: a path to text, or to None to leave it out."""
 
     def make(changes=None, name="repo"):
-        root = tmp_path / name
-        root.mkdir()
-        subprocess.run(["git", "init", "-q", str(root)], check=True, capture_output=True)
+        root = git_init(tmp_path / name)
         files = dict(BASE)
         files.update(changes or {})
         for rel, text in files.items():

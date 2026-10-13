@@ -7,7 +7,6 @@ issues, links and sub-issues it is given.
 
 import importlib.util
 import json
-import subprocess
 from pathlib import Path
 
 import pytest
@@ -35,11 +34,8 @@ def isolated_git(monkeypatch):
 
 
 @pytest.fixture
-def repo(tmp_path):
-    path = tmp_path / "clone"
-    path.mkdir()
-    subprocess.run(["git", "init", "--quiet", str(path)], check=True)
-    return path
+def repo(tmp_path, git_init):
+    return git_init(tmp_path / "clone")
 
 
 class Hub:
