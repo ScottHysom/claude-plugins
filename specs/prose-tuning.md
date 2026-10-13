@@ -322,7 +322,8 @@ description.
   pattern, `patterns` prints each place it matches in the segments' spans
   once, with its address, its rule and its text as a JSON string that `apply`
   accepts as a finding's `text`, including a match that wraps within a
-  passage. It leaves out a match in a code span, and one made only of a line
+  passage, and one with a code span between its two ends. It leaves out a
+  match that starts or ends in a code span, and one made only of a line
   break.
 - `patterns-cmd-refuses-unlinted-rules` (test): When `prose-style.md` does
   not lint clean, `patterns`, `pass` and `report` name the fault and exit 1

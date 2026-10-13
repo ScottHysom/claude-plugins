@@ -2140,9 +2140,11 @@ def pattern_matches(text, blocks, rules):
     Returns dicts of rule, line, col_start, end_line, col_end and text, where
     text is exactly what the file holds there, newline and indent included when
     the match wraps, so it can be copied into a finding as it stands. A match
-    that touches a code span is left out: a code span quotes code, which a
-    prose rule has nothing to say about. So is an empty match, and a second
-    pattern of the same rule matching the same text.
+    that starts or ends inside a code span is left out: a code span quotes
+    code, which a prose rule has nothing to say about. A match whose two ends
+    lie in prose is kept, even with a code span between them, since the breach
+    is in the prose around it. An empty match is left out too, and so is a
+    second pattern of the same rule matching the same text.
     """
     spans = blocks.code_span_offsets(blocks.protected_offsets())
     compiled = [(r.id, re.compile(source)) for r in rules for _line, source in r.patterns]
@@ -2155,7 +2157,7 @@ def pattern_matches(text, blocks, rules):
                 if where is None:
                     continue
                 a, b = where
-                if (rid, a, b) in seen or any(x < b and a < y for x, y in spans):
+                if (rid, a, b) in seen or any(x <= a < y or x < b <= y for x, y in spans):
                     continue
                 seen.add((rid, a, b))
                 line, end_line = text.line_of(a), text.line_of(b)
