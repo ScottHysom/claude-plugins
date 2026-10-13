@@ -192,7 +192,7 @@ When the Artifact tool is not available, or refuses to publish, ask in
 questions were written.
 
 ## Step 5: draft the rules for approval
-<!-- spec: updateproseconfig-writes-note-examples, updateproseconfig-shows-rules-whole, updateproseconfig-revises-on-comment -->
+<!-- spec: updateproseconfig-writes-note-examples, updateproseconfig-shows-rules-whole, updateproseconfig-revises-on-comment, updateproseconfig-rules-in-own-file, batch-cmd-makes-own-file -->
 
 Name each rule. The name is one to four words saying what the rule means, and
 there is nothing to allocate. A name that reads as a near-duplicate of one
@@ -231,11 +231,11 @@ Check every candidate against `rules` from step 2 for a contradiction that
 neither rule's pattern shows, and send a candidate touching covered ground to
 the author instead of into the file. Never reconcile two rules unilaterally.
 
-Do not edit `prose-style.md` yourself. Write every new rule and rewrite to
-one batch file:
+Do not edit `prose-style.md` yourself. Make one batch file as
+`$ROOT/reference/batch.md` says, and write every new rule and rewrite to it:
 
 ```sh
-cat > "${TMPDIR:-/tmp}/prose-rules.json" <<'END'
+cat > /var/folders/k2/T/prose-x8q1zv.json <<'END'
 [{"section":"sentences","name":"no-in-order-to",
   "title":"Write to, not in order to",
   "body":"The two extra words carry nothing.",
@@ -266,7 +266,7 @@ drops the example.
 Then run the batch as a dry run:
 
 ```sh
-python3 "$PROSE" config write --batch "${TMPDIR:-/tmp}/prose-rules.json" --dry-run --json
+python3 "$PROSE" config write --batch /var/folders/k2/T/prose-x8q1zv.json --dry-run --json
 ```
 
 The script checks every name, and every rewrite against the file as it is now.
@@ -310,7 +310,7 @@ Hand the batch the author approved to `config write`, with the token they
 approved:
 
 ```sh
-python3 "$PROSE" config write --batch "${TMPDIR:-/tmp}/prose-rules.json" --token 3f9a1c0e7b2d4a68 --json
+python3 "$PROSE" config write --batch /var/folders/k2/T/prose-x8q1zv.json --token 3f9a1c0e7b2d4a68 --json
 ```
 
 `config write` writes all or none.

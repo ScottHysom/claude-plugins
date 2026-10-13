@@ -33,6 +33,8 @@ Commands:
     setup       which surface this is running on, local or cowork, and
                 locally, copy this script into the project
     stage       copy this script and the shipped rules into Cowork's outputs
+    batch       make an empty file for a run's findings or rules, named so
+                that no other run gets it, and print its path
 
 evidence and reproduce take --from with another worktree of the repository,
 named by its folder or by the branch it has checked out, and read that
@@ -123,6 +125,15 @@ Some things in here look like bugs and are not:
    findings can give different errors, because the second one counts the
    refusals of the first (refused_rewrites has why).
 
+6. batch makes the file a run of apply-prose writes its findings to, or a
+   run of update-prose-config its rules, in the temporary directory rather
+   than at a fixed name there. Every Claude Code session on a machine shares
+   that directory, so a fixed name lets another session's batch replace this
+   run's between the skill's steps. It prints a literal path, because a
+   session that Claude Code isolates in a worktree refuses a command that
+   expands ${TMPDIR:-/tmp} as too complex to verify. On Cowork it runs on the
+   device, so the file is in the device's temporary directory.
+
 Python 3.9 is the floor. No match statements, no X | Y unions.
 """
 
@@ -136,6 +147,7 @@ import re
 import shlex
 import subprocess
 import sys
+import tempfile
 
 ENVELOPE_VERSION = 5
 
@@ -225,6 +237,8 @@ CONFLICT_REFUSALS = 2
 PAGE_FENCE_INFO = "text"
 RULES_FENCE_INFO = "markdown"
 DEVICE_MOUNT_ROOT = "$HOME/mnt"
+# `batch`: the name of the file a run writes its findings or its rules to.
+BATCH_PREFIX, BATCH_SUFFIX = "prose-", ".json"
 
 # What evidence, reproduce and restore compare the working tree against.
 BASE_REF = "HEAD"
@@ -5443,6 +5457,19 @@ def cmd_setup(args):
     return emit(args, "setup", repo.root, data, human=human)
 
 
+def cmd_batch(args):
+    """An empty file for one run's batch. The module docstring has why."""
+    try:
+        fd, path = tempfile.mkstemp(prefix=BATCH_PREFIX, suffix=BATCH_SUFFIX)
+    except OSError as exc:
+        raise Fatal(
+            "cannot make a file for the batch in %s: %s. Set TMPDIR to a directory you can "
+            "write and run this again." % (tempfile.gettempdir(), exc)
+        ) from exc
+    os.close(fd)
+    return emit(args, "batch", None, {"path": path}, human=lambda: print(path))
+
+
 def normalize_folder(value, name):
     """A device folder as get_device_info lists it, without a trailing slash.
 
@@ -5810,6 +5837,14 @@ def build_parser():
     )
     p.add_argument("--dry-run", action="store_true")
     p.set_defaults(func=cmd_stage)
+
+    # No -C: batch reads nothing from a repo, and writes outside it.
+    p = sub.add_parser(
+        "batch",
+        parents=[output],
+        help="make an empty file for a run's findings or rules, and print its path",
+    )
+    p.set_defaults(func=cmd_batch)
 
     return ap
 

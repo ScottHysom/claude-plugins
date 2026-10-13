@@ -159,6 +159,10 @@ summary in a session (#343).
   comment on a published rule to Claude, update-prose-config revises the
   batch, runs the dry run again, republishes to the same address and answers
   in the comment's thread.
+- `updateproseconfig-rules-in-own-file` (step): When update-prose-config
+  drafts rules, it writes the batch to the file `batch` made for that run,
+  and every later step of the run reads that file, so a batch another
+  session drafts does not replace it.
 
 ## need user-answers-in-one-round: Answer every open question at once
 
@@ -393,6 +397,13 @@ description.
   token `report` printed and the filters the approval names. Before that
   approval, apply-prose does not run `apply` in any checkout, including a copy
   it makes.
+- `batch-cmd-makes-own-file` (test): When `batch` runs, it makes an empty
+  file in the temporary directory, named so that no other run gets the same
+  file, and prints its literal path.
+- `applyprose-findings-in-own-file` (step): When apply-prose writes
+  findings, it writes them to the file `batch` made for that run, and every
+  later step of the run reads that file, so the report does not show
+  findings another session wrote.
 
 ## need user-annotates-findings: Comment on a finding where it is read
 
