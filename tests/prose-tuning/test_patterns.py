@@ -374,6 +374,7 @@ class DescribeReportOnPatterns:
                 "rule": RULE,
                 "current": "In order to",
                 "reason": REASON,
+                "rewritten_by": [],
             }
         ]
         assert envelope["data"]["token"]
@@ -641,6 +642,59 @@ class DescribeDismissal:
             {"file": "doc.md", "line": 1, "rule": RULE_OWN},
         ]
         assert prose_repo.read("doc.md") == PATTERNED_DOC.replace("Able to run.", "It runs.")
+
+
+def sentence(prose_repo):
+    """Finding 1, rewriting line 3 whole for a rule that has no pattern."""
+    return prose_repo.finding(
+        3, file="doc.md", rule=RULE_OWN, text="In order to ship, it ran.", replacement="It ran."
+    )
+
+
+def inside(prose_repo):
+    """Finding 2, dismissing the match that finding 1 rewrites."""
+    return dict(dismissal(prose_repo), dismiss="finding 1 rewrites this sentence")
+
+
+class DescribeDismissalInsideAnotherRewrite:
+    @pytest.mark.spec("report-cmd-pairs-dismissals-with-rewrites")
+    def it_names_the_finding_that_rewrites_a_dismissed_match(self, prose_repo):
+        patterned_doc(prose_repo)
+        code, envelope = prose_repo.report([sentence(prose_repo), inside(prose_repo)])
+        assert code == prose.OK, envelope["errors"]
+        assert envelope["data"]["dismissed"][0]["rewritten_by"] == [1]
+
+    @pytest.mark.spec("report-cmd-pairs-dismissals-with-rewrites")
+    def it_shows_the_pair_in_the_report_the_author_reads(self, prose_repo):
+        patterned_doc(prose_repo)
+        _, envelope = prose_repo.report([sentence(prose_repo), inside(prose_repo)])
+        page = (prose_repo.root / envelope["data"]["report"]).read_text()
+        assert (
+            "This rewrite also changes finding 2, a match of `%s` that is dismissed. "
+            "Rejecting this finding leaves that match in the file." % RULE
+        ) in page
+        assert "Finding 1, `%s`, rewrites this text." % RULE_OWN in page
+
+    @pytest.mark.spec("report-cmd-pairs-dismissals-with-rewrites")
+    def it_shows_the_pair_on_stdout(self, prose_repo, capsys):
+        patterned_doc(prose_repo)
+        path = prose_repo.findings_file([sentence(prose_repo), inside(prose_repo)])
+        capsys.readouterr()
+        code = prose.main(["report", "--findings", path, "-C", str(prose_repo.root)])
+        out = capsys.readouterr().out
+        assert code == prose.OK
+        assert "Rejecting this finding leaves that match in the file." in out
+        assert "  dismissed finding 1 rewrites this sentence\n" in out
+        assert "Finding 1, `%s`, rewrites this text.\n" % RULE_OWN in out
+
+    @pytest.mark.spec("report-cmd-pairs-dismissals-with-rewrites")
+    def it_leaves_a_dismissal_beside_another_rewrite_unpaired(self, prose_repo):
+        patterned_doc(prose_repo)
+        code, envelope = prose_repo.report([rewrite(prose_repo), inside(prose_repo)])
+        assert code == prose.OK, envelope["errors"]
+        assert envelope["data"]["dismissed"][0]["rewritten_by"] == []
+        page = (prose_repo.root / envelope["data"]["report"]).read_text()
+        assert "rewrites this text" not in page
 
 
 # The shipped rules whose patterns DescribeShippedPatterns checks by example,

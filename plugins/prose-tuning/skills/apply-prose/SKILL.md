@@ -143,7 +143,8 @@ A pattern finds places to look, so judge each match. A spaced hyphen can be a
 minus sign. Every match that breaks its rule becomes a finding in step 3,
 usually with a longer `text` than the match, since the rewrite is of the
 sentence. A match that stays as it is becomes a finding with `dismiss` and the
-reason in place of `replacement`. `report` runs the patterns again, and fails
+reason in place of `replacement`. A match that another rule's finding rewrites
+does not stay, so it gets a finding of its own rule. `report` runs the patterns again, and fails
 on a match that no finding or dismissal of its rule contains.
 
 **Never search the prose with a command of your own,** such as `grep` over
@@ -169,7 +170,8 @@ Each finding is one JSON object in a findings file:
 | `dismiss` | in place of `replacement`, for a pattern's match that stays: one clause saying why |
 
 **A finding names exactly one rule.** A passage breaking two rules is two
-findings, because the author may accept one and reject the other.
+findings, because the author may accept one and reject the other. Write both
+even when their texts overlap, and let `report` name the pair.
 
 **Rewrite the prose, never the facts.** A rule is about how a sentence reads. A
 proposed rewrite that changes a number, a name, a date or a claim is out of
@@ -256,7 +258,10 @@ artifact's address and `data.token`, with these options:
 
 On "comment first", end the turn. A comment the author sends to Claude starts
 a new turn. Revise or dismiss the findings it names, or remove the side of an
-overlap the author turned down, then run `report` again, publish the file
+overlap the author turned down. When that side covers a match of its rule's
+pattern, make it a dismissal saying the author chose the other finding.
+`report` shows that dismissal beside the finding the author chose. Then run
+`report` again, publish the file
 again, and answer in the comment's thread with `ArtifactComments`, saying
 what changed. Ask the one question again, with the new token, once the
 threads sent to Claude are answered.
