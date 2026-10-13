@@ -143,9 +143,9 @@ directory under `plugins/` and one new entry in the catalog.
 
    A local run differs from CI's in these ways:
 
-   - `check-linked-issues.py` and `check-specs.py changes` read the pull
-     request's title and description, so they run only in CI, once the pull
-     request exists.
+   - `check-linked-issues.py`, `check-specs.py changes` and
+     `check-pr.py description` read the pull request's title and description,
+     so they run only in CI, once the pull request exists.
    - `check-specs.py trace` asks GitHub whether the issues in
      `.github/untraced.json` are still open only when `GITHUB_TOKEN` and
      `GITHUB_REPOSITORY` are set. Without them, it warns that it did not look.

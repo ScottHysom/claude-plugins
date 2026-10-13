@@ -743,6 +743,25 @@ Source: #114, #129, and SPEC-METHODOLOGY.md, under "The chain".
 - `ci-runs-changes` (check): When a pull request is opened, edited or
   updated, CI runs `changes`.
 
+## need owner-reviews-from-description: Review a pull request from its scenario
+
+When the owner reviews a pull request, the owner wants its description to
+set up the scenario it changes, in terms the owner can read without the
+plugin's code, so the review starts from what changes for whom.
+
+Source: #566, and CLAUDE.md, under "Workflow".
+
+- `description-cmd-requires-scenario-first` (test): When a pull request
+  description fails either of these, `check-pr.py description` fails it, and
+  says what the description lacks and that CLAUDE.md, under "Workflow", says
+  what a description covers:
+  - its first heading, outside a code fence or an HTML comment, is
+    `## Scenario`.
+  - its Scenario section, up to the next heading of level 1 or 2, holds more
+    than blank lines and HTML comments.
+- `ci-runs-description` (check): When a pull request is opened, edited or
+  updated, CI runs `description`.
+
 ## constraint marketplace-serves-repo-as-is: The marketplace is this repository as it stands
 
 Claude reads the marketplace straight from this repository's GitHub address.

@@ -8,8 +8,8 @@ name: validate
 
 on:
   pull_request:
-    # edited, so changing a pull request's description re-runs the linked-issue
-    # check below.
+    # edited, so changing a pull request's description re-runs the checks
+    # below that read it.
     types: [opened, edited, synchronize, reopened]
   push:
     branches: [main]
@@ -94,6 +94,16 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: python3 .github/scripts/check-linked-issues.py
+
+      # The owner reviews a pull request from its description, starting with
+      # the scenario it changes. Agents post as the owner, so a description in
+      # another shape reaches the owner unchecked unless this fails it. It runs
+      # on `edited`, so a corrected description clears it.
+      # CLAUDE.md, under "Workflow", says what a description covers.
+      # spec: ci-runs-description
+      - name: Check the description opens with its scenario
+        if: github.event_name == 'pull_request'
+        run: python3 .github/scripts/check-pr.py description
 
   # Kept separate from `validate` so it starts immediately rather than queueing
   # behind the Claude Code install, and so a red X says which kind of thing
