@@ -68,6 +68,10 @@ plan commands. `plan report --help` shows the shape of the plan file. The
 model writes a plan's issues as JSON, each under a key of its own, and names
 another issue of the plan in a body as {KEY}. `plan report` checks each draft
 against CLAUDE.md's rules for issues, and checks the plan's keys and links.
+It refuses a draft's body or the tracking issue's plan that continues a
+paragraph or a list item onto a second line, outside a fence or an HTML
+comment, and names the line. GitHub renders that newline in an issue body as
+a line break, so the paragraph reads as a ragged column.
 It then orders the issues so each comes after the issues that block it, with
 ties in the order the plan lists them. The tracking issue's body is the plan
 text, after `**Claude:**`, then an Order section written from that order.
@@ -142,6 +146,11 @@ Things that look like bugs and are not:
 - `plan` reads a {KEY} outside code only, so a body can show the syntax in a
   code span or a fence. As a simplification, a fence is a line opening with
   three or more backticks or tildes, and a code span lies within one line.
+- `plan report` does not count a line that opens a list item, a heading, a
+  table row, a blockquote line, an HTML block, a thematic break or an
+  indented code block as a continuation, even straight under a paragraph.
+  A line after a trailing hard break (two spaces or a backslash) still is
+  one: the body puts each paragraph on one line.
 - `plan file` checks that the plan's open blockers are open, and does not
   check the issues it filed in an earlier run. The record says it filed them.
 - `plan file` adds a missing sub-issue at the end of the tracking issue's
@@ -214,6 +223,14 @@ KEY_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_-]*$")
 REFERENCE_RE = re.compile(r"\{([A-Za-z][A-Za-z0-9_-]*)\}")
 FENCE_RE = re.compile(r"^[ \t]*(`{3,}|~{3,})")
 CODE_SPAN_RE = re.compile(r"(`+).*?\1")
+COMMENT_RE = re.compile(r"<!--.*?-->", re.S)
+# What `plan report` reads as a line that GitHub does not join to the one
+# above it: an ATX heading, a list item, an indented code line, a table row,
+# a blockquote, an HTML block, or a thematic break or setext underline.
+ATX_HEADING_RE = re.compile(r"^ {0,3}#{1,6}(?:[ \t]|$)")
+LIST_ITEM_RE = re.compile(r"^\s*(?:[-*+]|\d{1,9}[.)])(?:[ \t]|$)")
+INDENTED_CODE_RE = re.compile(r"^(?: {4}|\t)")
+NOT_TEXT_RE = re.compile(r"^\s*(?:\||>|<|(?:[-*_=][ \t]*){3,}$|=+[ \t]*$)")
 ISSUE_URL_RE = re.compile(r"/issues/(\d+)$")
 ORDER_HEADING = "## Order"
 # Where `plan report` writes the report for the owner to read, and where
@@ -891,6 +908,41 @@ def references(text):
     return out
 
 
+def split_lines(text):
+    """The number of each line of text that continues a paragraph or a list
+    item, outside a fence or an HTML comment.
+
+    GitHub renders that newline in an issue body as a line break. A comment is
+    emptied but keeps its line breaks, so each number is the line as written.
+    """
+    text = COMMENT_RE.sub(lambda m: "\n" * m.group(0).count("\n"), text)
+    out, previous, code, fence = [], None, False, None
+    for i, line in enumerate(text.splitlines()):
+        m = FENCE_RE.match(line)
+        if fence is not None:
+            if m and m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence):
+                fence = None
+            previous = None
+            continue
+        if m:
+            fence, previous = m.group(1), None
+            continue
+        # An indented code block opens after a line that is not text, and
+        # runs while its lines stay indented or blank.
+        indented = INDENTED_CODE_RE.match(line) is not None
+        code = (indented or not line.strip()) if code else (indented and previous != i - 1)
+        is_text = (
+            bool(line.strip())
+            and not code
+            and not ATX_HEADING_RE.match(line)
+            and not NOT_TEXT_RE.match(line)
+        )
+        if is_text and previous == i - 1 and not LIST_ITEM_RE.match(line):
+            out.append(i + 1)
+        previous = i if is_text else None
+    return out
+
+
 def render(text, numbers):
     """text with each {KEY} whose number is known replaced by that number."""
     out, last = [], 0
@@ -1132,6 +1184,11 @@ def check_plan(repo, plan, labels):
     if tracking:
         texts.append(("the tracking issue's plan", tracking["plan"]))
     for where, text in texts:
+        for n in split_lines(text):
+            faults.append(
+                "%s: line %d continues the paragraph or list item above it. GitHub renders "
+                "the newline as a line break, so join the line to the one above" % (where, n)
+            )
         for _, _, key in references(text):
             if key not in seen:
                 faults.append("%s names {%s}, and no issue in the plan has that key" % (where, key))
