@@ -170,13 +170,12 @@ Source: README.md, under "Issues" and "Keeping `approved` meaningful".
   a full path to `gh`. The `gh` commands it blocks are:
   - `gh issue create`, `gh issue edit`, `gh pr create` or `gh pr edit`, with
     `approved` in the value of `--label`, `-l` or `--add-label`.
-  - `gh label create` naming a label `approved`, or `gh label edit` renaming
-    one to it.
+  - `gh label edit` renaming a label to `approved`.
   - `gh api`, with an argument that mentions labels and one that names
     `approved`.
 - `guard-allows-quoted-text` (test): When a command only quotes such a
-  command, in an argument or a heredoc body, or reads or removes the label,
-  issue_guard.py exits 0 and prints nothing.
+  command, in an argument or a heredoc body, or reads, removes or creates the
+  label, issue_guard.py exits 0 and prints nothing.
 - `guard-scans-unparsed-input` (test): When the hook's input fails to parse as
   JSON, or its command cannot be split, issue_guard.py blocks it if the raw
   text names `gh`, a label flag and `approved`, and allows it otherwise.
