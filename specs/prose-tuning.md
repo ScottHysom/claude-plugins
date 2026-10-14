@@ -298,6 +298,9 @@ description.
   it shows the text at the finding's place in the file as it is now, each line
   between `|` marks, with `(cut)` for an empty rewrite, and it does not change a
   document.
+- `report-cmd-lists-by-place` (test): When `report` writes `report.md`, it
+  lists the findings by file and line, and each heading gives the place and
+  the rule before the finding's number.
 - `report-cmd-prints-approval-token` (test): When `report` exits 0, it
   prints a token as its last line, and otherwise does not print a token.
 - `report-cmd-shows-whole-batch` (test): When `report` is given `--only` or

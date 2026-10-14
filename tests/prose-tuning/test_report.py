@@ -8,6 +8,7 @@ of, before the author is asked anything.
 """
 
 import json
+import re
 
 import pytest
 
@@ -50,6 +51,28 @@ def dash(prose_repo):
 
 def cut(prose_repo):
     return prose_repo.finding(6, file="doc.md", text=CUT, replacement="")
+
+
+# A finding's heading in report.md: its #s, then its place and rules, then
+# its numbers in parentheses.
+HEADING = re.compile(r"^(#+) `[^`]+:\d+`, .*\(findings? ([^)]*)\)$", re.M)
+
+
+def heading_levels(page):
+    """Each finding number in report.md's headings, with the #s of each
+    heading that names it.
+    """
+    levels = {}
+    for marks, numbers in HEADING.findall(page):
+        for n in re.findall(r"\d+", numbers):
+            levels.setdefault(int(n), []).append(marks)
+    return levels
+
+
+def refused_section(page):
+    """report.md from "## Refused" up to the next heading of its level."""
+    start = page.index("## Refused\n")
+    return page[start : page.index("\n## ", start)]
 
 
 def human_report(prose_repo, capsys, findings):
@@ -183,7 +206,7 @@ class DescribeTheReportFile:
         assert code == prose.OK
         assert text.startswith("# Prose report\n")
         assert (
-            "## Finding 1: `doc.md:3`, `%s`\n\n"
+            "## `doc.md:3`, `%s` (finding 1)\n\n"
             "Current:\n\n"
             "```text\n|Able to state|\n|  what is inside the file.|\n```\n\n"
             "Proposed:\n\n"
@@ -255,34 +278,30 @@ class DescribeTheOverlapsInTheReportFile:
         rule = findings[0]["rule"]
         envelope, page = self.page(prose_repo, findings)
         assert len(envelope["errors"]) == 2
-        refused = page[page.index("## Refused\n") : page.index("## Finding 1:")]
+        refused = refused_section(page)
         assert refused.count("### Overlap at") == 1
         assert (
             "### Overlap at `doc.md:6`\n\n%s\n\n"
-            "#### Finding 2: `doc.md:6`, `%s`\n\n"
+            "#### `doc.md:6`, `%s` (finding 2)\n\n"
             "Current:\n\n```text\n| - until|\n```\n\n"
             "Proposed:\n\n```text\n|. It stops holding until|\n```\n\n"
-            "#### Finding 3: `doc.md:6`, `%s`\n\n" % (prose.OVERLAP_ASK, rule, rule)
+            "#### `doc.md:6`, `%s` (finding 3)\n\n" % (prose.OVERLAP_ASK, rule, rule)
         ) in refused
-        assert "#### Finding 4: `doc.md:7`, `%s`\n\n" % rule in refused
+        assert "#### `doc.md:7`, `%s` (finding 4)\n\n" % rule in refused
         assert "\n- " not in refused
 
     def it_leaves_the_findings_of_a_block_out_of_the_list(self, prose_repo):
         write_doc(prose_repo)
         findings = [wrapped(prose_repo), dash(prose_repo), cut(prose_repo), closing(prose_repo)]
         _, page = self.page(prose_repo, findings)
-        assert "## Finding 1:" in page
-        for n in (2, 3, 4):
-            assert page.count("Finding %d:" % n) == 1
-            assert "\n## Finding %d:" % n not in page
+        assert heading_levels(page) == {1: ["##"], 2: ["####"], 3: ["####"], 4: ["####"]}
 
     def it_lists_the_kept_findings_again_once_the_overlap_is_settled(self, prose_repo):
         write_doc(prose_repo)
         findings = [wrapped(prose_repo), dash(prose_repo), closing(prose_repo)]
         envelope, page = self.page(prose_repo, findings)
         assert envelope["errors"] == []
-        for n in (1, 2, 3):
-            assert "\n## Finding %d:" % n in page
+        assert heading_levels(page) == {1: ["##"], 2: ["##"], 3: ["##"]}
 
     def it_keeps_a_refusal_that_names_no_finding_as_a_bullet(self, prose_repo):
         write_doc(prose_repo)
@@ -301,5 +320,40 @@ class DescribeTheOverlapsInTheReportFile:
         twin = dict(dash(prose_repo), rule=PLAIN_VERBS)
         _, page = self.page(prose_repo, [dash(prose_repo), twin, cut(prose_repo)])
         refused = page[page.index("## Refused\n") :]
-        assert refused.count("#### Findings 1 and 2: `doc.md:6`") == 1
-        assert "Finding 2:" not in page
+        assert (
+            refused.count(
+                "#### `doc.md:6`, `%s` and `%s` (findings 1 and 2)\n"
+                % (
+                    dash(prose_repo)["rule"],
+                    PLAIN_VERBS,
+                )
+            )
+            == 1
+        )
+        assert "(finding 2)" not in page
+
+
+@pytest.mark.spec("report-cmd-lists-by-place")
+class DescribeTheOrderOfTheReportFile:
+    def page(self, prose_repo, findings):
+        code, envelope = prose_repo.report(findings)
+        assert code == prose.OK, envelope["errors"]
+        return (prose_repo.root / prose.REPORT_FILE).read_text(encoding="utf-8")
+
+    def it_lists_the_findings_by_line_whatever_their_numbers(self, prose_repo):
+        write_doc(prose_repo)
+        page = self.page(prose_repo, [closing(prose_repo), dash(prose_repo), wrapped(prose_repo)])
+        rule = wrapped(prose_repo)["rule"]
+        headings = [
+            "## `doc.md:3`, `%s` (finding 3)\n" % rule,
+            "## `doc.md:6`, `%s` (finding 2)\n" % rule,
+            "## `doc.md:7`, `%s` (finding 1)\n" % rule,
+        ]
+        assert [page.index(h) for h in headings] == sorted(page.index(h) for h in headings)
+
+    def it_heads_a_dismissal_with_its_place_and_rule_before_its_number(self, prose_repo):
+        write_doc(prose_repo)
+        dismissal = dict(dash(prose_repo), dismiss="a range")
+        dismissal.pop("replacement")
+        page = self.page(prose_repo, [wrapped(prose_repo), dismissal])
+        assert "\n## `doc.md:6`, `%s` (finding 2)\n\nCurrent:" % dismissal["rule"] in page
