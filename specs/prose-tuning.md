@@ -317,8 +317,13 @@ description.
 - `apply-cmd-names-empty-filters` (test): When a filter given to `apply`
   does not match any finding, alone or with the other filter, `apply` names it and
   writes nothing.
-- `report-cmd-names-overlaps` (test): When two findings overlap, `report`
-  and `apply` name both, and `apply` writes neither.
+- `report-cmd-names-overlaps` (test): When two findings overlap, and they
+  do not replace the same text with the same rewrite, `report` and `apply`
+  name both, and `apply` writes neither.
+- `report-cmd-merges-same-rewrites` (test): When two findings replace the
+  same text with the same rewrite, `report` shows them as one change naming
+  each finding and each rule, and `apply` writes the rewrite once when any of
+  them is selected.
 - `overlap-names-remedy` (test): When two findings overlap, `report` names
   both and says to put the pair to the author.
 - `apply-cmd-plans-one-snapshot` (test): When `apply` writes several
