@@ -43,13 +43,16 @@ First use is per document, not per project. A pull request description, an
 issue and a commit message are each a document of their own. A pointer to a
 glossary is not a definition. One clause is enough.
 
-A term that a plugin, a spec or a skill defines is jargon in such a document,
-and gets defined there. apply-prose's finding and dismissal are two. The agent
-has that vocabulary in context from the work, and the owner reads the
-description without it.
+A term that a tool, a spec or a skill in this project defines is jargon in
+such a document, and gets defined there. The writer has that vocabulary in
+context from the work, and the reader comes to the document without it.
 
 A term the document gives its own meaning is bolded in the sentence that
 defines it, and only there.
+
+In this repo, a plugin is such a tool, and apply-prose's finding and
+dismissal are two such terms. The agent has them in context from the work,
+and the owner reads the description without them.
 
 > **Before.** A need says who wants what outcome, and why.
 > **After.** A **need** says who wants what outcome, and why.
@@ -61,14 +64,16 @@ defines it, and only there.
 
 "Already known" means the owner's own career, not the field at large.
 
+A term that needs no gloss still gets one where a passage tells two of its
+kind apart.
+
 These need no gloss:
 
 - Git, GitHub, Python, pytest, shell, CI and JSON.
 - a skill, an agent, a worktree and the marketplace.
 - Cowork, and a Cowork Project.
 
-An agent gets a gloss only where the passage tells two agents apart. A
-worktree is written "git worktree" where the document uses "worktree" for
+A worktree is written "git worktree" where the document uses "worktree" for
 something else.
 
 These always need a gloss:

@@ -584,6 +584,32 @@ Source: README.md, under "Adding a plugin", step 4.
 - `ci-runs-manifest-check` (check): When a pull request is opened or updated,
   CI runs `check`.
 
+## need owner-ships-every-rule-change: Ship each rule change made in this repo
+
+When a contributor changes a rule in this repo's
+`.claude/rules/prose-style.md`, the owner wants the same change in the rules
+prose-tuning ships (`plugins/prose-tuning/templates/prose-style.md`), so every
+new project starts from the voice the owner forms here.
+
+Source: #621.
+
+- `drift-cmd-fails-missing-rule` (test): When a rule id is in one of the two
+  files and not the other, `check-prose-rules.py drift` fails and names the
+  rule and the file that lacks it.
+- `drift-cmd-fails-changed-rule` (test): When a rule's heading or text
+  differs between the two files, `drift` fails and quotes where the two
+  copies part.
+- `drift-cmd-skips-project-text` (test): When the two copies of a rule differ only in any of these, `drift` passes the rule:
+  - the worked examples, the `> **Before.**` and `> **After.**` lines.
+  - text this repo's copy has where the shipped rules have a `FILL` marker.
+  - line breaks and runs of spaces.
+- `drift-cmd-names-copyprose` (test): When `drift` fails a rule, its message
+  names copy-prose as the remedy.
+- `drift-cmd-scans-something` (test): When either file does not hold any
+  rule, `drift` fails.
+- `ci-runs-drift` (check): When a pull request is opened or updated, CI runs
+  `drift`.
+
 ## need owner-sees-every-line-tested: Know every plugin line runs under a test
 
 When a contributor changes a plugin script, the owner wants CI to fail a

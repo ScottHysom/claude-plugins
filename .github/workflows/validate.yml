@@ -75,6 +75,13 @@ jobs:
       - name: Check manifests agree with each other
         run: python3 .github/scripts/check-manifest-consistency.py check
 
+      # The owner forms the prose rules in this repo's prose-style.md, and
+      # prose-tuning ships them to every new project. A rule changed in one
+      # file and not the other passes every other check.
+      # spec: ci-runs-drift
+      - name: Check the shipped prose rules match this repo's
+        run: python3 .github/scripts/check-prose-rules.py drift
+
       # Cowork's .plugin upload rejects a skill whose description holds anything
       # that looks like an XML tag. A marketplace install accepts it, and so does
       # `validate --strict` above, so without this the first sign is a failed
