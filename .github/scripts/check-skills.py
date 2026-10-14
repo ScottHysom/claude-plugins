@@ -50,7 +50,8 @@ issue that will sift them.
 holding `python3 -c`, `grep` or `awk` tells the model to compute by hand what
 the script should compute, and two runs of it need not agree. `fences` reads
 the same files as `commands`. Every fence there must carry an info string, so
-a shell block cannot pass for quoted markup. Every command in a shell fence
+a shell block cannot pass for quoted markup, and a shell fence is labeled sh,
+as CLAUDE.md asks. Every command in a shell fence
 must be a script invocation or match an entry in ALLOWED, which gives each
 entry's reason beside it.
 
@@ -139,9 +140,9 @@ Things that look like bugs and are not, in `commands`:
   the plugin's own scripts/<name>, wherever a skill copies or links it. A
   literal path such as `.github/scripts/check-manifest-consistency.py` is read
   from the root of the clone.
-- Only fences whose info string is sh, bash or shell are read. A text or
-  markdown fence holds something the model does not run. `fences` fails a
-  fence with no info string at all.
+- Only fences whose info string is sh are read. A text or markdown fence
+  holds something the model does not run. `fences` fails a fence with no
+  info string at all, and one labeled bash or shell.
 - A `<placeholder>` becomes one word, PLACEHOLDER, and is passed as that text.
   An argument with `type=` or `choices` therefore needs a real value in the
   fence. `[optional]` parts lose their brackets and are checked, so an
@@ -257,7 +258,9 @@ TAG_RE = re.compile(r"</?[A-Za-z][\w:.-]*")
 
 # The fences `commands` reads. A fence with any other info string is not
 # something the model runs.
-SHELL_INFOS = ("sh", "bash", "shell")
+SHELL_INFO = "sh"
+# Labels for a shell fence that `fences` fails, asking for SHELL_INFO.
+OTHER_SHELL_INFOS = ("bash", "shell")
 PYTHONS = ("python3", "python")
 SCRIPT_SUFFIX = ".py"
 SCRIPTS = "scripts"
@@ -839,7 +842,7 @@ def read_commands(root, paths):
         except OSError as exc:
             raise Fatal("cannot read %s: %s" % (path, exc)) from exc
         for fence in fences(text):
-            if fence.info not in SHELL_INFOS:
+            if fence.info != SHELL_INFO:
                 continue
             for line, command in shell_lines(fence):
                 for words in simple_commands(command):
@@ -1315,10 +1318,16 @@ def cmd_fences(args, root):
                     errors.append(
                         "%s:%d: fence has no info string. Label it %s if the model runs it, "
                         "or with what it holds, such as markdown, text or json."
-                        % (path, fence.line, SHELL_INFOS[0])
+                        % (path, fence.line, SHELL_INFO)
                     )
                     continue
-                if fence.info not in SHELL_INFOS:
+                if fence.info in OTHER_SHELL_INFOS:
+                    errors.append(
+                        "%s:%d: fence is labeled %s. Label a shell fence %s."
+                        % (path, fence.line, fence.info, SHELL_INFO)
+                    )
+                    continue
+                if fence.info != SHELL_INFO:
                     continue
                 shell += 1
                 for line, command in shell_lines(fence):
