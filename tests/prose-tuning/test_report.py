@@ -207,7 +207,8 @@ class DescribeTheReportFile:
 
     def it_writes_the_refusals_and_no_token(self, prose_repo):
         write_doc(prose_repo)
-        code, envelope, text = self.report(prose_repo, [dash(prose_repo), cut(prose_repo)])
+        stale = wrapped(prose_repo, text="Able to say")
+        code, envelope, text = self.report(prose_repo, [stale, dash(prose_repo)])
         assert code == prose.PROBLEMS
         assert "## Refused\n" in text
         assert "- %s\n" % envelope["errors"][0] in text
@@ -226,3 +227,79 @@ class DescribeTheReportFile:
         code, envelope = prose_repo.run("scope")
         assert code == prose.OK
         assert prose.REPORT_FILE not in json.dumps(envelope["data"])
+
+
+# A second rule, for a finding that makes the same rewrite as another.
+PLAIN_VERBS = "sentences-plain-verbs"
+PLAIN_VERBS_TEXT = """
+### sentences-plain-verbs: Uses plain verbs
+
+A sentence says what happens in the plainest verb that fits.
+"""
+
+
+def closing(prose_repo):
+    """A rewrite on line 7, which the cut of lines 6 and 7 also covers."""
+    return prose_repo.finding(7, file="doc.md", text="A closing", replacement="The closing")
+
+
+@pytest.mark.spec("report-cmd-shows-overlaps-whole")
+class DescribeTheOverlapsInTheReportFile:
+    def page(self, prose_repo, findings):
+        _, envelope = prose_repo.report(findings)
+        return envelope, (prose_repo.root / prose.REPORT_FILE).read_text(encoding="utf-8")
+
+    def it_shows_findings_that_overlap_one_another_as_one_block_under_refused(self, prose_repo):
+        write_doc(prose_repo)
+        findings = [wrapped(prose_repo), dash(prose_repo), cut(prose_repo), closing(prose_repo)]
+        rule = findings[0]["rule"]
+        envelope, page = self.page(prose_repo, findings)
+        assert len(envelope["errors"]) == 2
+        refused = page[page.index("## Refused\n") : page.index("## Finding 1:")]
+        assert refused.count("### Overlap at") == 1
+        assert (
+            "### Overlap at `doc.md:6`\n\n%s\n\n"
+            "#### Finding 2: `doc.md:6`, `%s`\n\n"
+            "Current:\n\n```text\n| - until|\n```\n\n"
+            "Proposed:\n\n```text\n|. It stops holding until|\n```\n\n"
+            "#### Finding 3: `doc.md:6`, `%s`\n\n" % (prose.OVERLAP_ASK, rule, rule)
+        ) in refused
+        assert "#### Finding 4: `doc.md:7`, `%s`\n\n" % rule in refused
+        assert "\n- " not in refused
+
+    def it_leaves_the_findings_of_a_block_out_of_the_list(self, prose_repo):
+        write_doc(prose_repo)
+        findings = [wrapped(prose_repo), dash(prose_repo), cut(prose_repo), closing(prose_repo)]
+        _, page = self.page(prose_repo, findings)
+        assert "## Finding 1:" in page
+        for n in (2, 3, 4):
+            assert page.count("Finding %d:" % n) == 1
+            assert "\n## Finding %d:" % n not in page
+
+    def it_lists_the_kept_findings_again_once_the_overlap_is_settled(self, prose_repo):
+        write_doc(prose_repo)
+        findings = [wrapped(prose_repo), dash(prose_repo), closing(prose_repo)]
+        envelope, page = self.page(prose_repo, findings)
+        assert envelope["errors"] == []
+        for n in (1, 2, 3):
+            assert "\n## Finding %d:" % n in page
+
+    def it_keeps_a_refusal_that_names_no_finding_as_a_bullet(self, prose_repo):
+        write_doc(prose_repo)
+        findings = [dash(prose_repo), cut(prose_repo)]
+        path = prose_repo.findings_file(findings, read=False)
+        code = prose.main(["report", "--json", "--findings", path, "-C", str(prose_repo.root)])
+        assert code == prose.PROBLEMS
+        page = (prose_repo.root / prose.REPORT_FILE).read_text(encoding="utf-8")
+        assert "has not been read" in page.split("### Overlap at")[0]
+        assert "\n- " in page.split("### Overlap at")[0]
+
+    def it_shows_findings_that_make_one_rewrite_once_in_their_block(self, prose_repo):
+        write_doc(prose_repo)
+        style = prose_repo.root / prose.CONFIG_PATH
+        style.write_text(style.read_text() + PLAIN_VERBS_TEXT)
+        twin = dict(dash(prose_repo), rule=PLAIN_VERBS)
+        _, page = self.page(prose_repo, [dash(prose_repo), twin, cut(prose_repo)])
+        refused = page[page.index("## Refused\n") :]
+        assert refused.count("#### Findings 1 and 2: `doc.md:6`") == 1
+        assert "Finding 2:" not in page
