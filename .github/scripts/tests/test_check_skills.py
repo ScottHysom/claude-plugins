@@ -896,6 +896,13 @@ class DescribeFences:
         assert "%s:19: `python3`" % SKILL in err
 
     @pytest.mark.spec("fences-cmd-rejects-other-commands")
+    def it_rejects_a_script_run_by_python_rather_than_python3(self, make_repo, run):
+        root = make_repo(uses(sh('python "$FOO" lint')))
+        code, _, err = run("fences", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "%s:18: `python`" % SKILL in err
+
+    @pytest.mark.spec("fences-cmd-rejects-other-commands")
     def it_rejects_grep_in_a_pipeline(self, make_repo, run):
         root = make_repo(uses(sh('python3 "$FOO" lint --json | grep -c ok')))
         code, _, err = run("fences", "-C", str(root))
