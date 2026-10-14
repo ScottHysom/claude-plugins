@@ -76,12 +76,14 @@ is recorded.
 
 A **requirement** states one behavior, in as many sentences as it needs. EARS,
 the Easy Approach to Requirements Syntax from Alistair Mavin and colleagues at
-Rolls-Royce, opens a requirement with its trigger: "When <trigger>,
-<component> <response>." A requirement here opens with a sentence in that
+Rolls-Royce, opens a requirement with its trigger: "When <trigger>, the
+<system> shall <response>." A requirement here opens with a sentence in that
 order whenever the behavior has a trigger. The sentences after it give the
-cases the same behavior covers, such as what the component refuses or what it
-does without a token. Every bullet under a need or a constraint is a
-requirement, so its sentences do not need a "shall".
+cases the same behavior covers, such as what the system refuses or what it
+does without a token. In EARS, "shall" marks a sentence as a binding
+requirement, one the system must meet. Here every bullet under a need or a
+constraint is a requirement, so the nesting does that job and its sentences
+leave "shall" out.
 
 Each requirement sits under the need or constraint it serves, and that nesting
 is the whole trace from a behavior to its reason. Each also names its kind,

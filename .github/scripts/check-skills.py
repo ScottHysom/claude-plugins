@@ -261,7 +261,7 @@ TAG_RE = re.compile(r"</?[A-Za-z][\w:.-]*")
 SHELL_INFO = "sh"
 # Labels for a shell fence that `fences` fails, asking for SHELL_INFO.
 OTHER_SHELL_INFOS = ("bash", "shell")
-PYTHONS = ("python3", "python")
+PYTHON = "python3"
 SCRIPT_SUFFIX = ".py"
 SCRIPTS = "scripts"
 BUILD_PARSER = "build_parser"
@@ -931,7 +931,7 @@ def find_invocations(root, found):
             words = c["words"]
             while words and ASSIGNMENT_RE.match(words[0]):
                 words = words[1:]
-            if len(words) < 2 or words[0] not in PYTHONS or words[1].startswith("-"):
+            if len(words) < 2 or words[0] != PYTHON or words[1].startswith("-"):
                 continue
             target, argv = words[1], words[2:]
             variable = VARIABLE_RE.match(target)
@@ -1258,7 +1258,7 @@ def is_invocation(words):
     """Whether words run a script `commands` can resolve: python3 and a path."""
     while words and re.match("^%s$" % PATH_ASSIGNMENT, words[0]):
         words = words[1:]
-    if len(words) < 2 or words[0] not in PYTHONS:
+    if len(words) < 2 or words[0] != PYTHON:
         return False
     return bool(VARIABLE_RE.match(words[1])) or words[1].endswith(SCRIPT_SUFFIX)
 
