@@ -4467,6 +4467,14 @@ def stage_findings(text, blocks, rel, findings, numbers=None):
     has to hold every code span it covers, unchanged and in order. A code span
     quotes code, which a prose rule has nothing to say about.
 
+    A rewrite may not start a line with a list, heading or blockquote marker
+    that the line does not start with now. Markdown reads such a marker on a
+    wrapped line as a new block, even mid-sentence, so `exits\n1, and` written
+    as `exits\n1. It` renders a list. The rewritten lines pair with the lines
+    the span covers, in order. A rewrite that has more lines than those lays
+    out a new structure, such as a lead-in and its bullets, so only its first
+    line is held to the line it replaces.
+
     A dismissal passes the same checks on where it is, and then makes no edit.
 
     Findings that replace the same text with the same rewrite are one edit,
@@ -4567,6 +4575,15 @@ def stage_findings(text, blocks, rel, findings, numbers=None):
         item = blocks.item(line)
         if item:
             new = indent_new_lines(new, item[1])
+        opened = opened_block(text, line, a, b, new)
+        if opened:
+            at, kind, marker = opened
+            rejected.append(
+                "%s:%d  finding %d starts line %d with %s, which markdown reads as a new %s; "
+                "reword it so the line does not start with %s"
+                % (rel, line, n, at, marker, kind, marker)
+            )
+            continue
         lost = dropped_code_span(text.s, new, [(x, y) for x, y in code_spans if a <= x < y <= b])
         if lost:
             rejected.append(
@@ -4599,6 +4616,40 @@ def stage_findings(text, blocks, rel, findings, numbers=None):
         if len(x[4]) > 1:
             same.update((r["finding"], [q["finding"] for q in x[4]]) for r in x[4])
     return Staged(engine, placed, applied, rejected, dismissed, same)
+
+
+def block_marker(line):
+    """(kind, marker) for the list, heading or blockquote marker `line` opens with, or None.
+
+    Leading whitespace is skipped, since a marker indented under a list item
+    still opens a block inside it.
+    """
+    s = line.lstrip(" \t")
+    for kind, pattern in (
+        ("list item", LIST_ITEM),
+        ("heading", HEADING_PREFIX),
+        ("blockquote", BLOCKQUOTE),
+    ):
+        m = pattern.match(s)
+        if m:
+            return kind, m.group(0).strip()
+    return None
+
+
+def opened_block(text, line, a, b, new):
+    """(line, kind, marker) for the first line that `new` starts with a new block marker, or None.
+
+    stage_findings' docstring says which lines are compared.
+    """
+    last = text.line_of(b) if "\n" in text.s[a:b] else line
+    before = [text.bare(ln) for ln in range(line, last + 1)]
+    tail = text.offset(last) + len(text.bare(last))
+    after = (text.s[text.offset(line) : a] + new + text.s[b:tail]).split("\n")
+    for i, row in enumerate(after[:1] if len(after) > len(before) else after):
+        marker = block_marker(row)
+        if marker and marker != block_marker(before[i]):
+            return (line + i, *marker)
+    return None
 
 
 def dropped_code_span(s, new, covered):

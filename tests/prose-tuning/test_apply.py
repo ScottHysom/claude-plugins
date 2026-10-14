@@ -778,6 +778,90 @@ class DescribeCodeSpans:
         assert prose_repo.read("doc.md") == "Wait after `issues.py claim 64`.\n"
 
 
+class DescribeNewBlockMarkers:
+    """Markdown reads a list, heading or blockquote marker at the start of a
+    wrapped line as a new block, even in the middle of a sentence."""
+
+    ITEM = "- `lint` names it and exits\n  1, and it warns on a rule.\n"
+    RUNS = DescribeCodeSpans.RUNS
+
+    def write(self, prose_repo, body):
+        (prose_repo.root / "doc.md").write_text(body)
+
+    @pytest.mark.spec("apply-cmd-refuses-new-block-markers")
+    @pytest.mark.parametrize("run", RUNS)
+    def it_refuses_a_rewrite_that_turns_a_wrapped_line_into_a_list(self, prose_repo, run):
+        self.write(prose_repo, self.ITEM)
+        before = prose_repo.read("doc.md")
+        finding = anchored(prose_repo, 2, "1, and it warns", "1. It warns")
+        code, envelope = getattr(prose_repo, run[0])([finding], *run[1:])
+        assert code == prose.PROBLEMS
+        assert errors_of(envelope) == [
+            "doc.md:2  finding 1 starts line 2 with 1., which markdown reads as a new "
+            "list item; reword it so the line does not start with 1."
+        ]
+        assert prose_repo.read("doc.md") == before
+
+    @pytest.mark.spec("apply-cmd-refuses-new-block-markers")
+    @pytest.mark.parametrize(
+        ("replacement", "kind", "marker"),
+        [
+            pytest.param("- warns", "list item", "-", id="bullet"),
+            pytest.param("# warns", "heading", "#", id="heading"),
+            pytest.param("> warns", "blockquote", ">", id="blockquote"),
+        ],
+    )
+    def it_refuses_each_kind_of_marker(self, prose_repo, replacement, kind, marker):
+        self.write(prose_repo, "It names it and\nthen warns on a rule.\n")
+        code, envelope = prose_repo.apply([anchored(prose_repo, 2, "then warns", replacement)])
+        assert code == prose.PROBLEMS
+        assert errors_of(envelope) == [
+            "doc.md:2  finding 1 starts line 2 with %s, which markdown reads as a new %s; "
+            "reword it so the line does not start with %s" % (marker, kind, marker)
+        ]
+
+    @pytest.mark.spec("apply-cmd-refuses-new-block-markers")
+    def it_refuses_a_marker_on_a_later_line_of_a_rewrite_across_lines(self, prose_repo):
+        self.write(prose_repo, self.ITEM)
+        finding = anchored(prose_repo, 1, "exits\n  1, and it warns", "exits\n  1. It warns")
+        code, envelope = prose_repo.apply([finding])
+        assert code == prose.PROBLEMS
+        assert errors_of(envelope) == [
+            "doc.md:1  finding 1 starts line 2 with 1., which markdown reads as a new "
+            "list item; reword it so the line does not start with 1."
+        ]
+
+    @pytest.mark.spec("apply-cmd-refuses-new-block-markers")
+    @pytest.mark.parametrize(
+        ("body", "text", "replacement"),
+        [
+            pytest.param("- An item.\n", "- An item.", "- One item.", id="bullet"),
+            pytest.param("1. An item.\n", "1. An item.", "1. One item.", id="ordered"),
+            pytest.param("## A heading\n", "## A heading", "## The heading", id="heading"),
+        ],
+    )
+    def it_keeps_a_marker_the_line_already_starts_with(self, prose_repo, body, text, replacement):
+        self.write(prose_repo, body)
+        code, envelope = prose_repo.apply([anchored(prose_repo, 1, text, replacement)])
+        assert code == prose.OK, envelope["errors"]
+        assert prose_repo.read("doc.md") == replacement + "\n"
+
+    @pytest.mark.spec("apply-cmd-refuses-new-block-markers")
+    def it_lets_a_rewrite_that_adds_lines_lay_out_a_list(self, prose_repo):
+        self.write(prose_repo, "It checks the id,\nthe title and the example.\n")
+        finding = anchored(
+            prose_repo,
+            1,
+            "It checks the id,\nthe title and the example.",
+            "It checks:\n\n- the id.\n- the title.\n- the example.",
+        )
+        code, envelope = prose_repo.apply([finding])
+        assert code == prose.OK, envelope["errors"]
+        assert prose_repo.read("doc.md") == (
+            "It checks:\n\n- the id.\n- the title.\n- the example.\n"
+        )
+
+
 class DescribeHelp:
     @pytest.mark.spec("apply-cmd-describes-finding-fields-in-help")
     def it_describes_every_field_of_a_finding(self, capsys):
