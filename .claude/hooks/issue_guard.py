@@ -15,8 +15,11 @@ owner's own shell where no hook fires.
 
 Blocked, where the label value names `approved`, alone or in a comma list:
     gh issue|pr create|edit  --label/-l/--add-label
-    gh label create|edit      creating a label named approved, or renaming one to it
+    gh label edit             renaming a label to approved
     gh api                    a request whose path mentions labels
+
+`gh label create approved` goes through: the label already exists, so GitHub
+refuses to create it again.
 
 Only a `gh` that is actually run counts. A commit message or PR body that
 quotes one of these commands is text, and goes through.
@@ -75,13 +78,10 @@ def gh_blocks(args):
     if len(args) >= 2 and (args[0], args[1]) in LABEL_VERBS:
         if any(names_label(v) for v in flag_values(args[2:], ADD_LABEL_FLAGS)):
             return "gh %s %s adds the %s label" % (args[0], args[1], LABEL)
-    if len(args) >= 2 and args[0] == "label" and args[1] in ("create", "edit"):
-        # create names the new label; edit names an existing one, and only
-        # --name renames it.
-        named = [a for a in args[2:3] if not a.startswith("-")] if args[1] == "create" else []
-        renamed = flag_values(args[2:], ("--name", "-n"))
-        if any(v.strip().lower() == LABEL for v in named + renamed):
-            return "gh label %s would create a label named %s" % (args[1], LABEL)
+    if len(args) >= 2 and args[0] == "label" and args[1] == "edit":
+        # edit names an existing label, and only --name renames it.
+        if any(v.strip().lower() == LABEL for v in flag_values(args[2:], ("--name", "-n"))):
+            return "gh label edit would rename a label to %s" % LABEL
     if args and args[0] == "api":
         if any("label" in a.lower() for a in args[1:]) and any(
             re.search(r"\b%s\b" % LABEL, a, re.I) for a in args[1:]
