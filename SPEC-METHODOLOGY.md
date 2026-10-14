@@ -74,12 +74,14 @@ is recorded.
 
 ### Requirements
 
-A **requirement** is one sentence stating one behavior. EARS, the Easy Approach to
-Requirements Syntax from Alistair Mavin and colleagues at Rolls-Royce, opens a
-requirement with its trigger: "When <trigger>, <component> <response>." A
-requirement here keeps that order whenever the behavior has a trigger. Every
-bullet under a need or a constraint is a requirement, so the sentence does not need a
-"shall".
+A **requirement** states one behavior, in as many sentences as it needs. EARS,
+the Easy Approach to Requirements Syntax from Alistair Mavin and colleagues at
+Rolls-Royce, opens a requirement with its trigger: "When <trigger>,
+<component> <response>." A requirement here opens with a sentence in that
+order whenever the behavior has a trigger. The sentences after it give the
+cases the same behavior covers, such as what the component refuses or what it
+does without a token. Every bullet under a need or a constraint is a
+requirement, so its sentences do not need a "shall".
 
 Each requirement sits under the need or constraint it serves, and that nesting
 is the whole trace from a behavior to its reason. Each also names its kind,
