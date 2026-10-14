@@ -5180,18 +5180,21 @@ def conflict_blocks(paired):
 
 def entry_lines(r, rules, dismissed, level):
     """One finding or dismissal as the report shows it, under a heading of
-    `level` #s that names its place, its numbers and its rules.
+    `level` #s that names its place and its rules, and then its numbers.
+
+    The list runs by file and line, so a heading that opened with its number
+    would read as a count that jumps.
     """
     group = r.get("same_rewrite", [r["finding"]])
     out = [
         "",
-        "%s %s: `%s:%d`, %s"
+        "%s `%s:%d`, %s (%s)"
         % (
             "#" * level,
-            finding_numbers(group).capitalize(),
             r["file"],
             r["line"],
             and_list("`%s`" % x for x in group_rules(group, rules, r["rule"])),
+            finding_numbers(group),
         ),
     ]
     out += ["", "Current:", "", fenced(report_text(r["current"]))]

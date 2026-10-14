@@ -1011,7 +1011,7 @@ class DescribeSameRewrites:
         _code, envelope = prose_repo.report(pair)
         with open(envelope["data"]["report"], encoding="utf-8") as fh:
             page = fh.read()
-        heading = "## Findings 1 and 2: `target.md:%d`, `%s` and `%s`" % (
+        heading = "## `target.md:%d`, `%s` and `%s` (findings 1 and 2)\n" % (
             target_lines["last-paragraph"],
             RULE_ID,
             OTHER_RULE,
