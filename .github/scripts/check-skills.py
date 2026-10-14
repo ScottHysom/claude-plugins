@@ -148,6 +148,10 @@ Things that look like bugs and are not, in `commands`:
   fence. `[optional]` parts lose their brackets and are checked, so an
   optional flag must exist too.
 - A heredoc's body is not read. It is data the command reads, not a command.
+  Only `<<'END'` opens a heredoc, since it is the one form skills write. The
+  start becomes one word, HEREDOC, which an invocation drops. Any other
+  redirection, such as `> out` or `<<END`, stays in the arguments, and the
+  script's parser rejects it.
 - `python3 -c` and commands other than python are not checked here. `fences`
   decides whether a shell fence may hold them at all.
 - It fails when it finds no invocation at all, or a script with no
@@ -265,8 +269,10 @@ PYTHON = "python3"
 SCRIPT_SUFFIX = ".py"
 SCRIPTS = "scripts"
 BUILD_PARSER = "build_parser"
-# The start of a heredoc, and the word that ends it: <<'END', <<"END", <<END, <<-END.
-HEREDOC_RE = re.compile(r"<<-?[ \t]*(['\"]?)(\w+)\1")
+# The start of a heredoc, and the word that ends it. Skills write only <<'END'.
+HEREDOC_RE = re.compile(r"<<'(\w+)'")
+# What the start of a heredoc becomes in a command's words.
+HEREDOC = "HEREDOC"
 # A <placeholder> the model fills in. Not the second `<` of `<<`.
 PLACEHOLDER_RE = re.compile(r"(?<!<)<[A-Za-z][^<>]*>")
 # What a placeholder becomes: one word, as the filled-in value would be.
@@ -276,7 +282,6 @@ OPTIONAL_RE = re.compile(r"\[([^\[\]]*)\]")
 ASSIGNMENT_RE = re.compile(r"^([A-Za-z_]\w*)=(.*)$")
 VARIABLE_RE = re.compile(r"^\$(?:\{(\w+)\}|(\w+))$")
 SEPARATORS = ("&&", "||", ";", "|")
-REDIRECTIONS = ("<", "<<", ">", ">>")
 
 # `steps`: a step is a level-2 heading that starts "Step <number>".
 SECTION_LEVEL = 2
@@ -346,7 +351,7 @@ ALLOWED = (
     ),
     Allowed(
         "draft heredoc",
-        re.compile(r"^cat >>? /[\w.-]+(?:/[\w.-]+)* <<-? \w+$"),
+        re.compile(r"^cat >>? /[\w.-]+(?:/[\w.-]+)* %s$" % HEREDOC),
         ALONE,
         "writes the model's draft to the literal path the script's draft command printed, "
         "or adds to its end, since a worktree session refuses ${TMPDIR:-/tmp}; the body is data, and unread",
@@ -760,7 +765,7 @@ def shell_lines(fence):
         heredoc = HEREDOC_RE.search(text)
         if heredoc:
             i += 1
-            while i < len(body) and body[i][1].strip() != heredoc.group(2):
+            while i < len(body) and body[i][1].strip() != heredoc.group(1):
                 i += 1
         i += 1
     return out
@@ -769,10 +774,11 @@ def shell_lines(fence):
 def chain(text):
     """The simple commands on one line, as [(words, separator after it)].
 
-    Placeholders become one word, the brackets of an optional part go and
-    comments go. Redirections stay as words, operand and all. The last
-    command's separator is None.
+    The start of a heredoc and each placeholder become one word, the
+    brackets of an optional part go and comments go. Any other redirection
+    stays as words, operand and all. The last command's separator is None.
     """
+    text = HEREDOC_RE.sub(" %s " % HEREDOC, text)
     text = PLACEHOLDER_RE.sub(PLACEHOLDER, text)
     while OPTIONAL_RE.search(text):
         text = OPTIONAL_RE.sub(r"\1", text)
@@ -796,18 +802,12 @@ def chain(text):
 def simple_commands(text):
     """The simple commands on one line, each as a list of words.
 
-    As chain(), with each redirection gone along with its operand.
+    As chain(), with the start of a heredoc gone, since the command reads
+    the heredoc's body rather than taking it as an argument.
     """
     commands = []
     for words, _ in chain(text):
-        kept, skip = [], False
-        for word in words:
-            if skip:
-                skip = False
-            elif word in REDIRECTIONS:
-                skip = True
-            else:
-                kept.append(word)
+        kept = [word for word in words if word != HEREDOC]
         if kept:
             commands.append(kept)
     return commands
