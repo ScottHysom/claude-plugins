@@ -105,8 +105,8 @@ rule are the owner's figure, in the ruling on #132.
   gives every rule in `prose-style.md` with its id, its title and its worked
   example.
 - `lint-cmd-checks-rule-shape` (test): When a rule has no body, half a
-  worked example or the id of another rule, `config lint` names it and exits
-  1. It warns on a rule that lacks an example.
+  worked example or the id of another rule, `config lint` names it and
+  exits 1. It warns on a rule that lacks an example.
 - `updateproseconfig-never-writes-documents` (step): When
   update-prose-config runs, the only file it writes is `prose-style.md`. It
   does not write markup into a
@@ -484,6 +484,11 @@ ruling on #133.
   code span, or its replacement does not hold each code span it covers,
   unchanged and in order, `report` and `apply` refuse it, with or without
   `--partial`.
+- `apply-cmd-refuses-new-block-markers` (test): When a rewrite starts a
+  line with a list marker, a heading marker or a blockquote marker that the
+  line's current text does not start with, `report` and `apply` refuse it,
+  with or without `--partial`. A rewrite with more lines than the text it
+  replaces is held to this on its first line only.
 - `apply-cmd-never-splits-table-cells` (test): When a rewrite on a table line
   would add or remove a `|`, or add a newline, `apply` refuses it. It also
   refuses a newline in a line the rewrite does not already cross outside a
