@@ -449,7 +449,7 @@ code has a page on the shellcheck wiki saying what it guards against.
 Anyone can open an issue, and the owner, who approves issues and merges pull
 requests, decides what gets worked on. The process:
 
-1. Someone files an issue: the owner, an agent (Claude working an issue) that ran into a problem outside
+1. Someone files an issue: the owner, an agent that ran into a problem outside
    the task it was doing, or anyone else.
 2. The owner reads it and adds the `approved` label.
 3. An agent, or the owner, claims it, fixes it on the `issue/N` branch the claim

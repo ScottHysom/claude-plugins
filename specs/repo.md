@@ -88,7 +88,7 @@ does nothing".
 ## need user-installs-from-marketplace: Install any plugin from one marketplace
 
 When the user wants one of the owner's plugins, they want to add the
-marketplace (the catalog of plugins this repo publishes) once and install any
+marketplace once and install any
 plugin listed in it, so each plugin does not need any setup of its own.
 
 Source: README.md, under "Adding this marketplace".

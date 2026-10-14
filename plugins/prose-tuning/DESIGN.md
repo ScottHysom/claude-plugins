@@ -24,7 +24,7 @@ something each session works out again.
 ## Where the rules live
 
 `prose-style.md` sits in the project's `.claude/rules/` folder. Claude Code and
-Cowork (the Claude desktop app's mode for working on files in the user's folders) both load every file there into each session, so an agent has the rules
+Cowork both load every file there into each session, so an agent has the rules
 whether or not one of these skills is running. The cost is the whole file, in
 the context of every session.
 

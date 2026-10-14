@@ -1,6 +1,6 @@
 # Designing for Cowork
 
-Cowork is the Claude desktop app's mode for work on a user's own files, in which Claude runs in a cloud container. This file records what Cowork lets a plugin's skills and scripts do, as live
+This file records what Cowork lets a plugin's skills and scripts do, as live
 sessions have shown it. Read this before designing anything that runs there. When a probe (a prompt the user pastes into a live Cowork session to test a behavior) settles
 something new, record it here, not only in a script's docstring or a pull
 request, so the next design starts from it.

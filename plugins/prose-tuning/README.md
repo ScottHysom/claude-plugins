@@ -6,9 +6,8 @@ and saves them in the project. From then on, Claude follows those rules in
 everything it writes there. Claude can also check the documents you already
 have against the rules and fix what breaks them, once you approve.
 
-prose-tuning works in Claude Code, and in Cowork (the mode of the Claude
-desktop app that works with files on your computer) when you install it from
-the marketplace (the catalog of plugins it is listed in).
+prose-tuning works in Claude Code, and in Cowork when you install it from
+the marketplace.
 
 ## When to use it
 
@@ -97,7 +96,7 @@ from another project's rules, or from an empty file.
 
 If you edit in one copy of the project and Claude's session opens in another,
 as the Claude Code desktop app does when it starts each session in a fresh
-worktree (a second copy of the project that git keeps beside the first), Claude finds your edits there and reads them where they are. It
+worktree, Claude finds your edits there and reads them where they are. It
 asks which copy to read only when more than one holds edits, and you can name
 one yourself. The rules go into the copy Claude's session opened in, and your
 edits stay as you left them. Claude then lists any edit the new rules would not

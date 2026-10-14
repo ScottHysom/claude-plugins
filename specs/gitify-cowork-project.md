@@ -6,7 +6,7 @@ steps that add its requirements.
 
 ## Out of scope
 
-- Running in Claude Code. The plugin needs a Cowork Project (a project in Cowork, the Claude desktop app's mode for a user's own files) with a connected folder (a folder on the user's computer that the project's sessions can reach).
+- Running in Claude Code. The plugin needs a Cowork Project with a connected folder (a folder on the user's computer that the project's sessions can reach).
 - Taking over a folder that is already a git repository, which has a history
   of its own. The exception is `owner-leaves-history-to-git`, which such a
   folder needs as much as one the plugin put under git.
