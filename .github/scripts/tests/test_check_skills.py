@@ -914,6 +914,13 @@ class DescribeFences:
         assert "%s:19: `python3`" % SKILL in err
 
     @pytest.mark.spec("fences-cmd-rejects-other-commands")
+    def it_rejects_a_script_run_by_python_rather_than_python3(self, make_repo, run):
+        root = make_repo(uses(sh('python "$FOO" lint')))
+        code, _, err = run("fences", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "%s:18: `python`" % SKILL in err
+
+    @pytest.mark.spec("fences-cmd-rejects-other-commands")
     def it_rejects_grep_in_a_pipeline(self, make_repo, run):
         root = make_repo(uses(sh('python3 "$FOO" lint --json | grep -c ok')))
         code, _, err = run("fences", "-C", str(root))
@@ -926,6 +933,15 @@ class DescribeFences:
         code, _, err = run("fences", "-C", str(root))
         assert code == cs.PROBLEMS
         assert "%s:21: fence has no info string" % SKILL in err
+
+    @pytest.mark.spec("fences-cmd-requires-info-strings")
+    @pytest.mark.parametrize("info", ["bash", "shell", "Bash"])
+    def it_asks_for_sh_on_a_fence_labeled_another_shell(self, make_repo, run, info):
+        fence = sh('python3 "$FOO" lint') + "\n```%s\nls\n```\n" % info
+        root = make_repo(uses(fence))
+        code, _, err = run("fences", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "%s:21: fence is labeled %s. Label a shell fence sh." % (SKILL, info.lower()) in err
 
     @pytest.mark.spec("fences-cmd-allows-setup-commands")
     def it_rejects_a_heredoc_to_a_fixed_name_in_tmpdir(self, make_repo, run):
