@@ -629,6 +629,29 @@ class DescribeReportOnRuleConflicts:
         ]
         assert envelope["data"]["conflicts"] == []
 
+    @pytest.mark.spec("report-cmd-shows-overlaps-whole")
+    def it_shows_the_conflict_with_its_finding_and_the_matched_text(self, prose_repo):
+        patterned_doc(prose_repo)
+        prose_repo.report([own(prose_repo, "It runs — fast."), dismissal(prose_repo)])
+        _, envelope = prose_repo.report(
+            [own(prose_repo, "It runs — and fast."), dismissal(prose_repo)]
+        )
+        page = (prose_repo.root / envelope["data"]["report"]).read_text()
+        refused = page[page.index("## Refused\n") : page.index("\n## Finding 2:")]
+        assert (
+            "### Rule conflict at `doc.md:1`\n\n%s\n\n```text\n|—|\n```\n\n%s\n\n"
+            "#### Finding 1: `doc.md:1`, `%s`\n\n"
+            "Current:\n\n```text\n|Able to run.|\n```\n\n"
+            "Proposed:\n\n```text\n|It runs — and fast.|\n```\n"
+            % (
+                prose.CONFLICT_SAYS % ("`%s`" % RULE_OWN, "`%s`" % RULE, "`%s`" % RULE),
+                prose.CONFLICT_ASK,
+                RULE_OWN,
+            )
+        ) in refused
+        assert "\n- " not in refused
+        assert page.count("Finding 1:") == 1
+
     @pytest.mark.spec("report-cmd-names-conflicting-rules")
     def it_counts_two_matches_of_one_rule_in_one_run_as_one_refusal(self, prose_repo):
         patterned_doc(prose_repo)

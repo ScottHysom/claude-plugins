@@ -423,6 +423,12 @@ to apply-prose's report at the owner's request in #342.
   the published report to Claude, apply-prose revises or dismisses the
   finding, runs `report` again, republishes the report to the same address
   and answers in the comment's thread.
+- `report-cmd-shows-overlaps-whole` (test): When `report` refuses findings
+  that overlap, or a finding in a rule conflict, `report.md` shows each such
+  finding under its refusal, with its current and proposed text, and leaves
+  it out of the list of findings. Findings that overlap one another show
+  under one refusal, and a rule conflict shows the text that the other rule's
+  pattern matches.
 
 ## need user-keeps-document-meaning: Keep what a document says through a rewrite
 

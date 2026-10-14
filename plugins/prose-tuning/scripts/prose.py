@@ -4985,7 +4985,7 @@ def refused_rewrites(repo, rows, stagings, rules):
     current text are. REFUSALS_FILE counts, for each finding still in the
     batch, the runs that refused it for each other rule's pattern. When the
     count reaches CONFLICT_REFUSALS, the error names the two rules as a
-    conflict for the author, and `conflicts` lists it. A refusal for the
+    conflict for the author, and `conflicts` pairs it with that error. A refusal for the
     finding's own rule is never a conflict: the rewrite has not yet fixed
     its rule. The file is rewritten on every run, in place like every
     other file under .prose-tuning/, so a finding that leaves the batch, or
@@ -5022,7 +5022,8 @@ def refused_rewrites(repo, rows, stagings, rules):
                 "rather than rewriting it again"
                 % (rel, ", ".join(own), m["rule"], EditEngine.describe(edit), m["rule"], shown)
             )
-            conflicts.append({"findings": edit_refs(edit), "breaks": m["rule"], "text": m["text"]})
+            conflict = {"findings": edit_refs(edit), "breaks": m["rule"], "text": m["text"]}
+            conflicts.append((errors[-1], conflict))
         else:
             errors.append(
                 "%s  %s makes text that %s's pattern matches, %s; rewrite it so "
@@ -5128,41 +5129,129 @@ def group_rules(group, rules, own):
     return out
 
 
-def report_markdown(data, rejected):
+# The kinds of refusal that report.md shows as a block of their findings, and
+# what each block asks the author.
+OVERLAP = "overlap"
+CONFLICT = "conflict"
+OVERLAP_ASK = (
+    "These findings rewrite overlapping text, and they cannot all apply. Say which to keep."
+)
+CONFLICT_SAYS = (
+    "%s and %s refuse each other's rewrites. %s's pattern matches this text in the rewrite:"
+)
+CONFLICT_ASK = "Give the wording to use, or say to keep the current text."
+
+
+def overlap_blocks(pairs):
+    """One block for each set of findings in one file that overlap one
+    another, from (error, finding numbers) for each overlapping pair.
+
+    A cut that covers two findings overlaps each of them, and the author
+    settles the three together, so pairs that share a finding join.
+    """
+    blocks = []
+    for error, numbers in pairs:
+        joined = [b for b in blocks if set(b["findings"]) & set(numbers)]
+        block = {"kind": OVERLAP, "findings": list(numbers), "errors": [error]}
+        for b in joined:
+            blocks.remove(b)
+            block["findings"] += b["findings"]
+            block["errors"] = b["errors"] + block["errors"]
+        block["findings"] = sorted(set(block["findings"]))
+        blocks.append(block)
+    return blocks
+
+
+def conflict_blocks(paired):
+    """One block for each edit in a rule conflict, from refused_rewrites'
+    (error, conflict) pairs, with every text of its that another rule's
+    pattern matches.
+    """
+    blocks = {}
+    for error, c in paired:
+        numbers = tuple(ref["finding"] for ref in c["findings"])
+        block = blocks.setdefault(
+            numbers, {"kind": CONFLICT, "findings": list(numbers), "errors": [], "matches": []}
+        )
+        block["errors"].append(error)
+        block["matches"].append((c["breaks"], c["text"]))
+    return list(blocks.values())
+
+
+def entry_lines(r, rules, dismissed, level):
+    """One finding or dismissal as the report shows it, under a heading of
+    `level` #s that names its place, its numbers and its rules.
+    """
+    group = r.get("same_rewrite", [r["finding"]])
+    out = [
+        "",
+        "%s %s: `%s:%d`, %s"
+        % (
+            "#" * level,
+            finding_numbers(group).capitalize(),
+            r["file"],
+            r["line"],
+            and_list("`%s`" % x for x in group_rules(group, rules, r["rule"])),
+        ),
+    ]
+    out += ["", "Current:", "", fenced(report_text(r["current"]))]
+    if "reason" in r:
+        out += ["", "Dismissed: %s" % r["reason"]]
+        for m in r["rewritten_by"]:
+            out += ["", rewritten_note(m, rules[m])]
+        return out
+    out += ["", "Proposed:", "", fenced(report_text(r["proposed"]))]
+    for d in dismissed:
+        if set(group) & set(d["rewritten_by"]):
+            out += ["", rewrites_note(d)]
+    return out
+
+
+def refusal_block(block, rows, rules, dismissed):
+    """An overlap or a rule conflict as the author settles it: its place, what
+    to settle, and each of its findings whole.
+    """
+    mine = [r for r in rows if r["finding"] in block["findings"]]
+    first = min(mine, key=lambda r: (r["line"], r["finding"]))
+    place = "`%s:%d`" % (first["file"], first["line"])
+    if block["kind"] == OVERLAP:
+        out = ["", "### Overlap at %s" % place, "", OVERLAP_ASK]
+    else:
+        out = ["", "### Rule conflict at %s" % place, ""]
+        for breaks, text in block["matches"]:
+            own = [x for x in group_rules(block["findings"], rules, None) if x != breaks]
+            own = and_list("`%s`" % x for x in own)
+            other = "`%s`" % breaks
+            out += [CONFLICT_SAYS % (own, other, other), "", fenced(report_text(text)), ""]
+        out.append(CONFLICT_ASK)
+    for r in mine:
+        if r["finding"] == r["same_rewrite"][0]:
+            out += entry_lines(r, rules, dismissed, 4)
+    return out
+
+
+def report_markdown(data, rejected, blocks=()):
     """The report as markdown: what the author reads whole, and approves.
 
     Each text sits in a fence between the same | marks stdout uses, so a
-    space at either end shows on the page too.
+    space at either end shows on the page too. Each of `blocks` is an overlap
+    or a rule conflict. It stands under "Refused" with its findings in place
+    of its refusals, and its findings are left out of the list below.
     """
     out = ["# Prose report"]
-    if rejected:
-        out += ["", "## Refused", "", "Settle these and run report again:", ""]
-        out += ["- %s" % e for e in rejected]
     rules = dict((r["finding"], r["rule"]) for r in data["findings"])
+    if rejected:
+        settled = set(e for b in blocks for e in b["errors"])
+        out += ["", "## Refused", "", "Settle these and run report again:", ""]
+        out += ["- %s" % e for e in rejected if e not in settled]
+        for b in blocks:
+            out += refusal_block(b, data["findings"], rules, data["dismissed"])
+    shown = set(n for b in blocks for n in b["findings"])
     for r in data["findings"] + data["dismissed"]:
         group = r.get("same_rewrite", [r["finding"]])
-        if r["finding"] != group[0]:
+        if r["finding"] != group[0] or r["finding"] in shown:
             continue
-        out += [
-            "",
-            "## %s: `%s:%d`, %s"
-            % (
-                finding_numbers(group).capitalize(),
-                r["file"],
-                r["line"],
-                and_list("`%s`" % x for x in group_rules(group, rules, r["rule"])),
-            ),
-        ]
-        out += ["", "Current:", "", fenced(report_text(r["current"]))]
-        if "reason" in r:
-            out += ["", "Dismissed: %s" % r["reason"]]
-            for m in r["rewritten_by"]:
-                out += ["", rewritten_note(m, rules[m])]
-            continue
-        out += ["", "Proposed:", "", fenced(report_text(r["proposed"]))]
-        for d in data["dismissed"]:
-            if set(group) & set(d["rewritten_by"]):
-                out += ["", rewrites_note(d)]
+        out += entry_lines(r, rules, data["dismissed"], 2)
     rows = data["findings"]
     out += ["", "%d finding(s) in %d file(s)." % (len(rows), len(set(r["file"] for r in rows)))]
     if data["dismissed"]:
@@ -5216,7 +5305,7 @@ def cmd_report(args):
             for n, f in enumerate(findings, 1)
             if isinstance(f, dict) and f.get("rule") in config.by_id() and f["rule"] not in named
         )
-    rows, overlaps, dismissed, stagings, conflicts = [], [], [], [], []
+    rows, overlaps, dismissed, stagings, conflicts, blocks = [], [], [], [], [], []
     for _path, rel, text, numbers, mine in selected_files(repo, by_file, rejected):
         staged = stage_findings(text, Blocks(text), rel, mine, numbers)
         stagings.append((rel, staged))
@@ -5246,6 +5335,7 @@ def cmd_report(args):
                     "same_rewrite": staged.same.get(n, [n]),
                 }
             )
+        pairs = []
         for x, y in staged.engine.conflicts():
             overlaps.append({"first": edit_refs(x), "second": edit_refs(y)})
             rejected.append(
@@ -5253,6 +5343,8 @@ def cmd_report(args):
                 "put the pair to the author and keep the side they choose"
                 % (rel, EditEngine.describe(x), EditEngine.describe(y))
             )
+            pairs.append((rejected[-1], [ref["finding"] for ref in edit_refs(x) + edit_refs(y)]))
+        blocks.extend(overlap_blocks(pairs))
     rows.sort(key=lambda r: (r["file"], r["line"], r["finding"]))
     dismissed.sort(key=lambda r: (r["file"], r["line"], r["finding"]))
     uncovered, read = [], {}
@@ -5272,8 +5364,10 @@ def cmd_report(args):
         texts = [(rel, Text.read(repo.abspath(rel))) for rel in targets]
         unread, read = checked_by_reading(plan_parts(texts, rules), reads, rules)
         rejected.extend(unread)
-        breached, conflicts = refused_rewrites(repo, rows, stagings, config.patterned())
+        breached, paired = refused_rewrites(repo, rows, stagings, config.patterned())
         rejected.extend(breached)
+        conflicts = [c for _, c in paired]
+        blocks.extend(conflict_blocks(paired))
     rejected.extend(
         "%s  no finding or dismissal covers this match; add a finding that rewrites it, "
         "or a dismissal if it stays" % match_line(m["file"], m)
@@ -5296,7 +5390,7 @@ def cmd_report(args):
         "rules": [r.id for r in rules] if args.rule else None,
         "token": token,
     }
-    data["report"] = write_page(repo, REPORT_FILE, report_markdown(data, rejected))
+    data["report"] = write_page(repo, REPORT_FILE, report_markdown(data, rejected, blocks))
 
     rules_of = dict((r["finding"], r["rule"]) for r in rows)
 
