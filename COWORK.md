@@ -1,13 +1,13 @@
 # Designing for Cowork
 
 This file records what Cowork lets a plugin's skills and scripts do, as live
-sessions have shown it. Read this before designing anything that runs there. When a probe settles
+sessions have shown it. Read this before designing anything that runs there. When a probe (a prompt the user pastes into a live Cowork session to test a behavior) settles
 something new, record it here, not only in a script's docstring or a pull
 request, so the next design starts from it.
 
 This file does not draw on documentation. Each point is what a probe in a real
 session printed. A question that probes have yet to answer goes under "Not yet
-known", added back when there is one.
+known". That section is added back when there is such a question.
 
 ## The container and the device
 
@@ -36,7 +36,7 @@ known", added back when there is one.
   with no variable or `cd` retained from the call before. After a call that
   changes directory, the tool adds "Shell cwd was reset to /home/claude" to its
   output; the command did not print that line. A command that needs a plugin
-  script sets its path in the same call. Probed on 2026-09-23, in a Project with
+  script sets its path in the same call. A probe on 2026-09-23 checked this in a Project with
   a connected folder and one without, with the same result.
 
 ## Moving files: `device_commit_files`
@@ -55,7 +55,7 @@ known", added back when there is one.
 
 ## What the bridge cannot do
 
-The bridge cannot:
+The **device bridge** (the tools, such as `device_bash` and `device_commit_files`, that reach the user's connected folder) cannot:
 
 - **Delete a file in the connected folder.** Anything a skill writes there
   stays until the user removes it. So a write that replaces a file by moving a
@@ -74,7 +74,7 @@ The bridge cannot:
   a bundled script works only from a marketplace install, or from an uploaded
   `.plugin` file.
 - **A `.plugin` file is a zip of the plugin folder,** with `.claude-plugin/` at
-  its root. Uploading one is how to try a branch: Cowork can't add a marketplace
+  its root. Uploading one is how to try a branch, because Cowork can't add a marketplace
   at a branch of a GitHub repo.
 - **An upload is checked harder than a marketplace install.** It rejects a
   skill whose `description` contains anything that looks like an XML tag,
@@ -87,10 +87,10 @@ The bridge cannot:
 
 ## Asking the user: `AskUserQuestion`
 
-Probed on 2026-10-05. Cowork's `AskUserQuestion` has the same limits as
+A probe on 2026-10-05 showed that Cowork's `AskUserQuestion` has the same limits as
 Claude Code's:
 
-- **One call holds one to four questions.** Five fail before any dialog
+- **One call holds one to four questions.** A call with five fails before any dialog
   appears, with "Too big: expected array to have <=4 items". A skill that
   budgets one round of questions budgets four.
 - **Each question holds two to four options.** The dialog adds "Other" on its
@@ -100,7 +100,7 @@ Claude Code's:
 
 ## How instruction files load
 
-Probed on 2026-09-20, 2026-09-22 and 2026-09-23, in a Project made with "Use
+Probes on 2026-09-20, 2026-09-22 and 2026-09-23 found these results in a Project made with "Use
 an existing folder", beside the same files run through Claude Code 2.1.274.
 
 | Source | Claude Code | Cowork |
@@ -122,12 +122,12 @@ an existing folder", beside the same files run through Claude Code 2.1.274.
   through `device_bash`, and a read there does not trigger any loading. So
   path-scoped rules are never loaded either.
 - **A "Start from scratch" Project has no folder,** whatever Cowork's guide
-  says: Cowork does not create a folder on disk or link one, though a chip
-  with a folder icon and the project's name sits below the prompt box. A
+  says: Cowork does not create a folder on disk or link one. A chip
+  with a folder icon and the project's name still sits below the prompt box. A
   session in it does not report any connected folder. Only the field carries
   standing instructions there.
 - **A session started from the Claude mobile app has no folder at first.**
-  Seen in the session behind #297, in a Project made with "Use an existing
+  This was seen in the session behind #297, in a Project made with "Use an existing
   folder". The session got the field, `get_device_info` reported
   `"connectedFolders": []`, and the Projects tool did not show any
   documents. `device_request_folder_access`, approved on the Mac, connected
@@ -136,7 +136,7 @@ an existing folder", beside the same files run through Claude Code 2.1.274.
   session reaches connected folders only if it was started on desktop. This
   one was started on the phone and still reached the folder once granted.
 
-## What the design follows from this
+## Consequences for design
 
 - **Do the logic where the files are.** Rendering new files works in the
   container: `gitify-cowork-project` stages them and the bridge copies them

@@ -165,9 +165,9 @@ directory under `plugins/` and one new entry in the catalog.
 
 ## Running the tests
 
-The plugin scripts import nothing outside the standard library, because they
+The plugin scripts do not import anything outside the standard library, because they
 run wherever `/plugin marketplace add` puts them. Their tests are a contributor
-tool and live outside that constraint, on pytest and hypothesis installed from
+tool and live outside that constraint, on pytest and hypothesis (a library that generates test inputs) installed from
 a clone.
 
 That is why the suites are not beside the scripts they test. **Everything under
@@ -222,12 +222,12 @@ script puts its directory on `sys.path`. Loading a script by path does not, so
 
 A directory under `tests/` does not get an `__init__.py`. Without one, pytest
 puts each test file's own directory on `sys.path` and names the module by its
-bare stem, which is what lets a helper like `prose_samples.py` resolve and what
+bare stem. That lets a helper like `prose_samples.py` resolve, and
 keeps two `conftest.py` files from colliding. For the same reason test module
 basenames are unique across the whole repo, not just within a plugin.
 
 Every plugin's `conftest.py` is imported under the same module name, so a test
-never imports from `conftest` by name: when one run loads more than one plugin's
+never imports from `conftest` by name. When one run loads more than one plugin's
 suite, the name can resolve to the wrong plugin's file. Hand a helper to tests
 as a fixture. A value a test needs when its module loads, such as the input a
 Hypothesis strategy is built from, goes in a helper module named after the
@@ -305,9 +305,9 @@ requirement as `repo:<id>`.
 
 `trace` fails when it finds any of these:
 
-- a test or a step that cites nothing
+- a test or a step that does not cite anything
 - a citation of an id its spec lacks
-- a requirement that nothing of its kind cites
+- a requirement that is not cited by anything of its kind
 - a need, constraint or requirement id that does not read as its subject and
   then a verb, the form SPEC-METHODOLOGY.md gives under "Ids"
 
@@ -344,8 +344,8 @@ rules on what the code does that no need covers. SPEC-METHODOLOGY.md, under
 
 `inventory` lists what a plugin's backfill has to trace. It reads a coverage
 run that records which test ran each line. The run leaves `.coverage`, which
-holds each line's tests, and `coverage.json`, which holds the lines no test
-ran:
+holds each line's tests, and `coverage.json`, which holds the lines not run by
+any test:
 
 ```sh
 pytest --cov --cov-context=test --cov-report=json:coverage.json
@@ -359,7 +359,7 @@ python3 .github/scripts/check-specs.py surface
 `test_properties_*.py` state what is true for every input rather than for a
 chosen one, and the rest of the suite says what specifically happened and why
 it mattered. Both are load-bearing: a property that fails prints a shrunk
-counterexample, which tells you what broke and nothing about why anyone cared.
+counterexample (the simplest failing input Hypothesis could reduce it to), which tells you what broke but not why anyone cared.
 
 Property tests explore a different set of inputs on each run. CI fixes the
 seed, so a red build there is always caused by the diff. A developer
@@ -371,7 +371,7 @@ Property tests stay honest through these habits:
 
 - **Mutation-check.** Break the code the property guards and confirm the
   property fails. A property that passes against broken code is a generator
-  producing nothing interesting. Run the tests with `PYTHONDONTWRITEBYTECODE=1`
+  that does not produce anything interesting. Run the tests with `PYTHONDONTWRITEBYTECODE=1`
   while doing it, and confirm the unbroken code passes first. Python reuses
   cached bytecode when a file's size and modification second match, so a quick
   break-and-restore can run a stale copy. macOS's system Python keeps that
@@ -512,9 +512,15 @@ issue that is open already by its number, and `plan file` groups it with the
 rest without filing it again. `plan report` orders the issues so
 each comes after the issues that block it, and writes the plan as it will be
 filed to `.issues-plan/report.md`, ending with an approval token. The owner approves
-that report, and `plan file` takes its token. `plan file` files the issues in
-that order, links them, files the tracking issue, adds the sub-issues in
-order, and reads all of it back. A run that a failed call cut short can be
+that report, and `plan file` takes its token. Then `plan file`:
+
+- files the issues in that order.
+- links them.
+- files the tracking issue.
+- adds the sub-issues in order.
+- reads all of it back.
+
+A run that a failed call cut short can be
 run again, and files only what is missing. The script's docstring has the
 details.
 
@@ -539,10 +545,10 @@ name a blocked issue.
 
 `next` never offers a tracking issue, or a sub-issue of an approved tracking
 issue. An approved tracking issue takes its place in the queue at the lowest
-number among itself and its open sub-issues, and when that place comes first,
+number among itself and its open sub-issues. When that place comes first,
 `next` names the tracking issue instead of an issue to work. `next --tracking N`
 then walks #N's sub-issues in the order #N lists them. It passes over each one
-that is closed, held or blocked, and offers the first one left. When that one
+that is closed, held (already claimed) or blocked, and offers the first one left. When that one
 is not approved, it exits 1 and names it, rather than skip ahead in the plan.
 When every sub-issue is closed, it says the plan is finished, and names the
 `plan close N` command that closes #N.
@@ -607,9 +613,9 @@ Each plugin carries its own `version` in both `plugin.json` and its
 `marketplace.json` entry. Keep them the same. Bump it whenever the plugin's
 behavior changes, or installed users have no signal that anything did.
 
-Versions follow semver, starting at `0.1.0`. Patch for a fix, minor for new behavior, major
+Versions follow semver, starting at `0.1.0`. A fix bumps the patch number and new behavior bumps the minor. A change bumps the major
 when an existing project or workflow would need changing to keep working.
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+This repo is under the MIT license. See [LICENSE](LICENSE).

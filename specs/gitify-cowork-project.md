@@ -6,8 +6,7 @@ steps that add its requirements.
 
 ## Out of scope
 
-- Running in Claude Code. The plugin needs a Cowork Project with a connected
-  folder.
+- Running in Claude Code. The plugin needs a Cowork Project with a connected folder (a folder on the user's computer that the project's sessions can reach).
 - Taking over a folder that is already a git repository, which has a history
   of its own. The exception is `owner-leaves-history-to-git`, which such a
   folder needs as much as one the plugin put under git.
@@ -29,16 +28,18 @@ Source: README.md, the opening section and "When to use it", and the
 gitify-project description.
 
 - `preflight-cmd-names-template-problems` (test): When `gitify.py
-  preflight` checks the shipped templates, it names each template missing from
-  disk or from `MANIFEST`, each unknown placeholder, each stray brace, each
-  line of `git-history.md` that would end `history`'s heredoc and a
-  `git-history.md` that lacks its `## Git history` line, and exits 1.
+  preflight` checks the shipped templates, it exits 1 and names each of these:
+  - a template missing from disk or from `MANIFEST`.
+  - an unknown placeholder.
+  - a stray brace.
+  - a line of `git-history.md` that would end `history`'s heredoc.
+  - a `git-history.md` that lacks its `## Git history` line.
 - `render-cmd-refuses-leftover-placeholders` (test): When a placeholder or
   brace would survive into a rendered file, `render` names it and writes
   nothing.
 - `render-cmd-stages-files` (test): When the answers that `render --answers`
   reads pass every check, it stages each file the plugin writes and prints the
-  `files` list `device_commit_files` takes.
+  `files` list `device_commit_files` (the Cowork tool that writes files to the user's computer) takes.
 - `render-cmd-ignores-chat-outputs` (test): When `render` writes
   `.gitignore`, it leaves out `Claude outputs/`, where Cowork puts the files
   Claude hands over in the chat.
@@ -70,12 +71,10 @@ Source: the owner's review of #139.
 - `history-cmd-refuses-non-repo` (test): When the connected folder is not a
   git repo, the command prints `not-repo:` and exits 1 without writing, and
   when the folder is not on the device it prints `missing:` and exits 2.
-- `historysection-leaves-history-to-git` (test): The section that `history`
-  appends tells Claude to keep the record of a change out of the documents,
-  never to run a git command that writes through Cowork's device bridge (the
-  `device_bash` and `device_commit_files` tools that reach the user's
-  computer), and to give the user the commit message to commit from their own
-  terminal.
+- `historysection-leaves-history-to-git` (test): The section that `history` appends tells Claude:
+  - to keep the record of a change out of the documents.
+  - never to run a git command that writes through Cowork's device bridge (the `device_bash` and `device_commit_files` tools that reach the user's computer).
+  - to give the user the commit message to commit from their own terminal.
 - `gitifyproject-adds-history-to-repo` (step): When the folder is already a
   git repo, gitify-project offers to add only the Git history section to its
   `CLAUDE.md`, runs `history`'s command on a yes, and tells the user to commit
@@ -175,10 +174,11 @@ instructions", and the gitify-project description.
   `CLAUDE.md`, the note for people at its top is an HTML comment and does not cost any
   context.
 - `render-cmd-prints-field-pointer` (test): When `render` stages the
-  files, it prints the one line for the Project Instructions field. The line
-  names `CLAUDE.md` at the project's path, says the project's documents live
-  only in that folder, and tells Claude to ask for access when the folder is
-  not connected, and to write project documents only in that folder.
+  files, it prints the one line for the Project Instructions field. The line:
+  - names `CLAUDE.md` at the project's path.
+  - says the project's documents live only in that folder.
+  - tells Claude to ask for access when the folder is not connected.
+  - tells Claude to write project documents only in that folder.
 - `gitifyproject-hands-off-field-line` (step): When the files are on the
   device, gitify-project gives the user that line to put in place of
   everything in the field.

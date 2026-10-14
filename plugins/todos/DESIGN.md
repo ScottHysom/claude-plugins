@@ -13,14 +13,14 @@ when a note says too little. Running or compiling the file had to keep
 working with the notes in it. #311 records the rulings that shaped the
 design, and #312 the half that reaches GitHub.
 
-## Why the marker is read off the line
+## The marker read off the line
 
 A TODO's comment marker is whatever comes before `TODO` on its own line, so
 the script does not keep a table of comment syntax by file type. The
 only syntax it knows is the two block comments, `/* */` and `<!-- -->`. A
 marker that is wrong for its file shows up when the file runs.
 
-## Why only uncommitted lines
+## Uncommitted lines only
 
 The script reads the lines added since the last commit and nothing else. A
 `TODO:` in a committed test fixture, or in a document that quotes the syntax,
@@ -40,7 +40,7 @@ could not tell the TODO from the change.
 `scan` finds that out by comparing the file with the last commit as if every
 candidate TODO were already gone. A candidate whose line then matches a
 committed one is read, and the line counts as committed in a hand-off's
-list of changed lines too. Where several cuts would leave a committed line, the longest
+list of changed lines too. A **hand-off** is what `file` prints to pass a TODO to another skill. Where several cuts would leave a committed line, the longest
 wins, so a committed trailing space stays.
 
 ## TODOs in another checkout
@@ -83,23 +83,23 @@ lets `scan` read the comments straight from GitHub instead.
 A comment names its lines in the commit it was left on, and later commits may
 have moved them. `scan` compares the file at that commit with the file in the
 worktree on the pull request's head branch, with the same shortest edit
-script it uses against the last commit, so it does not trust GitHub's own
-`line`, which knows nothing of commits not yet pushed or of uncommitted
-edits. When the lines themselves changed, it still places the TODO, since
-dropping a note the owner left is worse than putting it a few lines off, and
-it warns so that the author checks.
+script it uses against the last commit. It does so rather than trust GitHub's own
+`line`, which counts only pushed commits and misses both unpushed commits and
+uncommitted edits. When the lines themselves changed, it still places the TODO, since
+dropping a note the owner left is worse than putting it a few lines off. It
+then warns so that the author checks.
 
-A review TODO is not in any file, so `file` does not mark it there. It
+A review TODO sits in a review thread rather than in a file. `file`
 marks the TODO by a reply in the comment's thread, which holds the same
 `TODO-HANDLED(<target>):` a file would. `scan` skips a thread holding one,
 so a second run, or one that stopped part way and runs again, does not
 collect the TODO again or reply twice. In the review of #527, the agent
-replied in each thread by hand after the work was committed, and on the
-owner's second request had to tell the one new TODO comment apart from the
+replied in each thread by hand after the work was committed. On the
+owner's second request, it had to tell the one new TODO comment apart from the
 five it had already answered (#537).
 
-The reply is a mark, so `report` does not show it and the token does not
-cover it. Its words other than the mark are fixed, so two runs on one batch
+The reply is a mark, so `report` leaves it out and the approval token (the
+hash `file` checks against what the author approved) does not cover it. Its words other than the mark are fixed, so two runs on one batch
 reply alike. The only part a project's rules can change is how a reply
 opens, such as this repo's `**Claude:**`, and the skill passes that as
 `--reply-lead`. `file` leaves the thread unresolved, since resolving it is
@@ -110,7 +110,7 @@ edited after the report.
 
 In the same review, three of the five comments gave the owner's own wording.
 update-prose-config learned rules from them as notes on unchanged passages,
-writing each rule's After itself, and the agent then typed the wording into
+writing each rule's After itself. The agent then typed the wording into
 the files by hand (#539). A suggestion block is GitHub's form for that
 wording, so `file` writes it over the comment's lines before the hand-off.
 The note then reaches update-prose-config as the reason for the author's own
@@ -128,7 +128,7 @@ pending. So `scan` reads the threads through GraphQL, and `file` adds each
 reply to the pending review when there is one. The reply then appears with
 the review, and the owner does not have to ask for it.
 
-## Why a script
+## The script's share of the work
 
 The model drafts each issue and decides what to ask the author. The script
 does the rest:
@@ -144,10 +144,15 @@ the model nor the author would notice the stray byte.
 
 ## The report and the token
 
-`report` prints every draft routed to GitHub whole, and ends with a token that
-hashes those drafts, the repository gh resolves for the clone, the last
-commit and every file those drafts name. `file` refuses any other token. The author approves
-the text `file` will send, in the repository the report named, and a fork
+`report` prints every draft routed to GitHub whole, and ends with a token. The token hashes:
+
+- those drafts.
+- the repository gh resolves for the clone.
+- the last commit.
+- every file those drafts name.
+
+`file` refuses any other token. The author approves
+the text `file` will send, in the repository the report named. A fork
 cannot send issues to its upstream, since every gh call after the first passes
 that repository as `--repo`.
 
@@ -155,7 +160,7 @@ Claude Code shows a command's output to the model, and not reliably to the
 author, and the dialog that asks for approval covers the text above it. So
 `report` also writes the report as markdown to `.todos/report.md`, and the
 skill publishes that file as a private artifact. The author reads every draft
-there, comments on one and sends the comment to Claude, and the skill revises
+there, comments on one and sends the comment to Claude. The skill then revises
 the drafts and republishes to the same address. The approval dialog names
 the address and the token, so the author approves the page they read. The
 file goes in the session's own tree, even under `--from`, because that is the
@@ -195,9 +200,13 @@ that output, and stops on any other error.
 ## Irreversible filing
 
 Deleting an issue takes admin rights on the repository, which the user may
-lack, so a batch cannot be filed all or nothing. `file` checks everything it
-can before its first call to GitHub: the token, every draft, and that it can
-open every file it will change for writing. It then marks each TODO as soon
+lack, so a batch cannot be filed all or nothing. `file` checks everything it can before its first call to GitHub:
+
+- the token.
+- every draft.
+- that it can open every file it will change for writing.
+
+It then marks each TODO as soon
 as its issue exists, and stops at the first call that fails, so a run cut
 short leaves unmarked exactly the TODOs whose issues do not exist.
 
@@ -244,7 +253,7 @@ says never to reach it. A draft can take the route `skill`, which names a
 skill as the Skill tool takes it. The model picks the skill from the skills
 the session lists, by their descriptions, so `report` cannot check the name.
 
-A routed TODO does not reach GitHub, and the receiving skill asks the author
+A routed TODO stays off GitHub, and the receiving skill asks the author
 about it, so `report` leaves it out and the token does not cover it (#533).
 Asked in both places, the author approved each note twice. A batch that
 routes every TODO to a skill runs `file` without `report` or a token.
@@ -264,14 +273,14 @@ by convention", says what a hand-off carries.
 Each hand-off also carries `arguments`: the whole of what the Skill tool call
 takes, as one markdown block (#535). do-todos passes it unchanged. When the
 model wrote the arguments from the parts, it added claims the parts did not
-hold, such as where the notes came from and what a passage's diff held, and
-could drop or misstate a field. The passage goes in a code fence longer than
+hold, such as where the notes came from and what a passage's diff held. It
+could also drop or misstate a field. The passage goes in a code fence longer than
 any run of backticks in its text, so a fence in the passage cannot close it.
 
 The receiving skill may end the session's work when it stops, so do-todos
 gives its report first and invokes the skills as its last act.
 
-## Why no skill commits
+## Commits left to the project
 
 How a project commits is settled wherever that project settles it, such as
 its `CLAUDE.md`. The skill leaves every change uncommitted, and the copy of

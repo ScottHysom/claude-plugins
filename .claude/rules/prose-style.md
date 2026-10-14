@@ -61,12 +61,26 @@ defines it, and only there.
 
 "Already known" means the owner's own career, not the field at large.
 
-Git, GitHub, Python, pytest, shell, CI, JSON and a skill need no gloss. These
-always do:
+These need no gloss:
 
-- Cowork, and its device bridge.
+- Git, GitHub, Python, pytest, shell, CI and JSON.
+- a skill, an agent, a worktree and the marketplace.
+- Cowork, and a Cowork Project.
+
+An agent gets a gloss only where the passage tells two agents apart. A
+worktree is written "git worktree" where the document uses "worktree" for
+something else.
+
+These always need a gloss:
+
+- Cowork's device bridge.
 - How plugins, skills and the marketplace fit together.
 - prose-tuning's markup.
+
+**Pattern.** `\b(?:[Aa]gent|marketplace|worktree|Cowork(?: Project)?) \(`
+
+> **Before.** 1. Someone files an issue: the owner, an agent (Claude working an issue) that ran into a problem outside
+> **After.** 1. Someone files an issue: the owner, an agent that ran into a problem outside
 
 ### standing-concrete-over-abstract: Prefer a concrete example over an abstraction
 

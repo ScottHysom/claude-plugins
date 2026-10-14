@@ -1,6 +1,6 @@
 # The batch file
 
-A run writes its batch, the findings or the rules it hands to the script, to a
+A run writes its batch (the findings or the rules it hands to the script) to a
 file outside the project, so the run does not leave a stray file in it. Make
 the file with:
 

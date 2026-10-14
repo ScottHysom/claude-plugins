@@ -167,8 +167,7 @@ requirement is admitted.
 - **Split the work.** The model does only what needs judgment: inferring a
   rule, writing prose, deciding whether something conforms. A script does the
   rest: parsing, selecting files, diffing, validating, reading config, writing
-  results. The test: if two runs on the same input should give the same answer,
-  it belongs in the script. A step the model does by hand will eventually be
+  results. Work belongs in the script when two runs on the same input should give the same answer. A step the model does by hand will eventually be
   done wrong.
 - **Validate what the model produces before writing it.** The model hands the
   script its proposed changes as JSON, each carrying its address and the text it
@@ -191,10 +190,10 @@ requirement is admitted.
   "Script and model in a skill", lists the joining work that belongs to the
   script.
   `check-skills.py steps` lists every step that runs more than one script
-  command, and fails one without `<!-- seam: <kind>: <reason> -->` on its own
+  command. It fails one without `<!-- seam: <kind>: <reason> -->` on its own
   line under its heading, where the kind is `judgment` or `platform`. Its
-  module docstring covers `KNOWN_SEAMS`, the steps that ran more than one
-  command before the rule, which warn until they are sifted.
+  module docstring covers `KNOWN_SEAMS` (the steps that ran more than one
+  command before the rule), which warn until they are sifted.
 - **A command that stops says what to do next.** Its error names the remedy
   for the cause it found, so a SKILL.md does not map exit codes to remedies. A
   table in the skill fits one cause of an exit code and gets applied to all of
@@ -231,7 +230,7 @@ requirement is admitted.
   installs on its own, and cannot import another's.
 - **A shell variable lasts one command.** Each Bash call in Claude Code starts
   a fresh shell, and so does each `device_bash` call on Cowork. A variable the
-  locate block sets is empty in the next call, and the plugin's install path
+  locate block sets is empty in the next call. The plugin's install path
   runs past 200 characters, too long to paste into every command. So the
   locate block runs the script's first command in the same call, and each
   later command reaches the script by a path short enough to repeat.
@@ -269,7 +268,7 @@ requirement is admitted.
 
 ### Script conventions
 
-- **Standard library only, and it must run on Python 3.9**: no `match`, no
+- **Standard library only, and it must run on Python 3.9**: neither `match` nor
   `X | Y` unions. ruff formats and lints it; README.md says how and what CI
   checks.
 - **Subcommands from the start.** argparse `add_subparsers(required=True)`, one
@@ -300,7 +299,7 @@ requirement is admitted.
   so an earlier one cannot shift the address of a later one.
 - **Cowork's device bridge cannot delete files.** A script that may run there
   rewrites files in place with `open(path, "w")`, not via a temp file moved into
-  place, and only ever reads git, because a git write through the bridge
+  place. It only ever reads git, because a git write through the bridge
   strands `.git/*.lock` files that block every later write. Say so in the
   script's docstring, where the next reader will look, and point to COWORK.md
   for the rest of what Cowork allows.
@@ -328,12 +327,12 @@ requirement is admitted.
 - **Run the whole suite in the background.** A Bash call that runs `pytest`
   over the whole suite, with or without `--cov`, sets `run_in_background: true`
   and waits for the notification that the run finished. The Bash tool stops
-  waiting after 120 seconds, and the suite's run time grows with each test
+  waiting after 120 seconds. The suite's run time grows with each test
   added and with the load other sessions put on the machine. A larger
   `timeout` stops working at the tool's 600-second ceiling. One test file or
   one plugin's suite can run in the foreground.
 - **A plugin's own README mentions tests nowhere**, neither a path nor a link.
-  That README is what the desktop app shows someone who installed the plugin.
+  That README is what the desktop app shows the user.
   What a contributor needs to know about a suite goes here instead.
 - Tests drive commands through `main(argv)` so argparse defaults are the real
   ones, and check the exit code against the script's constants, not bare
@@ -353,20 +352,20 @@ requirement is admitted.
   failing test's name is the first line of the report, so it has to say which
   promise broke rather than which function was touched. `pytest.ini` collects
   only those two prefixes, which means a test named any other way is neither run
-  nor reported; `.github/scripts/check-tests.py naming` is what catches
+  nor reported. `.github/scripts/check-tests.py naming` is what catches
   one. It fails when it has scanned nothing.
 - **prose.py's round trip is the property that must never regress.**
-  Neutralizing author-tagged text returns the untagged text, byte for byte.
+  Neutralizing author-tagged text (text the author marked up with prose-tuning's ins, del and repl tags) returns the untagged text, byte for byte.
   `evidence` diffs that text against the last commit, so a byte it loses or
   invents becomes an edit the author never made, and a rule learned from it.
   `tests/prose-tuning/test_properties_round_trip.py` asserts it for every set
-  of marks hypothesis can build, and `test_round_trip.py` pins particular
+  of marks that hypothesis can build, and `test_round_trip.py` pins particular
   shapes by example. The plugin's README states the guarantee without naming either file,
   since it ships.
 
 ## Comments and docs
 
-Do not:
+When writing comments and docs, do not:
 
 - count things that grow, such as "six cases" or "the last two bugs". Say what
   the thing is for and let the code be the list; a count is wrong the moment

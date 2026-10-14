@@ -139,9 +139,7 @@ sentence that wraps after `order`.
 **A pattern answers to its rule's worked example.** When a rule has both
 halves of an example, at least one of its patterns must find something in the
 Before text, and none may match the After text. `config lint` fails the file
-otherwise. The example is the evidence the rule was written from, so a pattern
-that misses it finds nothing the rule is about, and one that matches the
-rewrite flags prose the rule holds up as right.
+otherwise.
 
 **A pattern answers to every other rule's After example too.** `config lint`
 fails the file when one rule's pattern matches another rule's After, and names

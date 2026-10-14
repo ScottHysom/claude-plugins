@@ -90,8 +90,8 @@ If the author skips every checkout and the run was not handed any notes, stop.
 This tree has nothing to learn from.
 
 **`explicit`** is markup the author wrote: an `<ins>`, `<del>` or `<repl>` with
-its `why` and its `<alt>` proposals, or an `<alt>` not tied to any passage,
-whose record has kind `alt` and holds the proposal in `alt`. The author has
+its `why` and its `<alt>` proposals, or an `<alt>` not tied to any passage.
+A lone `<alt>` has a record of kind `alt`, which holds the proposal in `alt`. The author has
 already said what they mean. Take it as written.
 
 **`inferred`** is an untagged diff hunk. Treat every one as a statement about
@@ -359,7 +359,9 @@ step 6 and any later write in step 7. Tell the author that, once they have
 committed the edits, `apply-prose` given those ids checks the documents
 against just those rules, as in `apply-prose sentences-tail-beside-verb`.
 **Never commit.** The project's own maintenance skill owns commit types,
-message format, and the bridge's lock-file workaround.
+message format, and the workaround for the `.git` lock files that a git write
+through Cowork's device bridge (the channel a Cowork session uses to run commands
+on the user's machine) leaves behind.
 
 ## Scope
 

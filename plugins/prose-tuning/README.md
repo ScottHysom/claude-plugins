@@ -6,8 +6,7 @@ and saves them in the project. From then on, Claude follows those rules in
 everything it writes there. Claude can also check the documents you already
 have against the rules and fix what breaks them, once you approve.
 
-prose-tuning works in Claude Code, and in Cowork (the mode of the Claude
-desktop app that works with files on your computer) when you install it from
+prose-tuning works in Claude Code, and in Cowork when you install it from
 the marketplace.
 
 ## When to use it
@@ -87,7 +86,7 @@ from another project's rules, or from an empty file.
    questions. When there are more than four, Claude puts them on a private
    page, and you answer each one in a comment sent to Claude.
 4. Claude shows you each rule as `prose-style.md` will hold it, with its
-   patterns and its example. In Claude Code, the rules are on a private page
+   patterns (the searches that find text breaking it) and its example. In Claude Code, the rules are on a private page
    on claude.ai that only you can open. Comment on a rule there and send the
    comment to Claude, and Claude revises it and updates the page.
 5. Once you approve, Claude writes the rules into `prose-style.md`, and leaves
@@ -135,7 +134,7 @@ The tags:
 `<del>` and `<ins>` are real HTML elements, so a markdown preview shows them as
 an edit while you write. Claude leaves this markup in place while it learns the
 rules. When you next check your documents, Claude asks whether the rules are
-learned, and on your yes removes the markup, keeping the edits it marks, so
+learned. On your yes, it removes the markup and keeps the edits it marks, so
 none of it reaches a commit. The
 [full list of tags](https://github.com/ScottHysom/claude-plugins/blob/main/plugins/prose-tuning/reference/tag-vocabulary.md)
 has every form they take.
@@ -168,7 +167,7 @@ checked. If a file you expected was skipped, ask Claude why. To check only
 some documents, name them when you ask.
 
 To check the documents against only some rules, name their ids when you ask.
-This suits rules Claude has just learned, and once it has written them, Claude
+This suits rules Claude has just learned. Once it has written them, Claude
 names their ids for you. Commit first, then ask. The list and the approval are
 the same as for every rule. A proposed rewrite is still checked against every
 rule that carries a pattern, so a fix for a new rule cannot break an older one.

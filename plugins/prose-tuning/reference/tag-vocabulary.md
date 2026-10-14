@@ -18,7 +18,7 @@ commit is a bug.
 | `why` | Why the edit was made. | nothing |
 | `<alt>…</alt>` | A proposed rule, or an equivalent rewrite. | nothing |
 
-## A replacement is a del and an ins
+## Replacements
 
 ```markdown
 <del>which is the whole point</del><ins></ins>
