@@ -13,7 +13,7 @@ The target depends on what was asked:
   `plugins/prose-tuning/templates/prose-style.md` in the `claude-plugins` repo,
   the rules `config init` starts a project from.
 
-The second is the only sanctioned route from a project back into the shipped
+The second target is the only sanctioned route from a project back into the shipped
 rules. `update-prose-config` deliberately cannot do it.
 
 ## Locate the script
@@ -40,9 +40,13 @@ against a checkout of `claude-plugins`.
 python3 "$PROSE" config classify --file <source> --to <target> --json
 ```
 
-Every source rule comes back in `data.rules` with its `body`, one of four
-buckets, and `target` naming the target rule it matched, with that rule's
-`target_body`:
+Every source rule comes back in `data.rules` with:
+
+- its `body`.
+- one of the four buckets below.
+- `target`, naming the target rule it matched, with that rule's `target_body`.
+
+The buckets:
 
 | Bucket | Meaning | Action |
 |---|---|---|
@@ -59,7 +63,7 @@ report can then cite only one of them.
 the author in step 3 with both bodies in full. A score is a reason to look,
 never a reason to merge.
 
-The score is also a floor rather than a ceiling. Read each `new` rule against
+The score also misses some similar rules. Read each `new` rule against
 the target yourself, and move any that states a target rule's point in other
 words to step 3 as similar. Two rules can say the same thing with no words in
 common. This is judgment, and it is the part of this step the script cannot do.
@@ -77,7 +81,7 @@ Pass every rule still in the new bucket after step 1, each as its own
 as the source has it and puts it under its section. Keep `data.commit_note`
 for the hand-off.
 
-The command exits 1 and writes nothing while any id is refused, and each
+The command exits 1 and does not write anything while any id is refused, and each
 refusal says what to do.
 
 ## Step 3: the author's answers, in one batch
@@ -86,14 +90,20 @@ refusal says what to do.
 Ask one `AskUserQuestion` set covering every colliding and every similar pair, each
 showing both bodies in full. Take them from step 1's result: a rule's `body`
 against its `target_body`, or against each candidate's `target_body`. Never
-split them into two rounds: the author is deciding one thing, which is what
+split them into two rounds, because the author is deciding one thing: what
 the target's rulebook should say.
 
-A collision offers three options: take the source, keep the target, or write a
-combination.
+A collision offers three options:
 
-A similar pair offers three: keep both as distinct rules, rewrite the target's
-rule to cover the source as well, or drop the source rule.
+- take the source.
+- keep the target.
+- write a combination.
+
+A similar pair offers three options:
+
+- keep both as distinct rules.
+- rewrite the target's rule to cover the source as well.
+- drop the source rule.
 
 Then hand every answer to the command as one JSON list on stdin:
 
@@ -114,8 +124,8 @@ Each answer is an object:
   `config write` takes them. The command writes the combination under the
   target's id.
 
-Keep `data.commit_note` for the hand-off. The command exits 1 and writes
-nothing while any answer is refused, and each refusal says why.
+Keep `data.commit_note` for the hand-off. The command exits 1 and does not write
+anything while any answer is refused, and each refusal says why.
 
 ## Step 4: when the target is the shipped rules
 <!-- spec: copyprose-bumps-shipped-version -->
@@ -132,8 +142,8 @@ python3 .github/scripts/check-manifest-consistency.py check
   rule is a minor bump; rewording one is a patch.
 - **Say that projects already started from the shipped rules now differ.**
   They do not update themselves. Bringing one into line is this skill run
-  again, with the shipped rules as the source and that project as the target,
-  and it is the author's call, not this run's.
+  again, with the shipped rules as the source and that project as the target.
+  That run is the author's call, not this run's.
 - **Keep the `FILL` markers.** A rule promoted out of a real project usually has
   that project's example written into it. The shipped version needs the example
   replaced by a `FILL` telling the next project what to supply, or every project

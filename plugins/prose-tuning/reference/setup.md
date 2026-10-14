@@ -4,7 +4,7 @@ Every skill in this plugin starts here, straight after its "Locate the script"
 step.
 
 If the `ls` in that step failed, stop: the plugin isn't installed here. Every
-step is a call into the script, and a missing one surfaces three commands later
+step is a call into the script, and a missing script surfaces three commands later
 as something unrelated. In Cowork the plugin has to come from the marketplace.
 `propose_skills` carries a single `SKILL.md` and not the script.
 

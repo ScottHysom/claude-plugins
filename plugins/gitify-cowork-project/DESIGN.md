@@ -61,9 +61,13 @@ session that has the folder.
 ## How Claude learns the folder is under git
 
 A section of `CLAUDE.md` tells Claude that git keeps the history, so change
-records stay out of the documents. It also says how a commit is made from
-Cowork, how to read the history, and what to do when the Project Instructions
-field holds more than its one line. The field's line gets `CLAUDE.md` read in
+records stay out of the documents. It also says:
+
+- how a commit is made from Cowork.
+- how to read the history.
+- what to do when the Project Instructions field holds more than its one line.
+
+The field's line gets `CLAUDE.md` read in
 every conversation, so the section needs nothing registered on the account and
 exists in one copy only. It sits outside the note's HTML comment,
 because Claude never sees what is inside one.

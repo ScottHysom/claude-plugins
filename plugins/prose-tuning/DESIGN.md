@@ -24,7 +24,7 @@ something each session works out again.
 ## Where the rules live
 
 `prose-style.md` sits in the project's `.claude/rules/` folder. Claude Code and
-Cowork both load every file there into each session, so an agent has the rules
+Cowork (the Claude desktop app's mode for working on files in the user's folders) both load every file there into each session, so an agent has the rules
 whether or not one of these skills is running. The cost is the whole file, in
 the context of every session.
 
@@ -94,13 +94,13 @@ Claude. Where the skill cannot publish, it falls back to dialogs of four.
 ## The report page
 
 Claude Code shows a command's output to the model, and not reliably to the
-author, and the dialog that asks for approval covers the text above it. So
+author. The dialog that asks for approval also covers the text above it. So
 `prose.py report` also writes the findings as markdown to
 `.prose-tuning/report.md`, and apply-prose publishes that file as a private
 artifact. The author reads every finding there, comments on one and sends the
-comment to Claude, and the skill revises or dismisses the finding and
+comment to Claude. The skill then revises or dismisses the finding and
 republishes to the same address. The approval dialog names the address and
-the token, so the author approves the page they read. Where the skill cannot
+the **token** (a value `report` prints that ties the approval to the files as they are), so the author approves the page they read. Where the skill cannot
 publish, it gives the file whole in its reply.
 
 ## The rules page
@@ -111,7 +111,7 @@ same reason apply-prose shows its report on one. `prose.py config write
 `prose-style.md` will hold it, with a rewrite's old text above its new text,
 and prints a token. The skill publishes that file as a private artifact, and
 revises the batch when the author comments on a rule. `config write` then
-takes the token, and writes nothing when the batch or `prose-style.md`
+takes the token, and does not write anything when the batch or `prose-style.md`
 changed since the dry run, so what the author approved is what is written.
 Where the skill cannot publish, it gives the file whole in its reply.
 
@@ -119,7 +119,7 @@ Where the skill cannot publish, it gives the file whole in its reply.
 
 `scripts/prose.py` does everything deterministic:
 
-- parsing the markup
+- parsing the markup (the `<ins>`, `<del>` and `<repl>` tags an author puts around an edit)
 - selecting files
 - diffing
 - resolving tags
@@ -168,7 +168,7 @@ one typo teaches the author to skim its output.
 
 The shipped rules live in `templates/prose-style.md`. `config init` starts a
 new project's rules from them, so a project starts from a working set rather
-than a blank file, and a project that wants to diverge edits its own copy.
+than a blank file. A project that wants to diverge edits its own copy.
 
 Editing the shipped rules changes what new projects get and leaves existing
 ones as they are, since they do not update themselves. A rule from a real

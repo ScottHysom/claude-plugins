@@ -6,7 +6,7 @@ Claude drafts an issue for each one, shows you every draft, files the ones you
 approve, and marks each TODO in its file with the issue it became.
 
 **Claude Code only.** The plugin needs a git clone with a GitHub remote, and
-GitHub's command-line tool, `gh`, installed and signed in (`gh auth login`).
+GitHub's command-line tool (`gh`) installed and signed in (`gh auth login`).
 
 ## Leaving a TODO
 
@@ -68,8 +68,8 @@ committed stays where it is.
 
 Claude may work in a separate copy of your project, which the Claude desktop
 app makes for each session. When that copy does not hold any TODOs and the
-folder you review in does, Claude names the folder, with its branch and files,
-and asks whether to collect them from there. Their issues are filed the same
+folder you review in does, Claude names the folder, with its branch and files.
+It then asks whether to collect them from there. Their issues are filed the same
 way, and the TODOs are marked in the files in that folder.
 
 ## Leaving a TODO in a review

@@ -33,7 +33,7 @@ Source: #126, and CLAUDE.md, under "Skills and scripts".
 - `steps-cmd-fails-stale-seam-marker` (test): When a step with a seam
   marker runs one command or none, `steps` fails the marker.
 - `steps-cmd-warns-on-known-seams` (test): When a step listed in
-  `KNOWN_SEAMS` runs more than one command with no marker, `steps` passes it
+  `KNOWN_SEAMS` (check-skills.py's list of the steps that ran more than one command before the seam rule) runs more than one command with no marker, `steps` passes it
   with a warning naming its issue, and fails the entry once the step runs one
   command, gains a marker or is gone.
 - `ci-runs-steps-for-seams` (check): When a pull request is opened or updated,
@@ -72,10 +72,11 @@ test can drive any command through `main(argv)`.
 Source: CLAUDE.md, under "Script conventions", and #24, "Importing the module
 does nothing".
 
-- `script-exits-2-when-unrunnable` (test): When a repo script cannot run, from
-  bad usage, from running outside a clone, from `-C` naming a missing
-  directory, or from a file it needs being missing or unreadable, it writes
-  its name and the cause to stderr and exits 2.
+- `script-exits-2-when-unrunnable` (test): When a repo script cannot run, it writes its name and the cause to stderr and exits 2. It cannot run from any of these causes:
+  - bad usage.
+  - running outside a clone.
+  - `-C` naming a missing directory.
+  - a file it needs being missing or unreadable.
 - `script-names-remedy-on-stop` (test): When a repo script stops, its message
   says what to do next.
 - `script-does-nothing-on-import` (test): When a repo script is imported, it
@@ -191,9 +192,8 @@ wants each to get a different one, so two agents never do the same work.
 Source: README.md, under "Claiming an issue".
 
 - `next-cmd-offers-free-issue` (test): When `issues.py next` runs, it
-  names the lowest-numbered open issue labeled `approved` that no `issue/N`
-  branch holds and no open issue blocks, and exits 0 when none is free. It
-  does not offer an issue labeled `tracking`, or a sub-issue of an open
+  names the lowest-numbered open issue labeled `approved` that is unheld by any `issue/N` branch and unblocked by any open issue. It exits 0 even when every such issue is held or blocked. It
+  does not offer a **tracking issue** (an issue labeled `tracking`, which groups a plan's issues as its sub-issues), or a sub-issue of an open
   tracking issue labeled `approved`.
 - `claim-cmd-picks-one-winner` (test): When two agents claim the same
   issue at once, `issues.py claim` lets exactly one create `issue/N`, and the
@@ -249,8 +249,7 @@ Source: the owner's request on 2026-10-05, recorded in #350.
 
 - `next-cmd-follows-tracking-issue` (test): When `issues.py next --tracking N`
   runs, it offers the first sub-issue in #N's listed order that is open,
-  unheld and unblocked. It exits 1 when that sub-issue is not labeled
-  `approved`, or when #N is not an open issue labeled both `tracking` and
+  unheld and unblocked. It exits 1 when that sub-issue lacks `approved`, or when #N is not an open issue labeled both `tracking` and
   `approved`.
 - `next-cmd-names-tracking-issue` (test): When an open tracking issue labeled
   `approved` takes its place in the queue, at the lowest number among itself
@@ -339,10 +338,11 @@ Source: README.md, under "Claiming an issue", and #33.
   still exits 0.
 - `issueclosed-clears-in-progress-label` (check): When an issue carrying
   `in-progress` closes, issue-closed.yml removes the label.
-- `stale-cmd-reports-claims-left-behind` (test): When a label has no branch, a
-  closed issue keeps its label, a closed issue keeps its branch, or an open
-  issue has its branch and lacks the label, `issues.py stale` fails and names
-  the remedy.
+- `stale-cmd-reports-claims-left-behind` (test): When any of these holds, `issues.py stale` fails and names the remedy:
+  - a label has no branch.
+  - a closed issue keeps its label.
+  - a closed issue keeps its branch.
+  - an open issue has its branch and lacks the label.
 
 ## need owner-frees-abandoned-claims: Free an abandoned claim without losing work
 
@@ -425,13 +425,17 @@ Source: README.md, under "Adding a plugin", step 4.
   script's `build_parser()`, and fails what the parser rejects, naming the
   file and line.
 - `commands-cmd-finds-named-script` (test): When an invocation names its
-  script through a variable or a path, `commands` finds the script, and fails
-  an unassigned variable, a variable naming two scripts, and a script that is
-  missing, fails to import or has no parser.
-- `commands-cmd-handles-fence-syntax` (test): When a fence writes a
-  command with a placeholder, an optional part, a continuation, a comment, a
-  heredoc or a list indent, `commands` checks it as the model would run it,
-  and reads only shell fences.
+  script through a variable or a path, `commands` finds the script, and fails any of these:
+  - an unassigned variable.
+  - a variable naming two scripts.
+  - a script that is missing, fails to import or has no parser.
+- `commands-cmd-handles-fence-syntax` (test): When a fence writes a command with any of these parts, `commands` checks it as the model would run it, and reads only shell fences:
+  - a placeholder.
+  - an optional part.
+  - a continuation.
+  - a comment.
+  - a heredoc.
+  - a list indent.
 - `commands-cmd-scans-something` (test): When `commands` does not find a shell
   fence that runs a script, it fails.
 - `ci-runs-commands` (check): When a pull request is opened or updated, CI runs
@@ -447,10 +451,12 @@ Source: CLAUDE.md, under "Skills and scripts", and #98.
 
 - `steps-cmd-counts-step-commands` (test): When a `## Step` section runs
   an invocation `commands` accepts, `check-skills.py steps` counts it for that
-  step, and otherwise fails the step unless it carries a no-command marker.
-- `steps-cmd-checks-no-command-markers` (test): When a no-command marker
-  has no reason, shares its line with other text, sits outside a step, or sits
-  on a step that runs a command, `steps` fails it.
+  step, and otherwise fails the step unless it carries a no-command marker (a `<!-- no-command: <reason> -->` line saying why the step lacks a command).
+- `steps-cmd-checks-no-command-markers` (test): When any of these holds of a no-command marker, `steps` fails it:
+  - it has no reason.
+  - it shares its line with other text.
+  - it sits outside a step.
+  - it sits on a step that runs a command.
 - `steps-cmd-fails-stray-commands` (test): When a SKILL.md runs
   an invocation `commands` accepts outside every `## Step` section and outside
   "Locate the script", `steps` fails it.
@@ -551,7 +557,7 @@ and #284.
   committed, or new and not yet added, each check-skills.py command reads it,
   and skips a file git ignores.
 - `floors-cmd-names-floor-version` (test): When the Python running
-  `check-coverage.py floors` is not the version the floors were measured on,
+  `check-coverage.py floors` is not the version the floors (each script's lowest allowed test coverage) were measured on,
   `floors` exits 2 and names that version, rather than telling the
   contributor to add tests.
 
@@ -582,8 +588,7 @@ Source: README.md, under "Adding a plugin", step 4.
 
 When a contributor changes a plugin script, the owner wants CI to fail a
 script whose coverage falls below its floor, or a new line that no test runs,
-so the coverage check catches each line that the trace, which follows tests,
-would miss.
+so the coverage check catches each line that the trace (`check-specs.py trace`, which ties each test to a requirement) would miss.
 
 Source: #128, README.md, under "Coverage", and SPEC-METHODOLOGY.md, under
 "The chain".

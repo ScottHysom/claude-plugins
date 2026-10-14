@@ -54,8 +54,14 @@ read. On a yes:
 python3 "$PROSE" tags resolve
 ```
 
-`resolve` keeps each `<ins>`, drops each `<del>`, keeps the replacement of
-each `<repl>`, and removes every tag. Read its warnings. A block-form tag
+`resolve`:
+
+- keeps each `<ins>`.
+- drops each `<del>`.
+- keeps the replacement of each `<repl>`.
+- removes every tag.
+
+Read its warnings. A block-form tag
 resolved inside a list is the one case to read closely, because a tag between
 two list items ends the list. Then stop. Tell the author to commit the
 resolved files and run this skill again to conform them.
@@ -90,7 +96,7 @@ sentences@notes.md:1-212  19 rule(s), 12 checked by reading, 21094 characters
 
 A part is the rules of one section of `prose-style.md`, such as every
 `sentences-` rule, over a run of one file's lines. The id comes first, then
-how many rules the part holds and how many of them carry no pattern.
+how many rules the part holds and how many of them do not carry a pattern.
 
 When the author asks why a file was skipped:
 
@@ -183,8 +189,8 @@ the dash when the match wraps onto the next line. Then come the rule id and
 the matched text, as a JSON string that goes into a finding's `text` as it
 stands. The last line names the part's rules checked by pattern.
 
-When no part's rules carry a pattern, the project's rules were written before
-rules could, and every rule is checked by reading. Tell the author that
+When every rule in every part lacks a pattern, the project's rules were written before
+rules could carry one, and every rule is checked by reading. Tell the author that
 `copy-prose` from the shipped rules brings in their patterns.
 
 A pattern finds places to look, so judge each match. A spaced hyphen can be a
@@ -193,7 +199,7 @@ longer `text` than the match, since the rewrite is of the sentence. A match
 that stays as it is becomes a finding with `dismiss` and the reason in place
 of `replacement`. A match that another rule's finding rewrites does not stay,
 so it gets a finding of its own rule. `report` runs the patterns again, and
-fails on a match that no finding or dismissal of its rule contains.
+fails on a match that is not inside any finding or dismissal of its rule.
 
 **Never search the prose with a command of your own,** such as `grep` over
 the segments. A search written during a run finds a different set on
@@ -228,9 +234,9 @@ pattern, in the other parts of its file as well as its own, before step 4.
 `report` checks it against the rules that do.
 
 `file` and `line` come from the segment's address, and `text` is copied
-exactly from the segment's text. Leave the columns out: `apply` finds the text
+exactly from the segment's text. Leave the columns out, because `apply` finds the text
 on its line.
-When it is refused because the text starts at more than one place on the line,
+When a finding is refused because the text starts at more than one place on the line,
 add the `col_start` the refusal lists. A sentence wrapped onto the next line is
 one finding, with the newline and the next line's indent in `text`.
 
@@ -254,10 +260,13 @@ python3 "$PROSE" report --findings /var/folders/k2/T/prose-x8q1zv.json --json
 ```
 
 `report` reads each finding's current text from the file as it is now, and
-writes the report to the markdown file at `data.report`: each finding with its
-`file:line`, rule id, current text and proposed text, then the rules
-checked by pattern in the files step 2 read, and the files read against
-each rule that does not. Each line of a text sits between
+writes the report to the markdown file at `data.report`. The report holds:
+
+- each finding with its `file:line`, rule id, current text and proposed text.
+- the rules checked by pattern in the files step 2 read.
+- the files read against each rule that is not checked by pattern.
+
+Each line of a text sits between
 `|` marks, so a space at either end shows. `(cut)` stands for an empty
 proposed text. A dismissal shows its reason in place of a proposed text.
 When `report` exits 0, `data.token` is the approval token, and the file ends
@@ -268,7 +277,7 @@ copy of it, even to learn whether the rewrites keep the project's own checks
 passing. `apply` refuses the token in any checkout other than the one `report`
 ran in.
 
-`report` exits 1 when a finding cannot apply, or a part has not been read.
+`report` exits 1 when a finding cannot apply, or a part is still unread.
 Each error names the finding, match or part, and says what to do about it.
 Never drop a side of an overlap
 yourself.
@@ -287,7 +296,7 @@ When the only errors left are overlaps and such conflicts, publish the report
 with them, give the author its address, and ask them to comment on each one
 and send the comment to Claude. Then end the turn. For an overlap, the comment
 says which finding stays. For a conflict, it gives the wording to use, or
-says to keep the current text. To keep it, drop the finding, or make it a
+says to keep the current text. To keep the current text, drop the finding, or make it a
 dismissal carrying the author's reason when its rule's pattern matches the
 text. Tell the author that the two rules contradict each other,
 and that `update-prose-config` can settle which one gives way.
@@ -304,10 +313,13 @@ On "comment first", end the turn. A comment the author sends to Claude starts
 a new turn. Revise or dismiss the findings it names, or remove the side of an
 overlap the author turned down. When that side covers a match of its rule's
 pattern, make it a dismissal saying the author chose the other finding.
-`report` shows that dismissal beside the finding the author chose. Then run
-`report` again, publish the file
-again, and answer in the comment's thread with `ArtifactComments`, saying
-what changed. Ask the one question again, with the new token, once the
+`report` shows that dismissal beside the finding the author chose. Then:
+
+- run `report` again.
+- publish the file again.
+- answer in the comment's thread with `ArtifactComments`, saying what changed.
+
+Ask the one question again, with the new token, once the
 threads sent to Claude are answered.
 
 When the Artifact tool is not available, or refuses to publish, read the file

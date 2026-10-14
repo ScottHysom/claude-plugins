@@ -34,7 +34,7 @@ Source: README.md, under "When to use it" and "What it adds to your project".
 
 When the user has edited documents the way they want them to read, they want
 Claude to work out the rules behind the uncommitted edits and write them into
-`prose-style.md`, and the documents left as they edited them, so the user
+`prose-style.md`, and the documents left as they edited them. That way the user
 teaches the style by editing rather than by writing rules.
 
 Source: README.md, the opening section and "Teaching it your style", and the
@@ -45,7 +45,7 @@ rule are the owner's figure, in the ruling on #132.
   a file in scope without markup, `evidence` reports each changed run of lines
   since the last commit as one inferred record, with its lines before and
   after.
-- `evidence-cmd-diffs-without-markup` (test): When a file holds markup,
+- `evidence-cmd-diffs-without-markup` (test): When a file holds markup (the `<ins>`, `<del>`, `<repl>` and `<alt>` tags the author writes into a document to mark an edit),
   `evidence` diffs it with the markup taken out, and numbers each hunk by its
   line in the working file.
 - `evidence-cmd-reports-explicit-records` (test): When a file holds the
@@ -68,7 +68,7 @@ rule are the owner's figure, in the ruling on #132.
   match's rule and text. A rule file that does not lint leaves every edit
   unchecked, with a warning.
 - `updateproseconfig-asks-about-signals` (step): When a hunk carries a signal,
-  update-prose-config takes it to the interview and never straight into a
+  update-prose-config takes it to the interview (the one round of questions it puts to the author) and never straight into a
   rule.
 - `updateproseconfig-asks-about-breaching-edits` (step): When `evidence`
   reports an edit under `breaches`, update-prose-config asks the author in the
@@ -106,7 +106,7 @@ rule are the owner's figure, in the ruling on #132.
   example.
 - `lint-cmd-checks-rule-shape` (test): When a rule has no body, half a
   worked example or the id of another rule, `config lint` names it and exits
-  1, and it warns on a rule with no example.
+  1. It warns on a rule that lacks an example.
 - `updateproseconfig-never-writes-documents` (step): When
   update-prose-config runs, the only file it writes is `prose-style.md`. It
   does not write markup into a
@@ -223,7 +223,7 @@ description.
   names markup, apply-prose asks the author whether update-prose-config has
   learned from it. It runs `tags resolve` only on a yes, and then stops, so
   the resolved files are committed before it conforms them.
-- `resolve-cmd-refuses-bad-markup` (test): When a file's markup does not
+- `resolve-cmd-refuses-bad-markup` (test): When a file's markup fails to
   parse, `tags resolve` does not write a file, and names the fault.
 
 ## need user-checks-reports: Check a report against the rule it names
@@ -235,19 +235,19 @@ and check the report themselves.
 Source: README.md, under "What it adds to your project", and the
 update-prose-config description.
 
-- `report-cmd-refuses-undefined-rules` (test): When a finding names a rule
+- `report-cmd-refuses-undefined-rules` (test): When a finding (a rewrite apply-prose proposes for a rule breach) names a rule
   `prose-style.md` does not define, `report` and `apply` refuse it.
 - `report-cmd-names-pattern-rules` (test): When `report` runs, it names
   the rules it checked by pattern, and lists, for each rule that does not
   carry a pattern, the files read against it.
 - `report-cmd-fails-unread-rules` (test): When a part that `pass` lists holds
-  a rule that does not carry a pattern, and the findings do not carry the
+  a rule without a pattern, and the findings do not carry the
   part's read record as `pass --part` prints it now, `report` names the part,
   says to run `pass --part` on it, and exits 1. It refuses a read record
   that holds anything but its `read` and `digest` strings.
 - `pass-cmd-fits-each-part` (test): When a file's segments would make a part
   longer than 30,000 characters, `pass` cuts the file into runs of whole
-  lines, so `pass --part` prints each part, read record included, in fewer
+  lines, so `pass --part` prints each part (including its read record) in fewer
   characters than that.
 - `report-cmd-reads-joined-findings` (test): When the findings file holds
   one JSON array or object after another, `report` and `apply` read every
@@ -273,8 +273,8 @@ update-prose-config description.
 ## need user-approves-each-rewrite: Approve each rewrite before it is made
 
 When the user asks Claude to apply the house style, they want a list of every
-passage that breaks a rule, with its file, line, rule id and proposed rewrite,
-and want each change held until they approve all of it or a part, so a
+passage that breaks a rule, with its file, line, rule id and proposed rewrite.
+They want each change held until they approve all of it or a part, so a
 document changes only in ways they have seen.
 
 Source: README.md, under "Checking your documents", and the apply-prose
@@ -316,10 +316,10 @@ description.
   edits per file and per rule.
 - `apply-cmd-obeys-filters` (test): When `apply` is given `--only`,
   `--file` or both, it writes only the findings that pass every filter given,
-  and with none it writes every finding.
+  and with no filter it writes every finding.
 - `apply-cmd-names-empty-filters` (test): When a filter given to `apply`
   does not match any finding, alone or with the other filter, `apply` names it and
-  writes nothing.
+  leaves every file as it was.
 - `report-cmd-names-overlaps` (test): When two findings overlap, and they
   do not replace the same text with the same rewrite, `report` and `apply`
   name both, and `apply` writes neither.
@@ -358,7 +358,7 @@ description.
   not lint clean, `patterns`, `pass` and `report` name the fault and exit 1
   before reading any document.
 - `report-cmd-fails-uncovered-matches` (test): When a pattern matches text
-  in a file in scope that no finding or dismissal of the same rule contains,
+  in a file in scope that no finding or dismissal (a note that the match is allowed) of the same rule contains,
   `report` names the match and exits 1.
 - `report-cmd-fails-breaching-rewrites` (test): When a rule's pattern matches
   text that a finding's rewrite makes or keeps, `report` names the finding,
@@ -398,15 +398,15 @@ description.
   with a command of its own.
 - `applyprose-shows-report-whole` (step): When `report` exits 0, apply-prose
   publishes `.prose-tuning/report.md` as a private artifact, or shows the file
-  whole where it cannot, and takes one decision over the whole set, a set of
-  rule ids or a set of files, naming the artifact's address and the token.
+  whole where it cannot, and takes one decision (over the whole set, a set of
+  rule ids or a set of files), naming the artifact's address and the token.
 - `applyprose-applies-once` (step): When the author has approved the report,
   apply-prose runs `apply` once, in the checkout `report` ran in, with the
   token `report` printed and the filters the approval names. Before that
   approval, apply-prose does not run `apply` in any checkout, including a copy
   it makes.
 - `batch-cmd-makes-own-file` (test): When `batch` runs, it makes an empty
-  file in the temporary directory, named so that no other run gets the same
+  file in the temporary directory, named so that another run cannot get the same
   file, and prints its literal path.
 - `applyprose-findings-in-own-file` (step): When apply-prose writes
   findings, it writes them to the file `batch` made for that run, and every
@@ -544,9 +544,11 @@ description.
 - `scope-cmd-honors-include-and-exclude` (test): When the front matter
   carries a `scope:` block, its `include` and `exclude` lists decide which
   markdown files are in scope.
-- `glob-matches-whole-path` (test): When a scope pattern is matched, `**/`
-  matches any number of folders, `**` anything, `*` anything within one
-  folder and `?` one character, against the whole path from the project root.
+- `glob-matches-whole-path` (test): When a scope pattern is matched against the whole path from the project root, each wildcard matches as follows:
+  - `**/` matches any number of folders.
+  - `**` matches anything.
+  - `*` matches anything within one folder.
+  - `?` matches one character.
 - `scope-cmd-never-lists-rules-file` (test): When `scope` lists the files
   in scope, it leaves out `prose-style.md` whatever the scope says.
 - `scope-cmd-explains-each-file-with-all` (test): When `scope --all` runs, it
@@ -589,7 +591,7 @@ Source: README.md, under "Setting up".
 ## need user-shares-rules: Copy rules from another project
 
 When the user wants another project's prose rules, they want the rules this
-project lacks copied across, and the rules that collide on an id or say the
+project lacks copied across. They want the rules that collide on an id or say the
 same thing under two ids shown side by side in one round, so they settle each
 conflict once.
 
@@ -723,7 +725,7 @@ Source: README.md, the opening section and "Setting up".
   reports `local`.
 - `stage-cmd-copies-for-device` (test): When `stage` runs, it writes
   byte-identical copies of the script, its `.gitignore` and the shipped rules,
-  and gives `device_commit_files` a path for each under the project folder.
+  and gives `device_commit_files` (the Cowork tool that writes files into the folder on the user's own computer) a path for each under the project folder.
 - `stage-cmd-gives-checksum-command` (test): When `stage` runs, it gives a
   command that checks every staged file's checksum from the project's folder
   on the device, and a prefix that starts every device command there.
@@ -740,7 +742,7 @@ Source: README.md, the opening section and "Setting up".
 
 When the user has edited on a branch of their own in one checkout of the repo,
 and runs update-prose-config from a session opened in another, they want the
-skill to find those edits and learn from them where they are, so they can edit
+skill to find those edits and learn from them where they are. That way they can edit
 wherever they edit and run the skill wherever the session opens.
 
 Run in Claude Code from the checkout that holds the edits, the skill reads
@@ -748,12 +750,12 @@ them and writes the rules there.
 
 Run in Claude Code from a worktree the desktop app made, the skill reads the
 edits in the checkout that holds them, and writes the rules in the session's
-tree. The edits stay where the user made them, and nothing is copied. The user
+tree. The edits stay where the user made them, and the skill does not copy them. The user
 then commits the edits, or discards them and has apply-prose make them again
 from the new rules.
 
 Run in Cowork, the skill reads the edits in the connected project folder on
-the device and writes the rules there. `evidence` and `reproduce` run on the
+the device (the user's own computer) and writes the rules there. `evidence` and `reproduce` run on the
 device too, and read git without writing to it, so another worktree on the
 device is read the same way.
 
@@ -762,13 +764,13 @@ edits with reading them in place, and skip the question when only one other
 checkout holds edits.
 
 - `evidence-cmd-names-other-worktrees-without-from` (test): When this tree
-  does not hold any pending edit, markup or question in scope, `--from` is not
-  given, and another worktree of the repo holds pending edits, `evidence`
+  does not hold any pending edit, markup or question in scope, `--from` is
+  omitted, and another worktree of the repo holds pending edits, `evidence`
   names each such worktree with its branch and files, and exits 1 naming
   `evidence --from` with its path.
 - `evidence-cmd-reads-other-worktree-with-from` (test): When `evidence` is
-  given `--from` with a worktree of this repo, named by its folder or by the
-  branch it has checked out, it reads that worktree's edits and markup against
+  given `--from` with a worktree of this repo (named by its folder or by the
+  branch it has checked out), it reads that worktree's edits and markup against
   its last commit, with the scope of this tree's `prose-style.md`, and names a
   pending `prose-style.md` there, which it does not read. Given this tree, it
   behaves as with no `--from`.
@@ -781,7 +783,7 @@ checkout holds edits.
   nor a branch one has checked out, the command names it, lists every
   worktree with its branch, and exits 2.
 - `updateproseconfig-reads-named-checkout` (step): When the author names a
-  checkout, by its folder or its branch, or a hand-off carries one,
+  checkout (by its folder or its branch), or a hand-off carries one,
   update-prose-config passes it to `evidence --from` and `reproduce --from`,
   and does not ask which checkout to learn from.
 - `updateproseconfig-asks-which-checkout` (step): When the author did not name
@@ -800,7 +802,7 @@ checkout holds edits.
 When the author, or a skill acting for them, hands update-prose-config a note
 on a passage, they want the note taken as a proposed rule for the passage, or,
 when the author has rewritten the passage in place, as the reason for that
-edit, so a style point noted during a review reaches prose-style.md.
+edit. That way a style point noted during a review reaches prose-style.md.
 
 Source: #316, which records the owner's rulings, and CLAUDE.md, under "A
 plugin knows only itself", for the hand-off convention.
@@ -825,7 +827,7 @@ plugin knows only itself", for the hand-off convention.
 
 When update-prose-config has written rules from notes left in a review, the
 author wants the documents checked against just those rules, with the same
-report and approval as a full pass, so the other places a noted problem turns
+report and approval as a full pass. Then the other places a noted problem turns
 up are rewritten without a pass over every rule.
 
 Source: #543, which records the searches the agent made by hand in the review

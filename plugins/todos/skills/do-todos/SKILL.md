@@ -80,12 +80,12 @@ branch to check out, and stop.
   line;
 - `similar`, the open issues GitHub's search returns for its title, each with
   its `number`, `title` and `url`;
-- under `--pr`, `comment`, the review comment's `url`, and `pending`, true
+- under `--pr`, `comment` (the review comment's `url`) and `pending`, true
   when the comment is in the author's pending review. Its `first` and `last`
   are the lines the comment covers, and its `above` is null. Read those lines
   in the file in place of `above`. `suggestion` holds the `lines` of the
   comment's suggestion block, the wording the author wants for those lines,
-  or is null when it has none.
+  or is null when the comment has no suggestion block.
 
 `data.labels` lists the labels of `data.repository`, the repository the issues
 would go to. Each warning names a line that looks like a TODO and was not read,
@@ -146,9 +146,13 @@ END
 ```
 
 Add the `--from` or `--pr` that step 1's `scan` took, when it took one. Each question
-gives `question`, its `options`, each with a `label` and optionally a
-`description`, and `todos`: the `file` and `first` of each TODO it asks
-about, as `file` and `line`. When `questions` exits 1, its errors name each
+gives:
+
+- `question`.
+- its `options`, each with a `label` and optionally a `description`.
+- `todos`, the `file` and `first` of each TODO it asks about, as `file` and `line`.
+
+When `questions` exits 1, its errors name each
 question it refused. Fix those and run it again.
 
 Publish the file at `data.page` as a private artifact with the Artifact tool,
@@ -210,8 +214,8 @@ this session lists, and a skill's description says what it is for:
   sits in markdown.
 - Everything else becomes an issue.
 
-A routed TODO takes the route `skill`, with `skill`, the skill's name as the
-Skill tool takes it, and nothing else.
+A routed TODO takes the route `skill`, with `skill` (the skill's name as the
+Skill tool takes it) and nothing else.
 
 When an open issue already covers a TODO, from its `similar` or the author's
 answer in step 2, route the TODO to `comment` on that issue rather than
@@ -249,7 +253,7 @@ END
 step 1, copied exactly. `route` is one of:
 
 - `issue`, with `title`, `body` and `labels`;
-- `comment`, with `issue`, the open issue's number, and `body`;
+- `comment`, with `issue` (the open issue's number) and `body`;
 - `skill`, with `skill`.
 
 A TODO the author wants left in place does not get a draft.
@@ -271,8 +275,8 @@ names, pass that text to `file` as `--reply-lead`:
 TODOS=.todos/todos.py && python3 "$TODOS" file --pr 527 --reply-lead "**Claude:**" --drafts /var/folders/k2/T/todo-drafts-x8q1zv.json --token 3f9a1c0e7b2d4a68 --json
 ```
 
-The reply is a mark, as `TODO-HANDLED` is in a file, so the report does not
-show it and the author does not approve it.
+The reply is a mark, as `TODO-HANDLED` is in a file, so the report leaves
+it out and the author does not approve it.
 
 **When every draft is routed to `skill`,** run `file` without `--token`, and
 skip `report` and the question. The batch does not file or post anything
@@ -298,7 +302,7 @@ holds:
 - `scan`'s warnings.
 
 It leaves out the drafts routed to `skill`. The token does not cover them, so
-a change to one does not call for a new report.
+a change to one leaves the report valid.
 
 When it exits 0, `data.token` is the approval token, and the file ends with it.
 
@@ -309,8 +313,8 @@ Publish the file at `data.report` as a private artifact with the Artifact
 tool, as markdown, with the icon `checklist`. After every later run of
 `report`, publish the same file path again, so the report keeps its address.
 The author reads the report there, and nowhere else. Never retype the report
-or a part of it into chat or a dialog, because the author then approves a
-text that `file` never sees.
+or a part of it into chat or a dialog, because the author would then approve a
+text other than the one `file` sends.
 
 Then put one `AskUserQuestion` to the author, naming the artifact's address
 and `data.token`, with these options:
@@ -321,9 +325,15 @@ and `data.token`, with these options:
 - file no draft.
 
 On "comment first", end the turn. A comment the author sends to Claude starts
-a new turn. Revise the drafts it names, run `report` again, publish the file
-again, and answer in the comment's thread with `ArtifactComments`, saying
-what changed, then resolve the thread. Ask the one question again, with the
+a new turn. In that turn:
+
+1. Revise the drafts it names.
+2. Run `report` again.
+3. Publish the file again.
+4. Answer in the comment's thread with `ArtifactComments`, saying what changed.
+5. Resolve the thread.
+
+Ask the one question again, with the
 new token, once the threads sent to Claude are answered.
 
 When the author approves a part, take the rest of the drafts routed to
@@ -341,9 +351,14 @@ TODOS=.todos/todos.py && python3 "$TODOS" file --drafts /var/folders/k2/T/todo-d
 ```
 
 Give the Bash call a timeout of at least a minute for each draft, since each
-issue or comment is one call to GitHub. `file` refuses a token when the drafts, a file
-they name, the last commit or the repository has changed since that report,
-and then files nothing. Run `report` again, publish it again and ask again.
+issue or comment is one call to GitHub. `file` refuses a token, and then files nothing, when any of these has changed since that report:
+
+- the drafts.
+- a file they name.
+- the last commit.
+- the repository.
+
+Run `report` again, publish it again and ask again.
 
 ## Step 5: report
 <!-- spec: dotodos-never-commits, dotodos-reports-before-handoffs, dotodos-names-pending-replies -->

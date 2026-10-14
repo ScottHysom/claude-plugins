@@ -165,8 +165,10 @@ Source: #536, which records the owner's two requests in the review of #527.
     which holds GitHub's form for the wording the author wants), and whether
     the lines it covers are as they were when the comment was left.
 
-  It skips a comment on a whole file, on lines the pull request removes, or
-  on a file the tree lacks, and warns with the comment's address.
+  It skips a comment, and warns with the comment's address, when the comment is on any of these:
+  - a whole file.
+  - lines the pull request removes.
+  - a file the tree lacks.
 - `scan-cmd-finds-moved-review-lines` (test): When `scan` reads a review
   comment, it finds the lines the comment covers in the tree as it stands,
   also when a later commit moved them. When a later change altered them, it
@@ -388,16 +390,18 @@ Source: #312, and prose-tuning's DESIGN.md, under "Why no skill commits".
 - `setup-cmd-ignores-its-copy` (test): When `setup` writes the copy of the
   script, a `.gitignore` of `*` beside it keeps the copy out of the project's
   commits.
-- `dotodos-never-commits` (step): When `file` has run, do-todos lists the
-  issues filed, the comments posted, each note it will hand off with the skill
-  it goes to, the files marked and the TODOs left in place, and commits
-  nothing.
+- `dotodos-never-commits` (step): When `file` has run, do-todos commits nothing, and lists these:
+  - the issues filed.
+  - the comments posted.
+  - each note it will hand off, with the skill it goes to.
+  - the files marked.
+  - the TODOs left in place.
 
 ## need user-sends-todos-to-skills: Hand a TODO to the skill made for it
 
-When a TODO asks for work an installed skill exists to do, such as a change to
+When a TODO asks for work an installed skill exists to do (such as a change to
 how a passage reads, which prose-tuning's update-prose-config learns rules
-from, the user wants Claude to hand it to that skill rather than improvise,
+from), the user wants Claude to hand it to that skill rather than improvise,
 and never to hand a change to what a document says to a prose skill, so the
 work follows that skill's rules.
 
@@ -439,7 +443,7 @@ Source: #319, which quotes the owner's first use case, and CLAUDE.md, under
 
 When the skill files an issue under the owner's account, the owner wants it
 never to carry `approved`. Otherwise an agent could approve its own work
-through a script that issue_guard.py does not see.
+through a script that issue_guard.py (the hook that blocks a Bash command adding `approved`) does not see.
 
 Source: README.md, under "Keeping `approved` meaningful", and #312, which
 records the owner's ruling.
@@ -455,9 +459,10 @@ so a project has to be tracked by git and hold a commit.
 Source: #311, where the owner approved reading only the changes since the
 last commit.
 
-- `command-requires-a-repo` (test): When a command runs outside a git
-  repository, in one without a commit yet, or where git is not installed, it
-  names the cause and exits 2.
+- `command-requires-a-repo` (test): A command names the cause and exits 2 when it runs in any of these places:
+  - outside a git repository.
+  - in a repository without a commit yet.
+  - where git is not installed.
 
 ## constraint gh-requires-login: GitHub's command-line tool must be installed and signed in
 

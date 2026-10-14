@@ -54,8 +54,8 @@ The method names these roles:
 - **The agent** is the AI model doing the work, such as Claude in Claude Code.
 - **A contributor** is anyone changing the code (including the agent).
 - **The model** is an AI model following written instructions at run time,
-  such as Claude following a skill, a file of instructions for one kind of
-  task.
+  such as Claude following a skill (a file of instructions for one kind of
+  task).
   A repository with no such instructions can skip what the method says about
   them.
 - **The user** is whoever uses what the codebase ships.
@@ -125,8 +125,8 @@ A script in CI checks each link on every pull request:
 
 "The checks", below, describes each script.
 
-Coverage is the link most easily left out, and #114 shows why it matters. No
-test ran the lint code that held `source` to its values. With no such test to
+Coverage is the link most easily left out, and #114 shows why it matters. The
+lint code that held `source` to its values was not run by any test. With no such test to
 cite a requirement for it, a trace through tests alone would have passed. The
 coverage check forces a test onto new logic, and `trace` forces that test to
 cite a requirement.
@@ -166,8 +166,8 @@ Every seam is one of these kinds:
 
 - **Judgment.** The model decides something, or relays the user's decision,
   and the next command takes the decision as input. In the car rental
-  service, `rentals quote` prints a token, a short hash of the price the
-  renter was shown, and `rentals hold` refuses to reserve a car without it.
+  service, `rentals quote` prints a token (a short hash of the price the
+  renter was shown), and `rentals hold` refuses to reserve a car without it.
   The token carries the renter's approval across the seam.
 - **Platform.** The model calls a tool that a script cannot reach, such as one
   that asks the user a question or writes to the user's computer.
@@ -293,9 +293,9 @@ and `id` parts, and fails a spec file that breaks them. How it reads them:
   the first bullet that opens like one, with an id in backticks and a kind.
 - A continuation line is indented, and follows its requirement without a blank
   line between.
-- It checks every need, constraint and requirement id against the form
+- `trace` checks every need, constraint and requirement id against the form
   under "Ids", below.
-- In claude-plugins it refuses `eval`, since the repository does not run any
+- In claude-plugins `trace` refuses `eval`, since the repository does not run any
   eval yet.
 
 The rest is convention, which the owner reviews:
@@ -343,8 +343,8 @@ Word 1 is the subject, in one word:
   workflow or a skill. A command of two words gives its last word, so
   `rentals close` gives `close`.
 - Word 1 names the actor and not a kind it belongs to. `hook` names every
-  file in `.claude/hooks/`, so a requirement about `ruff.py`, which the
-  sentence calls the ruff hook, opens with `ruffhook`.
+  file in `.claude/hooks/`, so a requirement about `ruff.py` (which the
+  sentence calls the ruff hook) opens with `ruffhook`.
 - A command's name, singular or plural, takes the marker `cmd` after it,
   so a reader can tell the command from a file or a skill of the same name:
   `sync-cmd-stays-under-limit`, `reports-cmd-lists-open-rentals`.
@@ -372,7 +372,7 @@ An id has two to six words, not counting `cmd`.
 
 The words after the verb name what the requirement covers, and no more.
 `report-cmd-refuses-insertions` names a class wider than the empty spans its
-requirement refuses. A finding whose replacement is longer than its text
+requirement refuses. A finding (in apply-prose, a rewrite the model proposes for a rule breach) whose replacement is longer than its text
 inserts too, and `apply` accepts it, so a report that names the id claims a
 refusal that the code does not make. `report-cmd-refuses-empty-spans` names
 only what the requirement refuses.
@@ -438,9 +438,11 @@ connects the two.
 Each check is a subcommand of a script that CI runs on every pull request, and
 fails the pull request when it finds a problem. `inventory`, the first below,
 is the exception: it is a report, run by hand. Build the scripts the way the
-repository builds its other checks. In claude-plugins that means
-standard-library Python, JSON output on request, and exit codes of 0 for clean,
-1 for problems found and 2 for could not run.
+repository builds its other checks. In claude-plugins that means:
+
+- standard-library Python.
+- JSON output on request.
+- exit codes of 0 for clean, 1 for problems found and 2 for could not run.
 
 - **`inventory`** lists what needs tracing in one component. It is the input to
   adopting the method in an existing codebase, and a report the owner can read.
@@ -475,8 +477,8 @@ Notes for the agent that builds them:
 
 - A check fails when it scans nothing. A file pattern that stops matching would
   otherwise pass every pull request.
-- Per-test coverage is what ties a line to a test. In Python, pytest-cov, the
-  pytest plugin for the coverage.py tool, records it with
+- Per-test coverage is what ties a line to a test. In Python, pytest-cov (the
+  pytest plugin for the coverage.py tool) records it with
   `--cov-context=test`. coverage.py's own per-test mode recognizes only test
   functions whose names start with `test`.
 - A check starts as a warning. An item it flags waits on a list keyed to the
@@ -588,9 +590,9 @@ not a source.
 6. **Ruling.** Post on the ticket every item that could not be placed, as a
    numbered list, each with its evidence and a recommended outcome. The owner
    rules on all of them in one reply. The outcomes:
-   - **Remove:** nothing calls it, and it falls outside every need.
+   - **Remove:** it is not called by anything, and it falls outside every need.
    - **Keep:** the owner states the need, in words that become its heading.
-   - **Wire up:** the need is real and nothing uses the behavior, so a ticket
+   - **Wire up:** the need is real and the behavior is not used by anything, so a ticket
      adds the step that uses it.
    - **Fix:** the need is real and the behavior is wrong.
    - **Probe:** the behavior claims a platform limit that nothing has measured.
@@ -601,7 +603,7 @@ not a source.
    skill steps that stay, and lists every pending ruling with its ticket. Every
    other ruling gets a ticket and a small pull request of its own, which changes
    the code, its tests, its docs and its instructions together.
-8. **Switch.** When the backfill's spec pull request lands, its checks become
+8. **Switch.** When the component's spec pull request lands, its checks become
    errors for everything but the items still on the list, each keyed to its
    ruling's ticket. An entry whose ticket has closed fails, so the list
    empties as the rulings land.
@@ -662,7 +664,7 @@ Spec-driven tools, where an agent writes a spec before it writes code, have
 drawn criticism the method is built to avoid:
 
 - **Volume.** Long generated specs are harder to review than the code they
-  describe. Here a behavior is one line, and nothing writes a document per
+  describe. Here a behavior is one line, and the method does not write a document per
   feature.
 - **Guessing.** Some tools tell the model to guess where a spec is unclear, and
   to record the guess as an assumption. Here a guess goes to the owner as an
