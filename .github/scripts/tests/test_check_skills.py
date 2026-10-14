@@ -559,6 +559,24 @@ class DescribeCommands:
         assert argvs == [["lint", "--file", "-"], ["config", "list"]]
 
     @pytest.mark.spec("commands-cmd-handles-fence-syntax")
+    @pytest.mark.parametrize(
+        "line",
+        [
+            'python3 "$FOO" lint > out.txt',
+            'python3 "$FOO" lint >> out.txt',
+            'python3 "$FOO" lint < in.txt',
+            'python3 "$FOO" lint --file - <<END',
+            'python3 "$FOO" lint --file - <<"END"',
+            "python3 \"$FOO\" lint --file - <<-'END'",
+        ],
+    )
+    def it_passes_any_other_redirection_to_the_parser(self, make_repo, run, line):
+        root = make_repo(uses(sh(line, "x", "END")))
+        code, _, err = run("commands", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "%s:18:" % SKILL in err
+
+    @pytest.mark.spec("commands-cmd-handles-fence-syntax")
     def it_skips_a_fence_that_is_not_shell(self, make_repo, run):
         fence = sh('python3 "$FOO" lint') + '\n```\npython3 "$FOO" nope\n```\n'
         fence += '\n```text\npython3 "$FOO" nope\n```\n'
@@ -949,6 +967,15 @@ class DescribeFences:
         root = make_repo(uses(fence))
         code, _, err = run("fences", "-C", str(root))
         assert code == cs.OK, err
+
+    @pytest.mark.spec("fences-cmd-allows-setup-commands")
+    @pytest.mark.parametrize("start", ["<<END", '<<"END"', "<<-'END'", "<< 'END'"])
+    def it_rejects_a_draft_heredoc_not_written_as_quoted_end(self, make_repo, run, start):
+        line = "cat > /var/folders/k2/T/foo-x8q1zv.md %s" % start
+        root = make_repo(uses(sh(line, "x", "END")))
+        code, _, err = run("fences", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "`cat`" in err
 
     @pytest.mark.spec("fences-cmd-allows-setup-commands")
     def it_rejects_a_draft_heredoc_sharing_its_line(self, make_repo, run):
