@@ -491,7 +491,10 @@ and for update-prose-config. A tracking issue:
   needs its own `approved` before an agent works it.
 - is never claimed or closed by a pull request.
 
-The owner closes it when its last sub-issue closes.
+An agent closes it once its last sub-issue closes. When every sub-issue of
+#N is closed, `next --tracking N` says the plan is finished, and the agent
+runs `python3 .github/scripts/issues.py plan close N`. `plan close` refuses
+while any sub-issue of #N is open.
 
 When the owner asks for a plan that splits into several issues, an agent
 files it through the file-plan skill, at
@@ -541,6 +544,8 @@ number among itself and its open sub-issues, and when that place comes first,
 then walks #N's sub-issues in the order #N lists them. It passes over each one
 that is closed, held or blocked, and offers the first one left. When that one
 is not approved, it exits 1 and names it, rather than skip ahead in the plan.
+When every sub-issue is closed, it says the plan is finished, and names the
+`plan close N` command that closes #N.
 
 The claim is the branch `issue/N` on GitHub. `claim` pushes it in a way only one
 agent can win, then adds the `in-progress` label and a comment so the claim

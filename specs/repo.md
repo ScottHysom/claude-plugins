@@ -256,6 +256,18 @@ Source: the owner's request on 2026-10-05, recorded in #350.
   `approved` takes its place in the queue, at the lowest number among itself
   and its open sub-issues, before the issue `issues.py next` would offer,
   `next` names the tracking issue and the command to follow it, and exits 0.
+- `next-cmd-reports-finished-plan` (test): When every sub-issue of #N is
+  closed, `issues.py next --tracking N` says the plan is finished, names the
+  command that closes #N, and exits 0. An open sub-issue keeps the plan
+  unfinished even when a claim holds it, and so does a tracking issue without
+  sub-issues.
+- `planclose-cmd-closes-finished-plan` (test): When `issues.py plan close N`
+  runs on an open issue labeled both `tracking` and `approved` whose
+  sub-issues are all closed, it closes #N with a comment naming them. It exits
+  1 without writing to #N when:
+  - any sub-issue of #N is open.
+  - #N lacks sub-issues.
+  - #N is closed, or lacks either label.
 
 ## need owner-approves-plan-once: Approve a plan's issues once
 
