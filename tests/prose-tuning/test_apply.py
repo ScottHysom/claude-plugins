@@ -760,6 +760,15 @@ class DescribeCodeSpans:
         ]
 
     @pytest.mark.spec("apply-cmd-keeps-code-spans")
+    def it_closes_a_code_span_within_its_paragraph(self, prose_repo):
+        """The backtick left open in the first paragraph would otherwise pair
+        with the first in the second, and turn `and` into code."""
+        self.write(prose_repo, "Open `tick.\n\nRun `x` and `y` now.\n")
+        code, envelope = prose_repo.apply([anchored(prose_repo, 3, "and", "or")])
+        assert code == prose.OK, envelope["errors"]
+        assert prose_repo.read("doc.md") == "Open `tick.\n\nRun `x` or `y` now.\n"
+
+    @pytest.mark.spec("apply-cmd-keeps-code-spans")
     def it_rewrites_a_sentence_around_a_code_span_it_keeps(self, prose_repo):
         self.write(prose_repo)
         code, envelope = prose_repo.apply(

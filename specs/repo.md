@@ -804,9 +804,10 @@ Source: #566, #567, and CLAUDE.md, under "Workflow".
   `--body-file <file>`, it checks the description in that file, in place of
   the pull request event, and fails it as it would fail the same description
   in CI.
-- `open-cmd-refuses-failing-draft` (test): When `check-pr.py open --title
-  <title> --body-file <file>` reads a description that `description` would
-  fail, it exits 1 naming each fault, and pushes and opens nothing.
+- `open-cmd-refuses-failing-draft` (test): When
+  `check-pr.py open --title <title> --body-file <file>` reads a description
+  that `description` would fail, it exits 1 naming each fault, and pushes and
+  opens nothing.
 - `open-cmd-opens-from-file` (test): When `open` reads a description that
   passes, it pushes the current branch, opens a pull request against `main`
   with that title and the file as its description, and prints its address.

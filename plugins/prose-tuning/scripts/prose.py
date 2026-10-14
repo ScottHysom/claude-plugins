@@ -1272,18 +1272,24 @@ class Blocks:
         self.headings = []
         self.comments = []
         self._classify()
+        self._close_html_blocks()
         # Finding an indented code block needs each line's list item, and
         # the inline comments need the code blocks found first.
         self._items(find_code=True)
         self._inline_comments()
         self.items = self._items()
 
-    def _classify(self):
+    def _classify(self, start=0):
+        """Classify each line from index start to the end of the file, and
+        forget the headings and comments found there before."""
         lines = [self.text.bare(i + 1) for i in range(self.text.line_count())]
         n = len(lines)
-        i = 0
+        i = start
+        self.headings = [h for h in self.headings if h[0] <= start]
+        if start < n:
+            self.comments = [c for c in self.comments if c[0] < self.text.offset(start + 1)]
 
-        if n and lines[0].strip() == "---":
+        if not start and n and lines[0].strip() == "---":
             for j in range(1, n):
                 if lines[j].strip() == "---":
                     for k in range(0, j + 1):
@@ -1369,6 +1375,30 @@ class Blocks:
 
             self.kinds[i] = "paragraph"
             i += 1
+
+    def _close_html_blocks(self):
+        """End each HTML block where the list item it opens in ends.
+
+        _html_block runs a block to its end marker or a blank line, which is
+        right outside a list. Inside one, CommonMark also ends the block at the
+        first line indented less than the item's text, such as the next item,
+        and that line and the rest of the file are classified again.
+        """
+        i = 0
+        while i < len(self.kinds):
+            if self.kinds[i] != "html-block" or (i and self.kinds[i - 1] == "html-block"):
+                i += 1
+                continue
+            item = self._items()[i]
+            column = item[1] if item else 0
+            j = i + 1
+            while j < len(self.kinds) and self.kinds[j] == "html-block":
+                raw = self.text.bare(j + 1)
+                if raw.strip() and len(raw) - len(raw.lstrip()) < column:
+                    self._classify(j)
+                    break
+                j += 1
+            i = j
 
     def _items(self, find_code=False):
         """The list item each line belongs to, as (line, content column) or None.
@@ -1519,6 +1549,10 @@ class Blocks:
 
         Without this, any document that documents this vocabulary fails its own
         markup check, and so does any project document quoting HTML.
+
+        A code span closes within its block, as CommonMark has it. A backtick
+        left open would otherwise pair with one in a later block, and every
+        span after it in the file would be read inside out.
         """
         out = []
         runs = [
@@ -1526,17 +1560,44 @@ class Blocks:
             for m in re.finditer(r"`+", self.text.s)
             if not any(a <= m.start() < b for a, b in fences)
         ]
+        block = self._inline_blocks()
         i = 0
         while i < len(runs):
             width = len(runs[i].group(0))
+            home = block[self.text.line_of(runs[i].start()) - 1]
             j = i + 1
-            while j < len(runs) and len(runs[j].group(0)) != width:
+            while (
+                j < len(runs)
+                and len(runs[j].group(0)) != width
+                and block[self.text.line_of(runs[j].start()) - 1] == home
+            ):
                 j += 1
+            if j < len(runs) and block[self.text.line_of(runs[j].start()) - 1] != home:
+                i = j
+                continue
             if j < len(runs):
                 out.append((runs[i].start(), runs[j].end()))
                 i = j + 1
             else:
                 i += 1
+        return out
+
+    def _inline_blocks(self):
+        """For each line, the number of the block whose inline text it is part of.
+
+        A paragraph line goes on with the paragraph or list item above it.
+        Every other line opens a block, except one of the same protected kind
+        as the line above, and a heading or a table row is a block of its own.
+        """
+        out, number, prev = [], 0, None
+        for kind in self.kinds:
+            if not (
+                (kind == "paragraph" and prev in SPANNING_KINDS)
+                or (kind in PROTECTED_KINDS and kind == prev)
+            ):
+                number += 1
+            out.append(number)
+            prev = kind
         return out
 
     def shielded_offsets(self):
