@@ -211,8 +211,7 @@ requirement is admitted.
   pull request that breaks either.
   A step that is judgment or a hand-off, and so does not run a command, carries
   `<!-- no-command: <reason> -->` on its own line under its heading.
-  `check-skills.py steps` fails a step with neither, and its module docstring
-  covers `KNOWN_GAPS`, the list of steps waiting on an issue for a command.
+  `check-skills.py steps` fails a step with neither.
   A command runs inside a `## Step` section, where `check-specs.py trace`
   can tie it to a requirement, or in "Locate the script". `steps` fails one
   anywhere else.

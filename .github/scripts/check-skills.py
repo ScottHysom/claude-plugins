@@ -30,8 +30,7 @@ command, in a marker under its heading:
     <!-- no-command: <reason> -->
 
 Every run lists each marked step and its reason, so a reviewer sees the list
-grow. A step waiting on an issue to give it a command is in KNOWN_GAPS instead,
-and passes with a warning naming that issue until it gains one.
+grow.
 
 `steps` also keeps the model out of the gap between two commands, unless it
 belongs there. A step that runs two commands leaves the model to do whatever
@@ -166,9 +165,8 @@ Things that look like bugs and are not, in `steps`:
   one inside a paragraph, which may reach the model as text.
 - An invocation counts only when its script accepts it. One that `commands`
   rejects leaves its step with no working command.
-- A marker on a step that also runs a command is stale and fails, as does a
-  KNOWN_GAPS entry whose step now runs one, or whose step is gone. Each has
-  done its job and should be removed.
+- A marker on a step that also runs a command is stale and fails. It has done
+  its job and should be removed.
 - Commands are counted by invocation: two lines running the script in one
   fence are two commands, and so are two fences. One seam marker covers a
   step however many commands it runs.
@@ -297,10 +295,6 @@ SEAM_LINE_RE = re.compile(r"^[ \t]*<!--[ \t]*seam:[ \t]*([^:>]*?)[ \t]*:(.*?)-->
 # What may stand between two commands of one step: the model's judgment, which
 # the next command takes as input, or a tool no script can call.
 SEAM_KINDS = ("judgment", "platform")
-# Steps with no command yet, each waiting on the issue that will give it one:
-# {(SKILL.md path, step number): issue number}. An entry goes when its step
-# gains a command; `steps` fails until it does.
-KNOWN_GAPS = {}
 # Steps that ran more than one command with no seam marker before the rule
 # came in: {(SKILL.md path, step number): issue number}. Each passes with a
 # warning until the issue sifts it. An entry goes when its step runs one
@@ -1069,7 +1063,7 @@ def cmd_steps(args, root):
             resolved.setdefault(inv["path"], []).append(inv["line"])
 
     scanned, steps, marked, seams, errors, warnings = [], [], [], [], [], []
-    gaps_seen, seams_seen = set(), set()
+    seams_seen = set()
 
     for path in sorted(p for paths in found.values() for p in paths):
         try:
@@ -1129,9 +1123,6 @@ def cmd_steps(args, root):
                 m for m in seam_marks if m["own_line"] and m["reason"] and m["kind"] in SEAM_KINDS
             ]
             seam = {"kind": valid[0]["kind"], "reason": valid[0]["reason"]} if valid else None
-            gap = KNOWN_GAPS.get((path, s["number"]))
-            if gap is not None:
-                gaps_seen.add((path, s["number"]))
             seam_gap = KNOWN_SEAMS.get((path, s["number"]))
             if seam_gap is not None:
                 seams_seen.add((path, s["number"]))
@@ -1171,25 +1162,12 @@ def cmd_steps(args, root):
                     "%s runs a command and also carries a no-command marker. The "
                     "marker is stale; remove it." % where
                 )
-            if count and gap is not None:
-                errors.append(
-                    "%s now runs a command. Remove its KNOWN_GAPS entry, which "
-                    "points to #%d." % (where, gap)
-                )
-            if own and gap is not None and not count:
-                errors.append(
-                    "%s carries a no-command marker and a KNOWN_GAPS entry for #%d. "
-                    "Keep the one that is true." % (where, gap)
-                )
             if not count and not own:
-                if gap is not None:
-                    warnings.append("%s runs no command yet; #%d will give it one." % (where, gap))
-                else:
-                    errors.append(
-                        "%s names no command. Add the command it runs, or `%s` "
-                        "under its heading if the step is judgment or a hand-off."
-                        % (where, MARKER_FORM)
-                    )
+                errors.append(
+                    "%s names no command. Add the command it runs, or `%s` "
+                    "under its heading if the step is judgment or a hand-off."
+                    % (where, MARKER_FORM)
+                )
 
             steps.append(
                 {
@@ -1198,7 +1176,6 @@ def cmd_steps(args, root):
                     "heading": s["heading"],
                     "invocations": count,
                     "reason": reason,
-                    "gap": gap,
                     "seam": seam,
                     "seam_gap": seam_gap,
                 }
@@ -1220,12 +1197,6 @@ def cmd_steps(args, root):
                     }
                 )
 
-    for (path, number), issue in sorted(KNOWN_GAPS.items()):
-        if (path, number) not in gaps_seen:
-            errors.append(
-                "KNOWN_GAPS lists step %d of %s for #%d, and there is no such step. "
-                "Remove the entry, or move it to the step's new place." % (number, path, issue)
-            )
     for (path, number), issue in sorted(KNOWN_SEAMS.items()):
         if (path, number) not in seams_seen:
             errors.append(
@@ -1260,14 +1231,13 @@ def cmd_steps(args, root):
         if not errors:
             print(
                 "%d step(s) in %d %s file(s): %d run a command, %d marked no-command, "
-                "%d known gap(s), %d marked seam(s), %d known seam(s)."
+                "%d marked seam(s), %d known seam(s)."
                 % (
                     len(steps),
                     len(scanned),
                     SKILL_FILE,
                     sum(1 for s in steps if s["invocations"]),
                     len(marked),
-                    sum(1 for s in steps if s["gap"] is not None and not s["invocations"]),
                     sum(1 for m in seams if m["kind"]),
                     sum(1 for m in seams if not m["kind"] and m["gap"] is not None),
                 )

@@ -1129,13 +1129,11 @@ NEW_CONSTRAINT = (
 )
 
 
-def approved_issue(body="", edited=None, labeled=(APPROVED_AT,)):
+def approved_issue(body="", edited=None, labeled=(APPROVED_AT,), name="approved"):
     return {
         "body": body,
         "lastEditedAt": edited,
-        "timelineItems": {
-            "nodes": [{"createdAt": at, "label": {"name": "approved"}} for at in labeled]
-        },
+        "timelineItems": {"nodes": [{"createdAt": at, "label": {"name": name}} for at in labeled]},
     }
 
 
@@ -1301,6 +1299,14 @@ class DescribeChanges:
         )
         code, _, err = check_changes(run, root, environ, FakeGitHub({7: issue}))
         assert code == cp.OK, err
+
+    @pytest.mark.spec("changes-cmd-ignores-label-case")
+    def it_reads_the_approved_label_in_any_case(self, pull_request, run):
+        root, environ = pull_request(body="Closes #7")
+        issue = approved_issue(edited="2026-09-02T10:00:00Z", name="Approved")
+        code, _, err = check_changes(run, root, environ, FakeGitHub({7: issue}))
+        assert code == cp.PROBLEMS
+        assert "#7 was edited at 2026-09-02T10:00:00Z, after `approved` was added" in err
 
     @pytest.mark.spec("changes-cmd-fails-post-approval-edits")
     def it_leaves_an_unapproved_issue_to_the_linked_issue_check(self, pull_request, run):

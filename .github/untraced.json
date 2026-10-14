@@ -1,16 +1,12 @@
 {
   "steps": {},
   "tests": {
-    ".github/scripts/tests/test_check_linked_issues.py::DescribeTheApprovedLabelRule::it_compares_label_names_without_case": 227,
     ".github/scripts/tests/test_check_manifest_consistency.py::DescribeCheck::it_rejects_a_name_that_is_not_kebab_case": 247,
     ".github/scripts/tests/test_check_manifest_consistency.py::DescribeCheck::it_rejects_a_source_that_is_not_a_directory": 247,
     ".github/scripts/tests/test_check_manifest_consistency.py::DescribeCheck::it_reports_an_entry_with_no_name": 247,
     ".github/scripts/tests/test_check_manifest_consistency.py::DescribeJson::it_lists_the_consistent_plugins_in_data": 246,
     ".github/scripts/tests/test_check_skills.py::DescribeSteps::it_lists_each_marked_step": 238,
     ".github/scripts/tests/test_check_skills.py::DescribeSteps::it_lists_each_step_that_runs_more_than_one_command": 238,
-    ".github/scripts/tests/test_check_skills.py::DescribeSteps::it_rejects_a_known_gap_that_has_a_command": 229,
-    ".github/scripts/tests/test_check_skills.py::DescribeSteps::it_rejects_a_known_gap_with_no_step": 229,
-    ".github/scripts/tests/test_check_skills.py::DescribeSteps::it_warns_for_a_known_gap": 229,
     ".github/scripts/tests/test_check_tests.py::DescribePlacement::it_warns_when_a_plugin_script_has_no_suite": 239
   },
   "surface": {

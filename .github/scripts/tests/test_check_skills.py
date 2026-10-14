@@ -25,9 +25,9 @@ entry that holds anywhere is a hole.
 why, and a step running two commands leaves the work between them to the
 model unless it names the seam. The tests build a skill whose steps run a
 command, two commands, carry a marker or do neither. They check each rule the
-markers, KNOWN_GAPS and KNOWN_SEAMS follow, and that the check fails when it
-finds no step. KNOWN_GAPS and KNOWN_SEAMS are emptied for every test, since a
-throwaway repo holds none of the real steps they list.
+markers and KNOWN_SEAMS follow, and that the check fails when it finds no
+step. KNOWN_SEAMS is emptied for every test, since a throwaway repo holds none
+of the real steps it lists.
 """
 
 import importlib.util
@@ -82,14 +82,12 @@ def isolated_git(monkeypatch):
     monkeypatch.setenv("GIT_CONFIG_NOSYSTEM", "1")
 
 
-REAL_GAPS = dict(cs.KNOWN_GAPS)
 REAL_SEAMS = dict(getattr(cs, "KNOWN_SEAMS", {}))
 
 
 @pytest.fixture(autouse=True)
-def no_known_gaps(monkeypatch):
-    """A throwaway repo has none of the real skills, so none of their gaps or seams."""
-    monkeypatch.setattr(cs, "KNOWN_GAPS", {})
+def no_known_seams(monkeypatch):
+    """A throwaway repo has none of the real skills, so none of their seams."""
     monkeypatch.setattr(cs, "KNOWN_SEAMS", {}, raising=False)
 
 
@@ -769,27 +767,6 @@ class DescribeSteps:
         code, _, err = run("steps", "-C", str(root))
         assert code == cs.OK, err
 
-    def it_warns_for_a_known_gap(self, make_repo, run, monkeypatch):
-        monkeypatch.setattr(cs, "KNOWN_GAPS", {(SKILL, 2): 123})
-        root = make_repo(steps(RUNS, "Do it by hand for now.\n"))
-        code, _, err = run("steps", "-C", str(root))
-        assert code == cs.OK, err
-        assert 'warning: %s:21: "Step 2: s2" runs no command yet; #123' % SKILL in err
-
-    def it_rejects_a_known_gap_that_has_a_command(self, make_repo, run, monkeypatch):
-        monkeypatch.setattr(cs, "KNOWN_GAPS", {(SKILL, 1): 123})
-        root = make_repo(steps(RUNS))
-        code, _, err = run("steps", "-C", str(root))
-        assert code == cs.PROBLEMS
-        assert "Remove its KNOWN_GAPS entry, which points to #123" in err
-
-    def it_rejects_a_known_gap_with_no_step(self, make_repo, run, monkeypatch):
-        monkeypatch.setattr(cs, "KNOWN_GAPS", {(SKILL, 7): 123})
-        root = make_repo(steps(RUNS))
-        code, _, err = run("steps", "-C", str(root))
-        assert code == cs.PROBLEMS
-        assert "there is no such step" in err
-
     @pytest.mark.spec("steps-cmd-scans-something")
     def it_fails_when_it_finds_no_step(self, make_repo, run):
         root = make_repo({SKILL: skill("foo", FOO_LOCATE + "## Usage\n\nRun it.\n")})
@@ -899,7 +876,6 @@ class DescribeSteps:
 
     @pytest.mark.spec("steps-cmd-warns-on-known-seams")
     def it_accepts_the_repo_as_it_stands(self, run, monkeypatch):
-        monkeypatch.setattr(cs, "KNOWN_GAPS", REAL_GAPS)
         monkeypatch.setattr(cs, "KNOWN_SEAMS", REAL_SEAMS, raising=False)
         code, out, err = run("steps", "--json", "-C", str(REPO_ROOT))
         assert code == cs.OK, err

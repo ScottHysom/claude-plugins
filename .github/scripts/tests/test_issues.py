@@ -117,13 +117,14 @@ class FakeGitHub:
         if verb == "view":
             return json.dumps(self.issues[int(args[2])])
         if verb == "list":
-            label = args[args.index("--label") + 1]
+            # gh filters by label without case, as GitHub reads label names.
+            label = args[args.index("--label") + 1].lower()
             state = args[args.index("--state") + 1].upper()
             return json.dumps(
                 [
                     i
                     for _, i in sorted(self.issues.items())
-                    if state in ("ALL", i["state"]) and label in names(i)
+                    if state in ("ALL", i["state"]) and label in [n.lower() for n in names(i)]
                 ]
             )
         return ""
@@ -244,6 +245,13 @@ class DescribeClaim:
         assert message in out.err
         assert remote_branches(remote) == {cli.BASE}
         assert gh.writes() == []
+
+    @pytest.mark.spec("claim-cmd-ignores-label-case")
+    def it_claims_an_issue_whose_label_differs_only_in_case(self, capsys, remote, clone, github):
+        github(make_issue(12, "Approved"))
+        code, out = run(capsys, clone("a"), "claim", "12")
+        assert code == cli.OK, out.err
+        assert "issue/12" in remote_branches(remote)
 
     @pytest.mark.spec("command-never-writes-in-preview")
     def it_changes_nothing_on_a_dry_run(self, capsys, remote, clone, github):

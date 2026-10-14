@@ -34,7 +34,6 @@ LINKED = [
     ("Fixes #12 and closes #13", [12, 13]),
     ("Fixes #12. Also fixes #12.", [12]),
     ("Closes ScottHysom/claude-plugins#12", [12]),
-    ("Closes scotthysom/Claude-Plugins#12", [12]),
     ("Line one\n\nFixes #7\n", [7]),
 ]
 
@@ -58,6 +57,10 @@ class DescribeLinkedIssues:
     @pytest.mark.spec("checklinkedissues-cmd-reads-closing-keywords")
     def it_links_an_issue_named_by_a_closing_keyword(self, text, numbers):
         assert cli.linked_issues(text, REPO) == (numbers, [])
+
+    @pytest.mark.spec("checklinkedissues-cmd-ignores-name-case")
+    def it_reads_this_repository_named_in_another_case_as_its_own(self):
+        assert cli.linked_issues("Closes scotthysom/Claude-Plugins#12", REPO) == ([12], [])
 
     @pytest.mark.parametrize("text", NOT_LINKED)
     @pytest.mark.spec("checklinkedissues-cmd-reads-closing-keywords")
@@ -143,6 +146,7 @@ class DescribeTheApprovedLabelRule:
         assert "#12 is not labeled approved" in found[0]
         assert "re-run this job" in found[0]
 
+    @pytest.mark.spec("checklinkedissues-cmd-ignores-name-case")
     def it_compares_label_names_without_case(self):
         gh = FakeGitHub(issues={12: issue("Approved")})
         assert cli.problems(event(body="Fixes #12"), REPO, "tok", gh)[1] == []
