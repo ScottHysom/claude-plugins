@@ -96,6 +96,15 @@ class DescribeCodeAndHtmlBlocks:
         assert kinds("Para.\n<div>\n") == ["paragraph", "html-block"]
 
     @pytest.mark.spec("segments-cmd-skips-protected-blocks")
+    def it_ends_an_html_block_where_its_list_item_ends(self):
+        src = "- Run `open --title\n  <title> --body` now.\n  raw\n- Next.\n  more\n"
+        assert kinds(src) == ["list-item", "html-block", "html-block", "list-item", "paragraph"]
+
+    @pytest.mark.spec("segments-cmd-skips-protected-blocks")
+    def it_runs_an_html_block_outside_a_list_to_the_blank_line(self):
+        assert kinds("Para.\n<div>\n- not an item\n") == ["paragraph"] + ["html-block"] * 2
+
+    @pytest.mark.spec("segments-cmd-skips-protected-blocks")
     def it_does_not_take_a_tag_and_more_for_a_lone_tag(self):
         assert kinds("<span>text</span>\n") == ["paragraph"]
 
