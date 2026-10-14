@@ -76,6 +76,7 @@ class DescribeReport:
                 "rule": wrapped(prose_repo)["rule"],
                 "current": WRAPPED,
                 "proposed": "A reader can state what is inside the file.",
+                "same_rewrite": [1],
             }
         ]
         assert envelope["data"]["overlaps"] == []

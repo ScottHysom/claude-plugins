@@ -4321,8 +4321,11 @@ def locate(text, line, f, label):
 class FindingLabel:
     """Which findings an edit carries out, for a message that names them.
 
-    An edit is one finding's, except the removal of a run of cut lines, which
-    carries out every finding in the run.
+    An edit is one finding's, except where it carries out several:
+
+    - the removal of a run of cut lines, which carries out every finding in
+      the run.
+    - one rewrite that several findings make of the same text.
     """
 
     def __init__(self, refs):
@@ -4358,15 +4361,17 @@ class Staged:
     that passed its checks, `applied` and `rejected` what plan_findings
     returns, and `engine` the edits, labeled with the findings they carry out.
     `dismissed` holds the same four for each dismissal that passed, which
-    makes no edit.
+    makes no edit. `same` maps each finding that shares its edit with another
+    making the same rewrite to the numbers of all of them, in order.
     """
 
-    def __init__(self, engine, accepted, applied, rejected, dismissed):
+    def __init__(self, engine, accepted, applied, rejected, dismissed, same):
         self.engine = engine
         self.accepted = accepted
         self.applied = applied
         self.rejected = rejected
         self.dismissed = dismissed
+        self.same = same
 
 
 def stage_findings(text, blocks, rel, findings, numbers=None):
@@ -4402,6 +4407,11 @@ def stage_findings(text, blocks, rel, findings, numbers=None):
     quotes code, which a prose rule has nothing to say about.
 
     A dismissal passes the same checks on where it is, and then makes no edit.
+
+    Findings that replace the same text with the same rewrite are one edit,
+    labeled with each of them, as when one rewrite fixes two rules. As two
+    edits they would start at the same offset, which EditEngine refuses, and
+    either order would write the rewrite twice.
     """
     engine = EditEngine(text)
     code_spans = blocks.code_span_offsets(blocks.protected_offsets())
@@ -4505,19 +4515,29 @@ def stage_findings(text, blocks, rel, findings, numbers=None):
             continue
         touched = set(range(line, (text.line_of(b - 1) if b > a else line) + 1))
         ref = {"finding": n, "file": rel, "line": line, "rule": f["rule"]}
-        accepted.append((a, b, new, touched, ref))
+        twin = next((x for x in accepted if x[:3] == (a, b, new)), None)
+        if twin:
+            twin[4].append(ref)
+        else:
+            accepted.append((a, b, new, touched, [ref]))
         placed.append((n, f, a, b))
         applied.append({"file": rel, "line": line, "rule": f["rule"]})
 
     cut = cut_lines(text, accepted)
-    for a, b, new, touched, ref in accepted:
+    for a, b, new, touched, refs in accepted:
         if not touched <= cut:
-            engine.replace(a, b, new, FindingLabel([ref]))
+            engine.replace(a, b, new, FindingLabel(refs))
     marked = set().union(*(x[3] for x in accepted))
     for start, end in cut_runs(text, blocks, cut, marked):
-        inside = [x[4] for x in accepted if x[3] <= cut and start <= x[0] and x[1] <= end]
+        inside = [
+            r for x in accepted if x[3] <= cut and start <= x[0] and x[1] <= end for r in x[4]
+        ]
         engine.replace(start, end, "", FindingLabel(inside) if inside else None)
-    return Staged(engine, placed, applied, rejected, dismissed)
+    same = {}
+    for x in accepted:
+        if len(x[4]) > 1:
+            same.update((r["finding"], [q["finding"] for q in x[4]]) for r in x[4])
+    return Staged(engine, placed, applied, rejected, dismissed, same)
 
 
 def dropped_code_span(s, new, covered):
@@ -5082,6 +5102,32 @@ def rewrites_note(dismissal):
     )
 
 
+def and_list(items):
+    """Items joined as a sentence lists them: "a", "a and b", "a, b and c"."""
+    items = list(items)
+    return items[0] if len(items) == 1 else "%s and %s" % (", ".join(items[:-1]), items[-1])
+
+
+def finding_numbers(group):
+    """A heading's numbers: "finding 3", or "findings 3 and 5" for two
+    findings that make one rewrite.
+    """
+    return ("finding " if len(group) == 1 else "findings ") + and_list(str(n) for n in group)
+
+
+def group_rules(group, rules, own):
+    """The rules of the findings in `group`, each once, in the findings' order.
+
+    `own` stands for a finding that `rules` does not hold, a dismissal's.
+    """
+    out = []
+    for n in group:
+        rule = rules.get(n, own)
+        if rule not in out:
+            out.append(rule)
+    return out
+
+
 def report_markdown(data, rejected):
     """The report as markdown: what the author reads whole, and approves.
 
@@ -5094,9 +5140,18 @@ def report_markdown(data, rejected):
         out += ["- %s" % e for e in rejected]
     rules = dict((r["finding"], r["rule"]) for r in data["findings"])
     for r in data["findings"] + data["dismissed"]:
+        group = r.get("same_rewrite", [r["finding"]])
+        if r["finding"] != group[0]:
+            continue
         out += [
             "",
-            "## Finding %d: `%s:%d`, `%s`" % (r["finding"], r["file"], r["line"], r["rule"]),
+            "## %s: `%s:%d`, %s"
+            % (
+                finding_numbers(group).capitalize(),
+                r["file"],
+                r["line"],
+                and_list("`%s`" % x for x in group_rules(group, rules, r["rule"])),
+            ),
         ]
         out += ["", "Current:", "", fenced(report_text(r["current"]))]
         if "reason" in r:
@@ -5106,7 +5161,7 @@ def report_markdown(data, rejected):
             continue
         out += ["", "Proposed:", "", fenced(report_text(r["proposed"]))]
         for d in data["dismissed"]:
-            if r["finding"] in d["rewritten_by"]:
+            if set(group) & set(d["rewritten_by"]):
                 out += ["", rewrites_note(d)]
     rows = data["findings"]
     out += ["", "%d finding(s) in %d file(s)." % (len(rows), len(set(r["file"] for r in rows)))]
@@ -5188,6 +5243,7 @@ def cmd_report(args):
                     "rule": f["rule"],
                     "current": text.s[a:b],
                     "proposed": f.get("replacement", ""),
+                    "same_rewrite": staged.same.get(n, [n]),
                 }
             )
         for x, y in staged.engine.conflicts():
@@ -5246,11 +5302,22 @@ def cmd_report(args):
 
     def human():
         for r in rows:
-            print("%s:%d  %s  (finding %d)" % (r["file"], r["line"], r["rule"], r["finding"]))
+            group = r["same_rewrite"]
+            if r["finding"] != group[0]:
+                continue
+            print(
+                "%s:%d  %s  (%s)"
+                % (
+                    r["file"],
+                    r["line"],
+                    and_list(group_rules(group, rules_of, r["rule"])),
+                    finding_numbers(group),
+                )
+            )
             print(report_field("current", report_text(r["current"])))
             print(report_field("proposed", report_text(r["proposed"])))
             for d in dismissed:
-                if r["finding"] in d["rewritten_by"]:
+                if set(group) & set(d["rewritten_by"]):
                     print(report_field("", rewrites_note(d)))
             print()
         for r in dismissed:

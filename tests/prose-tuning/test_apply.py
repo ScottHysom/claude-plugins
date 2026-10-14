@@ -842,6 +842,8 @@ class DescribeDryRun:
         assert prose_repo.read() == before
 
 
+# The rule every finding cites unless it names another.
+RULE_ID = "sentences-own-subject"
 # A second rule beside RULE_ID, so a filter by rule has something to leave out.
 OTHER_RULE = "sentences-plain-verbs"
 OTHER_RULE_TEXT = """
@@ -974,3 +976,89 @@ class DescribeFilters:
         )
         assert code == prose.PROBLEMS
         assert errors_of(envelope) == ["--only and --file together match no finding"]
+
+
+class DescribeSameRewrites:
+    """One rewrite can fix two rules, and the model then writes a finding for
+    each, with the same text and the same replacement. Two edits starting at
+    one offset are an overlap, so report used to ask the author to choose
+    between two identical sides, and either choice left the file the same.
+    """
+
+    @pytest.fixture
+    def pair(self, prose_repo, target_lines):
+        style = prose_repo.root / prose.CONFIG_PATH
+        style.write_text(style.read_text() + OTHER_RULE_TEXT)
+        return [
+            prose_repo.finding(
+                target_lines["last-paragraph"],
+                rule=rule,
+                text="Final paragraph.",
+                replacement="The closing paragraph.",
+            )
+            for rule in (RULE_ID, OTHER_RULE)
+        ]
+
+    @pytest.mark.spec("report-cmd-merges-same-rewrites", "report-cmd-names-overlaps")
+    def it_reports_the_pair_as_one_change_and_no_overlap(self, prose_repo, pair):
+        code, envelope = prose_repo.report(pair)
+        assert code == prose.OK, envelope["errors"]
+        assert envelope["data"]["overlaps"] == []
+        assert [r["same_rewrite"] for r in envelope["data"]["findings"]] == [[1, 2], [1, 2]]
+
+    @pytest.mark.spec("report-cmd-merges-same-rewrites")
+    def it_names_every_finding_and_rule_in_one_heading(self, prose_repo, pair, target_lines):
+        _code, envelope = prose_repo.report(pair)
+        with open(envelope["data"]["report"], encoding="utf-8") as fh:
+            page = fh.read()
+        heading = "## Findings 1 and 2: `target.md:%d`, `%s` and `%s`" % (
+            target_lines["last-paragraph"],
+            RULE_ID,
+            OTHER_RULE,
+        )
+        assert heading in page
+        assert page.count("Final paragraph.") == 1
+
+    @pytest.mark.spec("report-cmd-merges-same-rewrites")
+    def it_prints_the_pair_once_on_stdout(self, prose_repo, pair, target_lines, capsys):
+        path = prose_repo.findings_file(pair)
+        capsys.readouterr()
+        code = prose.main(["report", "--findings", path, "-C", str(prose_repo.root)])
+        out, err = capsys.readouterr()
+        assert code == prose.OK, err
+        assert (
+            "target.md:%d  %s and %s  (findings 1 and 2)\n"
+            % (
+                target_lines["last-paragraph"],
+                RULE_ID,
+                OTHER_RULE,
+            )
+            in out
+        )
+        assert out.count("The closing paragraph.") == 1
+
+    @pytest.mark.spec("report-cmd-merges-same-rewrites")
+    @pytest.mark.parametrize(
+        "flags",
+        [
+            pytest.param((), id="every-finding"),
+            pytest.param(("--only", RULE_ID), id="first-rule"),
+            pytest.param(("--only", OTHER_RULE), id="second-rule"),
+            pytest.param(("--file", "target.md"), id="file"),
+        ],
+    )
+    def it_writes_the_rewrite_once_whichever_side_is_selected(self, prose_repo, pair, flags):
+        before = prose_repo.read()
+        code, envelope = prose_repo.apply(pair, *flags)
+        assert code == prose.OK, envelope["errors"]
+        assert prose_repo.read() == before.replace("Final paragraph.", "The closing paragraph.")
+
+    @pytest.mark.spec("report-cmd-names-overlaps")
+    def it_still_refuses_a_pair_whose_rewrites_differ(self, prose_repo, pair):
+        pair[1]["replacement"] = "The last paragraph."
+        before = prose_repo.read()
+        code, envelope = prose_repo.apply(pair)
+        assert code == prose.PROBLEMS
+        assert len(errors_of(envelope)) == 1
+        assert "overlaps" in errors_of(envelope)[0]
+        assert prose_repo.read() == before
