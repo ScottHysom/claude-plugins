@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Choose, claim, release and clear issues, so two agents never work on the same one.
 
-It also sweeps away the local branches that finished work leaves behind, and
-files a plan's issues under a tracking issue once the owner approves the plan.
+It also sweeps away the local branches that finished work leaves behind,
+files a plan's issues under a tracking issue once the owner approves the plan,
+and closes the tracking issue once every one of them has closed.
 
 README.md, under "Issues", describes the process; this is the part of it that
 keeps two agents off the same approved issue. The lock is a branch named
@@ -29,12 +30,14 @@ Run from anywhere in a clone, with git and an authenticated gh on PATH:
     python3 .github/scripts/issues.py plan draft
     python3 .github/scripts/issues.py plan report --drafts plan.json
     python3 .github/scripts/issues.py plan file --drafts plan.json --token 3f9a1c0e7b2d4a68
+    python3 .github/scripts/issues.py plan close 347
 
 Commands:
     next        the oldest open approved issue nobody holds and no open issue
                 blocks, or an approved tracking issue that comes first.
                 With --tracking N, the next issue in tracking issue N's
-                order instead. Changes nothing.
+                order instead, or that N's plan is finished when every
+                sub-issue is closed. Changes nothing.
     claim N     take issue N: push issue/N, switch to it, label and comment.
     release N   give issue N up: delete issue/N if it holds no work, remove the
                 label, comment.
@@ -54,14 +57,17 @@ Commands:
     plan file   file the plan that report showed: its issues, their "blocked
                 by" links, the tracking issue and its sub-issues, then read
                 them back.
+    plan close N
+                close approved tracking issue N, with a comment naming its
+                sub-issues, once every one of them is closed.
 
 Every command takes --json and -C/--repo; claim, release, clear, sweep and
 plan file take --dry-run.
 
 Exit codes: 0 clean, 1 ran and found problems (the issue is held or not
 approved, or still open, the branch holds work, a label and a branch
-disagree, a plan is
-refused or not filed as it says), 2 could not run.
+disagree, a plan is refused or not filed as it says, a tracking issue has
+open sub-issues), 2 could not run.
 
 Plans. The file-plan skill, at .claude/skills/file-plan/SKILL.md, drives the
 plan commands. `plan report --help` shows the shape of the plan file. The
@@ -114,6 +120,10 @@ Things that look like bugs and are not:
 - `next` never offers a sub-issue of an approved tracking issue, even the
   lowest-numbered free one. The plan's issues are taken in the plan's order,
   through `next --tracking N`, so `next` names the plan in their place.
+- `next --tracking N` exits 0 when every sub-issue is closed, and says the
+  plan is finished. A finished plan is not a problem; `plan close N` closes
+  it. A tracking issue without sub-issues is not finished, since an empty
+  plan is a mistake for the owner to fix, and `plan close` refuses it.
 - `next --tracking N` exits 1 on an unapproved sub-issue instead of skipping
   to a later approved one. Skipping would work the plan out of its order.
 - `claim` exits 0 when the push succeeded but labeling or commenting failed.
@@ -397,13 +407,18 @@ def summary(item):
     return {"number": item["number"], "title": item["title"]}
 
 
-def next_data(found, blocked, plan):
+def next_data(found, blocked, plan, finished=False):
     """next's data: the issues it names, without the titles its plain output prints."""
 
     def bare(entry):
         return None if entry is None else {k: v for k, v in entry.items() if k != "title"}
 
-    return {"issue": bare(found), "blocked": [bare(b) for b in blocked], "tracking": bare(plan)}
+    return {
+        "issue": bare(found),
+        "blocked": [bare(b) for b in blocked],
+        "tracking": bare(plan),
+        "finished": finished,
+    }
 
 
 # --------------------------------------------------------------------------
@@ -485,7 +500,9 @@ def next_in_plan(args, repo, number):
         return emit(args, "next", next_data(found, blocked, plan), problems)
 
     held = claims(repo)
-    for sub in sub_issues(repo, number):
+    subs = sub_issues(repo, number)
+    finished = bool(subs) and not any(is_open(s) for s in subs)
+    for sub in subs:
         n = sub["number"]
         if not is_open(sub) or n in held:
             continue
@@ -509,13 +526,16 @@ def next_in_plan(args, repo, number):
     def human():
         if found:
             print("#%d %s" % (found["number"], found["title"]))
+        elif finished:
+            print("Every sub-issue of #%d is closed, so its plan is finished." % number)
+            print("To close #%d, run: %s plan close %d" % (number, PROG, number))
         elif blocked:
             print("Every free sub-issue of #%d is blocked by an open issue:" % number)
             print_blocked(blocked)
         else:
             print("No sub-issue of #%d is free." % number)
 
-    return emit(args, "next", next_data(found, blocked, plan), human=human)
+    return emit(args, "next", next_data(found, blocked, plan, finished), human=human)
 
 
 def print_blocked(blocked):
@@ -1657,6 +1677,50 @@ def cmd_plan_file(args, repo):
     return emit(args, "plan file", data, errors, warnings, human=human)
 
 
+def cmd_plan_close(args, repo):
+    n = args.number
+    item = issue(repo, n)
+    data = {"number": n, "sub_issues": [], "closed": False}
+    problems = []
+    if not is_open(item):
+        problems.append("#%d is closed already" % n)
+    if TRACKING not in labels(item):
+        problems.append("#%d is not labeled %s; plan close closes only a plan" % (n, TRACKING))
+    if APPROVED not in labels(item):
+        problems.append(
+            "#%d is not labeled %s; ask the owner to approve the plan or close it" % (n, APPROVED)
+        )
+    if problems:
+        return emit(args, "plan close", data, problems)
+
+    subs = sub_issues(repo, n)
+    data["sub_issues"] = [s["number"] for s in subs]
+    still_open = [s for s in subs if is_open(s)]
+    if not subs:
+        return emit(
+            args, "plan close", data, ["#%d has no sub-issues; ask the owner what it tracks" % n]
+        )
+    if still_open:
+        return emit(
+            args,
+            "plan close",
+            data,
+            [
+                "#%d still has open sub-issues: %s. Run %s next --tracking %d for the next one"
+                % (n, numbered([s["number"] for s in still_open]), PROG, n)
+            ],
+        )
+
+    comment = "Every sub-issue is closed: %s." % numbered(data["sub_issues"])
+    gh(repo, "issue", "close", str(n), "--reason", "completed", "--comment", comment)
+    data["closed"] = True
+
+    def human():
+        print("Closed #%d. %s" % (n, comment))
+
+    return emit(args, "plan close", data, human=human)
+
+
 def build_parser():
     common = argparse.ArgumentParser(add_help=False)
     common.add_argument("--json", action="store_true", help="machine-readable envelope on stdout")
@@ -1695,7 +1759,9 @@ def build_parser():
     p.add_argument("--dry-run", action="store_true")
     p.set_defaults(func=cmd_sweep)
 
-    p = sub.add_parser("plan", help="file a plan's issues under a tracking issue")
+    p = sub.add_parser(
+        "plan", help="file a plan's issues under a tracking issue, and close it when finished"
+    )
     plans = p.add_subparsers(dest="plan_command", required=True)
     drafts = argparse.ArgumentParser(add_help=False)
     drafts.add_argument("--drafts", required=True, metavar="FILE", help="the plan, as JSON")
@@ -1726,6 +1792,14 @@ def build_parser():
     p.add_argument("--token", required=True, help="the approval token plan report printed")
     p.add_argument("--dry-run", action="store_true")
     p.set_defaults(func=cmd_plan_file)
+
+    p = plans.add_parser(
+        "close",
+        parents=[common],
+        help="close an approved tracking issue once every sub-issue is closed",
+    )
+    p.add_argument("number", type=int)
+    p.set_defaults(func=cmd_plan_close)
 
     return ap
 

@@ -112,6 +112,10 @@ back them. What agents do:
   instead of an issue to work, ask the owner whether to start on that plan,
   and on a yes do the same. If `next --tracking N` exits 1, relay its message
   and do not pick another sub-issue yourself.
+- **Close a finished plan.** When `next --tracking N` says every sub-issue
+  of #N is closed, run `python3 .github/scripts/issues.py plan close N`, and
+  tell the owner #N is closed. Close a tracking issue only this way, never
+  with `gh issue close`.
 - **Clear the claim once its pull request merges.** When the owner says a
   pull request from `issue/N` has merged, run
   `python3 .github/scripts/issues.py clear N` from the main checkout. If it

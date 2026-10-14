@@ -130,7 +130,7 @@ class FakeGitHub:
         return ""
 
     def writes(self):
-        return [c for c in self.calls if c[1] in ("edit", "comment")]
+        return [c for c in self.calls if c[1] in ("edit", "comment", "close")]
 
 
 def names(item):
@@ -485,16 +485,118 @@ class DescribeNextTracking:
             "#12 issue 12, blocked by #11\n"
         )
 
-    @pytest.mark.spec("next-cmd-follows-tracking-issue")
-    def it_is_not_a_problem_when_the_plan_has_nothing_left(self, capsys, clone, github):
+    @pytest.mark.spec("next-cmd-reports-finished-plan")
+    def it_says_the_plan_is_finished_when_every_sub_issue_is_closed(self, capsys, clone, github):
         github(
             make_issue(20, "approved", "tracking"),
             make_issue(11, "approved", state="CLOSED"),
-            subs={20: [11]},
+            make_issue(12, "approved", state="CLOSED"),
+            subs={20: [11, 12]},
         )
         code, out = run(capsys, clone("a"), "next", "--tracking", "20")
         assert code == cli.OK
+        assert out.out == (
+            "Every sub-issue of #20 is closed, so its plan is finished.\n"
+            "To close #20, run: issues.py plan close 20\n"
+        )
+        code, data = run_json(capsys, clone("b"), "next", "--tracking", "20")
+        assert data["data"]["finished"] is True
+        assert data["data"]["issue"] is None
+
+    @pytest.mark.spec("next-cmd-reports-finished-plan")
+    def it_does_not_call_a_plan_finished_while_a_held_sub_issue_is_open(
+        self, capsys, remote, clone, github
+    ):
+        a = clone("a")
+        github(make_issue(12, "approved"))
+        run(capsys, a, "claim", "12")
+        github(
+            make_issue(20, "approved", "tracking"),
+            make_issue(11, "approved", state="CLOSED"),
+            make_issue(12, "approved", "in-progress"),
+            subs={20: [11, 12]},
+        )
+        code, out = run(capsys, a, "next", "--tracking", "20")
+        assert code == cli.OK
         assert out.out == "No sub-issue of #20 is free.\n"
+        assert run_json(capsys, a, "next", "--tracking", "20")[1]["data"]["finished"] is False
+
+    @pytest.mark.spec("next-cmd-reports-finished-plan")
+    def it_does_not_call_a_plan_without_sub_issues_finished(self, capsys, clone, github):
+        github(make_issue(20, "approved", "tracking"), subs={20: []})
+        code, data = run_json(capsys, clone("a"), "next", "--tracking", "20")
+        assert code == cli.OK
+        assert data["data"]["finished"] is False
+
+
+class DescribePlanClose:
+    @pytest.mark.spec("planclose-cmd-closes-finished-plan")
+    def it_closes_a_plan_whose_sub_issues_are_all_closed(self, capsys, clone, github):
+        gh = github(
+            make_issue(20, "approved", "tracking"),
+            make_issue(11, "approved", state="CLOSED"),
+            make_issue(12, "approved", state="CLOSED"),
+            subs={20: [12, 11]},
+        )
+        code, out = run(capsys, clone("a"), "plan", "close", "20")
+        assert code == cli.OK
+        assert (out.out, out.err) == (
+            "Closed #20. Every sub-issue is closed: #12, #11.\n",
+            "",
+        )
+        assert gh.writes() == [
+            (
+                "issue",
+                "close",
+                "20",
+                "--reason",
+                "completed",
+                "--comment",
+                "Every sub-issue is closed: #12, #11.",
+            )
+        ]
+
+    @pytest.mark.spec("planclose-cmd-closes-finished-plan")
+    def it_refuses_while_any_sub_issue_is_open(self, capsys, clone, github):
+        gh = github(
+            make_issue(20, "approved", "tracking"),
+            make_issue(11, "approved", state="CLOSED"),
+            make_issue(12, "approved", "in-progress"),
+            make_issue(13),
+            subs={20: [11, 12, 13]},
+        )
+        code, data = run_json(capsys, clone("a"), "plan", "close", "20")
+        assert code == cli.PROBLEMS
+        assert "#20 still has open sub-issues: #12, #13" in data["errors"][0]
+        assert data["data"]["closed"] is False
+        assert gh.writes() == []
+
+    @pytest.mark.spec("planclose-cmd-closes-finished-plan")
+    @pytest.mark.parametrize(
+        ("labels", "state", "says"),
+        [
+            (("tracking",), "OPEN", "not labeled approved"),
+            (("approved",), "OPEN", "not labeled tracking"),
+            (("approved", "tracking"), "CLOSED", "is closed already"),
+        ],
+    )
+    def it_refuses_an_issue_that_is_not_an_open_approved_plan(
+        self, capsys, clone, github, labels, state, says
+    ):
+        gh = github(make_issue(20, *labels, state=state), subs={20: []})
+        code, out = run(capsys, clone("a"), "plan", "close", "20")
+        assert code == cli.PROBLEMS
+        assert says in out.err
+        assert gh.writes() == []
+        assert not any(c[0] == "api" for c in gh.calls)
+
+    @pytest.mark.spec("planclose-cmd-closes-finished-plan")
+    def it_refuses_a_plan_without_sub_issues(self, capsys, clone, github):
+        gh = github(make_issue(20, "approved", "tracking"), subs={20: []})
+        code, out = run(capsys, clone("a"), "plan", "close", "20")
+        assert code == cli.PROBLEMS
+        assert "#20 has no sub-issues" in out.err
+        assert gh.writes() == []
 
 
 class DescribeNextPlans:
