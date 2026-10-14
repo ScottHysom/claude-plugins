@@ -63,9 +63,14 @@ defines it, and only there.
 
 "Already known" means the owner's own career, not the field at large.
 
-<!-- FILL: name the domains that need no gloss, and the domains in THIS
-     project that always do. Both halves matter: without the first, every
-     document over-explains; without the second, jargon slips through. -->
+A term that needs no gloss still gets one where a passage tells two of its
+kind apart.
+
+<!-- FILL: list the terms that need no gloss, and the terms in THIS project
+     that always do. Both halves matter: without the first, every document
+     over-explains; without the second, jargon slips through. Then add a
+     pattern that flags a gloss in parentheses straight after a term on the
+     first list, such as `\b(?:term|other term) \(`. -->
 
 ### standing-concrete-over-abstract: Prefer a concrete example over an abstraction
 
@@ -318,7 +323,27 @@ is none of. Name the noun.
 ### sentences-one-meaning-per-term: A term keeps one meaning in a document
 
 A word the document defines, such as a role, is not reused for anything
-else, including in a heading.
+else, including in a heading. The same holds for a plain word the document
+already uses as a term.
+
+<!-- FILL: a real before and after from this project. -->
+
+### sentences-tail-beside-verb: A tail that shares the verb sits beside it
+
+A short clause that shares the verb and its object, such as "or offer to",
+goes in parentheses straight after the verb. At the end of the sentence, it
+makes the reader carry the verb back across the object to see what the tail
+completes.
+
+**Pattern.** `,\s(?:or|and)\s[a-z]+\sto\.`
+
+<!-- FILL: a real before and after from this project. -->
+
+### sentences-gloss-in-parentheses: A gloss inside a comma-split sentence goes in parentheses
+
+A definition dropped into a sentence that commas already divide goes in
+parentheses. Set off by commas, it reads as one more phrase of the sentence,
+and the reader loses track of which phrase carries the claim.
 
 <!-- FILL: a real before and after from this project. -->
 

@@ -768,6 +768,7 @@ ONE_WAY = "sentences-word-reads-one-way"
 INCLUDING = "sentences-parenthetical-including"
 ONE_NEGATION = "sentences-one-negation"
 NONE = "sentences-none-names-noun"
+TAIL = "sentences-tail-beside-verb"
 
 
 class DescribeShippedPatterns:
@@ -797,6 +798,7 @@ class DescribeShippedPatterns:
             "sentences-parenthetical-including",
             "sentences-one-negation",
             "sentences-none-names-noun",
+            "sentences-tail-beside-verb",
         ]
 
     @pytest.mark.spec("template-patterns-find-only-their-breaches")
@@ -879,6 +881,8 @@ class DescribeShippedPatterns:
             (ONE_WAY, "No variable kept from the call before.", ["kept from"]),
             (INCLUDING, "A heading, a typo one included, opens it.", [", a typo one included,"]),
             (INCLUDING, "It opens every heading, a typo one included.", [", a typo one included."]),
+            (TAIL, "Do not run any of it from here, or offer to.", [", or offer to."]),
+            (TAIL, "Run the check on every file, and try to.", [", and try to."]),
             (
                 ONE_NEGATION,
                 "Nothing can show that it was never asked for.",
@@ -943,6 +947,8 @@ class DescribeShippedPatterns:
             (ONE_WAY, "No variable kept away from the call."),
             (INCLUDING, "It opens every heading (including a typo one)."),
             (INCLUDING, "A typo one included, it fails."),
+            (TAIL, "Do not run (or offer to) any of it from here."),
+            (TAIL, "It runs, or tries to run, every check."),
             (ONE_NEGATION, "Not now. It never runs."),
             (ONE_NEGATION, "It doesn't run."),
             (ONE_NEGATION, "It knows the note is not a nod."),
