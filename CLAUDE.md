@@ -54,6 +54,11 @@ on a summary here; this file holds what the README does not.
 - A review comment that names a kind of problem is about the kind. Look for
   other instances across the branch, not only the flagged line, and say in the
   reply what else turned up.
+- A pull request that changes a rule in `.claude/rules/prose-style.md`
+  carries the change into prose-tuning's shipped rules,
+  `plugins/prose-tuning/templates/prose-style.md`, through copy-prose.
+  `python3 .github/scripts/check-prose-rules.py drift` names each rule that
+  still differs.
 - Commits follow Conventional Commits, with a body saying why. `git log` shows
   the house style.
 

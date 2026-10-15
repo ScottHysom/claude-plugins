@@ -109,6 +109,7 @@ directory under `plugins/` and one new entry in the catalog.
    claude plugin validate --strict .
    claude plugin validate --strict plugins/<name>
    python3 .github/scripts/check-manifest-consistency.py check
+   python3 .github/scripts/check-prose-rules.py drift
    python3 .github/scripts/check-skills.py descriptions
    python3 .github/scripts/check-skills.py commands
    python3 .github/scripts/check-skills.py steps
