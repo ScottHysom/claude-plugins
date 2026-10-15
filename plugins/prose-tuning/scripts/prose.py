@@ -4304,6 +4304,16 @@ def cmd_tags(args):
 SPANNING_KINDS = ("paragraph", "list-item")
 # The field a finding carries in place of `replacement` for a match that stays.
 DISMISS_KEY = "dismiss"
+# The field a finding on a list's first item carries to give the whole list
+# markers of one style, and the styles it takes.
+LIST_KEY = "list"
+LIST_NUMBERED = "numbered"
+LIST_BULLETED = "bulleted"
+LIST_STYLES = (LIST_NUMBERED, LIST_BULLETED)
+# The marker a numbered list takes when it becomes bulleted, and what follows
+# the number of each item of a list that becomes numbered.
+LIST_BULLET = "-"
+LIST_DELIMITER = "."
 # What to run again when a finding's text is no longer where it was addressed.
 REPORT_RERUN = "Re-run the report."
 # The refusal of an empty span, which would insert rather than rewrite.
@@ -4423,16 +4433,19 @@ class Staged:
     returns, and `engine` the edits, labeled with the findings they carry out.
     `dismissed` holds the same four for each dismissal that passed, which
     makes no edit. `same` maps each finding that shares its edit with another
-    making the same rewrite to the numbers of all of them, in order.
+    making the same rewrite to the numbers of all of them, in order. `shown`
+    maps each finding that sets a list's markers to (current, proposed): its
+    whole list as it is and as it will be, which is what the author approves.
     """
 
-    def __init__(self, engine, accepted, applied, rejected, dismissed, same):
+    def __init__(self, engine, accepted, applied, rejected, dismissed, same, shown):
         self.engine = engine
         self.accepted = accepted
         self.applied = applied
         self.rejected = rejected
         self.dismissed = dismissed
         self.same = same
+        self.shown = shown
 
 
 def stage_findings(text, blocks, rel, findings, numbers=None):
@@ -4475,6 +4488,14 @@ def stage_findings(text, blocks, rel, findings, numbers=None):
     out a new structure, such as a lead-in and its bullets, so only its first
     line is held to the line it replaces.
 
+    A finding with `list` sits on the first item of a list, with a text that
+    starts at the item's text, and gives every item of that list a marker of
+    the style it names, as well as making its own rewrite. list_edits makes
+    those edits, labeled with the finding, so a finding that rewrites a marker
+    or a line they move overlaps it. A finding cannot reach a marker any other
+    way: opened_block refuses a rewrite that puts one at the start of a line,
+    which keeps a wrapped `1. It` from turning into a list by accident.
+
     A dismissal passes the same checks on where it is, and then makes no edit.
 
     Findings that replace the same text with the same rewrite are one edit,
@@ -4485,6 +4506,7 @@ def stage_findings(text, blocks, rel, findings, numbers=None):
     engine = EditEngine(text)
     code_spans = blocks.code_span_offsets(blocks.protected_offsets())
     applied, rejected, accepted, placed, dismissed = [], [], [], [], []
+    runs, restyled, lists = None, {}, []
     for n, f in zip(numbers or range(1, len(findings) + 1), findings):
         line = finding_line(f)
         if line is None:
@@ -4507,6 +4529,20 @@ def stage_findings(text, blocks, rel, findings, numbers=None):
             if not isinstance(dismiss, str) or not dismiss.strip():
                 rejected.append(
                     "%s:%d  finding %d: dismiss needs a reason the match stays" % (rel, line, n)
+                )
+                continue
+        style = f.get(LIST_KEY)
+        if LIST_KEY in f:
+            if dismiss is not None:
+                rejected.append(
+                    "%s:%d  finding %d has both dismiss and list; a dismissed match stays "
+                    "as it is, so give list to a finding with a replacement" % (rel, line, n)
+                )
+                continue
+            if style not in LIST_STYLES:
+                rejected.append(
+                    "%s:%d  finding %d: list is %s; give %s"
+                    % (rel, line, n, json.dumps(style), " or ".join(LIST_STYLES))
                 )
                 continue
         if blocks.is_protected(line):
@@ -4591,8 +4627,33 @@ def stage_findings(text, blocks, rel, findings, numbers=None):
                 % (rel, line, n, lost)
             )
             continue
+        if style is not None:
+            if runs is None:
+                runs = list_runs(text, blocks)
+            run = next((r for r in runs if any(i[0] == line for i in r.items)), None)
+            problem = None
+            if run is None:
+                problem = "line %d does not start a list item" % line
+            elif run.items[0][0] != line:
+                problem = (
+                    "line %d is not the first item of its list; put the finding on line %d"
+                    % (
+                        line,
+                        run.items[0][0],
+                    )
+                )
+            elif a < text.offset(line) + run.items[0][2]:
+                problem = "its text takes in the list marker; start it at the item's text"
+            elif id(run) in restyled:
+                problem = "finding %d already gives this list its markers" % restyled[id(run)]
+            if problem:
+                rejected.append("%s:%d  finding %d sets list, but %s" % (rel, line, n, problem))
+                continue
+            restyled[id(run)] = n
         touched = set(range(line, (text.line_of(b - 1) if b > a else line) + 1))
         ref = {"finding": n, "file": rel, "line": line, "rule": f["rule"]}
+        if style is not None:
+            lists.append((n, run, style, (a, b, new), ref))
         twin = next((x for x in accepted if x[:3] == (a, b, new)), None)
         if twin:
             twin[4].append(ref)
@@ -4611,11 +4672,122 @@ def stage_findings(text, blocks, rel, findings, numbers=None):
             r for x in accepted if x[3] <= cut and start <= x[0] and x[1] <= end for r in x[4]
         ]
         engine.replace(start, end, "", FindingLabel(inside) if inside else None)
+    shown = {}
+    for n, run, style, own, ref in lists:
+        edits = list_edits(text, run, style)
+        for start, end, marker in edits:
+            engine.replace(start, end, marker, FindingLabel([ref]))
+        start = text.offset(run.items[0][0])
+        last = max(run.last, text.line_of(own[1]))
+        end = text.offset(last) + len(text.bare(last))
+        proposed = text.s[start:end]
+        for x, y, piece in sorted([*edits, own], key=lambda e: e[0], reverse=True):
+            proposed = proposed[: x - start] + piece + proposed[y - start :]
+        shown[n] = (text.s[start:end], proposed)
     same = {}
     for x in accepted:
         if len(x[4]) > 1:
             same.update((r["finding"], [q["finding"] for q in x[4]]) for r in x[4])
-    return Staged(engine, placed, applied, rejected, dismissed, same)
+    return Staged(engine, placed, applied, rejected, dismissed, same, shown)
+
+
+class ListRun:
+    """One markdown list: its items in order, and the last line that is part of it.
+
+    `indent` is the column its markers sit at, and `style` what CommonMark
+    keeps the same through one list: the bullet character, or the character
+    after an ordered item's number. Each item is (line, marker, content
+    column).
+    """
+
+    def __init__(self, indent, style):
+        self.indent = indent
+        self.style = style
+        self.items = []
+        self.last = 0
+
+
+def marker_style(marker):
+    """The part of a list marker that has to match for two items to share a list."""
+    return marker[-1] if marker[0].isdigit() else marker
+
+
+def list_runs(text, blocks):
+    """Every list in the file, nested ones included, in the order they open.
+
+    An item at a marker column short of the open item's text continues its
+    list, unless its marker style differs, which starts a new list there. One
+    indented as far as that text opens a list nested in it. A line that
+    belongs to an item closes the lists nested deeper than the item. Any
+    other line closes them all, except the lines of a protected block that an
+    item's line opened, such as a fence's body, which Blocks.item does not
+    give an item.
+    """
+    runs, stack, prev = [], [], None
+    for n in range(1, text.line_count() + 1):
+        raw = text.bare(n)
+        if not raw.strip():
+            continue
+        kind = blocks.kind(n)
+        item = blocks.item(n)
+        if item is None:
+            if not (kind in PROTECTED_KINDS and kind == prev):
+                stack = []
+        elif item[0] == n and kind == "list-item":
+            m = LIST_ITEM.match(raw)
+            indent, marker = len(m.group(1)), m.group(0).strip()
+            while stack and indent < stack[-1].indent:
+                stack.pop()
+            top = stack[-1] if stack else None
+            if top and indent < top.items[-1][2] and top.style != marker_style(marker):
+                stack.pop()
+                top = None
+            elif top and indent >= top.items[-1][2]:
+                top = None
+            if top is None:
+                top = ListRun(indent, marker_style(marker))
+                runs.append(top)
+                stack.append(top)
+            top.items.append((n, marker, item[1]))
+        else:
+            while stack and stack[-1].indent >= item[1]:
+                stack.pop()
+        for run in stack:
+            run.last = n
+        prev = kind
+    return runs
+
+
+def list_edits(text, run, style):
+    """(start, end, replacement) for each edit that gives `run` markers of `style`.
+
+    A numbered list counts from 1, which CommonMark needs when the list
+    follows a paragraph straight on. A bulleted list keeps its bullet, or
+    takes LIST_BULLET when it was numbered. A marker of another width moves
+    the item's text, so each later line of the item indented as far as its
+    text moves with it, which keeps a nested list or code block inside the
+    item. A lazy line, indented less, stays as it is.
+    """
+    out = []
+    for k, (line, marker, column) in enumerate(run.items):
+        if style == LIST_NUMBERED:
+            new = "%d%s" % (k + 1, LIST_DELIMITER)
+        else:
+            new = marker if not marker[0].isdigit() else LIST_BULLET
+        if new == marker:
+            continue
+        at = text.offset(line) + run.indent
+        out.append((at, at + len(marker), new))
+        shift = len(new) - len(marker)
+        if not shift:
+            continue
+        stop = run.items[k + 1][0] if k + 1 < len(run.items) else run.last + 1
+        for n in range(line + 1, stop):
+            raw = text.bare(n)
+            if raw.strip() and len(raw) - len(raw.lstrip(" ")) >= column:
+                start = text.offset(n)
+                out.append((start, start, " " * shift) if shift > 0 else (start, start - shift, ""))
+    return out
 
 
 def block_marker(line):
@@ -4794,6 +4966,11 @@ findings:
                is, such as a hyphen that is a minus sign. apply leaves the
                text alone, report lists the reason, and a finding with both
                dismiss and replacement is refused
+  list         optional, on a finding whose text starts on the first item
+               of a list: "numbered" or "bulleted". apply gives every item
+               of the list a marker of that style, numbered from 1, and
+               moves each item's later lines with its text. report shows
+               the whole list as it is and as it will be
   col_start    optional: the 0-indexed column the text starts at, when it
                starts at more than one place on the line. It is the only
                column a finding takes; apply refuses a col_end
@@ -5439,14 +5616,15 @@ def cmd_report(args):
                 }
             )
         for n, f, a, b in staged.accepted:
+            current, proposed = staged.shown.get(n, (text.s[a:b], f.get("replacement", "")))
             rows.append(
                 {
                     "finding": n,
                     "file": rel,
                     "line": int(f["line"]),
                     "rule": f["rule"],
-                    "current": text.s[a:b],
-                    "proposed": f.get("replacement", ""),
+                    "current": current,
+                    "proposed": proposed,
                     "same_rewrite": staged.same.get(n, [n]),
                 }
             )

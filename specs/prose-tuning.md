@@ -291,6 +291,15 @@ description.
 - `apply-cmd-rewrites-wrapped-findings` (test): When a finding's text
   holds a newline, `report` shows it whole and `apply` rewrites the span as
   one finding, keeping a newline its rewrite carries.
+- `apply-cmd-restyles-lists` (test): When a finding on a list's first item
+  carries `list` set to `numbered` or `bulleted`, `report` shows the whole
+  list as it is and as it will be, and `apply` gives every item of that list
+  a marker of the style, numbered from 1, keeping each item's text and the
+  indent of its later lines against that text. `report` and `apply` refuse
+  `list` in any of these cases:
+  - on a line other than a list's first item.
+  - with a value other than those two.
+  - beside `dismiss`.
 - `report-cmd-refuses-stale-findings` (test): When a finding's text no
   longer matches its file, or its line or its file is missing, `report`
   and `apply` refuse it and name it by its place in the batch.

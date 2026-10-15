@@ -219,6 +219,7 @@ Each finding is one JSON object:
 | `text` | the text as it stands |
 | `replacement` | the rewrite |
 | `dismiss` | in place of `replacement`, for a pattern's match that stays: one clause saying why |
+| `list` | on a finding on a list's first item, `numbered` or `bulleted`: the markers that `apply` gives every item of the list |
 
 **A finding names exactly one rule.** A passage breaking two rules is two
 findings, because the author may accept one and reject the other. Write both
@@ -249,6 +250,11 @@ A dismissal carries `text` as the match gives it, and never a
 To cut text, give `"replacement":""`. A line that the cuts cover whole goes
 with its newline, and when a cut takes a whole block `apply` keeps one blank
 line between the blocks either side.
+
+To change a list's markers, give the finding on the list's first item
+`"list":"numbered"` or `"list":"bulleted"`, with that item's text copied from
+its segment and a `replacement` the same as the text unless the item is
+reworded too. A rewrite that starts a line with a marker is refused.
 
 To revise a finding later, edit it in the findings file where it stands.
 
