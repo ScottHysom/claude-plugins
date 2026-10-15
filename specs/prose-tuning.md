@@ -482,6 +482,10 @@ ruling on #133.
   separate segments. A comment that never closes is read as prose.
 - `segments-cmd-prints-one-line-each` (test): When `segments` prints, it
   gives one line per segment, with its address, its kind and its text.
+- `segments-cmd-names-list-style` (test): When a segment is the first line
+  of a list item, `segments` gives its list's style, `numbered` or
+  `bulleted`, with its kind, as in `list-item:numbered`, since the segment
+  leaves out the marker.
 - `segments-cmd-maps-list-items` (test): When a line continues a list
   item, by its indent or lazily, `segments` reports it as the item's, and a
   paragraph after the list as a paragraph.

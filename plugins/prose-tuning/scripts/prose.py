@@ -2116,6 +2116,7 @@ def line_segments(text, blocks):
         elif kind == "list-item":
             m = LIST_ITEM.match(raw)
             start = len(m.group(0)) if m else 0
+            numbered = m and m.group(0).strip()[0].isdigit()
             out.append(
                 {
                     "line": line,
@@ -2123,6 +2124,7 @@ def line_segments(text, blocks):
                     "col_end": len(raw),
                     "kind": "list-item",
                     "text": raw[start:],
+                    LIST_KEY: LIST_NUMBERED if numbered else LIST_BULLETED,
                 }
             )
         else:
@@ -2731,14 +2733,19 @@ def segment_line(rel, seg):
     """One segment as a line of text: its address, its kind, then its text.
 
     The address is file:line:col_start-col_end, which holds every field a
-    finding may need, so a model copies it rather than working it out.
+    finding may need, so a model copies it rather than working it out. The
+    kind of a list item's first line carries its list's style, as in
+    `list-item:numbered`, because the segment leaves out the marker.
     """
+    kind = seg["kind"]
+    if LIST_KEY in seg:
+        kind += ":" + seg[LIST_KEY]
     return "%s:%d:%d-%d  %s  %s" % (
         rel,
         seg["line"],
         seg["col_start"],
         seg["col_end"],
-        seg["kind"],
+        kind,
         seg["text"],
     )
 

@@ -156,7 +156,7 @@ record, and on a record made before the part's lines or rules changed.
 spans a prose rule may touch, one per line:
 
 ```text
-landscape.md:42:2-40  list-item  Able to state what is inside the file.
+landscape.md:42:2-40  list-item:bulleted  Able to state what is inside the file.
 ```
 
 The line starts with the address `file:line:col_start-col_end`. Then come the
@@ -165,7 +165,7 @@ kind and the text, each after two spaces. The text runs to the end of the line.
 | Kind | Is |
 |---|---|
 | `paragraph` | body prose, the usual case |
-| `list-item` | the text after the bullet, not the bullet |
+| `list-item:bulleted`, `list-item:numbered` | the first line of a list item's text, without its marker. The kind's second half says whether the item's list is bulleted or numbered |
 | `list-continuation` | a later line of a list item's text. A new line in its replacement is indented to stay in the item |
 | `heading` | the text after the `#`s. Headings have rules too |
 | `table-cell` | one cell's text, without its pipes |

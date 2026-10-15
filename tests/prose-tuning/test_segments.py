@@ -139,7 +139,7 @@ class DescribeTheSegmentsCommand:
             "kinds.md:1:2-7  heading  Title\n"
             "kinds.md:3:0-16  paragraph  A paragraph that\n"
             "kinds.md:4:0-6  paragraph  wraps.\n"
-            "kinds.md:6:2-14  list-item  A list item.\n"
+            "kinds.md:6:2-14  list-item:bulleted  A list item.\n"
             "kinds.md:8:2-6  table-cell  Term\n"
             "kinds.md:8:9-16  table-cell  Meaning\n"
             "kinds.md:10:2-7  table-cell  model\n"
@@ -159,6 +159,31 @@ class DescribeTheSegmentsCommand:
         assert code == prose.PROBLEMS
         assert out.startswith("target.md:")
         assert "missing.md  no such file" in err
+
+
+class DescribeListStyles:
+    @pytest.mark.spec("segments-cmd-names-list-style")
+    def it_tells_a_numbered_list_from_a_bulleted_one(self, prose_repo, capsys):
+        (prose_repo.root / "lists.md").write_text(
+            "- A bullet.\n* Another.\n\n1. A step.\n2) Another,\n   wrapped.\n"
+        )
+        code, out, _ = run_text(prose_repo, capsys, "lists.md")
+        assert code == prose.OK
+        assert out == (
+            "lists.md:1:2-11  list-item:bulleted  A bullet.\n"
+            "lists.md:2:2-10  list-item:bulleted  Another.\n"
+            "lists.md:4:3-10  list-item:numbered  A step.\n"
+            "lists.md:5:3-11  list-item:numbered  Another,\n"
+            "lists.md:6:3-11  list-continuation  wrapped.\n"
+        )
+
+    @pytest.mark.spec("segments-cmd-names-list-style")
+    def it_gives_the_style_in_json_beside_the_kind(self):
+        segs = segments("1. A step.\n   - A nested bullet.\n")
+        assert [(s["kind"], s.get("list")) for s in segs] == [
+            ("list-item", "numbered"),
+            ("list-item", "bulleted"),
+        ]
 
 
 class DescribeListContinuations:
