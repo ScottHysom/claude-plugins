@@ -37,6 +37,7 @@ class DescribeValidateRuleName:
     @example("own-subject")
     @example("sentences-01")
     @example("a-b-c-d-e")
+    @example("a-b-c-d-e-f")
     @example("Own_Subject")
     @example("")
     def it_accepts_a_name_exactly_when_it_is_short_and_lower_case(self, name):

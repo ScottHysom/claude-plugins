@@ -60,15 +60,15 @@ or what, its subject is missing.
 the first `: `.
 
 **An id is `<section>-<name>`.** The section is one lower-case word. The name is
-one to four lower-case words joined by `-`, and no word may start with a digit.
+one to five lower-case words joined by `-`, and no word may start with a digit.
 Shipped sections are `standing`, `decisions`, `sentences`, `headings` and
 `register`; a project adds its own, and `voice` is the usual name for the
 section where a project diverges.
 
 The name says what the rule means. `sentences-count-needs-list` is legible in
 a report, where `sentences-09` would send the reader back to the file. The
-four-word ceiling is there because a rule whose
-subject needs more than four words has not been decided yet.
+five-word ceiling is there because a rule whose
+subject needs more than five words has not been decided yet.
 
 **A rule keeps its name for life.** Reword the body freely; the name survives, because the name is about the
 subject, not the wording. A rule whose subject moved far enough to want a

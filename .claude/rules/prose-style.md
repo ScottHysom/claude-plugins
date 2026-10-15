@@ -22,7 +22,7 @@ This file sits in `.claude/rules/`, so every session in the project loads it.
 The `scope:` block above decides only which files `apply-prose` checks.
 
 Every rule has a stable id of the form `<section>-<name>`, where the name is
-one to four words saying what the rule means. A report names the id, so
+one to five words saying what the rule means. A report names the id, so
 `apply-prose` can say `sentences-own-subject at landscape.md:42` and be checked
 by eye. A rule that gets reworded keeps its name. Nothing here is ever marked
 retired: a rule that changes is edited in place, and

@@ -259,8 +259,8 @@ class DescribeLintingTheResult:
 class DescribeNewRuleNames:
     @pytest.mark.spec("write-cmd-vets-new-names")
     def it_refuses_a_malformed_name(self, prose_repo):
-        _, env = write(prose_repo, [new_rule(name="a-b-c-d-e")])
-        assert "has 5 words; at most 4" in env["data"]["refused"][0]["reason"]
+        _, env = write(prose_repo, [new_rule(name="a-b-c-d-e-f")])
+        assert "has 6 words; at most 5" in env["data"]["refused"][0]["reason"]
 
     @pytest.mark.spec("write-cmd-vets-new-names")
     def it_refuses_a_name_already_taken(self, prose_repo):

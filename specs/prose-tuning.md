@@ -261,7 +261,7 @@ update-prose-config description.
   rules, apply-prose writes two findings, one for each rule, including where
   the two would rewrite the same text.
 - `lint-cmd-checks-id-grammar` (test): When a rule's id is anything but a
-  lower-case section word and a name of one to four lower-case words, none
+  lower-case section word and a name of one to five lower-case words, none
   starting with a digit, `config lint` names it once and exits 1. A name that
   repeats its section is a warning.
 - `checkid-cmd-vets-new-ids` (test): When `config check-id` is given
