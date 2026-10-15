@@ -862,6 +862,173 @@ class DescribeNewBlockMarkers:
         )
 
 
+class DescribeListStyle:
+    """A finding cannot put a marker at the start of a line, so a list's
+    markers change only through `list` on the finding on its first item."""
+
+    LIST = "Then it:\n\n- files the issues.\n- links them.\n- files the tracking issue.\n\nDone.\n"
+    NUMBERED = (
+        "Then it:\n\n1. files the issues.\n2. links them.\n3. files the tracking issue.\n\nDone.\n"
+    )
+    RUNS = DescribeCodeSpans.RUNS
+
+    def write(self, prose_repo, body):
+        (prose_repo.root / "doc.md").write_text(body)
+
+    def restyle(self, prose_repo, line, text, style="numbered", replacement=None):
+        return anchored(
+            prose_repo, line, text, text if replacement is None else replacement, list=style
+        )
+
+    @pytest.mark.spec("apply-cmd-restyles-lists")
+    def it_numbers_a_bulleted_list_that_report_showed_whole(self, prose_repo):
+        self.write(prose_repo, self.LIST)
+        finding = self.restyle(prose_repo, 3, "files the issues.")
+        code, envelope = prose_repo.report([finding])
+        assert code == prose.OK, envelope["errors"]
+        [row] = envelope["data"]["findings"]
+        assert row["current"] == "- files the issues.\n- links them.\n- files the tracking issue."
+        assert (
+            row["proposed"] == "1. files the issues.\n2. links them.\n3. files the tracking issue."
+        )
+        path = str(prose_repo.root / "findings.json")
+        token = envelope["data"]["token"]
+        code, envelope = prose_repo.run("apply", "--findings", path, "--token", token)
+        assert code == prose.OK, envelope["errors"]
+        assert prose_repo.read("doc.md") == self.NUMBERED
+
+    @pytest.mark.spec("apply-cmd-restyles-lists")
+    def it_makes_the_findings_own_rewrite_too(self, prose_repo):
+        self.write(prose_repo, self.LIST)
+        finding = self.restyle(prose_repo, 3, "files the issues.", replacement="files each issue.")
+        code, envelope = prose_repo.apply([finding])
+        assert code == prose.OK, envelope["errors"]
+        assert prose_repo.read("doc.md") == self.NUMBERED.replace(
+            "files the issues.", "files each issue."
+        )
+
+    @pytest.mark.spec("apply-cmd-restyles-lists")
+    def it_moves_each_items_later_lines_with_its_text(self, prose_repo):
+        self.write(
+            prose_repo,
+            "- one\n  more\n  - nested\n\n  ```\n  code\n  ```\n- two\nlazy\n",
+        )
+        code, envelope = prose_repo.apply([self.restyle(prose_repo, 1, "one")])
+        assert code == prose.OK, envelope["errors"]
+        assert prose_repo.read("doc.md") == (
+            "1. one\n   more\n   - nested\n\n   ```\n   code\n   ```\n2. two\nlazy\n"
+        )
+
+    @pytest.mark.spec("apply-cmd-restyles-lists")
+    @pytest.mark.parametrize(
+        ("body", "after"),
+        [
+            pytest.param("- a\n  - b\n- c\n", "1. a\n   - b\n2. c\n", id="nested-list-closes"),
+            pytest.param("1. a\n1. b\n1) c\n", "1. a\n2. b\n1) c\n", id="numbered-again"),
+        ],
+    )
+    def it_numbers_only_the_items_of_the_list(self, prose_repo, body, after):
+        self.write(prose_repo, body)
+        code, envelope = prose_repo.apply([self.restyle(prose_repo, 1, "a")])
+        assert code == prose.OK, envelope["errors"]
+        assert prose_repo.read("doc.md") == after
+
+    @pytest.mark.spec("apply-cmd-restyles-lists")
+    def it_leaves_a_list_of_another_bullet_alone(self, prose_repo):
+        self.write(prose_repo, "- one\n- two\n* three\n")
+        code, envelope = prose_repo.apply([self.restyle(prose_repo, 1, "one")])
+        assert code == prose.OK, envelope["errors"]
+        assert prose_repo.read("doc.md") == "1. one\n2. two\n* three\n"
+
+    @pytest.mark.spec("apply-cmd-restyles-lists", "script-keeps-every-byte")
+    def it_gives_back_the_bulleted_list_it_numbered(self, prose_repo):
+        self.write(prose_repo, self.NUMBERED)
+        code, envelope = prose_repo.apply(
+            [self.restyle(prose_repo, 3, "files the issues.", "bulleted")]
+        )
+        assert code == prose.OK, envelope["errors"]
+        assert prose_repo.read("doc.md") == self.LIST
+
+    @pytest.mark.spec("apply-cmd-restyles-lists")
+    @pytest.mark.parametrize("run", RUNS)
+    @pytest.mark.parametrize(
+        ("line", "text", "overrides", "error"),
+        [
+            pytest.param(
+                4,
+                "links them.",
+                {},
+                "doc.md:4  finding 1 sets list, but line 4 is not the first item of its "
+                "list; put the finding on line 3",
+                id="later-item",
+            ),
+            pytest.param(
+                1,
+                "Then it:",
+                {},
+                "doc.md:1  finding 1 sets list, but line 1 does not start a list item",
+                id="not-an-item",
+            ),
+            pytest.param(
+                3,
+                "- files",
+                {"replacement": "- files"},
+                "doc.md:3  finding 1 sets list, but its text takes in the list marker; "
+                "start it at the item's text",
+                id="takes-marker",
+            ),
+            pytest.param(
+                3,
+                "files",
+                {"list": "ordered"},
+                'doc.md:3  finding 1: list is "ordered"; give numbered or bulleted',
+                id="unknown-style",
+            ),
+            pytest.param(
+                3,
+                "files",
+                {"dismiss": "it stays", "replacement": None},
+                "doc.md:3  finding 1 has both dismiss and list; a dismissed match stays "
+                "as it is, so give list to a finding with a replacement",
+                id="dismissal",
+            ),
+        ],
+    )
+    def it_refuses_list_anywhere_else(self, prose_repo, run, line, text, overrides, error):
+        self.write(prose_repo, self.LIST)
+        finding = self.restyle(prose_repo, line, text)
+        finding.update(overrides)
+        finding = {k: v for k, v in finding.items() if v is not None}
+        code, envelope = getattr(prose_repo, run[0])([finding], *run[1:])
+        assert code == prose.PROBLEMS
+        assert errors_of(envelope) == [error]
+        assert prose_repo.read("doc.md") == self.LIST
+
+    @pytest.mark.spec("apply-cmd-restyles-lists")
+    def it_refuses_a_second_finding_on_the_same_list(self, prose_repo):
+        self.write(prose_repo, self.LIST)
+        first = self.restyle(prose_repo, 3, "files")
+        second = self.restyle(prose_repo, 3, "the issues.", "bulleted")
+        code, envelope = prose_repo.apply([first, second])
+        assert code == prose.PROBLEMS
+        assert errors_of(envelope) == [
+            "doc.md:3  finding 2 sets list, but finding 1 already gives this list its markers"
+        ]
+
+    @pytest.mark.spec("apply-cmd-restyles-lists", "apply-cmd-refuses-new-block-markers")
+    def it_still_refuses_a_rewrite_that_numbers_the_next_item(self, prose_repo):
+        self.write(prose_repo, self.LIST)
+        finding = anchored(
+            prose_repo, 3, "files the issues.\n- links", "files the issues.\n2. links"
+        )
+        code, envelope = prose_repo.apply([finding])
+        assert code == prose.PROBLEMS
+        assert errors_of(envelope) == [
+            "doc.md:3  finding 1 starts line 4 with 2., which markdown reads as a new "
+            "list item; reword it so the line does not start with 2."
+        ]
+
+
 class DescribeHelp:
     @pytest.mark.spec("apply-cmd-describes-finding-fields-in-help")
     def it_describes_every_field_of_a_finding(self, capsys):
@@ -869,7 +1036,7 @@ class DescribeHelp:
             prose.main(["apply", "--help"])
         assert exit.value.code == prose.OK
         out = capsys.readouterr().out
-        for field in ("file", "line", "rule", "text", "replacement", "col_start"):
+        for field in ("file", "line", "rule", "text", "replacement", "list", "col_start"):
             assert "  %s " % field in out, field
         assert "newline" in out
         assert "apply what is valid" in out
