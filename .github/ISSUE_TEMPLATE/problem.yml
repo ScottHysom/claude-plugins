@@ -11,6 +11,7 @@ body:
     attributes:
       label: Area
       options:
+        - flywheel
         - gitify-cowork-project
         - prose-tuning
         - todos
