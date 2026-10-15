@@ -317,7 +317,7 @@ or a part of it into chat or a dialog, because the author would then approve a
 text other than the one `file` sends.
 
 Then put one `AskUserQuestion` to the author, naming the artifact's address
-and `data.token`, with these options:
+and `data.token`, offering the author one of these options:
 
 - file every draft;
 - file a part, named in the answer;

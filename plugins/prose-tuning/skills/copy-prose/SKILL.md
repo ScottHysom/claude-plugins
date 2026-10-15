@@ -93,13 +93,13 @@ against its `target_body`, or against each candidate's `target_body`. Never
 split them into two rounds, because the author is deciding one thing: what
 the target's rulebook should say.
 
-A collision offers three options:
+A collision offers the author one of three options:
 
 - take the source.
 - keep the target.
 - write a combination.
 
-A similar pair offers three options:
+A similar pair offers the author one of three options:
 
 - keep both as distinct rules.
 - rewrite the target's rule to cover the source as well.

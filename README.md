@@ -328,7 +328,7 @@ in a skill does not count, since a skill can name an option without saying
 which need it serves. The items waiting on an issue are under `surface` in
 `.github/untraced.json`.
 
-`changes` runs in CI on a pull request. It fails a pull request:
+`changes` runs in CI on a pull request. It fails a pull request of any of these kinds:
 
 - whose description does not name, in backticks, each requirement id the
   diff adds, changes or removes.
@@ -515,11 +515,11 @@ each comes after the issues that block it, and writes the plan as it will be
 filed to `.issues-plan/report.md`, ending with an approval token. The owner approves
 that report, and `plan file` takes its token. Then `plan file`:
 
-- files the issues in that order.
-- links them.
-- files the tracking issue.
-- adds the sub-issues in order.
-- reads all of it back.
+1. files the issues in that order.
+2. links them.
+3. files the tracking issue.
+4. adds the sub-issues in order.
+5. reads all of it back.
 
 A run that a failed call cut short can be
 run again, and files only what is missing. The script's docstring has the
