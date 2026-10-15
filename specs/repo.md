@@ -137,7 +137,7 @@ so an agent posting under the owner's account cannot approve its own work.
 
 Source: README.md, under "Issues" and "Keeping `approved` meaningful".
 
-- `claim-cmd-refuses-unapproved-issues` (test): When `issues.py claim N`
+- `claim-cmd-refuses-unapproved-issues` (test): When `flywheel.py claim N`
   is given an issue that lacks `approved`, or is closed and so finished, it
   exits 1 and writes nothing.
 - `checklinkedissues-cmd-requires-approved-issues` (test): When a pull
@@ -189,20 +189,9 @@ Source: README.md, under "Issues" and "Keeping `approved` meaningful".
 When two agents are told to take the next issue at the same time, the owner
 wants each to get a different one, so two agents never do the same work.
 
-Source: README.md, under "Claiming an issue".
+Source: README.md, under "Claiming an issue". specs/flywheel.md holds the
+requirements the flywheel plugin meets under this need.
 
-- `next-cmd-offers-free-issue` (test): When `issues.py next` runs, it
-  names the lowest-numbered open issue labeled `approved` that is unheld by any `issue/N` branch and unblocked by any open issue. It exits 0 even when every such issue is held or blocked. It
-  does not offer a **tracking issue** (an issue labeled `tracking`, which groups a plan's issues as its sub-issues), or a sub-issue of an open
-  tracking issue labeled `approved`.
-- `claim-cmd-picks-one-winner` (test): When two agents claim the same
-  issue at once, `issues.py claim` lets exactly one create `issue/N`, and the
-  other exits 1, names the holder and writes nothing.
-- `claim-cmd-switches-to-issue-branch` (test): When `issues.py claim N`
-  wins, it switches the clone to `issue/N`, and warns when the switch fails.
-- `claim-cmd-stops-when-nobody-wins` (test): When the push fails and
-  `issue/N` does not exist, `issues.py claim` exits 2 without writing to
-  the issue.
 - `checklinkedissues-cmd-requires-claim-branch` (test): When a pull
   request closes #N and does not come from `issue/N` in this repository,
   check-linked-issues.py fails it.
@@ -220,23 +209,10 @@ command's output does not reliably reach the owner, under
 Source: CLAUDE.md, under "Issues", and #469.
 
 - `claudemd-reports-claim-first` (test): When an agent reads CLAUDE.md's
-  "Issues" section, it is told that its next message after `issues.py claim
+  "Issues" section, it is told that its next message after `flywheel.py claim
   N` says whether the claim won, naming #N and `issue/N` on a win and the
   reason on exit 1, before any other work on the issue. The test checks the
   rule is written, and #474 adds the eval that checks an agent follows it.
-
-## need owner-orders-dependent-issues: Leave an issue until its blocker closes
-
-When one issue waits on another, the owner wants agents told to take the next
-issue to leave it until its blocker closes, so an agent builds only on work
-that has landed.
-
-Source: the owner's request on 2026-10-04, recorded in #345.
-
-- `next-cmd-skips-blocked-issues` (test): When GitHub lists an open issue as
-  blocking an issue, `issues.py next` does not offer it. When every free issue
-  is blocked, `next` names each with its open blockers and exits 0, and `claim`
-  still takes a blocked issue the owner names.
 
 ## need owner-works-one-plan: Work one approved plan in its order
 
@@ -246,20 +222,9 @@ issue, so agents work the plan in its listed order without picking issues
 from outside it.
 
 Source: the owner's request on 2026-10-05, recorded in #350.
+specs/flywheel.md holds the requirements the flywheel plugin meets under this
+need.
 
-- `next-cmd-follows-tracking-issue` (test): When `issues.py next --tracking N`
-  runs, it offers the first sub-issue in #N's listed order that is open,
-  unheld and unblocked. It exits 1 when that sub-issue lacks `approved`, or when #N is not an open issue labeled both `tracking` and
-  `approved`.
-- `next-cmd-names-tracking-issue` (test): When an open tracking issue labeled
-  `approved` takes its place in the queue, at the lowest number among itself
-  and its open sub-issues, before the issue `issues.py next` would offer,
-  `next` names the tracking issue and the command to follow it, and exits 0.
-- `next-cmd-reports-finished-plan` (test): When every sub-issue of #N is
-  closed, `issues.py next --tracking N` says the plan is finished, names the
-  command that closes #N, and exits 0. An open sub-issue keeps the plan
-  unfinished even when a claim holds it, and so does a tracking issue without
-  sub-issues.
 - `planclose-cmd-closes-finished-plan` (test): When `issues.py plan close N`
   runs on an open issue labeled both `tracking` and `approved` whose
   sub-issues are all closed, it closes #N with a comment naming them. It exits
@@ -331,61 +296,11 @@ When an agent or the owner looks at the issue list, they want a claimed issue
 to show as claimed, and a label that disagrees with its branch to be reported,
 so a reader never takes a stale label for a claim.
 
-Source: README.md, under "Claiming an issue", and #33.
+Source: README.md, under "Claiming an issue", and #33. specs/flywheel.md
+holds the requirements the flywheel plugin meets under this need.
 
-- `claim-cmd-adds-in-progress-label` (test): When `issues.py claim` wins,
-  it adds `in-progress` and a claim comment, and if either fails, it warns and
-  still exits 0.
 - `issueclosed-clears-in-progress-label` (check): When an issue carrying
   `in-progress` closes, issue-closed.yml removes the label.
-- `stale-cmd-reports-claims-left-behind` (test): When any of these holds, `issues.py stale` fails and names the remedy:
-  - a label has no branch.
-  - a closed issue keeps its label.
-  - a closed issue keeps its branch.
-  - an open issue has its branch and lacks the label.
-
-## need owner-frees-abandoned-claims: Free an abandoned claim without losing work
-
-When an agent stops without opening a pull request, the owner wants its claim
-freed for someone else, so the issue does not stay held, and wants every commit
-on the claim branch kept through the freeing.
-
-Source: README.md, under "Claiming an issue", and CLAUDE.md, under "Issues".
-
-- `release-cmd-frees-unused-claim` (test): When `issues.py release N`
-  finds `issue/N` with no commits off main, or only the `in-progress` label,
-  it deletes the branch, removes the label and comments.
-- `release-cmd-keeps-work` (test): When `issue/N` has commits off main, or
-  changed after `release` checked it, `issues.py release` exits 1 and deletes
-  nothing.
-- `release-cmd-requires-held-claim` (test): When `issues.py release N`
-  finds neither `issue/N` nor the `in-progress` label, it exits 1 without
-  commenting, so only an issue that was held can read as released.
-
-## need owner-clears-merged-claims: Clear a merged claim's local branch
-
-When a pull request from `issue/N` has merged, the owner wants the local claim
-branch removed without anyone typing git commands, so claim branches do not
-pile up.
-
-Source: #289, and README.md, under "Claiming an issue".
-
-- `clear-cmd-deletes-merged-branch` (test): When `issues.py clear N` finds #N
-  closed, and the local `issue/N` either inside the head of a merged pull
-  request from it or not holding any change `origin/main` lacks, it does
-  these:
-  - switches any worktree that has the branch checked out to a detached
-    `origin/main`.
-  - leaves every worktree in place.
-  - deletes the branch.
-- `clear-cmd-keeps-unmerged-work` (test): When #N is open, the local `issue/N`
-  is missing, or it holds a commit that every merged pull request from it lacks
-  and a change `origin/main` lacks, `issues.py clear` exits 1, says what to do
-  next and deletes nothing.
-- `clear-cmd-keeps-uncommitted-changes` (test): When a worktree that has
-  `issue/N` checked out has uncommitted changes, `issues.py clear N` exits 1,
-  names the worktree and says to commit or discard the changes, and neither
-  moves a worktree nor deletes anything, with or without `--dry-run`.
 
 ## need owner-prevents-stale-branches: Keep finished branches from piling up
 
@@ -393,20 +308,14 @@ When a session's work has merged or was never started, the owner wants every
 local branch it left removed without typing git commands, so the clone keeps
 only live branches.
 
-Source: #294, and README.md, under "Claiming an issue".
+Source: #294, and README.md, under "Claiming an issue". specs/flywheel.md
+holds the requirements the flywheel plugin meets under this need.
 
-- `sweep-cmd-deletes-merged-branches` (test): When `issues.py sweep` runs, it
-  deletes every local branch but `main` whose tip is inside the head of a
-  merged pull request from that branch, or which does not hold any change `origin/main`
-  lacks, as a branch without commits of its own does.
-- `sweep-cmd-keeps-live-branches` (test): When a local branch holds a change
-  `origin/main` lacks, is checked out in any worktree, or still exists on
-  `origin`, `issues.py sweep` keeps it and prints it with the reason.
 - `branchsweep-reports-deleted-branches` (test): When branch_sweep.py's sweep
   deletes branches, the hook names them on stdout in one line, and stays
   silent when it does not delete a branch.
-- `branchsweep-never-blocks` (test): When `issues.py sweep` fails, does not print a
-  result or runs past the hook's own time limit, branch_sweep.py exits 0 and
+- `branchsweep-never-blocks` (test): When `flywheel.py sweep` fails, does not
+  print a result or runs past the hook's own time limit, branch_sweep.py exits 0 and
   prints one line saying why and naming the command to run by hand.
 - `settingsjson-registers-branch-sweep` (test): When a Claude Code session
   starts in this repo, `.claude/settings.json` runs branch_sweep.py, with 30
@@ -949,7 +858,7 @@ the label `Bug` beside `bug` with "Name has already been taken".
   names this repository in another case, check-linked-issues.py reads the
   label as `approved` and the issue as one in this repository.
 - `claim-cmd-ignores-label-case` (test): When an issue carries `approved` in
-  another case, `issues.py claim` claims it as it claims one labeled
+  another case, `flywheel.py claim` claims it as it claims one labeled
   `approved`.
 - `changes-cmd-ignores-label-case` (test): When an issue a pull request closes
   was given `approved` in another case, `changes` reads that as the time it

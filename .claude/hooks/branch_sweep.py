@@ -3,9 +3,9 @@
 Runs as a SessionStart hook on startup, configured in .claude/settings.json. The
 desktop app makes a branch for every session and never deletes it, and a
 merged pull request leaves its branch behind locally, so without this they
-pile up. `.github/scripts/issues.py sweep` does the deciding and the deleting;
-its docstring says which branches it keeps and why. This hook only runs it and
-reports.
+pile up. The flywheel plugin's `flywheel.py sweep` does the deciding and the
+deleting; its docstring says which branches it keeps and why. This hook only
+runs it and reports.
 
 What the hook prints on stdout, Claude Code adds to the session's context:
 one line naming the branches deleted, or nothing when none were. When the
@@ -20,18 +20,18 @@ import os
 import subprocess
 import sys
 
-ISSUES = os.path.join(".github", "scripts", "issues.py")
+FLYWHEEL = os.path.join("plugins", "flywheel", "scripts", "flywheel.py")
 # Under the 30 seconds .claude/settings.json gives the hook, so the hook
 # reports a slow sweep itself rather than being killed silently.
 TIMEOUT = 25
-BY_HAND = "python3 .github/scripts/issues.py sweep"
+BY_HAND = "python3 plugins/flywheel/scripts/flywheel.py sweep"
 
 
 def sweep(root):
-    """issues.py sweep's JSON envelope, or a string saying why it did not run."""
+    """flywheel.py sweep's JSON envelope, or a string saying why it did not run."""
     try:
         proc = subprocess.run(
-            [sys.executable, os.path.join(root, ISSUES), "sweep", "--json", "-C", root],
+            [sys.executable, os.path.join(root, FLYWHEEL), "sweep", "--json", "-C", root],
             capture_output=True,
             text=True,
             timeout=TIMEOUT,
@@ -45,7 +45,7 @@ def sweep(root):
         return json.loads(proc.stdout)
     except ValueError:
         lines = proc.stderr.strip().splitlines()
-        return lines[-1] if lines else "issues.py exited %d" % proc.returncode
+        return lines[-1] if lines else "flywheel.py exited %d" % proc.returncode
 
 
 def main():

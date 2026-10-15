@@ -13,8 +13,8 @@ a merged pull request through Claude sessions that each play one role. A
 with a GitHub remote.
 
 This version installs the plugin's script, writes the file that says which
-model each role runs on, and ships the docs that define the method the loop
-follows. The skills that run the loop arrive in later versions.
+model each role runs on, takes and frees the claim on an issue, and ships the
+docs that define the method the loop follows. The skills that run the loop arrive in later versions.
 
 ## The method
 
@@ -56,3 +56,40 @@ writes `.flywheel/roles.json` with one entry per role:
 
 `config init` never overwrites a roles file that already exists. Commit the
 file once it is filled in, so every session reads the same choices.
+
+## Claiming an issue
+
+Before a session works an issue, it **claims** it: it creates a branch named
+`issue/` and the issue's number on GitHub. Only one session can create that
+branch, so two sessions never work the same issue. Claude then adds the
+`in-progress` label and a comment, so the claim shows in the issue list.
+
+Ask Claude for the next issue, or for the next few. Claude offers the oldest
+approved issues that nobody has claimed and that no open issue blocks. When
+a plan groups several issues under one tracking issue, Claude offers them in
+the plan's order.
+
+When a session stops without finishing, ask Claude to release the claim.
+Claude deletes the branch only when it holds no work. Once the issue's pull
+request merges, ask Claude to clear the claim, which removes the branch from
+your clone.
+
+## Starting a session on an issue
+
+Ask Claude for the brief for an issue. The brief is the first message for a
+new session: the issue as you approved it, your comments since, the
+session's role, and your project's gate commands. A **gate command** is the
+command that says a piece of work is done, such as running the tests. Claude
+refuses the brief for an issue edited after you approved it, until you
+approve it again.
+
+List your gate commands in `.flywheel/gates.json`, and commit it:
+
+```json
+{
+  "gates": {
+    "check": "make check",
+    "verify": "make verify"
+  }
+}
+```

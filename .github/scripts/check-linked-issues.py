@@ -15,8 +15,8 @@ reads all three. A keyword inside a code span, a fenced block or an HTML comment
 is not a link and is ignored, as GitHub ignores it.
 
 A pull request that closes an issue must also come from that issue's claim
-branch, `issue/<N>` in this repository, which `.github/scripts/issues.py claim`
-makes. That is what stops an agent skipping the claim and colliding with
+branch, `issue/<N>` in this repository, which the flywheel plugin's
+`flywheel.py claim` makes. That is what stops an agent skipping the claim and colliding with
 another. Any other issue it closes must not be claimed on a branch of its own.
 
 A pull request that names no issue passes. Work the owner asks for directly
@@ -46,7 +46,7 @@ issue after the pull request was opened, re-run the job.
 It takes no arguments, on purpose. It runs only in CI on a pull_request event,
 GitHub hands it everything it needs through the environment, and it reads
 nothing from a clone - so it has no parser, no subcommands, and neither of the
---json and -C/--repo flags that issues.py and check-tests.py carry. A flag here
+--json and -C/--repo flags that flywheel.py and check-tests.py carry. A flag here
 would be a promise with nothing behind it; add one when a caller outside CI
 needs it, not before. Tests reach main() through its environ and fetch
 parameters instead.
@@ -76,7 +76,7 @@ CLOSING_RE = re.compile(
     r"(?:(?P<repo>[\w.-]+/[\w.-]+))?#(?P<number>\d+)\b",
     re.I,
 )
-# The claim branch issues.py makes. Kept in step with BRANCH_PREFIX there.
+# The claim branch flywheel.py makes. Kept in step with BRANCH_PREFIX there.
 CLAIM_BRANCH_PREFIX = "issue/"
 CLAIM_BRANCH_RE = re.compile(r"^%s(\d+)$" % re.escape(CLAIM_BRANCH_PREFIX))
 CLAIM_BRANCH_REF_RE = re.compile(r"^refs/heads/%s(\d+)$" % re.escape(CLAIM_BRANCH_PREFIX))
@@ -227,7 +227,8 @@ def claim_problems(pr, ours, repo, token, fetch):
     if claimed not in ours:
         out.append(
             "this pull request closes %s from branch %s. Claim the issue with "
-            "`.github/scripts/issues.py claim N` and open the pull request from the "
+            "`python3 plugins/flywheel/scripts/flywheel.py claim N` and open the pull request "
+            "from the "
             "issue/N branch it makes"
             % (", ".join("#%d" % n for n in ours), head.get("label") or head.get("ref"))
         )
