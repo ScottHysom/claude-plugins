@@ -12,7 +12,7 @@ flowchart TD
   D --> E[Implementation<br/>skills and plugins]
 ```
 
-This repo covers the top four layers. Skills and plugins live elsewhere and cite principles and stage rules by ID, for example "this skill enforces no-merge-without-alignment."
+This repo covers the top four layers. The flywheel plugin, which ships these documents, implements them, and its skills cite principles and stage rules by ID, for example "this skill enforces no-merge-without-alignment."
 
 | Repo file | Covers | Leg |
 | --- | --- | --- |
@@ -134,17 +134,17 @@ After that, a retired ID is listed here with the date it was retired, what repla
 - [ ] Final name: "Spec-Anchored Agentic Engineering" or something shorter for the repo?
 - [x] Decided: stay spec-anchored, not *spec-as-source*. Humans, agents or both may edit code, under the same rules.
 - [ ] Which spec documents are the minimum for a small consulting engagement? Proposed: the needs spec (`specs/`) alone, with its out-of-scope list, and a PRD only when the client needs one. See [traceability.md](traceability.md).
-- [ ] For bigger projects, how much of the PRD and design documents is still needed once needs and constraints cover the product? Candidates for what remains: success metrics, architecture reasons (ADRs), visual design and the threat model. Proposed: collapse requirements and design into the needs spec and its design notes by default, and split a document out only when a different person must sign it. See [the reconciliation note](notes/ai-native-sdlc-reconciliation.md), collision 3.
+- [ ] For bigger projects, how much of the PRD and design documents is still needed once needs and constraints cover the product? Candidates for what remains: success metrics, architecture reasons (ADRs), visual design and the threat model. Proposed: collapse requirements and design into the needs spec and its design notes by default, and split a document out only when a different person must sign it. See the reconciliation note (`notes/ai-native-sdlc-reconciliation.md` in the method's Cowork archive), collision 3.
 - [x] Decided: an agent may merge only under a written merge policy whose autonomy scales with risk (autonomy-scales-with-risk). The policy names the change types and environments that qualify, the checks that must pass, and the findings that block. The paradigm sets the principle; each project writes its policy in its implementation layer, and a human can revoke it at any time.
 - [x] Decided: spec/code alignment is checked with traceability IDs and CI checks for every link, plus owner review of whether each need is real. See [traceability.md](traceability.md).
 
 ## Sources
 
 - Jeremy's LinkedIn post (September 2026): living specs, 8 coder + 8 reviewer agents, tiered models, periodic audit.
-- [SPEC-METHODOLOGY.md](https://github.com/ScottHysom/claude-plugins/blob/main/SPEC-METHODOLOGY.md), claude-plugins (2026). The "needs before code" method behind traceability.md, and its worked example.
-- [The AI-Native SDLC Playbook](https://claude.com/blog/the-ai-native-sdlc-playbook), Claude blog. Source of the plan gate, the single verification command, evals of agent instructions, written review policy, autonomy by risk and the Maintain stage. See [the reconciliation note](notes/ai-native-sdlc-reconciliation.md).
+- [SPEC-METHODOLOGY.md](../../../SPEC-METHODOLOGY.md), claude-plugins (2026). The "needs before code" method behind traceability.md, and its worked example.
+- [The AI-Native SDLC Playbook](https://claude.com/blog/the-ai-native-sdlc-playbook), Claude blog. Source of the plan gate, the single verification command, evals of agent instructions, written review policy, autonomy by risk and the Maintain stage. See the reconciliation note (`notes/ai-native-sdlc-reconciliation.md` in the method's Cowork archive).
 - [Understanding Spec-Driven Development: Kiro, spec-kit, and Tessl](https://martinfowler.com/articles/exploring-gen-ai/sdd-3-tools.html), Birgitta Böckeler, October 2025. Source of the spec-first / spec-anchored / spec-as-source levels.
 
 ## License
 
-MIT, for the documents and for any code that joins them. See [LICENSE](LICENSE).
+MIT, for the documents and for any code that joins them. See [LICENSE](../../../LICENSE).

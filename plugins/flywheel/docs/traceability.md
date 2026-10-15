@@ -2,7 +2,7 @@
 
 The spec says what the product should be. Traceability ties every behavior in the code to the reason it exists, so nothing gets built that nobody asked for (trace-behavior-to-need).
 
-This practice comes from the "needs before code" method in the claude-plugins repo, [SPEC-METHODOLOGY.md](https://github.com/ScottHysom/claude-plugins/blob/main/SPEC-METHODOLOGY.md). That file is the worked example. It holds the mechanics this repo leaves out: the spec-file grammar, the id rules, test markers, and the scripts that run the checks.
+This practice comes from the "needs before code" method in the claude-plugins repo, [SPEC-METHODOLOGY.md](../../../SPEC-METHODOLOGY.md). That file is the worked example. It holds the mechanics this repo leaves out: the spec-file grammar, the id rules, test markers, and the scripts that run the checks.
 
 ## The problem
 
@@ -231,6 +231,6 @@ Spec-driven tools draw four common criticisms. This practice is built to avoid e
 
 ## Sources
 
-- [SPEC-METHODOLOGY.md](https://github.com/ScottHysom/claude-plugins/blob/main/SPEC-METHODOLOGY.md), claude-plugins. The method in full, with its mechanics and history.
+- [SPEC-METHODOLOGY.md](../../../SPEC-METHODOLOGY.md), claude-plugins. The method in full, with its mechanics and history.
 - Martin Fowler, with Kent Beck, *Refactoring* (1999), chapter 3, for speculative generality.
 - Alistair Mavin et al., "Easy Approach to Requirements Syntax (EARS)", RE'09, [doi:10.1109/RE.2009.9](https://doi.org/10.1109/RE.2009.9).
