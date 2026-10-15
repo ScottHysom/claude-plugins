@@ -330,8 +330,15 @@ requirement is admitted.
   one of these directories, and `.github/scripts/check-tests.py placement`
   fails a pull request with a test file anywhere else, including under
   `plugins/`. README.md, under "Running the tests", has the detail.
+- **A unit is done when `check` passes, and a pull request is ready when
+  `verify` passes.** Run them as `python3 .github/scripts/gate.py check` and
+  `python3 .github/scripts/gate.py verify`, with the Python of the venv that
+  holds `requirements-dev.txt`. CI runs the same `verify`, so a green
+  `pytest` alone does not finish a unit. A check either command skips is
+  named in a warning with the reason, and CI runs it.
 - **Run the whole suite in the background.** A Bash call that runs `pytest`
-  over the whole suite, with or without `--cov`, sets `run_in_background: true`
+  over the whole suite, with or without `--cov`, or runs `gate.py test`,
+  `check` or `verify`, sets `run_in_background: true`
   and waits for the notification that the run finished. The Bash tool stops
   waiting after 120 seconds. The suite's run time grows with each test
   added and with the load other sessions put on the machine. A larger

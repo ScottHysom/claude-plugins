@@ -33,6 +33,19 @@ Source: #643, and the method's `match-capability-to-task` and
   with a field only the owner can fill, it names each such field in its
   result.
 
+## need contributor-reads-method-beside-plugin: Read the method beside the plugin
+
+When a contributor or an adopting owner reads a principle id in a spec, a
+template or a skill, they want to open the document that defines it from the
+same install, so the id is a definition and not a pointer to another repo.
+
+Source: #644, and the method's `one-home-per-artifact`.
+
+- `ids-cmd-fails-unknown-id` (test): When `flywheel.py ids` finds a principle
+  or stage-rule id cited in the plugin's templates, skills or
+  `specs/flywheel.md` that no document under `docs/` defines, it names it and
+  exits 1.
+
 ## need owner-keeps-claims-exclusive: Keep two agents off the same issue
 
 When two agents are told to take the next issue at the same time, the owner
