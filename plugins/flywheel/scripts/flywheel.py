@@ -16,6 +16,9 @@ Commands:
                  manifest into the project's .flywheel/, which git ignores
     config init  write .flywheel/roles.json from the plugin's template, and
                  name each field the owner fills in
+    ids          name each principle or stage-rule id cited in the plugin's
+                 templates, skills or the repo's specs/flywheel.md that no
+                 document under the plugin's docs/ defines
 
 Exit codes: 0 clean, 1 ran and found problems, 2 could not run.
 
@@ -37,6 +40,14 @@ under. `config init` fills in the version. A field the template leaves null is
 one only the owner can fill, such as the model behind a tier, and `config
 init` names each one by its path in the file.
 
+The method's ids. The documents under docs/ define each principle and
+stage-rule id as a row of a table whose header has an ID column. A file
+cites one by naming it in backticks after the words "the method's", in the
+same sentence: "Source: the method's `one-home-per-artifact`." `ids` reads
+the citations in the plugin's templates and skills and in specs/flywheel.md,
+when the repo has one, and needs the plugin's own docs/, so it runs from the
+plugin rather than from the copy in .flywheel/.
+
 Only `setup` and `config init` write, and only under .flywheel/. Neither
 writes to git. Neither takes --dry-run, since nothing reads a preview of
 them.
@@ -48,6 +59,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 
@@ -72,6 +84,17 @@ COPY_MANIFEST = COPY_DIR + "/" + MANIFEST
 COPY_ROLES = COPY_DIR + "/roles.template.json"
 COPY_IGNORE = COPY_DIR + "/.gitignore"
 COPY_PREFIX = "FLYWHEEL=" + COPY_SCRIPT
+
+DOCS_DIR = "docs"
+TEMPLATES_DIR = "templates"
+SKILLS_DIR = "skills"
+SPEC_FILE = "specs/flywheel.md"
+ID_HEADER = "ID"
+METHOD_ID = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)+")
+# "the method's" opens a citation, which runs to the end of its sentence or
+# its paragraph.
+CITATION = re.compile(r"\bthe\s+method's\b(.*?)(?:\.(?=\s|$)|\n[ \t]*\n|$)", re.S)
+BACKTICKED = re.compile(r"`([^`\n]+)`")
 
 ROLES_FILE = COPY_DIR + "/roles.json"
 ROLES_KEY = "roles"
@@ -137,10 +160,14 @@ def project_root(start):
     return os.fsdecode(out.stdout.rstrip(b"\n"))
 
 
+def in_copy():
+    return os.path.basename(os.path.dirname(SCRIPT_PATH)) == COPY_DIR
+
+
 def plugin_file(copied, shipped):
     """A file the script reads: beside it in the project's copy, else in the plugin."""
     here = os.path.dirname(SCRIPT_PATH)
-    if os.path.basename(here) == COPY_DIR:
+    if in_copy():
         path = os.path.join(here, os.path.basename(copied))
     else:
         path = os.path.join(os.path.dirname(here), *shipped.split("/"))
@@ -284,6 +311,106 @@ def cmd_config_init(args):
 
 
 # --------------------------------------------------------------------------
+# ids
+# --------------------------------------------------------------------------
+
+
+def table_cells(line):
+    return [cell.strip() for cell in line.strip().strip("|").split("|")]
+
+
+def defined_ids(text):
+    """Each id in the ID column of a table in text."""
+    out = set()
+    column = None
+    for line in text.splitlines():
+        if not line.lstrip().startswith("|"):
+            column = None
+            continue
+        cells = table_cells(line)
+        if column is None:
+            column = cells.index(ID_HEADER) if ID_HEADER in cells else -1
+        elif 0 <= column < len(cells) and METHOD_ID.fullmatch(cells[column]):
+            out.add(cells[column])
+    return out
+
+
+def cited_ids(text):
+    """(id, line) for each id the text cites as the method's, in order."""
+    out = []
+    for cite in CITATION.finditer(text):
+        for tick in BACKTICKED.finditer(cite.group(1)):
+            name = tick.group(1)
+            if METHOD_ID.fullmatch(name):
+                line = text.count("\n", 0, cite.start(1) + tick.start()) + 1
+                out.append((name, line))
+    return out
+
+
+def files_under(root, rel):
+    """Every file under root/rel, as a path relative to root, sorted."""
+    out = []
+    for top, dirs, names in os.walk(os.path.join(root, rel)):
+        dirs.sort()
+        for name in sorted(names):
+            out.append(os.path.relpath(os.path.join(top, name), root).replace(os.sep, "/"))
+    return out
+
+
+def read_text(path):
+    try:
+        return read_bytes(path).decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise Fatal(
+            "%s is not UTF-8 text: %s. Save it as UTF-8, then run again." % (path, exc)
+        ) from exc
+
+
+def cmd_ids(args):
+    """Name each cited method id that the plugin's docs do not define."""
+    if in_copy():
+        raise Fatal(
+            "ids reads the plugin's docs/, which %s/ does not hold. Run the plugin's own"
+            " scripts/%s." % (COPY_DIR, SCRIPT_NAME)
+        )
+    root = project_root(args.repo)
+    plugin = os.path.dirname(os.path.dirname(SCRIPT_PATH))
+    defined = set()
+    for rel in files_under(plugin, DOCS_DIR):
+        if rel.endswith(".md"):
+            defined |= defined_ids(read_text(os.path.join(plugin, rel)))
+    if not defined:
+        raise Fatal(
+            "no document under %s defines a method id. Install the flywheel plugin again."
+            % os.path.join(plugin, DOCS_DIR)
+        )
+
+    sources = [(rel, os.path.join(plugin, rel)) for rel in files_under(plugin, TEMPLATES_DIR)]
+    sources += [(rel, os.path.join(plugin, rel)) for rel in files_under(plugin, SKILLS_DIR)]
+    spec = os.path.join(root, *SPEC_FILE.split("/"))
+    if os.path.isfile(spec):
+        sources.append((SPEC_FILE, spec))
+    unknown = []
+    for rel, path in sources:
+        for name, line in cited_ids(read_text(path)):
+            if name not in defined:
+                unknown.append({"id": name, "file": rel, "line": line})
+    errors = [
+        "%s:%d: `%s` is cited as the method's, and no document under %s/ defines it. Correct"
+        " the citation, or define the id in the method's docs."
+        % (u["file"], u["line"], u["id"], DOCS_DIR)
+        for u in unknown
+    ]
+    data = {"files": [rel for rel, _ in sources], "unknown": unknown}
+
+    def human():
+        if not unknown:
+            print("every method id cited in %d files is defined" % len(sources))
+
+    return emit(args, "ids", data, errors=errors, human=human)
+
+
+# --------------------------------------------------------------------------
 # main
 # --------------------------------------------------------------------------
 
@@ -317,6 +444,14 @@ def build_parser():
         % ROLES_FILE,
     )
     p.set_defaults(func=cmd_config_init)
+
+    p = sub.add_parser(
+        "ids",
+        parents=[common],
+        help="name each method id cited in the plugin or %s that %s/ does not define"
+        % (SPEC_FILE, DOCS_DIR),
+    )
+    p.set_defaults(func=cmd_ids)
 
     return ap
 

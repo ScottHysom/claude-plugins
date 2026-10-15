@@ -12,9 +12,22 @@ a merged pull request through Claude sessions that each play one role. A
 **Claude Code only.** The loop runs in the Claude desktop app, in a git clone
 with a GitHub remote.
 
-This version installs the plugin's script and writes the file that says which
-model each role runs on. The skills that run the loop arrive in later
-versions.
+This version installs the plugin's script, writes the file that says which
+model each role runs on, and ships the docs that define the method the loop
+follows. The skills that run the loop arrive in later versions.
+
+## The method
+
+The loop follows a method for building software with agents: every behavior
+traces to a need someone stated, and each task gets an agent matched to it.
+The plugin's `docs/` folder is the method's home. Start with
+[docs/README.md](docs/README.md).
+
+The method's principles and stage rules each have an id, such as
+`one-home-per-artifact`. A spec, a template or a skill that cites one points
+to the document in `docs/` that defines it. The docs carry the plugin's
+version, so a repo that records which flywheel version it adopted has
+recorded which version of the method it follows.
 
 ## Setting it up in a project
 

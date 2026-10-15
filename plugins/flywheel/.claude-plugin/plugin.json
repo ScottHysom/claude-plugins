@@ -1,7 +1,7 @@
 {
   "name": "flywheel",
-  "version": "0.1.0",
-  "description": "Claude Code only. Runs a repo's issue loop, from an approved issue to a merged pull request, through desktop sessions that each play one role. This version installs the script and the roles file the loop's skills will read. Ships flywheel.py, so it must be installed as a plugin rather than proposed as a single skill.",
+  "version": "0.2.0",
+  "description": "Claude Code only. Runs a repo's issue loop, from an approved issue to a merged pull request, through desktop sessions that each play one role. This version installs the script and the roles file the loop's skills will read, and ships the docs that define the method the loop follows. Ships flywheel.py, so it must be installed as a plugin rather than proposed as a single skill.",
   "author": {
     "name": "Scott Hysom",
     "url": "https://github.com/ScottHysom"
