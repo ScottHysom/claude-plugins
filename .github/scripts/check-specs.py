@@ -138,7 +138,7 @@ Things that look like bugs and are not:
   pull request.
 - `surface` counts nothing a skill says. A skill naming an option shows that
   a step uses it, not which need it serves. A span that opens with a script's
-  file name, as `issues.py claim` does, counts only for that script.
+  file name, as `flywheel.py claim` does, counts only for that script.
 - `surface` reads a script only if it defines build_parser(). One without,
   such as check-linked-issues.py, takes no arguments.
 - A requirement that is only rewrapped has not changed, for `changes`: its

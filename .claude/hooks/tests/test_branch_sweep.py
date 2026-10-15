@@ -1,6 +1,6 @@
 """The branch sweep hook runs at every session start, so it must report in one
 line and must never make a session start with an error. Each test stands a
-fake issues.py in a project directory, so the hook runs a real subprocess.
+fake flywheel.py in a project directory, so the hook runs a real subprocess.
 """
 
 import importlib.util
@@ -30,9 +30,9 @@ def envelope(deleted, kept=()):
 
 @pytest.fixture
 def project(tmp_path, monkeypatch):
-    """A project directory whose issues.py runs the given Python body."""
+    """A project directory whose flywheel.py runs the given Python body."""
     monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(tmp_path))
-    script = tmp_path / hook.ISSUES
+    script = tmp_path / hook.FLYWHEEL
     script.parent.mkdir(parents=True)
 
     def install(body):
@@ -66,11 +66,11 @@ class DescribeBranchSweep:
 
     @pytest.mark.spec("branchsweep-never-blocks")
     def it_passes_on_why_the_sweep_could_not_run(self, capsys, project):
-        project("sys.stderr.write('issues.py: cannot run gh\\n'); sys.exit(2)\n")
+        project("sys.stderr.write('flywheel.py: cannot run gh\\n'); sys.exit(2)\n")
         assert hook.main() == 0
         assert capsys.readouterr().out == (
-            "The branch sweep did not run: issues.py: cannot run gh. "
-            "Run `python3 .github/scripts/issues.py sweep` by hand.\n"
+            "The branch sweep did not run: flywheel.py: cannot run gh. "
+            "Run `python3 plugins/flywheel/scripts/flywheel.py sweep` by hand.\n"
         )
 
     @pytest.mark.spec("branchsweep-never-blocks")
@@ -86,7 +86,7 @@ class DescribeBranchSweep:
     def it_names_the_exit_code_when_the_sweep_says_nothing(self, capsys, project):
         project("sys.exit(3)\n")
         assert hook.main() == 0
-        assert "did not run: issues.py exited 3." in capsys.readouterr().out
+        assert "did not run: flywheel.py exited 3." in capsys.readouterr().out
 
     @pytest.mark.spec("branchsweep-never-blocks")
     def it_reports_a_python_it_cannot_start(self, capsys, project, monkeypatch):

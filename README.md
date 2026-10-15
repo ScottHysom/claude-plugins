@@ -63,7 +63,7 @@ To start a Cowork project with git history from day one:
 .claude-plugin/
   marketplace.json         the catalog. One entry per plugin
 .github/
-  scripts/                 the checks CI runs, and issues.py
+  scripts/                 the checks CI runs, and issues.py's plan commands
     tests/                 their pytest suite
 plugins/
   <plugin-name>/
@@ -324,7 +324,7 @@ it did not look when they are unset.
 `surface` fails a subcommand, option or `choices` value of a plugin script or a
 `.github/scripts/` script that is not named in backticks by any requirement,
 whether in its own spec or in `specs/repo.md`. A span that starts with a
-script's file name, such as `issues.py claim`, counts only for that script. Text
+script's file name, such as `flywheel.py claim`, counts only for that script. Text
 in a skill does not count, since a skill can name an option without saying
 which need it serves. The items waiting on an issue are under `surface` in
 `.github/untraced.json`.
@@ -494,7 +494,7 @@ and for update-prose-config. A tracking issue:
 - is never claimed or closed by a pull request.
 
 An agent closes it once its last sub-issue closes. When every sub-issue of
-#N is closed, `next --tracking N` says the plan is finished, and the agent
+#N is closed, `flywheel.py queue --tracking N` says the plan is finished, and the agent
 runs `python3 .github/scripts/issues.py plan close N`. `plan close` refuses
 while any sub-issue of #N is open.
 
@@ -529,31 +529,39 @@ details.
 ### Claiming an issue
 
 Two agents can be told to "take the next issue" at the same time. Claiming is
-what stops them picking the same one, and `.github/scripts/issues.py` does it:
+what stops them picking the same one. The flywheel plugin's script,
+`plugins/flywheel/scripts/flywheel.py`, does it:
 
 ```sh
-python3 .github/scripts/issues.py next         # the oldest approved, unblocked issue nobody holds
-python3 .github/scripts/issues.py next --tracking 347  # the next issue in #347's plan
-python3 .github/scripts/issues.py claim 12     # take it, and switch to branch issue/12
-python3 .github/scripts/issues.py release 12   # give it up without a pull request
-python3 .github/scripts/issues.py stale        # labels, branches and issue states that disagree
-python3 .github/scripts/issues.py clear 12     # delete the local issue/12 once its pull request merges
-python3 .github/scripts/issues.py sweep        # delete every local branch whose work is on main
+python3 plugins/flywheel/scripts/flywheel.py queue            # the oldest approved, unblocked issue nobody holds
+python3 plugins/flywheel/scripts/flywheel.py queue --count 3  # up to three of them
+python3 plugins/flywheel/scripts/flywheel.py queue --tracking 347  # the next issue in #347's plan
+python3 plugins/flywheel/scripts/flywheel.py claim 12     # take it, and switch to branch issue/12
+python3 plugins/flywheel/scripts/flywheel.py brief 12     # the first message of a session that works #12
+python3 plugins/flywheel/scripts/flywheel.py release 12   # give it up without a pull request
+python3 plugins/flywheel/scripts/flywheel.py stale        # labels, branches and issue states that disagree
+python3 plugins/flywheel/scripts/flywheel.py clear 12     # delete the local issue/12 once its pull request merges
+python3 plugins/flywheel/scripts/flywheel.py sweep        # delete every local branch whose work is on main
 ```
 
-`next` skips an issue that GitHub shows as blocked by an open issue, and says so
+`queue` skips an issue that GitHub shows as blocked by an open issue, and says so
 when every free issue is blocked. `claim` does not check, so the owner can still
 name a blocked issue.
 
-`next` never offers a tracking issue, or a sub-issue of an approved tracking
+`queue` never offers a tracking issue, or a sub-issue of an approved tracking
 issue. An approved tracking issue takes its place in the queue at the lowest
 number among itself and its open sub-issues. When that place comes first,
-`next` names the tracking issue instead of an issue to work. `next --tracking N`
+`queue` names the tracking issue instead of an issue to work. `queue --tracking N`
 then walks #N's sub-issues in the order #N lists them. It passes over each one
 that is closed, held (already claimed) or blocked, and offers the first one left. When that one
 is not approved, it exits 1 and names it, rather than skip ahead in the plan.
 When every sub-issue is closed, it says the plan is finished, and names the
 `plan close N` command that closes #N.
+
+`brief N` prints the first message for a session that works #N: the issue as
+the owner approved it, the owner's comments since, the role, and the gate
+commands from `.flywheel/gates.json`. It refuses an issue edited after
+`approved` was last added to it.
 
 The claim is the branch `issue/N` on GitHub. `claim` pushes it in a way only one
 agent can win, then adds the `in-progress` label and a comment so the claim
@@ -561,8 +569,8 @@ shows in the issue list. The label comes off in two ways: `release`, when a clai
 is given up, and `.github/workflows/issue-closed.yml`, when the issue closes,
 whether a merged pull request closed it or someone closed it by hand. When the
 label and the branch disagree, the branch is right, and `stale` lists the
-disagreement. That includes a closed issue that still has the label. The
-script's docstring covers the details, including why `release` will not delete
+disagreement. That includes a closed issue that still has the label.
+flywheel.py's docstring covers the details, including why `release` will not delete
 a branch that has commits on it.
 
 A merge leaves the local `issue/N` behind, and `git branch -d` refuses it,

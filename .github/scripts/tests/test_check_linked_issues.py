@@ -208,7 +208,7 @@ class DescribeTheClaimBranchRule:
         )
         assert len(found) == 1
         assert "closes #12 from branch" in found[0]
-        assert "issues.py claim N" in found[0]
+        assert "flywheel.py claim N" in found[0]
 
     @pytest.mark.spec("checklinkedissues-cmd-fails-foreign-claims")
     def it_fails_a_second_issue_claimed_by_someone_else(self):
