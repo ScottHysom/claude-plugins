@@ -23,7 +23,7 @@ BAD_IDS = (
     "---\nname: T\n---\n\n## Sentences\n\n"
     "### sentences-01: Positional\n"
     "Body.\n> **Before.** a\n> **After.** b\n\n"
-    "### sentences-a-b-c-d-e: Five words\n"
+    "### sentences-a-b-c-d-e-f: Six words\n"
     "Body.\n> **Before.** a\n> **After.** b\n\n"
     "### sentences-Own_Subject: Not lower case\n"
     "Body.\n> **Before.** a\n> **After.** b\n\n"
@@ -39,7 +39,7 @@ BAD_IDS = (
 
 BAD_ID_ERRORS = [
     "rule id is positional",
-    "has 5 words; at most 4",
+    "has 6 words; at most 5",
     "is not lower-case words",
     "carries a number",
     "carries no id",
@@ -242,6 +242,11 @@ class DescribeCheckIdCommand:
     def it_prints_a_free_id(self, prose_repo, capsys):
         code, captured = self.check(prose_repo, capsys, "sentences", "name-the-role")
         assert (code, captured.out) == (prose.OK, "sentences-name-the-role\n")
+
+    @pytest.mark.spec("checkid-cmd-vets-new-ids")
+    def it_prints_an_id_whose_name_runs_to_five_words(self, prose_repo, capsys):
+        code, captured = self.check(prose_repo, capsys, "standing", "list-says-any-or-all")
+        assert (code, captured.out) == (prose.OK, "standing-list-says-any-or-all\n")
 
     @pytest.mark.spec("checkid-cmd-vets-new-ids")
     @pytest.mark.parametrize(

@@ -194,7 +194,7 @@ questions were written.
 ## Step 5: draft the rules for approval
 <!-- spec: updateproseconfig-writes-note-examples, updateproseconfig-shows-rules-whole, updateproseconfig-revises-on-comment, updateproseconfig-rules-in-own-file, batch-cmd-makes-own-file -->
 
-Name each rule. The name is one to four words saying what the rule means, and
+Name each rule. The name is one to five words saying what the rule means, and
 there is nothing to allocate. A name that reads as a near-duplicate of one
 already in the file usually is one, and the fix is to rewrite that rule rather
 than add a second under a name split finely enough to be free.

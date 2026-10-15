@@ -616,7 +616,7 @@ RULE_HEADING = re.compile(r"^###\s+([a-z][a-z0-9]*)-(\S+?)\s*:\s*(.+?)\s*$")
 SECTION = re.compile(r"^[a-z][a-z0-9]*$")
 RULE_NAME = re.compile(r"^[a-z][a-z0-9]*(?:-[a-z][a-z0-9]*)*$")
 POSITIONAL = re.compile(r"^\d+$")
-MAX_NAME_WORDS = 4
+MAX_NAME_WORDS = 5
 # The score at or above which two rules are worth the author's look.
 SIMILAR_THRESHOLD = 0.6
 # copy-prose's buckets, in the order it acts on them.
@@ -3338,7 +3338,7 @@ This file sits in `.claude/rules/`, so every session in the project loads it.
 The `scope:` block above decides only which files `apply-prose` checks.
 
 A rule here has a stable id of the form `<section>-<name>`, where the name is
-one to four words saying what the rule means. Reports name the id, and a rule
+one to five words saying what the rule means. Reports name the id, and a rule
 that gets reworded keeps its name. Git holds what the rule used to say, so
 nothing here is ever marked retired.
 
@@ -5947,7 +5947,7 @@ def build_parser():
             )
         if name == "check-id":
             c.add_argument("--section", required=True)
-            c.add_argument("--name", required=True, help="one to four lower-case words joined by -")
+            c.add_argument("--name", required=True, help="one to five lower-case words joined by -")
         if name == "classify":
             c.add_argument(
                 "--to", required=True, metavar="PATH", help="the prose-style.md to compare against"
