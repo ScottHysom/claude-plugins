@@ -105,60 +105,13 @@ directory under `plugins/` and one new entry in the catalog.
 3. Add an entry to `.claude-plugin/marketplace.json` with `name`, `source`,
    `description` and `version`. State the required surface in the first
    sentence of the description.
-4. Validate, then push. From the venv:
+4. Run the `verify` gate, then push. From the venv:
    ```sh
-   claude plugin validate --strict .
-   claude plugin validate --strict plugins/<name>
-   python3 .github/scripts/check-manifest-consistency.py check
-   python3 .github/scripts/check-prose-rules.py drift
-   python3 .github/scripts/check-skills.py descriptions
-   python3 .github/scripts/check-skills.py commands
-   python3 .github/scripts/check-skills.py steps
-   python3 .github/scripts/check-skills.py fences
-   python3 .github/scripts/check-skills.py repeats
-   python3 .github/scripts/check-tests.py placement
-   python3 .github/scripts/check-tests.py naming
-   python3 .github/scripts/check-specs.py trace
-   python3 .github/scripts/check-specs.py surface
-   ruff format --check .
-   ruff check .
-   git ls-files -z '*.sh' | xargs -0 -n1 sh -n
-   git ls-files -z '*.sh' | xargs -0 shellcheck
-   pytest --cov --cov-report=json:coverage.json --cov-report=term-missing:skip-covered
-   python3 .github/scripts/check-coverage.py floors --base origin/main
-   python3 .github/scripts/check-coverage.py diff --base origin/main
-   python3 .github/scripts/check-coverage.py pragmas
+   python3 .github/scripts/gate.py verify
    ```
 
-   CI runs these on every pull request, on every plugin. `--strict` fails on
-   warnings too, and validating the plugin directory checks its skills as well
-   as its manifest. The consistency script catches what
-   `claude plugin validate` cannot: two manifests that each validate but
-   disagree with each other, such as a version bumped in one and not the other.
-   The skills check catches a description Cowork's `.plugin` upload would
-   reject, which a marketplace install and `--strict` both accept. Its
-   `commands` check puts every script invocation in a skill's shell fences
-   through that script's parser, so a renamed subcommand or flag fails here
-   rather than part way through a run.
-   The placement check catches a contributor-only file left under `plugins/`,
-   which would otherwise be copied into every install.
-
-   A local run differs from CI's in these ways:
-
-   - `check-linked-issues.py`, `check-specs.py changes` and
-     `check-pr.py description` read the pull request's title and description,
-     so they run only in CI, once the pull request exists.
-     `check-pr.py description --body-file <file>` checks a drafted
-     description before then.
-   - `check-specs.py trace` asks GitHub whether the issues in
-     `.github/untraced.json` are still open only when `GITHUB_TOKEN` and
-     `GITHUB_REPOSITORY` are set. Without them, it warns that it did not look.
-   - `check-coverage.py floors` runs only on Python 3.13, and stops on any
-     other version. [Coverage](#coverage) says why.
-
-   [Coverage](#coverage), [Requirements](#requirements) and
-   [Formatting and linting](#formatting-and-linting) say what the other checks
-   catch.
+   CI runs the same command on every pull request. [Gates](#gates) says what
+   it runs and where a local run differs from CI's.
 5. Add a `plugin:<name>` label, and the plugin to the Area list in
    `.github/ISSUE_TEMPLATE/problem.yml`, so issues about it can say so:
    ```sh
@@ -250,6 +203,45 @@ whatever Python is already on the machine, which on macOS is still 3.9, so the
 scripts use neither a walrus in a comprehension nor `X | Y` unions. The floor
 constrains the test dependencies as well; `requirements-dev.txt` says how, next
 to the pins it applies to.
+
+### Gates
+
+`.github/scripts/gate.py` runs each of the repo's gates as one command, and
+CI runs the same commands, so the list of checks a contributor runs cannot
+drift from CI's. Each gate runs the one before it:
+
+| Gate | Runs | Passes when |
+|---|---|---|
+| `build` | nothing, since the repo ships its scripts as source | always |
+| `test` | the suite, without coverage | a change's tests pass |
+| `check` | ruff, `sh -n` and shellcheck, the suite under coverage, `claude plugin validate --strict` on the marketplace and every plugin, and every `check-*.py` command that reads only the clone | a unit of work is done |
+| `verify` | `check`, then `check-coverage.py diff` against the base branch and, on a pull request, the checks that read it | a pull request is ready |
+
+From the venv:
+
+```sh
+python3 .github/scripts/gate.py check
+python3 .github/scripts/gate.py verify --base origin/main
+```
+
+Each prints its chain to stderr before its first step, and stops at the first
+step that fails. The script's docstring has the rest.
+
+A local run differs from CI's in these ways:
+
+- `check-linked-issues.py`, `check-specs.py changes` and
+  `check-pr.py description` read the pull request's title and description,
+  so `verify` runs them only in CI, once the pull request exists, and names
+  each one it skips. `check-pr.py description --body-file <file>` checks a
+  drafted description before then.
+- `check-specs.py trace` asks GitHub whether the issues in
+  `.github/untraced.json` are still open only when `GITHUB_TOKEN` and
+  `GITHUB_REPOSITORY` are set. Without them, it warns that it did not look.
+- `check-coverage.py floors` runs only on Python 3.13, so `check` skips it on
+  any other version and says so. [Coverage](#coverage) says why.
+
+CI runs `verify` on Python 3.13 as the required `validate` job, and `check`
+on Python 3.9 as `check-on-3-9`.
 
 ### Coverage
 
