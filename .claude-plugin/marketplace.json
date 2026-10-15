@@ -7,6 +7,25 @@
   },
   "plugins": [
     {
+      "name": "flywheel",
+      "source": "./plugins/flywheel",
+      "displayName": "Flywheel",
+      "description": "Claude Code only. Runs a repo's issue loop, from an approved issue to a merged pull request, through desktop sessions that each play one role. This version installs the script and the roles file the loop's skills will read.",
+      "version": "0.1.0",
+      "category": "productivity",
+      "tags": [
+        "issues",
+        "github",
+        "agents",
+        "workflow"
+      ],
+      "author": {
+        "name": "Scott Hysom"
+      },
+      "homepage": "https://github.com/ScottHysom/claude-plugins/tree/main/plugins/flywheel",
+      "license": "MIT"
+    },
+    {
       "name": "gitify-cowork-project",
       "source": "./plugins/gitify-cowork-project",
       "displayName": "Gitify Cowork Project",
