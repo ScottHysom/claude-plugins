@@ -550,8 +550,8 @@ pushing and get CI's answer, or be told why a local run cannot give it. A
 contributor adding a skill runs the skill checks before committing it, so the
 checks read files git does not track yet.
 
-Source: README.md, under "Adding a plugin", step 4: "Validate, then push",
-and #284.
+Source: README.md, under "Adding a plugin", step 4: "Run the `verify`
+gate, then push", and #284.
 
 - `checkskills-cmd-reads-unignored-files` (test): When a skill file is
   committed, or new and not yet added, each check-skills.py command reads it,
@@ -560,6 +560,35 @@ and #284.
   `check-coverage.py floors` is not the version the floors (each script's lowest allowed test coverage) were measured on,
   `floors` exits 2 and names that version, rather than telling the
   contributor to add tests.
+
+## need contributor-runs-one-gate-command: Run one command for each gate CI runs
+
+When a contributor or an agent finishes a unit or readies a pull request, they
+want one command for each gate that CI runs unchanged, so the local gate and
+CI cannot drift and a green test run is never mistaken for a done unit.
+
+Source: the method's `one-command-per-gate` and `checks-over-instructions`,
+and #646.
+
+- `build-cmd-builds-nothing` (test): When `gate.py build` runs, it says the
+  repo has nothing to build and exits 0.
+- `test-cmd-runs-suite-without-coverage` (test): When `gate.py test` runs, it
+  runs the suite without coverage, and exits 1 when the suite fails.
+- `check-cmd-runs-every-local-check` (test): When `gate.py check` runs, it
+  runs the formatter and linter, the suite with coverage and every repo check
+  that needs no network, and exits 1 when any does.
+- `verify-cmd-runs-check-first` (test): When `gate.py verify` runs, it runs
+  `check` and then the checks that read the base branch, given by
+  `verify --base`, or the pull request, and prints its chain first.
+- `gate-cmd-names-skipped-checks` (test): When a gate command meets a check
+  that cannot give CI's answer on this machine, it skips the check and names
+  it and the reason. `floors` off its Python version is one such check, and a
+  check that reads the pull request outside a pull_request event is another.
+- `gate-cmd-finds-tools-first` (test): When a tool a gate command's steps run
+  is missing, the command names it and its install, and exits 2 before
+  running any step.
+- `ci-runs-verify` (check): When a pull request is opened or updated, CI runs
+  `verify`.
 
 ## need contributor-keeps-manifests-in-step: Keep the two manifests in step
 
