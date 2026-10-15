@@ -24,13 +24,13 @@ claude-plugins found this in its issue #114. An agent had given every rule in a
 rules file a `source` key with four allowed values. The key passed through each
 of these steps unquestioned:
 
-- The key arrived inside a 3,686-line pull request that added a whole plugin,
-  too large for review to weigh each behavior in it.
-- The format reference then listed the values as part of the format.
-- A later issue, written against the code as it stood, required a script to
-  write one of them.
-- Asked why the key existed, an agent defended it by its symmetry: one value
-  for each route a rule could take into the file.
+1. The key arrived inside a 3,686-line pull request that added a whole plugin,
+   too large for review to weigh each behavior in it.
+2. The format reference then listed the values as part of the format.
+3. A later issue, written against the code as it stood, required a script to
+   write one of them.
+4. Asked why the key existed, an agent defended it by its symmetry: one value
+   for each route a rule could take into the file.
 
 The key was not read by any code. Two of its values were never
 written. An audit of the repository then found about one behavior in six with
@@ -171,7 +171,7 @@ Every seam is one of these kinds:
   The token carries the renter's approval across the seam.
 - **Platform.** The model calls a tool that a script cannot reach, such as one
   that asks the user a question or writes to the user's computer.
-- **Courier.** The model does work a script could do when it:
+- **Courier.** The model does work a script could do when it does any of these:
   - carries a value from one command's output into the next, unchanged
   - chooses what to do from an exit code, by a table in its instructions
   - verifies something a command could verify itself
@@ -351,7 +351,7 @@ Word 1 is the subject, in one word:
   A script run as a whole is a command too.
 - `command` is an ordinary word, which the marker leaves unclaimed. It
   cannot stand in for `cmd`. It can be the subject of a requirement about
-  more than one command:
+  more than one command, in either of these forms:
   - every command, as in `command-splits-output-streams-without-json`.
   - some of a script's commands, when the id names what they share and the
     sentence names the commands. `command-reads-other-worktree-with-from`
@@ -589,7 +589,7 @@ not a source.
 
 6. **Ruling.** Post on the ticket every item that could not be placed, as a
    numbered list, each with its evidence and a recommended outcome. The owner
-   rules on all of them in one reply. The outcomes:
+   rules on all of them in one reply. Each item takes one of these outcomes:
    - **Remove:** it is not called by anything, and it falls outside every need.
    - **Keep:** the owner states the need, in words that become its heading.
    - **Wire up:** the need is real and the behavior is not used by anything, so a ticket

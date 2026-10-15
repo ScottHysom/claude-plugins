@@ -16,9 +16,9 @@ Do not offer to add any.
 
 ## What this produces
 
-1. The files in the folder: `.gitignore`, `commit.sh`, `setup.sh` and
-   `CLAUDE.md`.
-2. A repo, once the user runs `setup.sh` from their own terminal.
+- The files in the folder: `.gitignore`, `commit.sh`, `setup.sh` and
+  `CLAUDE.md`.
+- A repo, once the user runs `setup.sh` from their own terminal.
 
 ## Where things run
 
@@ -153,9 +153,9 @@ Say what it does, because it is not what they may expect: it stages every file
 in the folder and **commits nothing**. It lists the files the first commit
 would take. The user then:
 
-- adds a pattern to `.gitignore` for anything that should stay out.
-- runs `sh setup.sh` again to see the new list.
-- runs `sh setup.sh commit` when the list is right.
+1. adds a pattern to `.gitignore` for anything that should stay out.
+2. runs `sh setup.sh` again to see the new list.
+3. runs `sh setup.sh commit` when the list is right.
 
 Do not run (or offer to) any of it from here.
 

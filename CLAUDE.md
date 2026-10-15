@@ -12,18 +12,18 @@ on a summary here; this file holds what the README does not.
 - A pull request description stands without the issue, for an owner who has
   not read it. It uses these headings, in this order, in place of
   `## Summary`:
-  - `## Scenario` opens with who, by role, does what. Then it gives:
-    - what happened before the change, under `### Before`.
-    - what happens after it, under `### After`.
+  1. `## Scenario` opens with who, by role, does what. Then it gives:
+     - what happened before the change, under `### Before`.
+     - what happens after it, under `### After`.
 
-    A change that nobody meets in use, such as a refactor or a CI fix, names
-    who would notice it and why it is made.
-  - `## Change` says what the pull request changes. When the fix departs from
-    what the issue proposed, it says what the issue proposed and why the fix
-    differs.
-  - `## Requirements` names each requirement id the pull request adds,
-    changes or removes, or says that it does not change any.
-  - `## Test plan` says what ran.
+     A change that nobody meets in use, such as a refactor or a CI fix, names
+     who would notice it and why it is made.
+  2. `## Change` says what the pull request changes. When the fix departs from
+     what the issue proposed, it says what the issue proposed and why the fix
+     differs.
+  3. `## Requirements` names each requirement id the pull request adds,
+     changes or removes, or says that it does not change any.
+  4. `## Test plan` says what ran.
 
   `Closes #N` follows them. Each paragraph and each list item sits on one
   line, because GitHub renders a newline inside one as a line break.

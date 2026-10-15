@@ -287,7 +287,7 @@ the batch into chat or a dialog, because the author would then approve a text
 other than the one `config write` reads.
 
 Put one `AskUserQuestion` to the author, naming the artifact's address and
-`data.token`, with these options:
+`data.token`, offering the author one of these options:
 
 - write every rule;
 - comment first, on the rules in the artifact;

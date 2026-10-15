@@ -60,7 +60,7 @@ short section on the history, which tells Claude:
 
 With the plugin installed, ask Claude to put the project under git.
 
-Claude checks the folder first. It stops when the folder:
+Claude checks the folder first. It stops in any of these cases, when the folder:
 
 - is not there.
 - is already a git repository.

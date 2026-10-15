@@ -654,9 +654,9 @@ in the ruling on #131.
   `prose-rule` comment.
 - `copy-cmd-places-by-section` (test): When `config copy` copies a rule,
   it puts it in the first of these places that applies:
-    - after the target's last rule from the same section.
-    - under the target's `##` heading matching the source's.
-    - at the end under a new copy of that heading.
+    1. after the target's last rule from the same section.
+    2. under the target's `##` heading matching the source's.
+    3. at the end under a new copy of that heading.
 - `copy-cmd-keeps-source-order` (test): When `config copy` puts several
   rules in one place, they keep the source's order.
 - `copy-cmd-lints-clean` (test): When `config copy` writes, the target

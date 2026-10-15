@@ -263,7 +263,7 @@ Source: the owner's request on 2026-10-05, recorded in #350.
 - `planclose-cmd-closes-finished-plan` (test): When `issues.py plan close N`
   runs on an open issue labeled both `tracking` and `approved` whose
   sub-issues are all closed, it closes #N with a comment naming them. It exits
-  1 without writing to #N when:
+  1 without writing to #N when any of these holds:
   - any sub-issue of #N is open.
   - #N lacks sub-issues.
   - #N is closed, or lacks either label.
@@ -280,7 +280,7 @@ filed by hand, recorded in #359.
 
 - `planreport-cmd-checks-each-draft` (test): When `issues.py plan report
   --drafts <file>` reads a plan, it names every fault in one run, does not
-  print a token, and refuses each issue that:
+  print a token, and refuses each issue that meets any of these:
   - has a body that does not open with `**Claude:**`.
   - lacks a heading CLAUDE.md asks for.
   - does not carry exactly one kind label and one area label.

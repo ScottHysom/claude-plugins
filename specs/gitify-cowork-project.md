@@ -28,7 +28,7 @@ Source: README.md, the opening section and "When to use it", and the
 gitify-project description.
 
 - `preflight-cmd-names-template-problems` (test): When `gitify.py
-  preflight` checks the shipped templates, it exits 1 and names each of these:
+  preflight` finds any of these in the shipped templates, it names each one and exits 1:
   - a template missing from disk or from `MANIFEST`.
   - an unknown placeholder.
   - a stray brace.

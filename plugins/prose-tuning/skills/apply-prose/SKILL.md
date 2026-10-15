@@ -126,12 +126,12 @@ python3 "$PROSE" pass --part sentences@notes.md:1-212
 
 `pass --part` prints four pieces, each under its own heading:
 
-- `== rules ==`: the part's rules, as `prose-style.md` words them.
-- `== segments ==`: the prose of the part's lines that a rule may touch,
-  one span per line.
-- `== matches ==`: every place one of the part's rules' patterns matches
-  those spans, then the rules checked by pattern.
-- `== read ==`: the part's read record.
+1. `== rules ==`: the part's rules, as `prose-style.md` words them.
+2. `== segments ==`: the prose of the part's lines that a rule may touch,
+   one span per line.
+3. `== matches ==`: every place one of the part's rules' patterns matches
+   those spans, then the rules checked by pattern.
+4. `== read ==`: the part's read record.
 
 Judge every segment against every rule the part prints. Then add the part's
 findings and its read record to the end of the findings file, even when the
@@ -268,9 +268,9 @@ python3 "$PROSE" report --findings /var/folders/k2/T/prose-x8q1zv.json --json
 `report` reads each finding's current text from the file as it is now, and
 writes the report to the markdown file at `data.report`. The report holds:
 
-- each finding with its `file:line`, rule id, current text and proposed text.
-- the rules checked by pattern in the files step 2 read.
-- the files read against each rule that is not checked by pattern.
+1. each finding with its `file:line`, rule id, current text and proposed text.
+2. the rules checked by pattern in the files step 2 read.
+3. the files read against each rule that is not checked by pattern.
 
 Each line of a text sits between
 `|` marks, so a space at either end shows. `(cut)` stands for an empty
@@ -308,7 +308,7 @@ text. Tell the author that the two rules contradict each other,
 and that `update-prose-config` can settle which one gives way.
 
 Once `report` exits 0, put one `AskUserQuestion` to the author, naming the
-artifact's address and `data.token`, with these options:
+artifact's address and `data.token`, offering the author one of these options:
 
 - apply every finding;
 - apply some rule ids or some files, named in the answer;
@@ -321,9 +321,9 @@ overlap the author turned down. When that side covers a match of its rule's
 pattern, make it a dismissal saying the author chose the other finding.
 `report` shows that dismissal beside the finding the author chose. Then:
 
-- run `report` again.
-- publish the file again.
-- answer in the comment's thread with `ArtifactComments`, saying what changed.
+1. run `report` again.
+2. publish the file again.
+3. answer in the comment's thread with `ArtifactComments`, saying what changed.
 
 Ask the one question again, with the new token, once the
 threads sent to Claude are answered.

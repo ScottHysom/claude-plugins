@@ -8,7 +8,7 @@ step is a call into the script, and a missing script surfaces three commands lat
 as something unrelated. In Cowork the plugin has to come from the marketplace.
 `propose_skills` carries a single `SKILL.md` and not the script.
 
-The `setup` call at the end of that step reports `data.surface`:
+The `setup` call at the end of that step reports `data.surface` as one of these:
 
 - **`local`:** `setup` has copied the script into the project, at
   `.prose-tuning/prose.py`. Run every command as "Locally: run each command
