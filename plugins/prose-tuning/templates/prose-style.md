@@ -139,6 +139,33 @@ the "A new" in "A new need" and "A new requirement".
 > **Before.** - The tool copies dotfiles. - The tool never writes under `.git`. - Execute bits are lost.
 > **After.** The tool: - copies dotfiles. - never writes under `.git`. - loses execute bits.
 
+### standing-list-says-any-or-all: A list of conditions says whether any or all must hold
+
+A run joined by "or" loses the word when it becomes a list, and a bare list
+reads as all of its items. A list of conditions, triggers or choices says in
+its lead-in which it means:
+
+- "any of these" when one item is enough.
+- "one of these" when the items are options and exactly one is taken.
+- "all of these" when every item must hold.
+
+A list of what something holds, does or names keeps a plain lead-in.
+
+**Check.** Read the lead-in with one item alone. If the sentence still holds,
+the lead-in says "any" or "one".
+
+<!-- FILL: a real before and after from this project. -->
+
+### standing-sequence-is-numbered: A list whose order matters is numbered
+
+A list is numbered when its order carries meaning: steps taken in turn, or
+parts that appear in that order. Every other list takes bullets.
+
+**Check.** Swap two items. If the passage turns false, or the steps no longer
+work, number the list.
+
+<!-- FILL: a real before and after from this project. -->
+
 ## Sentences
 
 ### sentences-own-subject: Every sentence carries its own subject

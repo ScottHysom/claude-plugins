@@ -129,6 +129,35 @@ also fails".
 > **Before.** `changes` fails one whose description does not name each requirement id, and one that adds a need no issue it closes names. It also fails one that closes an issue edited after `approved` was last added to it.
 > **After.** `changes` runs in CI on a pull request. It fails under any of these conditions:
 
+### standing-list-says-any-or-all: A list of conditions says whether any or all must hold
+
+A run joined by "or" loses the word when it becomes a list, and a bare list
+reads as all of its items. A list of conditions, triggers or choices says in
+its lead-in which it means:
+
+- "any of these" when one item is enough.
+- "one of these" when the items are options and exactly one is taken.
+- "all of these" when every item must hold.
+
+A list of what something holds, does or names keeps a plain lead-in.
+
+**Check.** Read the lead-in with one item alone. If the sentence still holds,
+the lead-in says "any" or "one".
+
+> **Before.** When `gitify.py preflight` checks the shipped templates, it exits 1 and names each of these:
+> **After.** When `gitify.py preflight` finds any of these in the shipped templates, it names each one and exits 1:
+
+### standing-sequence-is-numbered: A list whose order matters is numbered
+
+A list is numbered when its order carries meaning: steps taken in turn, or
+parts that appear in that order. Every other list takes bullets.
+
+**Check.** Swap two items. If the passage turns false, or the steps no longer
+work, number the list.
+
+> **Before.** Then `plan file`: - files the issues in that order. - links them. - files the tracking issue.
+> **After.** Then `plan file`: 1. files the issues in that order. 2. links them. 3. files the tracking issue.
+
 ### standing-hoist-shared-opening: Move a shared opening into the lead-in
 
 When most items of a list open with the same phrase, that phrase moves into a
