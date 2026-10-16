@@ -318,3 +318,36 @@ Source: #305, #648, and the method's `checks-over-instructions`.
 - `workissue-turns-on-pr-watch` (step): When work-issue has opened the pull
   request, it turns on Auto-fix and archive-on-close for it with the
   session's monitor tool, before reporting.
+
+## need owner-starts-round-with-one-command: Start a round of issues with one command
+
+When the owner wants a round of issues worked, they want to name the count or
+the plan once and have sessions started, restarted after each merge and
+reported on, so the loop runs without the owner typing each start.
+
+Source: #649, and the method's `decompose-into-parallel-units` and
+`match-capability-to-task`.
+
+- `events-cmd-lists-claim-prs` (test): When `flywheel.py events` runs, it
+  lists each open pull request from an `issue/N` branch with its CI and
+  review state, and each merged since `--since`. It gives as `as_of` the
+  newest merge it saw, so a look that passes it as `--since` does not name a
+  merge twice.
+- `role-cmd-names-unset-fields` (test): When `flywheel.py role NAME` runs, it
+  prints the model and effort `.flywheel/roles.json` gives the role. It exits
+  1 naming the field when the file leaves either unset, and naming the role
+  when the file does not have it.
+- `run-refuses-unmapped-role` (step): When the roles file does not name a
+  role `run` needs, `run` stops and names the field.
+- `run-starts-one-session-per-issue` (step): When `run` has the issues from
+  `queue`, it starts one session per issue with `brief N`, at the roles
+  file's model and effort for the implementer. It stops rather than start
+  one when either is above its own session's.
+- `run-reports-pull-request` (step): When a worker reports its pull request,
+  `run` reports the pull request to the owner.
+- `run-restarts-after-merge` (step): When `events` reports a merge, `run`
+  clears the claim and starts a worker on the next free issue.
+- `run-closes-finished-plan` (step): When `queue --tracking N` says #N's plan
+  is finished, `run` closes it with `plan close N`.
+- `run-stops-on-empty-queue` (step): When `queue` offers nothing and no pull
+  request is open, `run` reports what merged and stops.

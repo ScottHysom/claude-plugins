@@ -5,7 +5,7 @@ The issue loop takes an approved issue from claim to a merged pull request,
 through sessions in the Claude desktop app that each play one role: the
 dispatcher starts the others, an implementer works one issue, and a reviewer
 reviews its pull request. This script does the loop's work that needs no
-judgment. Its skills, which arrive in later versions, run it.
+judgment. Its skills run it.
 
 Usage:
     python3 flywheel.py <command> [options]
@@ -18,6 +18,8 @@ Usage:
     python3 flywheel.py claim --next
     python3 flywheel.py claim --next --tracking 347
     python3 flywheel.py brief 12
+    python3 flywheel.py role implementer
+    python3 flywheel.py events --since 2026-10-15T09:00:00Z
     python3 flywheel.py release 12
     python3 flywheel.py stale
     python3 flywheel.py clear 12
@@ -49,6 +51,11 @@ Commands:
     brief N      print the first message of a session that works issue N: the
                  issue as the owner approved it, the owner's comments since,
                  the role, and the gate commands.
+    role NAME    the model and effort .flywheel/roles.json gives role NAME,
+                 which the dispatcher starts its sessions at.
+    events       each open pull request from an issue/N branch, with its CI
+                 and review state, and with --since TIME each merged after
+                 TIME. Its as_of is the --since of the next look.
     release N    give issue N up: delete issue/N if it holds no work, remove
                  the label, comment.
     stale        labels, branches and issue states that disagree, including a
@@ -79,7 +86,8 @@ plan file take --dry-run.
 Exit codes: 0 clean, 1 ran and found problems (the issue is held or not
 approved, or still open, the branch holds work, a label and a branch
 disagree, the issue changed after approval, the roles file exists already,
-`claim --next` found nothing free to claim, a plan is refused or not filed
+`claim --next` found nothing free to claim, the roles file leaves a role's
+model or effort unset, a plan is refused or not filed
 as it says, a tracking issue is not an open approved plan or has open
 sub-issues), 2 could not run.
 
@@ -227,6 +235,17 @@ Things that look like bugs and are not:
 - `clear` deletes only the local branch and removes no worktree. GitHub
   deletes the remote branch when the pull request merges, and the desktop app
   manages worktrees.
+- `events` exits 0 whatever state the pull requests are in. A failing check
+  is for the implementer's session to fix, not a problem with the look.
+- `events` without --since names no merge. The first look has nothing to
+  compare with, and its as_of starts the record.
+- `events` gives as its as_of the newest merge it saw, rather than the time
+  of the look, so the next look never names a merge twice. It reads the
+  clock only when no claim pull request has ever merged. As a
+  simplification, it leaves out a merge made in the same second as the as_of
+  of the look before, after that look ran.
+- `role` takes any name, not only the roles the template ships. The roles
+  file is the owner's, and may add one.
 - `brief` reads the last 100 label events and the last 100 comments. As a
   simplification, it treats an issue whose approval is older than those label
   events as never edited after approval, and leaves out older comments.
@@ -269,6 +288,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import time
 
 ENVELOPE_VERSION = 1
 
@@ -325,6 +345,18 @@ RELEASE_MARK = "Released "
 # What an agent's own comment opens with, under the owner's account.
 AGENT_MARK = "**Claude:**"
 MERGED_FIELDS = "number,headRefName,headRefOid"
+OPEN_PULL_FIELDS = "number,title,url,headRefName,statusCheckRollup,reviewDecision"
+MERGED_PULL_FIELDS = "number,title,url,headRefName,mergedAt"
+# A role the dispatcher starts a session for needs these fields, which the
+# session's model and effort come from.
+START_KEYS = ("model", "effort")
+# How `events` sums up a pull request's checks.
+CI_NONE, CI_PENDING, CI_FAILING, CI_PASSING = "none", "pending", "failing", "passing"
+# A finished check run that ends with any other conclusion has failed.
+PASSING_CONCLUSIONS = ("SUCCESS", "NEUTRAL", "SKIPPED")
+PENDING_STATES = ("PENDING", "EXPECTED")
+COMPLETED = "COMPLETED"
+TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 BLOCKED_BY_PATH = "repos/{owner}/{repo}/issues/%d/dependencies/blocked_by"
 # GitHub caps a parent at 100 sub-issues, so one page holds them all.
 SUB_ISSUES_PATH = "repos/{owner}/{repo}/issues/%d/sub_issues?per_page=100"
@@ -1204,6 +1236,160 @@ def cmd_brief(args):
             sys.stdout.write(data["prompt"])
 
     return emit(args, "brief", data, errors, warnings, human=human)
+
+
+# --------------------------------------------------------------------------
+# role and events
+# --------------------------------------------------------------------------
+
+
+def cmd_role(args):
+    """The model and effort the roles file gives a role, which the dispatcher
+    starts the role's sessions at."""
+    root = project_root(args.repo)
+    name = args.name
+    roles = read_project_json(root, ROLES_FILE, ROLES_KEY)
+    entry = (roles or {}).get(name)
+    data = {"name": name, "tier": None, "model": None, "effort": None}
+    if roles is None:
+        errors = [
+            "%s is missing. Run config init to write it, then fill in each field it names"
+            % ROLES_FILE
+        ]
+    elif not isinstance(entry, dict):
+        errors = [
+            '%s does not name the %s role. Add it under "%s", with its %s'
+            % (ROLES_FILE, name, ROLES_KEY, " and ".join(START_KEYS))
+        ]
+    else:
+        data["tier"] = entry.get(TIER_KEY)
+        data.update((key, entry.get(key)) for key in START_KEYS)
+        errors = [
+            "%s.%s.%s is not set in %s. The owner fills it in before a session starts as the %s"
+            % (ROLES_KEY, name, key, ROLES_FILE, name)
+            for key in START_KEYS
+            if not is_text(entry.get(key))
+        ]
+
+    def human():
+        print(
+            "%s: model %s, effort %s, tier %s" % (name, data["model"], data["effort"], data["tier"])
+        )
+
+    return emit(args, "role", data, errors, human=None if errors else human)
+
+
+def timestamp(text):
+    """argparse type: a UTC time as GitHub writes it, such as 2026-10-15T09:00:00Z."""
+    try:
+        time.strptime(text, TIME_FORMAT)
+    except ValueError:
+        raise argparse.ArgumentTypeError(
+            "%r is not a UTC time such as 2026-10-15T09:00:00Z" % text
+        ) from None
+    return text
+
+
+def claim_number(head):
+    """The issue a pull request's head branch claims, or None."""
+    m = BRANCH_REF_RE.match("refs/heads/" + head)
+    return int(m.group(1)) if m else None
+
+
+def ci_state(rollup):
+    """One word for a pull request's checks: failing wins over pending, then passing."""
+    if not rollup:
+        return CI_NONE
+    found = set()
+    for check in rollup:
+        if check.get("__typename") == "StatusContext":
+            state = check.get("state")
+            if state == "SUCCESS":
+                found.add(CI_PASSING)
+            elif state in PENDING_STATES:
+                found.add(CI_PENDING)
+            else:
+                found.add(CI_FAILING)
+        elif check.get("status") != COMPLETED:
+            found.add(CI_PENDING)
+        elif check.get("conclusion") in PASSING_CONCLUSIONS:
+            found.add(CI_PASSING)
+        else:
+            found.add(CI_FAILING)
+    for state in (CI_FAILING, CI_PENDING):
+        if state in found:
+            return state
+    return CI_PASSING
+
+
+def pull_row(pull):
+    return {
+        "number": pull["number"],
+        "issue": claim_number(pull["headRefName"]),
+        "branch": pull["headRefName"],
+        "title": pull["title"],
+        "url": pull["url"],
+    }
+
+
+def cmd_events(args):
+    """What the dispatcher acts on: open claim pull requests, and merges since its last look."""
+    root = project_root(args.repo)
+    opened = gh_json(
+        root,
+        "pr",
+        "list",
+        "--state",
+        "open",
+        "--limit",
+        str(LIST_LIMIT),
+        "--json",
+        OPEN_PULL_FIELDS,
+    )
+    merged = gh_json(
+        root,
+        "pr",
+        "list",
+        "--state",
+        "merged",
+        "--limit",
+        str(LIST_LIMIT),
+        "--json",
+        MERGED_PULL_FIELDS,
+    )
+    rows = []
+    for pull in sorted(opened, key=lambda p: p["number"]):
+        if claim_number(pull["headRefName"]) is None:
+            continue
+        row = pull_row(pull)
+        row["ci"] = ci_state(pull.get("statusCheckRollup"))
+        row["review"] = (pull.get("reviewDecision") or "").lower() or None
+        rows.append(row)
+    claimed = [p for p in merged if claim_number(p["headRefName"]) is not None]
+    news = []
+    if args.since is not None:
+        for pull in sorted(claimed, key=lambda p: (p["mergedAt"], p["number"])):
+            if pull["mergedAt"] > args.since:
+                news.append(dict(pull_row(pull), merged_at=pull["mergedAt"]))
+    # The next look starts after the newest merge seen, so it never names a
+    # merge twice. The clock is read only when there is no merge to go by.
+    marks = [p["mergedAt"] for p in claimed] + ([args.since] if args.since else [])
+    as_of = max(marks) if marks else time.strftime(TIME_FORMAT, time.gmtime())
+    data = {"since": args.since, "as_of": as_of, "open": rows, "merged": news}
+
+    def human():
+        for row in rows:
+            print(
+                "open #%d %s: ci %s, review %s"
+                % (row["number"], row["branch"], row["ci"], row["review"] or "none")
+            )
+        for row in news:
+            print("merged #%d %s at %s" % (row["number"], row["branch"], row["merged_at"]))
+        if not rows and not news:
+            print("No claim has an open pull request or a new merge.")
+        print("Next look: %s events --since %s" % (PROG, as_of))
+
+    return emit(args, "events", data, human=human)
 
 
 # --------------------------------------------------------------------------
@@ -2514,6 +2700,27 @@ def build_parser():
         help="print the first message of a session that works an issue",
     )
     p.set_defaults(func=cmd_brief)
+
+    p = sub.add_parser(
+        "role",
+        parents=[common],
+        help="the model and effort %s gives a role, or each field it leaves unset" % ROLES_FILE,
+    )
+    p.add_argument("name", help="the role, such as %s" % BRIEF_ROLE)
+    p.set_defaults(func=cmd_role)
+
+    p = sub.add_parser(
+        "events",
+        parents=[common],
+        help="each open pull request from a claim branch, and each merged since --since",
+    )
+    p.add_argument(
+        "--since",
+        type=timestamp,
+        metavar="TIME",
+        help="name each claim pull request merged after TIME, the as_of of the last look",
+    )
+    p.set_defaults(func=cmd_events)
 
     p = sub.add_parser("release", parents=[common, numbered, preview], help="give an issue up")
     p.set_defaults(func=cmd_release)
