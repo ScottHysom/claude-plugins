@@ -112,3 +112,23 @@ The watch it turns on is the desktop app's per-session CI monitor, which only
 the session's own `set_monitor` tool reaches. #305 found Auto-fix off on
 every new pull request, so the skill turns it on rather than leaving it to
 the owner.
+
+## The dispatcher's skill
+
+run starts the implementers through the desktop app's `start_session` tool,
+which only a session can call, so the skill rather than the script starts
+them. The script does the rest: `role` reads the implementer's model and
+effort and refuses a field the owner has not filled in, and `events` reads
+the claim pull requests. The app starts a session at or below its starter's
+model and effort, and ignores anything higher, so the skill stops rather
+than start an implementer weaker than the roles file says.
+
+`events` gives the newest merge it saw as the start of the next look, rather
+than the time of the look, so a merge is never named twice and `clear` never
+runs twice on one claim. The script's docstring has the case this leaves
+out.
+
+The dispatcher does not review or merge. Until the reviewer's skill and the
+merge policy arrive with #650, it reports each pull request to the owner,
+and learns of a merge when it is woken: by an implementer ending a turn, or
+by the owner's message.

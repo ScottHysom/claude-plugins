@@ -15,8 +15,8 @@ with a GitHub remote.
 This version installs the plugin's script, writes the file that says which
 model each role runs on, takes and frees the claim on an issue, files an
 issue or a plan of issues, ships the docs that define the method the loop
-follows, and carries the implementer's skill. The skills for the other roles
-arrive in later versions.
+follows, and carries the dispatcher's and the implementer's skills. The
+reviewer's skill arrives in a later version.
 
 ## The method
 
@@ -117,6 +117,32 @@ the plugin's work-issue skill:
    fails, the pull request has a conflict or a review comment arrives. It also
    has the app archive the session once the pull request merges or closes.
    The app may ask you to approve that call.
+
+## Running a round of issues
+
+Ask Claude to run a number of issues, such as "run 3 issues", or to run a
+plan, such as "run #653 three at a time". That session becomes the
+dispatcher and follows the plugin's run skill:
+
+1. It checks that `.flywheel/roles.json` gives the implementer a model and
+   an effort, and stops naming each one you still need to fill in.
+2. It takes the next approved issues, in the plan's order when you named a
+   plan.
+3. It starts one session per issue, each in its own worktree, with the
+   issue's brief as its first message and the implementer's model and
+   effort. Each of those sessions works its issue as "Working an issue"
+   describes.
+4. It tells you each pull request as it opens. You review and merge it.
+5. Once a pull request merges, it clears the claim and starts a session on
+   the next issue, so the number you named stays in flight. It looks again
+   whenever one of its sessions finishes a turn, or when you send it a
+   message, such as after a merge.
+6. It closes a plan once every issue in it is closed, and stops when no
+   issue is left to start and no pull request is open.
+
+The app starts a session at or below the model and effort of the session
+that starts it. So run the dispatcher on a model and effort at least as
+strong as the implementer's.
 
 ## Filing an issue or a plan
 
