@@ -919,7 +919,7 @@ class DescribePlanClose:
         code, data = run_json(capsys, repo, "plan", "close", "20")
         assert code == flywheel.PROBLEMS
         assert "#20 still has open sub-issues: #12, #13" in data["errors"][0]
-        assert "flywheel.py queue --tracking 20" in data["errors"][0]
+        assert "flywheel.py claim --next --tracking 20" in data["errors"][0]
         assert data["data"]["closed"] is False
         assert gh.writes() == []
 

@@ -528,6 +528,8 @@ python3 plugins/flywheel/scripts/flywheel.py queue            # the oldest appro
 python3 plugins/flywheel/scripts/flywheel.py queue --count 3  # up to three of them
 python3 plugins/flywheel/scripts/flywheel.py queue --tracking 347  # the next issue in #347's plan
 python3 plugins/flywheel/scripts/flywheel.py claim 12     # take it, and switch to branch issue/12
+python3 plugins/flywheel/scripts/flywheel.py claim --next # take the issue queue offers, or the next free one if another agent wins it
+python3 plugins/flywheel/scripts/flywheel.py claim --next --tracking 347  # the same, through #347's plan
 python3 plugins/flywheel/scripts/flywheel.py brief 12     # the first message of a session that works #12
 python3 plugins/flywheel/scripts/flywheel.py release 12   # give it up without a pull request
 python3 plugins/flywheel/scripts/flywheel.py stale        # labels, branches and issue states that disagree
@@ -556,7 +558,17 @@ commands from `.flywheel/gates.json`. It refuses an issue edited after
 
 The claim is the branch `issue/N` on GitHub. `claim` pushes it in a way only one
 agent can win, then adds the `in-progress` label and a comment so the claim
-shows in the issue list. The label comes off in two ways: `release`, when a claim
+shows in the issue list.
+
+`queue` only reads, so two agents that run it at once are offered the same
+issue, and one of them loses the claim. `claim --next` runs the queue and the
+claim together. When it loses, it runs the queue again and claims the next
+free issue, until it wins or none is free, when it exits 1 and says why. With
+`--tracking N` it takes #N's sub-issues in #N's order, and stops wherever
+`queue --tracking N` stops. `claim N` still stops on a held issue, since the
+owner named that one.
+
+The label comes off in two ways: `release`, when a claim
 is given up, and `.github/workflows/issue-closed.yml`, when the issue closes,
 whether a merged pull request closed it or someone closed it by hand. When the
 label and the branch disagree, the branch is right, and `stale` lists the

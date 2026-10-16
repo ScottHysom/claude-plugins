@@ -215,7 +215,7 @@ class DescribeClaim:
         assert git(remote, "rev-parse", "issue/12") == before
         assert gh.writes() == []
 
-    @pytest.mark.spec("claim-cmd-picks-one-winner")
+    @pytest.mark.spec("claim-cmd-picks-one-winner", "next-cmd-moves-past-lost-claim")
     def it_refuses_a_held_issue_before_pushing(self, capsys, remote, clone, github):
         a, b = clone("a"), clone("b")
         github(make_issue(12, "approved"))
@@ -298,6 +298,196 @@ class DescribeClaim:
         assert code == flywheel.OK
         assert "warning: claimed, but could not switch to issue/12" in out.err
         assert "issue/12" in remote_branches(remote)
+
+
+def stale_views(monkeypatch, count):
+    """Have claims() miss every claim for its first `count` calls.
+
+    Another agent's claim lands after this agent read the branch list, so the
+    queue offers it an issue it is about to lose.
+    """
+    real, calls = flywheel.claims, []
+
+    def view(repo):
+        calls.append(repo)
+        return {} if len(calls) <= count else real(repo)
+
+    monkeypatch.setattr(flywheel, "claims", view)
+
+
+@pytest.mark.spec("next-cmd-moves-past-lost-claim")
+class DescribeClaimNext:
+    @pytest.mark.parametrize("stale", [1, 2], ids=["lost-before-push", "lost-at-push"])
+    def it_claims_the_next_free_issue_when_another_agent_wins_the_offered_one(
+        self, capsys, remote, clone, github, monkeypatch, stale
+    ):
+        a, b = clone("a"), clone("b")
+        github(make_issue(12, "approved"), make_issue(13, "approved"))
+        assert run(capsys, a, "claim", "12")[0] == flywheel.OK
+        stale_views(monkeypatch, stale)
+        gh = github(make_issue(12, "approved"), make_issue(13, "approved"))
+        code, out = run(capsys, b, "claim", "--next")
+        assert code == flywheel.OK, out.err
+        assert out.out == "Claimed #13 on branch issue/13\n"
+        assert "#12 is held by another agent, so the next free issue was taken" in out.err
+        assert git(b, "branch", "--show-current") == "issue/13"
+        assert {c[2] for c in gh.writes()} == {"13"}
+
+    def it_reports_the_issues_it_lost_in_json(self, capsys, remote, clone, github, monkeypatch):
+        a, b = clone("a"), clone("b")
+        github(make_issue(12, "approved"), make_issue(13, "approved"))
+        run(capsys, a, "claim", "12")
+        stale_views(monkeypatch, 1)
+        code, data = run_json(capsys, b, "claim", "--next")
+        assert code == flywheel.OK
+        assert data["data"] == {"number": 13, "branch": "issue/13", "lost": [12]}
+
+    def it_stops_without_claiming_when_no_other_issue_is_free(
+        self, capsys, remote, clone, github, monkeypatch
+    ):
+        a, b = clone("a"), clone("b")
+        github(make_issue(12, "approved"))
+        run(capsys, a, "claim", "12")
+        stale_views(monkeypatch, 1)
+        gh = github(make_issue(12, "approved", "in-progress"))
+        code, out = run(capsys, b, "claim", "--next")
+        assert code == flywheel.PROBLEMS
+        assert out.out == ""
+        assert "No other approved issue is free to claim" in out.err
+        assert gh.writes() == []
+        assert git(b, "branch", "--show-current") == flywheel.BASE
+
+    def it_claims_the_issue_queue_offers_when_nobody_holds_it(self, capsys, remote, clone, github):
+        github(make_issue(12, "approved"), make_issue(13, "approved"))
+        code, out = run(capsys, clone("a"), "claim", "--next")
+        assert code == flywheel.OK
+        assert out.out == "Claimed #12 on branch issue/12\n"
+        assert out.err == ""
+
+    def it_changes_nothing_on_a_dry_run(self, capsys, remote, clone, github):
+        gh = github(make_issue(12, "approved"))
+        code, out = run(capsys, clone("a"), "claim", "--next", "--dry-run")
+        assert code == flywheel.OK
+        assert out.out == "Would claim #12 on branch issue/12\n"
+        assert remote_branches(remote) == {flywheel.BASE}
+        assert gh.writes() == []
+
+    def it_claims_a_plans_next_sub_issue_when_another_agent_wins_the_offered_one(
+        self, capsys, remote, clone, github, monkeypatch
+    ):
+        a, b = clone("a"), clone("b")
+        issues = (
+            make_issue(20, "approved", "tracking"),
+            make_issue(11, "approved"),
+            make_issue(12, "approved"),
+            make_issue(13, "approved"),
+        )
+        github(*issues, subs={20: [13, 11, 12]})
+        run(capsys, a, "claim", "13")
+        stale_views(monkeypatch, 1)
+        code, out = run(capsys, b, "claim", "--next", "--tracking", "20")
+        assert code == flywheel.OK, out.err
+        assert out.out == "Claimed #11 on branch issue/11\n"
+        assert "#13 is held by another agent" in out.err
+
+    def it_still_stops_at_a_plans_unapproved_sub_issue(
+        self, capsys, remote, clone, github, monkeypatch
+    ):
+        a, b = clone("a"), clone("b")
+        github(make_issue(12, "approved"))
+        run(capsys, a, "claim", "12")
+        stale_views(monkeypatch, 1)
+        gh = github(
+            make_issue(20, "approved", "tracking"),
+            make_issue(12, "approved"),
+            make_issue(13),
+            make_issue(14, "approved"),
+            subs={20: [12, 13, 14]},
+        )
+        code, out = run(capsys, b, "claim", "--next", "--tracking", "20")
+        assert code == flywheel.PROBLEMS
+        assert "#13 issue 13 is next in #20's order and is not labeled approved" in out.err
+        assert gh.writes() == []
+        assert remote_branches(remote) == {flywheel.BASE, "issue/12"}
+
+    def it_stops_on_a_plan_that_may_not_be_worked(self, capsys, remote, clone, github):
+        github(make_issue(20, "tracking"), make_issue(12, "approved"), subs={20: [12]})
+        code, out = run(capsys, clone("a"), "claim", "--next", "--tracking", "20")
+        assert code == flywheel.PROBLEMS
+        assert "#20 is not labeled approved" in out.err
+        assert remote_branches(remote) == {flywheel.BASE}
+
+    def it_names_the_plan_that_comes_first_and_how_to_start_it(self, capsys, remote, clone, github):
+        github(
+            make_issue(20, "approved", "tracking"),
+            make_issue(11, "approved"),
+            make_issue(30, "approved"),
+            subs={20: [11]},
+        )
+        code, out = run(capsys, clone("a"), "claim", "--next")
+        assert code == flywheel.PROBLEMS
+        assert "#20 issue 20 is an approved tracking issue" in out.err
+        assert "flywheel.py claim --next --tracking 20" in out.err
+        assert remote_branches(remote) == {flywheel.BASE}
+
+    def it_says_a_plan_is_finished(self, capsys, remote, clone, github):
+        github(
+            make_issue(20, "approved", "tracking"),
+            make_issue(11, "approved", state="CLOSED"),
+            subs={20: [11]},
+        )
+        code, out = run(capsys, clone("a"), "claim", "--next", "--tracking", "20")
+        assert code == flywheel.PROBLEMS
+        assert "plan is finished. To close it, run: flywheel.py plan close 20" in out.err
+
+    @pytest.mark.parametrize(
+        ("argv", "says"),
+        [
+            ((), "Every free approved issue is blocked by an open issue: #12 by #99"),
+            (("--tracking", "20"), "Every free sub-issue of #20 is blocked"),
+        ],
+        ids=["queue", "plan"],
+    )
+    def it_names_each_blocker_when_every_free_issue_is_blocked(
+        self, capsys, remote, clone, github, argv, says
+    ):
+        if argv:
+            github(
+                make_issue(20, "approved", "tracking"),
+                make_issue(12, "approved"),
+                subs={20: [12]},
+                blockers={12: [(99, "open")]},
+            )
+        else:
+            github(make_issue(12, "approved"), blockers={12: [(99, "open")]})
+        code, out = run(capsys, clone("a"), "claim", "--next", *argv)
+        assert code == flywheel.PROBLEMS
+        assert says in out.err
+
+    def it_stops_on_an_offered_issue_that_closed_before_the_claim(
+        self, capsys, remote, clone, github, monkeypatch
+    ):
+        github(make_issue(12, "approved"))
+        real = flywheel.issue
+        monkeypatch.setattr(flywheel, "issue", lambda root, n: dict(real(root, n), state="CLOSED"))
+        code, out = run(capsys, clone("a"), "claim", "--next")
+        assert code == flywheel.PROBLEMS
+        assert "#12 is closed" in out.err
+        assert remote_branches(remote) == {flywheel.BASE}
+
+    @pytest.mark.parametrize(
+        "argv", [("claim", "12", "--next"), ("claim",)], ids=["both", "neither"]
+    )
+    def it_takes_either_a_number_or_next(self, capsys, clone, argv):
+        with pytest.raises(SystemExit) as exc:
+            flywheel.main([*argv, "-C", str(clone("a"))])
+        assert exc.value.code == flywheel.CANNOT_RUN
+
+    def it_cannot_run_with_tracking_but_without_next(self, capsys, clone, github):
+        github(make_issue(12, "approved"))
+        code, out = run(capsys, clone("a"), "claim", "12", "--tracking", "20")
+        assert code == flywheel.CANNOT_RUN
+        assert "--tracking works only with --next" in out.err
 
 
 class DescribeQueue:
