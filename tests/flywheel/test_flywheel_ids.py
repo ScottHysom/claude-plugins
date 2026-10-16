@@ -16,6 +16,13 @@ def plugin(plugin_copy):
     return plugin_copy
 
 
+def shipped(plugin):
+    """The plugin's templates and skills, as `ids` lists them."""
+    return [
+        rel for top in ("templates", "skills") for rel in flywheel.files_under(str(plugin), top)
+    ]
+
+
 def write(root, rel, text):
     path = root / rel
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -74,7 +81,7 @@ class DescribeWhatCountsAsACitation:
         project.write(SPEC, "Source: the method's `%s`.\n" % DEFINED)
         code, env = project.run("ids")
         assert code == flywheel.OK
-        assert env["data"] == {"files": ["templates/roles.json", SPEC], "unknown": []}
+        assert env["data"] == {"files": [*shipped(plugin), SPEC], "unknown": []}
 
     def it_passes_a_stage_rule_id(self, project, plugin):
         project.write(SPEC, "Source: the method's `one-command-per-gate`.\n")
@@ -96,12 +103,12 @@ class DescribeWhatCountsAsACitation:
     def it_runs_without_a_spec_in_the_repo(self, project, plugin):
         code, env = project.run("ids")
         assert code == flywheel.OK
-        assert env["data"]["files"] == ["templates/roles.json"]
+        assert env["data"]["files"] == shipped(plugin)
 
     def it_says_what_it_checked_in_text(self, project, plugin):
         code, out, err = project.human("ids")
         assert code == flywheel.OK
-        assert out == "every method id cited in 1 files is defined\n"
+        assert out == "every method id cited in %d files is defined\n" % len(shipped(plugin))
         assert err == ""
 
 

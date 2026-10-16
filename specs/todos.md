@@ -469,8 +469,8 @@ last commit.
 The script reads labels, searches issues and files them through `gh`, which
 has to be on PATH and signed in to the repository's host.
 
-Source: #312, and `.github/scripts/issues.py`, whose docstring needs "an
-authenticated gh on PATH".
+Source: #312, and the flywheel plugin's `flywheel.py`, whose docstring needs
+"an authenticated gh on PATH".
 
 - `command-requires-signed-in-gh` (test): When `gh` is missing or not signed
   in, a command that needs it names the command that fixes it and exits

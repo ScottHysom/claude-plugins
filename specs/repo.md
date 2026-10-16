@@ -214,82 +214,6 @@ Source: CLAUDE.md, under "Issues", and #469.
   reason on exit 1, before any other work on the issue. The test checks the
   rule is written, and #474 adds the eval that checks an agent follows it.
 
-## need owner-works-one-plan: Work one approved plan in its order
-
-When the owner has grouped one plan's issues under a tracking issue and
-approved the plan, the owner wants to tell an agent to take the plan's next
-issue, so agents work the plan in its listed order without picking issues
-from outside it.
-
-Source: the owner's request on 2026-10-05, recorded in #350.
-specs/flywheel.md holds the requirements the flywheel plugin meets under this
-need.
-
-- `planclose-cmd-closes-finished-plan` (test): When `issues.py plan close N`
-  runs on an open issue labeled both `tracking` and `approved` whose
-  sub-issues are all closed, it closes #N with a comment naming them. It exits
-  1 without writing to #N when any of these holds:
-  - any sub-issue of #N is open.
-  - #N lacks sub-issues.
-  - #N is closed, or lacks either label.
-
-## need owner-approves-plan-once: Approve a plan's issues once
-
-When a plan yields several issues, the owner wants to approve the whole plan
-once, and have its issues filed, linked and grouped under a tracking issue
-exactly as approved, so the order GitHub holds is the order the owner
-approved.
-
-Source: the owner's request on 2026-10-05, after #347 and its sub-issues were
-filed by hand, recorded in #359.
-
-- `planreport-cmd-checks-each-draft` (test): When `issues.py plan report
-  --drafts <file>` reads a plan, it names every fault in one run, does not
-  print a token, and refuses each issue that meets any of these:
-  - has a body that does not open with `**Claude:**`.
-  - lacks a heading CLAUDE.md asks for.
-  - does not carry exactly one kind label and one area label.
-  - carries `approved` or `tracking`.
-  - carries a label the repository does not have.
-- `planreport-cmd-checks-plan-links` (test): When a key repeats, a `{KEY}` or a
-  `blocked_by` key does not name an issue in the plan, a body names an issue
-  filed after it, a blocker outside the plan is anything but an open issue, or
-  the links form a cycle, `plan report` refuses the plan and names each fault.
-- `planreport-cmd-orders-by-links` (test): When `plan report` accepts a plan,
-  it puts each issue after the issues that block it, with ties in the plan's
-  listed order. It shows each issue whole, and the tracking issue's body as
-  it will be filed, with an Order section written from the links.
-- `planfile-cmd-requires-token` (test): When `issues.py plan file --drafts
-  <file> --token <token>` is given a token that does not match the plan, the
-  repository and its labels as they are now, or the plan now fails one of the
-  checks `plan report` made, it exits 1 without filing anything.
-- `planfile-cmd-files-in-order` (test): When `plan file` runs with a current
-  token, it files the issues in the report's order, each `{KEY}` replaced by
-  the number filed, and adds each "blocked by" link. It then files the
-  tracking issue labeled `tracking`, and adds the sub-issues in that order.
-- `planfile-cmd-verifies-links` (test): When `plan file` has filed a plan, it
-  reads every link and the sub-issues back from GitHub, and exits 1 naming
-  each that differs from the plan.
-- `planreport-cmd-shows-filed-issue` (test): When a plan's issue gives the
-  `number` of an issue already filed in place of a draft, `plan report` shows
-  that issue as GitHub holds it, marked as filed already. It refuses a number
-  that is closed, that cannot be read, or that two keys name.
-- `planfile-cmd-groups-filed-issue` (test): When `plan file` files a plan that
-  names an issue by its `number`, it does not file or edit that issue. It adds
-  the issue's "blocked by" links, adds it as a sub-issue in the plan's order,
-  and reads it back with the rest.
-- `fileplan-shows-report-whole` (step): When the file-plan skill asks the owner
-  to approve a plan, it shows the report file whole, as a private artifact (a
-  page Claude publishes on claude.ai) or, where it cannot publish one, in its
-  reply, rather than a summary of its own.
-- `plandraft-cmd-makes-own-file` (test): When `issues.py plan draft` runs, it
-  makes an empty file in the temporary directory, named so that no other run
-  gets the same file, and prints its literal path.
-- `fileplan-drafts-in-own-file` (step): When the file-plan skill drafts a
-  plan, it writes the plan to the file `plan draft` made for that run, and
-  every later step of the run reads that file, so a plan another session
-  drafts does not replace it.
-
 ## need owner-sees-held-issues: See from the issue list which issues are held
 
 When an agent or the owner looks at the issue list, they want a claimed issue
@@ -905,8 +829,8 @@ command's output. This is the repo's own copy of the constraint in
 Source: Claude Code's Bash tool description, and the owner's report in #334.
 
 - `planreport-cmd-writes-report-file` (test): When `plan report` runs, it
-  writes the report it prints as markdown to `.issues-plan/report.md`, which
-  git ignores. The file ends with the approval token, or holds the faults and
+  writes the report it prints as markdown to `.flywheel/plan/report.md`,
+  which git ignores. The file ends with the approval token, or holds the faults and
   no token.
 
 ## constraint bash-stops-waiting: The Bash tool stops waiting for a command after 120 seconds
@@ -937,7 +861,7 @@ line its paragraphs were broken at.
 - `planreport-cmd-refuses-split-lines` (test): When a plan's draft (an
   issue's body or the tracking issue's plan) continues a paragraph or a list
   item onto a second line, outside a code fence or an HTML comment,
-  `issues.py plan report` refuses the draft and names each line.
+  `flywheel.py plan report` refuses the draft and names each line.
 
 ## constraint artifact-sends-comments: A comment sent to Claude reaches the session
 
@@ -949,7 +873,7 @@ in the thread. This is the repo's own copy of the constraint in
 Source: code.claude.com/docs/en/artifacts.md, under "Collect comments on an
 artifact", and the probe recorded in #334.
 
-- `fileplan-revises-on-comment` (step): When the owner sends a comment on the
-  report's artifact to Claude, the file-plan skill revises the plan, runs
+- `fileissue-revises-on-comment` (step): When the owner sends a comment on the
+  report's artifact to Claude, the file-issue skill revises the plan, runs
   `plan report` again, publishes the new report at the same address, and
   answers in the comment's thread.
