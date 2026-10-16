@@ -14,8 +14,9 @@ with a GitHub remote.
 
 This version installs the plugin's script, writes the file that says which
 model each role runs on, takes and frees the claim on an issue, files an
-issue or a plan of issues, and ships the docs that define the method the loop
-follows. The skills that run the rest of the loop arrive in later versions.
+issue or a plan of issues, ships the docs that define the method the loop
+follows, and carries the implementer's skill. The skills for the other roles
+arrive in later versions.
 
 ## The method
 
@@ -94,6 +95,28 @@ List your gate commands in `.flywheel/gates.json`, and commit it:
   }
 }
 ```
+
+## Working an issue
+
+Ask Claude to work an issue, such as "fix #12", or to take the next issue, or
+start a session with an issue's brief as its first message. Claude follows
+the plugin's work-issue skill:
+
+1. It claims the issue and tells you how the claim went, before any other
+   work. When it took the issue from the queue and another session got there
+   first, it takes the next free issue instead.
+2. It works from the issue as you approved it, with your comments since.
+3. When the issue is silent or wrong on something the work needs, it stops
+   and asks. An idea the issue does not ask for, it files as a new issue for
+   you to approve, and goes on.
+4. It runs your `check` gate command, and does not open a pull request while
+   it fails.
+5. It opens the pull request through your project's pull request skill, when
+   you have one.
+6. It turns on the session's Auto-fix, so the app wakes the session when CI
+   fails, the pull request has a conflict or a review comment arrives. It also
+   has the app archive the session once the pull request merges or closes.
+   The app may ask you to approve that call.
 
 ## Filing an issue or a plan
 

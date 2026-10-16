@@ -280,3 +280,41 @@ Source: #645, and the method's `humans-decide-agents-record` and
   from `.flywheel/gates.json`, and warns when `.flywheel/` does not give the
   role's tier or the gate commands. It exits 1 when the body changed after
   approval, or the issue lacks `approved`.
+- `workissue-works-from-brief` (step): When work-issue has claimed an issue,
+  it reads the issue from `flywheel.py brief`, or from the brief that started
+  the session, and stops and releases the claim when `brief` refuses the
+  issue.
+
+## need owner-keeps-work-to-issue: Build only what the issue asks
+
+When an implementer meets something the issue does not answer, the owner
+wants it to stop and ask, or to file the idea and go on, so no behavior
+enters from a guess.
+
+Source: #648, and the method's `pause-on-discovery` and
+`owner-admits-every-need`.
+
+- `workissue-claims-first` (step): When work-issue starts, it claims the
+  issue and reports the claim before any other work.
+- `workissue-runs-check-before-pr` (step): When work-issue has the unit done,
+  it runs the project's `check` and does not open a pull request while it
+  fails.
+- `workissue-pauses-on-gap` (step): When work-issue finds the issue silent or
+  wrong on something the unit needs, it stops and asks, and files a candidate
+  need instead when the issue is only improvable.
+
+## need owner-watches-every-pull-request: Watch every agent's pull request
+
+When an agent opens a pull request from a desktop session, the owner wants
+that session woken on CI failures, conflicts and review comments, and
+archived on close, without turning either on by hand.
+
+Source: #305, #648, and the method's `checks-over-instructions`.
+
+- `workissue-opens-pr-through-skill` (step): When work-issue has the unit
+  committed and `check` passing, it opens the pull request through the
+  installed skill whose description says it opens one, and with
+  `gh pr create` when no skill does.
+- `workissue-turns-on-pr-watch` (step): When work-issue has opened the pull
+  request, it turns on Auto-fix and archive-on-close for it with the
+  session's monitor tool, before reporting.
