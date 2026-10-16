@@ -9,6 +9,9 @@ on a summary here; this file holds what the README does not.
 - Work on a branch off `main` (for an issue, the one claiming makes; see
   "Issues"), and open a pull request with the open-pr skill, rather than with
   `gh pr create`. The owner reviews and merges.
+- Once the pull request is open in a desktop session, turn on its Auto-fix
+  and archive-on-close with the session's `set_monitor` tool, without asking
+  the owner first.
 - A pull request description stands without the issue, for an owner who has
   not read it. It uses these headings, in this order, in place of
   `## Summary`:

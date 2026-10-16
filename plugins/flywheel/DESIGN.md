@@ -74,3 +74,20 @@ account, so `brief` tells the owner's comments from an agent's by the
 
 The gate commands live in `.flywheel/gates.json` rather than in the roles
 file, since a role is a model choice and a gate is the project's own command.
+
+## The implementer's skill
+
+work-issue is the session a brief starts, and the one a request for "the next
+issue" runs. It runs the gate command from `.flywheel/gates.json` itself
+rather than through the script, since the command is the project's and a
+skill fence runs only the plugin's script. It opens the pull request through
+whichever installed skill says it opens one, so a project keeps its own
+description rules and the skill names no other plugin.
+
+The watch it turns on is the desktop app's per-session CI monitor, which only
+the session's own `set_monitor` tool reaches. #305 found Auto-fix off on
+every new pull request, so the skill turns it on rather than leaving it to
+the owner.
+
+A lost claim moves on only for an issue the queue offered. One the owner
+named stays the owner's to redirect.
