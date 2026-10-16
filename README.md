@@ -36,7 +36,7 @@ Custom marketplaces do not auto-update. To pick up new versions:
 
 | Plugin | Surface | What it does |
 |---|---|---|
-| [flywheel](plugins/flywheel) | Claude Code | Runs a repository's issue loop, from an approved issue to a merged pull request, through desktop sessions that each play one role. This version installs the script and the file that says which model each role runs on, ships the docs that define the method the loop follows, and has the implementer's skill, which takes an issue from its claim to a watched pull request |
+| [flywheel](plugins/flywheel) | Claude Code | Runs a repository's issue loop, from an approved issue to a merged pull request, through desktop sessions that each play one role. This version installs the script and the file that says which model each role runs on, ships the docs that define the method the loop follows, files an issue or a plan of issues, and has the implementer's skill, which takes an issue from its claim to a watched pull request |
 | [gitify-cowork-project](plugins/gitify-cowork-project) | Cowork | Puts an existing Cowork Project folder under git without touching its documents, and moves the Project Instructions into a versioned `CLAUDE.md` that also tells Claude how to commit and read the history |
 | [prose-tuning](plugins/prose-tuning) | Claude Code, Cowork | Learns a project's house prose style from edits already made, records it as `prose-style.md` with stable rule ids, and conforms the rest of the documents to it |
 | [todos](plugins/todos) | Claude Code | Files the TODO comments left in a project's uncommitted changes as GitHub issues, after the author approves every draft, and marks each one in its file with where it went |
@@ -63,7 +63,7 @@ To start a Cowork project with git history from day one:
 .claude-plugin/
   marketplace.json         the catalog. One entry per plugin
 .github/
-  scripts/                 the checks CI runs, and issues.py's plan commands
+  scripts/                 the checks CI runs
     tests/                 their pytest suite
 plugins/
   <plugin-name>/
@@ -164,7 +164,7 @@ The CI scripts and hooks keep their suites directly beside them, because an
 install does not copy anything under `.github/` or `.claude/`. Their tests load
 the script by path with `importlib.util.spec_from_file_location`, from the
 directory above the test file, since names like `check-tests.py` cannot be
-imported by name. `.github/scripts/tests/test_issues.py` shows the pattern. A
+imported by name. `.github/scripts/tests/test_gate.py` shows the pattern. A
 new script in either directory does not need any config edit. A new directory
 of scripts does need its `tests/` added to `testpaths`: pytest does not walk
 into directories whose names start with a dot, so these roots are listed by
@@ -487,17 +487,16 @@ and for update-prose-config. A tracking issue:
 
 An agent closes it once its last sub-issue closes. When every sub-issue of
 #N is closed, `flywheel.py queue --tracking N` says the plan is finished, and the agent
-runs `python3 .github/scripts/issues.py plan close N`. `plan close` refuses
+runs `python3 plugins/flywheel/scripts/flywheel.py plan close N`. `plan close` refuses
 while any sub-issue of #N is open.
 
-When the owner asks for a plan that splits into several issues, an agent
-files it through the file-plan skill, at
-`.claude/skills/file-plan/SKILL.md`, which runs two commands of
-`.github/scripts/issues.py`:
+An agent files an issue, or a plan that splits into several issues, through
+the flywheel plugin's file-issue skill, which runs two commands of
+`flywheel.py`:
 
 ```sh
-python3 .github/scripts/issues.py plan report --drafts plan.json   # check the plan, and show it as it will be filed
-python3 .github/scripts/issues.py plan file --drafts plan.json --token 3f9a1c0e7b2d4a68  # file what the report showed
+python3 plugins/flywheel/scripts/flywheel.py plan report --drafts plan.json   # check the drafts, and show them as they will be filed
+python3 plugins/flywheel/scripts/flywheel.py plan file --drafts plan.json --token 3f9a1c0e7b2d4a68  # file what the report showed
 ```
 
 `plan report` refuses a plan whose issues break CLAUDE.md's rules for
@@ -505,7 +504,7 @@ issues, or whose links name nothing or form a cycle. A plan can also name an
 issue that is open already by its number, and `plan file` groups it with the
 rest without filing it again. `plan report` orders the issues so
 each comes after the issues that block it, and writes the plan as it will be
-filed to `.issues-plan/report.md`, ending with an approval token. The owner approves
+filed to `.flywheel/plan/report.md`, ending with an approval token. The owner approves
 that report, and `plan file` takes its token. Then `plan file`:
 
 1. files the issues in that order.

@@ -116,6 +116,76 @@ Source: the owner's request on 2026-10-05, recorded in #350.
   the command that closes #N, and exits 0. An open sub-issue keeps the plan
   unfinished even when a claim holds it, and so does a tracking issue without
   sub-issues.
+- `planclose-cmd-closes-finished-plan` (test): When `flywheel.py plan close N`
+  runs on an open issue labeled both `tracking` and `approved` whose
+  sub-issues are all closed, it closes #N with a comment naming them. It exits
+  1 without writing to #N when any of these holds:
+  - any sub-issue of #N is open.
+  - #N lacks sub-issues.
+  - #N is closed, or lacks either label.
+
+## need owner-approves-plan-once: Approve a plan's issues once
+
+When a plan yields several issues, the owner wants to approve the whole plan
+once, and have its issues filed, linked and grouped under a tracking issue
+exactly as approved, so the order GitHub holds is the order the owner
+approved.
+
+Source: the owner's request on 2026-10-05, after #347 and its sub-issues were
+filed by hand, recorded in #359. #647 moved this need here from
+specs/repo.md, which keeps the requirements under constraints that the plan
+commands meet.
+
+- `planreport-cmd-checks-each-draft` (test): When `flywheel.py plan report
+  --drafts <file>` reads a plan, it names every fault in one run, does not
+  print a token, and refuses each issue that meets any of these:
+  - has a body that does not open with `**Claude:**`.
+  - lacks a heading CLAUDE.md asks for.
+  - does not carry exactly one kind label and one area label.
+  - carries `approved` or `tracking`.
+  - carries a label the repository does not have.
+- `planreport-cmd-checks-plan-links` (test): When a key repeats, a `{KEY}` or a
+  `blocked_by` key does not name an issue in the plan, a body names an issue
+  filed after it, a blocker outside the plan is anything but an open issue, or
+  the links form a cycle, `plan report` refuses the plan and names each fault.
+- `planreport-cmd-accepts-one-issue` (test): When `flywheel.py plan report`
+  reads a plan of one issue with no tracking issue, it checks and reports
+  that issue alone, and `plan file` files it without a tracking issue. It
+  refuses a plan of several issues without a tracking issue.
+- `planreport-cmd-orders-by-links` (test): When `plan report` accepts a plan,
+  it puts each issue after the issues that block it, with ties in the plan's
+  listed order. It shows each issue whole, and the tracking issue's body as
+  it will be filed, with an Order section written from the links.
+- `planfile-cmd-requires-token` (test): When `flywheel.py plan file --drafts
+  <file> --token <token>` is given a token that does not match the plan, the
+  repository and its labels as they are now, or the plan now fails one of the
+  checks `plan report` made, it exits 1 without filing anything.
+- `planfile-cmd-files-in-order` (test): When `plan file` runs with a current
+  token, it files the issues in the report's order, each `{KEY}` replaced by
+  the number filed, and adds each "blocked by" link. It then files the
+  tracking issue labeled `tracking`, and adds the sub-issues in that order.
+- `planfile-cmd-verifies-links` (test): When `plan file` has filed a plan, it
+  reads every link and the sub-issues back from GitHub, and exits 1 naming
+  each that differs from the plan.
+- `planreport-cmd-shows-filed-issue` (test): When a plan's issue gives the
+  `number` of an issue already filed in place of a draft, `plan report` shows
+  that issue as GitHub holds it, marked as filed already. It refuses a number
+  that is closed, that cannot be read, or that two keys name.
+- `planfile-cmd-groups-filed-issue` (test): When `plan file` files a plan that
+  names an issue by its `number`, it does not file or edit that issue. It adds
+  the issue's "blocked by" links, adds it as a sub-issue in the plan's order,
+  and reads it back with the rest.
+- `fileissue-shows-report-whole` (step): When the file-issue skill asks the owner
+  to approve a plan, it shows the report file whole, as a private artifact (a
+  page Claude publishes on claude.ai) or, where it cannot publish one, in its
+  reply, rather than a summary of its own.
+- `plandraft-cmd-makes-own-file` (test): When `flywheel.py plan draft` runs, it
+  makes an empty file in the temporary directory, named so that no other run
+  gets the same file, and prints its literal path.
+- `fileissue-drafts-in-own-file` (step): When the file-issue skill drafts a
+  plan, it writes the plan to the file `plan draft` made for that run, and
+  every later step of the run reads that file, so a plan another session
+  drafts does not replace it.
 
 ## need owner-sees-held-issues: See from the issue list which issues are held
 

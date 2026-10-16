@@ -13,8 +13,9 @@ landed, and told when its pull request merged. The parts a script or a skill
 could do lived in this repo's `.github/scripts/issues.py` and its
 `.claude/skills/`, which no other repo can install. Tracking issue #653 plans
 the move into this plugin, one piece per issue. #643 made the plugin exist
-with its script's first two commands, and #645 moved the queue and the claim
-lock in from `issues.py`.
+with its script's first two commands, #645 moved the queue and the claim
+lock in from `issues.py`, and #647 moved the plan commands and the file-plan
+skill, which became `plan` and the file-issue skill.
 
 ## The copy in `.flywheel/`
 
@@ -60,8 +61,31 @@ repo's own CI, hooks and CLAUDE.md meet, since `check-specs.py trace` ties a
 repo test or workflow step to `specs/repo.md` only. Those needs appear in both
 files, each holding the requirements its side meets.
 
-`queue --tracking N` still names `issues.py plan close` for a finished plan,
-until #647 moves the plan commands here.
+## Plans
+
+The method's Scope stage files issues, and the loop needs it twice: the
+owner files a plan, and an implementer that finds a gap files a candidate
+need rather than guess. One skill, file-issue, does both, so a plan of one
+issue leaves out the tracking issue that a plan of several takes.
+
+`plan report` and `plan file` write the report and the record of what was
+filed to `.flywheel/plan/`, which holds a `.gitignore` of its own. The
+`.gitignore` that `setup` writes names only the files it copies, and a
+repository can run the plugin's own script without `setup`, so the folder
+ignores itself.
+
+The requirements the plan commands meet under a constraint, rather than
+under a need, stay in `specs/repo.md`, and the plugin's tests and skill cite
+them as `repo:<id>`. Each constraint is the repo's own copy of one in
+another plugin's spec, and copying it again into `specs/flywheel.md` waits on
+an issue that names it.
+
+## The issue-closed workflow
+
+`templates/issue-closed.yml` takes `in-progress` off an issue that closes,
+since a claim usually ends with a merge, where no command of the script
+runs. A project copies it into `.github/workflows/`. This repository's copy
+adds the `# spec:` line that ties its step to `specs/repo.md`.
 
 ## The brief
 

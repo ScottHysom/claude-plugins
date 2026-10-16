@@ -13,9 +13,10 @@ a merged pull request through Claude sessions that each play one role. A
 with a GitHub remote.
 
 This version installs the plugin's script, writes the file that says which
-model each role runs on, takes and frees the claim on an issue, ships the docs
-that define the method the loop follows, and carries the implementer's skill.
-The skills for the other roles arrive in later versions.
+model each role runs on, takes and frees the claim on an issue, files an
+issue or a plan of issues, ships the docs that define the method the loop
+follows, and carries the implementer's skill. The skills for the other roles
+arrive in later versions.
 
 ## The method
 
@@ -116,3 +117,27 @@ the plugin's work-issue skill:
    fails, the pull request has a conflict or a review comment arrives. It also
    has the app archive the session once the pull request merges or closes.
    The app may ask you to approve that call.
+
+## Filing an issue or a plan
+
+Ask Claude to file an issue, or to file a plan that splits into several
+issues. Claude drafts each issue, then publishes a report that shows every
+issue exactly as it will be filed. You read the report, and comment on it or
+approve it. Claude files nothing until you approve, and files exactly what
+the report showed.
+
+A plan of several issues also gets a **tracking issue**: an issue that lists
+the plan's issues in the order to work them, as its sub-issues. Each issue
+that waits on another is marked "blocked by" it on GitHub. When every issue
+in a plan is closed, ask Claude to close the plan, and Claude closes the
+tracking issue.
+
+The report and Claude's record of what it filed live in `.flywheel/plan/`,
+which git ignores.
+
+## Clearing the label when an issue closes
+
+The plugin's `templates/issue-closed.yml` is a GitHub Actions workflow that
+takes the `in-progress` label off an issue when it closes. Copy it into your
+project's `.github/workflows/` to keep the label meaning that someone is
+working on the issue.
