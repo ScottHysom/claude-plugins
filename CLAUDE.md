@@ -70,7 +70,8 @@ back them. What agents do:
 - **File what you find outside the task.** A problem outside the work in hand
   gets an issue, rather than an unasked fix or only a mention in chat. One
   problem per issue. Search first (`gh issue list --search`), and comment on a
-  match rather than opening a second.
+  match rather than opening a second. File it with the flywheel plugin's
+  file-issue skill.
 - **Title the problem, not the fix.** The body starts with `**Claude:**`, as
   review replies do. Each paragraph and each list item in it sits on one
   line, because GitHub renders a newline inside one as a line break. The body
@@ -87,9 +88,10 @@ back them. What agents do:
   owner approves the plan, rather than doing it. A fix of one problem is done
   directly.
   - A plan of one problem is one issue, filed under the rules above.
-  - A plan of several issues is filed with the file-plan skill, never one
-    `gh` call at a time. The skill adds a tracking issue, which groups the
-    plan's issues as sub-issues and carries the `tracking` label alone.
+  - A plan of several issues is filed with the flywheel plugin's
+    file-issue skill, never one `gh` call at a time. The skill adds a
+    tracking issue, which groups the plan's issues as sub-issues and
+    carries the `tracking` label alone.
   - A tracking issue's body gives the plan instead of the four headings. The
     plan says:
     - what problem it fixes.
@@ -119,7 +121,8 @@ back them. What agents do:
   same. If `queue --tracking N` exits 1, relay its message and do not pick
   another sub-issue yourself.
 - **Close a finished plan.** When `queue --tracking N` says every sub-issue
-  of #N is closed, run `python3 .github/scripts/issues.py plan close N`, and
+  of #N is closed, run
+  `python3 plugins/flywheel/scripts/flywheel.py plan close N`, and
   tell the owner #N is closed. Close a tracking issue only this way, never
   with `gh issue close`.
 - **Clear the claim once its pull request merges.** When the owner says a

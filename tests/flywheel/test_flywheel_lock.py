@@ -506,7 +506,7 @@ class DescribeQueueTracking:
         assert code == flywheel.OK
         assert out.out == (
             "Every sub-issue of #20 is closed, so its plan is finished.\n"
-            "To close #20, run: issues.py plan close 20\n"
+            "To close #20, run: flywheel.py plan close 20\n"
         )
         code, data = run_json(capsys, clone("b"), "queue", "--tracking", "20")
         assert data["data"]["finished"] is True
