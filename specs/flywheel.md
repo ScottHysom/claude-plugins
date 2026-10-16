@@ -73,6 +73,12 @@ specs/repo.md, which keeps the requirements this repo's own checks meet.
 - `claim-cmd-stops-when-nobody-wins` (test): When the push fails and
   `issue/N` does not exist, `flywheel.py claim` exits 2 without writing to
   the issue.
+- `next-cmd-moves-past-lost-claim` (test): When `flywheel.py claim --next`
+  loses the claim on the issue `queue` offered, it claims the next free
+  issue, until it wins or none is free, and then exits 1 saying why. With
+  `--tracking N`, it takes #N's next free sub-issue, and stops where
+  `queue --tracking N` stops. When the owner named the issue, as in
+  `claim N`, a lost claim still stops the agent.
 
 ## need owner-orders-dependent-issues: Leave an issue until its blocker closes
 
