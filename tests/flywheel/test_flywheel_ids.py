@@ -106,7 +106,6 @@ class DescribeWhatCountsAsACitation:
         assert env["data"]["files"] == shipped(plugin)
 
     def it_says_what_it_checked_in_text(self, project, plugin):
-        _, env = project.run("ids")
         code, out, err = project.human("ids")
         assert code == flywheel.OK
         assert out == "every method id cited in %d files is defined\n" % len(shipped(plugin))
