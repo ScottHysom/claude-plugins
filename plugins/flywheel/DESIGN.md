@@ -88,6 +88,3 @@ The watch it turns on is the desktop app's per-session CI monitor, which only
 the session's own `set_monitor` tool reaches. #305 found Auto-fix off on
 every new pull request, so the skill turns it on rather than leaving it to
 the owner.
-
-A lost claim moves on only for an issue the queue offered. One the owner
-named stays the owner's to redirect.

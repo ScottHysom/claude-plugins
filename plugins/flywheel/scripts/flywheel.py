@@ -15,6 +15,8 @@ Usage:
     python3 flywheel.py queue --count 3
     python3 flywheel.py queue --tracking 347
     python3 flywheel.py claim 12
+    python3 flywheel.py claim --next
+    python3 flywheel.py claim --next --tracking 347
     python3 flywheel.py brief 12
     python3 flywheel.py release 12
     python3 flywheel.py stale
@@ -33,6 +35,10 @@ Commands:
                  N's plan is finished when every sub-issue is closed. Changes
                  nothing.
     claim N      take issue N: push issue/N, switch to it, label and comment.
+    claim --next take the issue `queue` would offer, or with --tracking N
+                 the one `queue --tracking N` would. When another agent
+                 wins it, take the next free one, until a claim is won or
+                 none is free.
     brief N      print the first message of a session that works issue N: the
                  issue as the owner approved it, the owner's comments since,
                  the role, and the gate commands.
@@ -55,7 +61,8 @@ Every command takes --json and -C/--repo; claim, release, clear and sweep take
 
 Exit codes: 0 clean, 1 ran and found problems (the issue is held or not
 approved, or still open, the branch holds work, a label and a branch
-disagree, the issue changed after approval, the roles file exists already),
+disagree, the issue changed after approval, the roles file exists already,
+`claim --next` found nothing free to claim),
 2 could not run.
 
 The copy. Each shell call in Claude Code starts without the last one's
@@ -125,6 +132,9 @@ Things that look like bugs and are not:
   to a later approved one, since skipping would work the plan out of its
   order. It exits 1 when that sub-issue is the first it would offer, and
   otherwise offers the ones before it and warns.
+- `claim --next` exits 1 when it claims nothing, though `queue` exits 0 on
+  the same queue. The agent asked for an issue and has none to work. `claim N`
+  stops on a held issue rather than moving on, since the owner named it.
 - `claim` exits 0 when the push succeeded but labeling or commenting failed.
   The branch is the claim; those failures are warnings to fix by hand.
 - `release` refuses to delete a branch with commits not on main, and `clear`
@@ -599,6 +609,42 @@ def cmd_queue(args):
     root = project_root(args.repo)
     if args.tracking is not None:
         return queue_in_plan(args, root, args.tracking)
+    offer = free_issues(root, args.count)
+    found, blocked, plan = offer["found"], offer["blocked"], offer["plan"]
+
+    def human():
+        print_issues(found)
+        if len(found) == args.count:
+            return
+        other = "other " if found else ""
+        if plan:
+            print("#%d %s is an approved tracking issue." % (plan["number"], plan["title"]))
+            print(
+                "To take its next sub-issue, run: %s queue --tracking %d" % (PROG, plan["number"])
+            )
+        elif blocked:
+            print("Every %sfree approved issue is blocked by an open issue:" % other)
+            print_blocked(blocked)
+        else:
+            print("No %sapproved issue is free." % other)
+
+    return emit(args, "queue", queue_data(found, blocked, plan), human=human)
+
+
+def offer_of(found=None, blocked=None, plan=None, finished=False, errors=None, warnings=None):
+    """What the queue offers: the issues found, and why it offers no more."""
+    return {
+        "found": found or [],
+        "blocked": blocked or [],
+        "plan": plan,
+        "finished": finished,
+        "errors": errors or [],
+        "warnings": warnings or [],
+    }
+
+
+def free_issues(root, count):
+    """Up to `count` of the oldest free approved issues, or the plan that comes first."""
     approved = gh_json(
         root,
         "issue",
@@ -627,7 +673,7 @@ def cmd_queue(args):
 
     found, plan, blocked = [], None, []
     for _, item, is_plan in queue:
-        if len(found) == args.count:
+        if len(found) == count:
             break
         if is_plan:
             plan = summary(item)
@@ -637,30 +683,38 @@ def cmd_queue(args):
             blocked.append(dict(summary(item), blocked_by=open_blockers))
         else:
             found.append(summary(item))
-
-    def human():
-        print_issues(found)
-        if len(found) == args.count:
-            return
-        other = "other " if found else ""
-        if plan:
-            print("#%d %s is an approved tracking issue." % (plan["number"], plan["title"]))
-            print(
-                "To take its next sub-issue, run: %s queue --tracking %d" % (PROG, plan["number"])
-            )
-        elif blocked:
-            print("Every %sfree approved issue is blocked by an open issue:" % other)
-            print_blocked(blocked)
-        else:
-            print("No %sapproved issue is free." % other)
-
-    return emit(args, "queue", queue_data(found, blocked, plan), human=human)
+    return offer_of(found, blocked, plan)
 
 
 def queue_in_plan(args, root, number):
     """`queue --tracking N`: #N's sub-issues to work, in #N's order."""
+    offer = plan_issues(root, number, args.count)
+    found, blocked, finished = offer["found"], offer["blocked"], offer["finished"]
+    data = queue_data(found, blocked, offer["plan"], finished)
+    if offer["errors"]:
+        return emit(args, "queue", data, offer["errors"])
+
+    def human():
+        print_issues(found)
+        if len(found) == args.count or offer["warnings"]:
+            return
+        other = "other " if found else ""
+        if finished:
+            print("Every sub-issue of #%d is closed, so its plan is finished." % number)
+            print("To close #%d, run: %s %d" % (number, PLAN_CLOSE, number))
+        elif blocked:
+            print("Every %sfree sub-issue of #%d is blocked by an open issue:" % (other, number))
+            print_blocked(blocked)
+        else:
+            print("No %ssub-issue of #%d is free." % (other, number))
+
+    return emit(args, "queue", data, warnings=offer["warnings"], human=human)
+
+
+def plan_issues(root, number, count):
+    """Up to `count` of tracking issue #number's free sub-issues, in #number's order."""
     item = issue(root, number)
-    found, blocked, plan = [], [], summary(item)
+    plan = summary(item)
     problems = []
     if not is_open(item):
         problems.append("#%d is closed; its plan is finished" % number)
@@ -673,15 +727,15 @@ def queue_in_plan(args, root, number):
             "#%d is not labeled %s; ask the owner to approve the plan" % (number, APPROVED)
         )
     if problems:
-        return emit(args, "queue", queue_data(found, blocked, plan), problems)
+        return offer_of(plan=plan, errors=problems)
 
     held = claims(root)
     subs = sub_issues(root, number)
     finished = bool(subs) and not any(is_open(s) for s in subs)
-    stopped = []
+    found, blocked, stopped = [], [], []
     for sub in subs:
         n = sub["number"]
-        if len(found) == args.count:
+        if len(found) == count:
             break
         if not is_open(sub) or n in held:
             continue
@@ -695,26 +749,10 @@ def queue_in_plan(args, root, number):
                 "ask the owner to approve it" % (n, sub["title"], number, APPROVED)
             )
             if not found:
-                return emit(args, "queue", queue_data(found, blocked, plan), stopped)
+                return offer_of(blocked=blocked, plan=plan, errors=stopped)
             break
         found.append(summary(sub))
-
-    def human():
-        print_issues(found)
-        if len(found) == args.count or stopped:
-            return
-        other = "other " if found else ""
-        if finished:
-            print("Every sub-issue of #%d is closed, so its plan is finished." % number)
-            print("To close #%d, run: %s %d" % (number, PLAN_CLOSE, number))
-        elif blocked:
-            print("Every %sfree sub-issue of #%d is blocked by an open issue:" % (other, number))
-            print_blocked(blocked)
-        else:
-            print("No %ssub-issue of #%d is free." % (other, number))
-
-    data = queue_data(found, blocked, plan, finished)
-    return emit(args, "queue", data, warnings=stopped, human=human)
+    return offer_of(found, blocked, plan, finished, warnings=stopped)
 
 
 # --------------------------------------------------------------------------
@@ -724,30 +762,101 @@ def queue_in_plan(args, root, number):
 
 def cmd_claim(args):
     root = project_root(args.repo)
+    if args.tracking is not None and not args.next:
+        raise Fatal(
+            "--tracking works only with --next. Run: %s claim --next --tracking %d"
+            % (PROG, args.tracking)
+        )
+    if args.next:
+        return claim_next(args, root)
     n = args.number
+    errors, warnings, _ = take(args, root, n)
     data = {"number": n, "branch": branch(n)}
+    human = None if errors else lambda: print_claimed(args, n)
+    return emit(args, "claim", data, errors, warnings, human=human)
+
+
+def claim_next(args, root):
+    """`claim --next`: claim what `queue` offers, and on a lost race the next one."""
+    lost = []
+    while True:
+        if args.tracking is None:
+            offer = free_issues(root, len(lost) + 1)
+        else:
+            offer = plan_issues(root, args.tracking, len(lost) + 1)
+        fresh = [f for f in offer["found"] if f["number"] not in lost]
+        data = {"number": None, "branch": None, "lost": lost}
+        if not fresh:
+            errors = offer["errors"] or offer["warnings"]
+            return emit(args, "claim", data, errors or [nothing_free(offer, args.tracking, lost)])
+        n = fresh[0]["number"]
+        errors, warnings, held = take(args, root, n)
+        if held:
+            lost.append(n)
+            continue
+        data.update(number=n, branch=branch(n))
+        warnings = [
+            "#%d is held by another agent, so the next free issue was taken" % m for m in lost
+        ] + warnings
+        human = None if errors else lambda claimed=n: print_claimed(args, claimed)
+        return emit(args, "claim", data, errors, warnings, human=human)
+
+
+def nothing_free(offer, tracking, lost):
+    """Why `claim --next` found nothing to claim, and what to do next."""
+    other = "other " if lost else ""
+    plan, blocked = offer["plan"], offer["blocked"]
+    if tracking is None and plan:
+        return (
+            "#%d %s is an approved tracking issue, and its plan comes first. Ask the owner "
+            "whether to start on it, and on a yes run: %s claim --next --tracking %d"
+            % (plan["number"], plan["title"], PROG, plan["number"])
+        )
+    if offer["finished"]:
+        return (
+            "Every sub-issue of #%d is closed, so its plan is finished. To close it, run: %s %d"
+            % (
+                tracking,
+                PLAN_CLOSE,
+                tracking,
+            )
+        )
+    where = "approved issue" if tracking is None else "sub-issue of #%d" % tracking
+    if blocked:
+        return "Every %sfree %s is blocked by an open issue: %s" % (
+            other,
+            where,
+            "; ".join(
+                "#%d by %s" % (b["number"], ", ".join("#%d" % n for n in b["blocked_by"]))
+                for b in blocked
+            ),
+        )
+    return "No %s%s is free to claim" % (other, where)
+
+
+def print_claimed(args, n):
+    verb = "Would claim" if args.dry_run else "Claimed"
+    print("%s #%d on branch %s" % (verb, n, branch(n)))
+
+
+def take(args, root, n):
+    """Claim issue n. Returns (errors, warnings, held), held when another agent has it."""
     item = issue(root, n)
     if item.get("state") != "OPEN":
-        return emit(args, "claim", data, ["#%d is closed" % n])
+        return ["#%d is closed" % n], [], False
     if APPROVED not in labels(item):
-        return emit(
-            args,
-            "claim",
-            data,
+        return (
             [
                 "#%d is not labeled %s. The owner approves an issue before it is worked on"
                 % (n, APPROVED)
             ],
+            [],
+            False,
         )
     if n in claims(root):
-        return emit(args, "claim", data, [held_message(n)])
-
-    def human():
-        verb = "Would claim" if args.dry_run else "Claimed"
-        print("%s #%d on branch %s" % (verb, n, branch(n)))
-
+        return [held_message(n)], [], True
     if args.dry_run:
-        return emit(args, "claim", data, human=human)
+        return [], [], False
 
     git(root, "fetch", "--quiet", REMOTE, BASE)
     tip = git(root, "rev-parse", "%s/%s" % (REMOTE, BASE)).stdout.strip()
@@ -767,7 +876,7 @@ def cmd_claim(args):
     )
     if not created(push.stdout, ref(n)):
         if n in claims(root):
-            return emit(args, "claim", data, [held_message(n)])
+            return [held_message(n)], [], True
         raise Fatal("could not push %s: %s" % (branch(n), push.stderr.strip()))
 
     warnings = []
@@ -787,7 +896,7 @@ def cmd_claim(args):
             gh(root, "issue", *cmd)
         except Fatal as exc:
             warnings.append("claimed, but could not %s: %s" % (step, exc))
-    return emit(args, "claim", data, warnings=warnings, human=human)
+    return [], warnings, False
 
 
 def created(porcelain, target):
@@ -1366,7 +1475,20 @@ def build_parser():
     )
     p.set_defaults(func=cmd_queue)
 
-    p = sub.add_parser("claim", parents=[common, numbered, preview], help="take an issue")
+    p = sub.add_parser("claim", parents=[common, preview], help="take an issue")
+    which = p.add_mutually_exclusive_group(required=True)
+    which.add_argument("number", type=int, nargs="?", help="the issue's number")
+    which.add_argument(
+        "--next",
+        action="store_true",
+        help="take the issue queue offers, and the next one if another agent wins it",
+    )
+    p.add_argument(
+        "--tracking",
+        type=int,
+        metavar="N",
+        help="with --next, take tracking issue N's next sub-issue",
+    )
     p.set_defaults(func=cmd_claim)
 
     p = sub.add_parser(

@@ -34,46 +34,39 @@ FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" queue --json
 ```
 
 ## Step 1: claim the issue
-<!-- spec: workissue-claims-first, workissue-moves-past-lost-claim -->
-<!-- seam: judgment: the model tells an issue the owner named from one the queue offered, and only the second moves on after a lost claim -->
+<!-- spec: workissue-claims-first, next-cmd-moves-past-lost-claim -->
+<!-- seam: judgment: the owner decides whether to start on a tracking issue's plan before claim runs again with --tracking -->
 
-Take the issue from the first of these that applies:
-
-1. The session's first message is a brief. Take the issue it names.
-2. The request names an issue, as in "fix #648". Take that one.
-3. The request asks for the next issue, or the next issue in tracking issue
-   M's plan. Ask the queue, with `--tracking M` for a plan:
-
-   ```sh
-   FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" queue --json
-   ```
-
-   ```sh
-   FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" queue --tracking 653 --json
-   ```
-
-   Take the first entry of `data.issues`. When `data.issues` is empty, or
-   `queue` exits 1, tell the owner what it printed, and stop. When `queue`
-   without `--tracking` names a tracking issue in `data.tracking`, ask the
-   owner whether to start on that plan, and on a yes ask the queue again with
-   `--tracking`.
-
-Claim it before any other work, including reading code:
+Claim the issue before any other work, including reading code. When the
+session's first message is a brief, or the request names an issue, as in
+"fix #648", claim that issue:
 
 ```sh
 FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" claim 648 --json
 ```
 
+When the request asks for the next issue, claim the one the queue offers,
+with `--tracking M` for the next issue in tracking issue M's plan:
+
+```sh
+FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" claim --next --json
+```
+
+```sh
+FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" claim --next --tracking 653 --json
+```
+
+When another session wins the issue the queue offered, `claim --next` claims
+the next free one, and `data.lost` names each issue it lost.
+
 The owner does not reliably see a command's output, so the next thing after
 `claim` is a message in chat:
 
-- On exit 0, name the issue and the `issue/N` branch it switched to, with any
-  warning.
-- On exit 1, relay the error. When the issue came from the queue and the
-  error says another session holds it, ask the queue again, with the same
-  `--tracking`, and claim the first issue it offers. Keep going until a claim
-  wins or the queue is empty. When the owner named the issue, or the
-  brief did, stop.
+- On exit 0, name `data.number` and the `data.branch` it switched to, any
+  issue in `data.lost`, and any warning.
+- On exit 1, relay the error, and stop. When the error says a tracking
+  issue's plan comes first, ask the owner whether to start on that plan, and
+  on a yes claim again with `--next --tracking`.
 - On exit 2, relay the error, and stop.
 
 ## Step 2: read the issue as approved
