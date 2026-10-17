@@ -442,3 +442,33 @@ Source: #650, and the method's `review-against-written-policy` and
 - `reviewpr-rechecks-answered-threads` (step): When review-pr runs on a pull
   request it has reviewed before, it resolves each thread whose answer it
   accepts, and leaves the others unresolved.
+
+## need owner-adopts-by-level: Adopt the method by level
+
+When the owner brings a repo under the method, they want its gaps named by
+principle id against the level they chose, filed one control per issue, and
+the version recorded, so a later assessment shows only what changed.
+
+Source: #651, the method's adoption.md, and the method's
+`checks-over-instructions`.
+
+- `assess-cmd-reports-gaps-by-id` (test): When `flywheel.py assess` runs in a
+  project, it reports each control by level and id with its evidence found or
+  missing, and exits 1 when a control at or below the recorded level is
+  missing.
+- `record-cmd-writes-version-and-controls` (test): When
+  `flywheel.py record --level N` runs, it writes the plugin version, level N
+  and the controls held to `.flywheel/adoption.json`, and `assess` names each
+  control whose state changed since.
+- `adopt-never-invents-owner-fields` (step): When adopt needs a need, a
+  constraint, the target level, a policy's terms or a role's model, it asks
+  the owner and writes nothing until they answer.
+- `adopt-writes-agent-rules` (step): When adopt has the target level, it
+  writes the plugin's rules for agents up to that level into the project's
+  `CLAUDE.md`, each citing the principle it serves, and leaves the project's
+  own rules as they are.
+- `adopt-files-gaps-as-plan` (step): When `record` names a control missing at
+  or below the target level, adopt files the gaps as one plan through
+  file-issue, one control per issue, in the order of the method's tables.
+- `hook-ships-with-plugin` (test): When the plugin is installed, its
+  `hooks/hooks.json` runs the approval guard on every Bash call.

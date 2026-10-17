@@ -36,7 +36,7 @@ Custom marketplaces do not auto-update. To pick up new versions:
 
 | Plugin | Surface | What it does |
 |---|---|---|
-| [flywheel](plugins/flywheel) | Claude Code | Runs a repository's issue loop, from an approved issue to a merged pull request, through desktop sessions that each play one role. This version installs the script, the file that says which model each role runs on and the review and merge policies, ships the docs that define the method the loop follows, files an issue or a plan of issues, and has three skills: the dispatcher's, which starts a session per issue and merges what the merge policy lets through, the implementer's, which takes an issue from its claim to a watched pull request, and the reviewer's, which reviews a pull request from the review policy |
+| [flywheel](plugins/flywheel) | Claude Code | Runs a repository's issue loop, from an approved issue to a merged pull request, through desktop sessions that each play one role. This version installs the script, the file that says which model each role runs on and the review and merge policies, ships the docs that define the method the loop follows, files an issue or a plan of issues, assesses which of the method's controls a repository holds and files the missing ones through its adopt skill, ships the hook that keeps `approved` for the owner, and has three further skills: the dispatcher's, which starts a session per issue and merges what the merge policy lets through, the implementer's, which takes an issue from its claim to a watched pull request, and the reviewer's, which reviews a pull request from the review policy |
 | [gitify-cowork-project](plugins/gitify-cowork-project) | Cowork | Puts an existing Cowork Project folder under git without touching its documents, and moves the Project Instructions into a versioned `CLAUDE.md` that also tells Claude how to commit and read the history |
 | [prose-tuning](plugins/prose-tuning) | Claude Code, Cowork | Learns a project's house prose style from edits already made, records it as `prose-style.md` with stable rule ids, and conforms the rest of the documents to it |
 | [todos](plugins/todos) | Claude Code | Files the TODO comments left in a project's uncommitted changes as GitHub issues, after the author approves every draft, and marks each one in its file with where it went |
@@ -73,6 +73,7 @@ plugins/
     scripts/               optional. Shared by every skill in the plugin
     reference/             optional. Normative docs a skill points at
     templates/             optional. Files a script copies into a project
+    hooks/                 optional. hooks.json and the hooks it runs
     skills/
       <skill-name>/
         SKILL.md           plus any files the skill bundles
@@ -601,7 +602,7 @@ The `validate` job backs this up: a pull request that closes #N must come from
 Agents post through the owner's GitHub account, `ScottHysom`, so GitHub cannot
 tell an agent adding `approved` from the owner adding it. What covers that:
 
-- **Only the owner adds the label.** `.claude/hooks/issue_guard.py` blocks any
+- **Only the owner adds the label.** `plugins/flywheel/hooks/issue_guard.py` blocks any
   command Claude Code runs that would add it. To approve with Claude's help,
   run `! gh issue edit <N> --add-label approved`: the `!` runs it in your own
   shell, where Claude Code's hooks do not run. The hook reads command text, so

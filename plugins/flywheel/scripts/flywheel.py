@@ -11,6 +11,8 @@ Usage:
     python3 flywheel.py <command> [options]
     python3 flywheel.py --help
 
+    python3 flywheel.py assess
+    python3 flywheel.py record --level 2
     python3 flywheel.py queue
     python3 flywheel.py queue --count 3
     python3 flywheel.py queue --tracking 347
@@ -34,7 +36,8 @@ Usage:
     python3 flywheel.py plan close 347
 
 Run from anywhere in a clone, with git and, for every command but setup,
-config init, review-policy and ids, an authenticated gh on PATH.
+config init, assess, record, review-policy and ids, an authenticated gh on
+PATH.
 
 Commands:
     setup        copy this script, the templates it reads and the plugin's
@@ -42,6 +45,12 @@ Commands:
     config init  write .flywheel/roles.json, review-policy.md and
                  merge-policy.md from the plugin's templates, leaving each
                  that exists as it is, and name each field the owner fills in
+    assess       each of the method's controls, by level and principle id,
+                 with the evidence the project holds for it, the level it
+                 holds whole, and each control whose state changed since
+                 the adoption record.
+    record       write .flywheel/adoption.json: the plugin version, the
+                 owner's target level from --level and each control's state.
     queue        up to --count of the oldest open approved issues nobody
                  holds and no open issue blocks, or an approved tracking
                  issue that comes first. With --tracking N, up to --count of
@@ -105,7 +114,8 @@ disagree, the issue changed after approval, the roles file exists already,
 model or effort unset, a plan is refused or not filed
 as it says, a tracking issue is not an open approved plan or has open
 sub-issues, the reviewer's findings are refused, a pull request holds or is
-not open for review), 2 could not run.
+not open for review, a control at or below the recorded level is missing),
+2 could not run.
 
 The copy. Each shell call in Claude Code starts without the last one's
 variables, and the plugin's own path is too long to repeat in every command,
@@ -147,6 +157,35 @@ a finding at P0 to P2 is open, and any other finding is a disagreement. Its
 `next` says who acts: review first when there is no review, then wait while
 a check, a conflict or a thread waits on the implementer, then review again,
 then ask the owner.
+
+The controls. CONTROLS holds each control of the method's adoption.md, in its
+order, with its level and principle ids, and a test holds the two in step.
+What counts as evidence for each:
+
+- agent-rules, approved-ticket, tests-first, plan-first, measured-trials and
+  mistakes-to-checks: the rules files agents load every session (CLAUDE.md,
+  AGENTS.md and each .md under .claude/rules/) cite each of the control's ids
+  in the citation form `ids` reads. The adopt skill writes them from
+  templates/agent-rules.md.
+- needs-spec: specs/ holds a spec, and each .md directly under it opens with
+  the heading "## Out of scope".
+- core-gates: .flywheel/gates.json names `build`, `test` and `check`.
+- verify-gate: .flywheel/gates.json names `verify`, and a workflow under
+  .github/workflows/ holds its command.
+- trace-checks, unweakened-checks, instruction-evals, scheduled-audit and
+  loop-measures: a workflow under .github/workflows/ cites each of the
+  control's ids, as a comment in the citation form `ids` reads.
+- approval-guard: .claude/settings.json enables the flywheel plugin, whose
+  hooks/hooks.json runs the guard, or runs issue_guard.py on PreToolUse with
+  a matcher that names Bash.
+- review-policy and merge-policy: the policy exists in .flywheel/ and sets
+  every setting.
+- role-tiers: .flywheel/roles.json gives every role a model and an effort.
+
+The record. `record` writes each control's level, ids and state to
+.flywheel/adoption.json, beside the version and the target level, and the
+owner commits it. `assess` then names each control whose state differs, and
+each control the record lacks as new: one the method added since.
 
 The gates file. .flywheel/gates.json maps each gate the project has, such as
 `check` or `verify`, to the command that runs it, under "gates". The owner
@@ -293,6 +332,14 @@ Things that look like bugs and are not:
   check makes the merge fail, and the pull request holds for the owner.
 - `review-post` resolves threads before it posts the review, so the review's
   time comes after the look at every answer it settled.
+- `assess` reads whether the rules files state a rule and whether a workflow
+  cites a principle, and cannot see whether agents follow the rule or the
+  workflow enforces the principle. As a simplification, it takes the
+  citation as the evidence and leaves the rest to the owner's review.
+- `assess` exits 0 with every control missing when there is no record. The
+  owner has not set a level, so no gap is below it.
+- `assess` reads a hook matcher only as a list split on "|", as a
+  simplification of the pattern Claude Code matches tool names against.
 - `config init` exits 1 when any of its files exists, and still writes the
   others, so a project set up before the policies existed gets them.
 - `role` takes any name, not only the roles the template ships. The roles
@@ -321,8 +368,8 @@ Things that look like bugs and are not:
   `plan file` cannot record the number and stops. A re-run would file that
   issue again, so check the repository before running it again.
 
-`setup`, `config init`, `plan report` and `plan file` write only under
-.flywheel/, and `plan file` also files issues through gh. `review-post` and
+`setup`, `config init`, `record`, `plan report` and `plan file` write only
+under .flywheel/, and `plan file` also files issues through gh. `review-post` and
 `merge-check --merge` write only to GitHub, through gh. `claim`, `release`,
 `clear` and `sweep` write to git (a push, a branch switch, a branch deletion),
 so they are not for Cowork's device bridge, where a git write strands
@@ -398,6 +445,31 @@ PROTECTED_KEY = "protected"
 AREAS_KEY = "areas"
 # The role a session started from `brief` plays.
 BRIEF_ROLE = "implementer"
+
+# `assess` and `record`. CONTROLS, after the evidence it names, lists the
+# method's controls.
+ADOPTION_FILE = COPY_DIR + "/adoption.json"
+CONTROLS_KEY = "controls"
+LEVEL_KEY = "level"
+ADOPTION_LEVELS = (1, 2, 3)
+TOP_LEVEL = ADOPTION_LEVELS[-1]
+HELD, MISSING, NEW = "held", "missing", "new"
+RULES_FILES = ("CLAUDE.md", "AGENTS.md")
+RULES_DIR = ".claude/rules"
+WORKFLOWS_DIR = ".github/workflows"
+WORKFLOW_SUFFIXES = (".yml", ".yaml")
+SPECS_DIR = "specs"
+# A component's spec: a markdown file directly under specs/.
+SPEC_RE = re.compile(r"^%s/[^/]+\.md$" % SPECS_DIR)
+OUT_OF_SCOPE = "Out of scope"
+CORE_GATES = ("build", "test", "check")
+VERIFY_GATE = "verify"
+SETTINGS_FILE = ".claude/settings.json"
+ENABLED_KEY = "enabledPlugins"
+PLUGIN_NAME = "flywheel"
+GUARD_SCRIPT = "issue_guard.py"
+GUARD_EVENT = "PreToolUse"
+GUARD_MATCHER = "Bash"
 
 APPROVED = "approved"
 IN_PROGRESS = "in-progress"
@@ -929,6 +1001,431 @@ def cmd_config_init(args):
                 print("  %s: %s" % (rel, name))
 
     return emit(args, "config init", data, errors, human=human)
+
+
+# --------------------------------------------------------------------------
+# adoption
+# --------------------------------------------------------------------------
+
+
+def project_texts(root, rels):
+    """[(rel, text)] for each file of rels the project holds."""
+    return [
+        (rel, read_text(os.path.join(root, *rel.split("/"))))
+        for rel in rels
+        if os.path.isfile(os.path.join(root, *rel.split("/")))
+    ]
+
+
+def rules_texts(root):
+    rules = [rel for rel in files_under(root, RULES_DIR) if rel.endswith(".md")]
+    return project_texts(root, [*RULES_FILES, *rules])
+
+
+def workflow_texts(root):
+    found = files_under(root, WORKFLOWS_DIR)
+    return project_texts(root, [rel for rel in found if rel.endswith(WORKFLOW_SUFFIXES)])
+
+
+def ticked(names):
+    return ", ".join("`%s`" % name for name in names)
+
+
+def cites(texts, ids, where):
+    """Whether the files in texts cite every id as the method's, and the evidence."""
+    if not texts:
+        return False, "the project has no %s" % where
+    files = ", ".join(rel for rel, _ in texts)
+    cited = {name for _, text in texts for name, _ in cited_ids(text)}
+    missing = [name for name in ids if name not in cited]
+    if missing:
+        return False, "the files read (%s) do not cite %s as the method's" % (
+            files,
+            ticked(missing),
+        )
+    return True, "the files read (%s) cite %s as the method's" % (files, ticked(ids))
+
+
+def rules_evidence(root, ids):
+    return cites(rules_texts(root), ids, "rules file (%s)" % ", ".join(RULES_FILES))
+
+
+def ci_evidence(root, ids):
+    return cites(workflow_texts(root), ids, "workflow under %s/" % WORKFLOWS_DIR)
+
+
+def specs_evidence(root, ids):
+    found = [rel for rel in files_under(root, SPECS_DIR) if SPEC_RE.match(rel)]
+    if not found:
+        return False, "%s/ holds no spec" % SPECS_DIR
+    wrong = []
+    for rel, text in project_texts(root, found):
+        first = HEADING_RE.search(text)
+        if not first or first.group(1) != OUT_OF_SCOPE:
+            wrong.append(rel)
+    if wrong:
+        return False, "these specs do not open with ## %s: %s" % (OUT_OF_SCOPE, ", ".join(wrong))
+    return True, "each of %s opens with ## %s" % (", ".join(found), OUT_OF_SCOPE)
+
+
+def project_gates(root):
+    gates = read_project_json(root, GATES_FILE, GATES_KEY)
+    return {} if gates is None else gates
+
+
+def gates_evidence(root, ids):
+    gates = project_gates(root)
+    missing = [name for name in CORE_GATES if not is_text(gates.get(name))]
+    if missing:
+        return False, "%s does not name %s" % (GATES_FILE, ticked(missing))
+    return True, "%s names %s" % (GATES_FILE, ticked(CORE_GATES))
+
+
+def verify_evidence(root, ids):
+    command = project_gates(root).get(VERIFY_GATE)
+    if not is_text(command):
+        return False, "%s does not name `%s`" % (GATES_FILE, VERIFY_GATE)
+    runs = [rel for rel, text in workflow_texts(root) if command in text]
+    if not runs:
+        return False, "no workflow under %s/ runs `%s`" % (WORKFLOWS_DIR, command)
+    return True, "%s runs `%s`" % (runs[0], command)
+
+
+def guard_evidence(root, ids):
+    path = os.path.join(root, *SETTINGS_FILE.split("/"))
+    settings = read_json(path) if os.path.isfile(path) else {}
+    enabled = settings.get(ENABLED_KEY) or {}
+    if any(name.split("@")[0] == PLUGIN_NAME and on is True for name, on in enabled.items()):
+        return True, "%s enables the %s plugin, whose hooks run %s" % (
+            SETTINGS_FILE,
+            PLUGIN_NAME,
+            GUARD_SCRIPT,
+        )
+    for entry in (settings.get("hooks") or {}).get(GUARD_EVENT) or []:
+        if GUARD_MATCHER in entry.get("matcher", "").split("|"):
+            for hook in entry.get("hooks") or []:
+                if GUARD_SCRIPT in hook.get("command", ""):
+                    return True, "%s runs %s before %s" % (
+                        SETTINGS_FILE,
+                        GUARD_SCRIPT,
+                        GUARD_MATCHER,
+                    )
+    return False, "%s neither enables the %s plugin nor runs %s before %s" % (
+        SETTINGS_FILE,
+        PLUGIN_NAME,
+        GUARD_SCRIPT,
+        GUARD_MATCHER,
+    )
+
+
+def policy_evidence(rel):
+    def evidence(root, ids):
+        if not os.path.isfile(os.path.join(root, *rel.split("/"))):
+            return False, "%s is missing" % rel
+        unset = [key for key, value in project_policy(root, rel)[1].items() if value is None]
+        if unset:
+            return False, "%s leaves %s unset" % (rel, ticked(unset))
+        return True, "%s sets every setting" % rel
+
+    return evidence
+
+
+def roles_evidence(root, ids):
+    roles = read_project_json(root, ROLES_FILE, ROLES_KEY)
+    if roles is None:
+        return False, "%s is missing" % ROLES_FILE
+    unset = [
+        "%s.%s" % (role, key)
+        for role, entry in roles.items()
+        for key in START_KEYS
+        if not is_text((entry if isinstance(entry, dict) else {}).get(key))
+    ]
+    if unset:
+        return False, "%s leaves %s unset" % (ROLES_FILE, ticked(unset))
+    return True, "%s gives every role a model and an effort" % ROLES_FILE
+
+
+# Each control of the method's adoption.md, in its order: (key, level, the
+# control as adoption.md words it, its principle ids, its evidence). The
+# module docstring says what counts as evidence.
+CONTROLS = (
+    (
+        "agent-rules",
+        1,
+        "Rules for agents, in the file agents read every session",
+        ("trace-behavior-to-need", "humans-decide-agents-record"),
+        rules_evidence,
+    ),
+    (
+        "needs-spec",
+        1,
+        "A needs spec for each component, opening with its out-of-scope list",
+        ("list-out-of-scope-first", "source-needs-outside-code"),
+        specs_evidence,
+    ),
+    (
+        "approved-ticket",
+        1,
+        "The ticket as the home of each change's intent; the owner approves it",
+        ("owner-admits-every-need", "one-home-per-artifact"),
+        rules_evidence,
+    ),
+    (
+        "core-gates",
+        1,
+        "The `build`, `test` and `check` commands",
+        ("one-command-per-gate",),
+        gates_evidence,
+    ),
+    (
+        "tests-first",
+        1,
+        "Tests written first and named for behavior",
+        ("write-behavior-tests-first",),
+        rules_evidence,
+    ),
+    (
+        "trace-checks",
+        2,
+        "Traceability checks in CI: tests cite requirements, requirements sit under needs,"
+        " PRs list what they change, coverage floors hold",
+        ("checks-over-instructions", "no-merge-without-alignment"),
+        ci_evidence,
+    ),
+    (
+        "verify-gate",
+        2,
+        "The `verify` command, run by CI on every PR",
+        ("one-command-per-gate",),
+        verify_evidence,
+    ),
+    (
+        "unweakened-checks",
+        2,
+        "New tests must fail on the base; agents cannot loosen checks",
+        ("agents-never-weaken-checks",),
+        ci_evidence,
+    ),
+    (
+        "approval-guard",
+        2,
+        "Approval kept out of agent reach, by a hook or CI check",
+        ("checks-over-instructions", "owner-admits-every-need"),
+        guard_evidence,
+    ),
+    (
+        "plan-first",
+        2,
+        "A plan approved before code",
+        ("approve-plan-before-code",),
+        rules_evidence,
+    ),
+    (
+        "review-policy",
+        2,
+        "A written review policy and a fresh-context reviewer",
+        ("review-against-written-policy", "separate-generation-from-verification"),
+        policy_evidence(REVIEW_POLICY),
+    ),
+    (
+        "instruction-evals",
+        3,
+        "Evals for the agent's instructions, rerun on every change to them",
+        ("eval-instructions-on-change",),
+        ci_evidence,
+    ),
+    (
+        "role-tiers",
+        3,
+        "Agents assigned by role and tier, each tier with a model class and a default effort,"
+        " with the mapping in the implementation layer",
+        ("match-capability-to-task",),
+        roles_evidence,
+    ),
+    (
+        "merge-policy",
+        3,
+        "A written merge policy",
+        ("autonomy-scales-with-risk",),
+        policy_evidence(MERGE_POLICY),
+    ),
+    (
+        "scheduled-audit",
+        3,
+        "A scheduled audit",
+        ("audit-on-schedule",),
+        ci_evidence,
+    ),
+    (
+        "loop-measures",
+        3,
+        "Measures for each stage, spend per merged unit, with control bands",
+        ("measure-the-loop", "scripts-detect-models-diagnose"),
+        ci_evidence,
+    ),
+    (
+        "measured-trials",
+        3,
+        "Improvement trials, one change at a time against a baseline",
+        ("improve-by-measured-trial",),
+        rules_evidence,
+    ),
+    (
+        "mistakes-to-checks",
+        3,
+        "Repeated mistakes climb to checks",
+        ("repeat-mistakes-become-checks",),
+        rules_evidence,
+    ),
+)
+
+
+def control_states(root):
+    """Each control with whether the project holds it, and the evidence."""
+    out = []
+    for key, level, text, ids, evidence in CONTROLS:
+        held, found = evidence(root, ids)
+        out.append(
+            {
+                "key": key,
+                "level": level,
+                "control": text,
+                "ids": list(ids),
+                "held": held,
+                "evidence": found,
+            }
+        )
+    return out
+
+
+def held_level(states):
+    """The highest level whose controls, and every lower level's, the project holds."""
+    level = 0
+    while level < TOP_LEVEL and all(s["held"] for s in states if s["level"] == level + 1):
+        level += 1
+    return level
+
+
+def read_record(root):
+    """The adoption record, or None when the project has none."""
+    path = os.path.join(root, *ADOPTION_FILE.split("/"))
+    if not os.path.isfile(path):
+        return None
+    try:
+        record = json.loads(read_bytes(path).decode("utf-8"))
+    except ValueError:
+        record = None
+    if not (
+        isinstance(record, dict)
+        and is_text(record.get(VERSION_KEY))
+        and record.get(LEVEL_KEY) in ADOPTION_LEVELS
+        and isinstance(record.get(CONTROLS_KEY), dict)
+    ):
+        raise Fatal(
+            "%s is not a record that record wrote. Delete it, then run record again with the"
+            " owner's target level." % ADOPTION_FILE
+        )
+    return record
+
+
+def state_word(held):
+    return HELD if held else MISSING
+
+
+def changes_since(record, states):
+    """Each control whose state differs from the record's, or that the record lacks."""
+    out = []
+    for s in states:
+        was = record[CONTROLS_KEY].get(s["key"])
+        before = state_word(was.get("held")) if isinstance(was, dict) else NEW
+        if before != state_word(s["held"]):
+            out.append({"key": s["key"], "was": before, "now": state_word(s["held"])})
+    return out
+
+
+def gap_text(s):
+    return "level %d control `%s` (%s) is missing: %s" % (
+        s["level"],
+        s["key"],
+        ", ".join(s["ids"]),
+        s["evidence"],
+    )
+
+
+def print_states(states):
+    for s in states:
+        print(
+            "[%s] level %d %s (%s): %s"
+            % ("x" if s["held"] else " ", s["level"], s["key"], ", ".join(s["ids"]), s["evidence"])
+        )
+
+
+def cmd_assess(args):
+    """Each of the method's controls, with the evidence the project holds for it."""
+    root = project_root(args.repo)
+    states = control_states(root)
+    record = read_record(root)
+    data = {
+        "version": plugin_version(),
+        "level": held_level(states),
+        "recorded": None,
+        "controls": states,
+        "changes": [],
+    }
+    errors = []
+    if record is not None:
+        data["recorded"] = {k: record[k] for k in (VERSION_KEY, LEVEL_KEY)}
+        data["changes"] = changes_since(record, states)
+        errors = [
+            "%s, at or below the recorded level %d. The adopt skill files it as an issue."
+            % (gap_text(s), record[LEVEL_KEY])
+            for s in states
+            if not s["held"] and s["level"] <= record[LEVEL_KEY]
+        ]
+
+    def human():
+        print_states(states)
+        print("\nthe project holds level %d" % data["level"])
+        if record is not None:
+            print(
+                "recorded: level %d under flywheel %s, now %s"
+                % (record[LEVEL_KEY], record[VERSION_KEY], data["version"])
+            )
+            for c in data["changes"]:
+                print("  %s: %s, now %s" % (c["key"], c["was"], c["now"]))
+
+    return emit(args, "assess", data, errors, human=human)
+
+
+def cmd_record(args):
+    """Write the plugin version, the owner's target level and each control's
+    state to the adoption record."""
+    root = project_root(args.repo)
+    states = control_states(root)
+    version = plugin_version()
+    record = {
+        VERSION_KEY: version,
+        LEVEL_KEY: args.level,
+        CONTROLS_KEY: {
+            s["key"]: {"level": s["level"], "ids": s["ids"], "held": s["held"]} for s in states
+        },
+    }
+    write_bytes(root, ADOPTION_FILE, (json.dumps(record, indent=2) + "\n").encode("utf-8"))
+    gaps = [s for s in states if not s["held"] and s["level"] <= args.level]
+    data = {
+        "file": ADOPTION_FILE,
+        "version": version,
+        "level": args.level,
+        "held": [s["key"] for s in states if s["held"]],
+        "gaps": gaps,
+    }
+
+    def human():
+        print("wrote %s: level %d under flywheel %s" % (ADOPTION_FILE, args.level, version))
+        for s in gaps:
+            print("  %s" % gap_text(s))
+
+    return emit(args, "record", data, human=human)
 
 
 # --------------------------------------------------------------------------
@@ -3323,6 +3820,15 @@ def positive(text):
     return value
 
 
+def adoption_level(text):
+    """argparse type: one of the method's levels."""
+    if text not in [str(n) for n in ADOPTION_LEVELS]:
+        raise argparse.ArgumentTypeError(
+            "%r is not a level. Name one from 1 to %d" % (text, TOP_LEVEL)
+        )
+    return int(text)
+
+
 def build_parser():
     output = argparse.ArgumentParser(add_help=False)
     output.add_argument("--json", action="store_true", help="machine-readable envelope on stdout")
@@ -3356,6 +3862,28 @@ def build_parser():
         % ROLES_FILE,
     )
     p.set_defaults(func=cmd_config_init)
+
+    p = sub.add_parser(
+        "assess",
+        parents=[common],
+        help="each of the method's controls by level and principle id, with its evidence",
+    )
+    p.set_defaults(func=cmd_assess)
+
+    p = sub.add_parser(
+        "record",
+        parents=[common],
+        help="write the plugin version, the target level and the controls held to %s"
+        % ADOPTION_FILE,
+    )
+    p.add_argument(
+        "--level",
+        type=adoption_level,
+        required=True,
+        metavar="N",
+        help="the level the owner set as the target, from 1 to %d" % TOP_LEVEL,
+    )
+    p.set_defaults(func=cmd_record)
 
     p = sub.add_parser(
         "queue", parents=[common], help="the oldest approved issues nobody holds, to work next"

@@ -15,8 +15,9 @@ with a GitHub remote.
 This version installs the plugin's script, writes the file that says which
 model each role runs on and the review and merge policies, takes and frees
 the claim on an issue, files an issue or a plan of issues, ships the docs
-that define the method the loop follows, and carries the dispatcher's, the
-implementer's and the reviewer's skills.
+that define the method the loop follows, assesses which of the method's
+controls a project holds, guards the `approved` label, and carries the
+dispatcher's, the implementer's and the reviewer's skills.
 
 ## The method
 
@@ -30,6 +31,41 @@ The method's principles and stage rules each have an id, such as
 to the document in `docs/` that defines it. The docs carry the plugin's
 version, so a repo that records which flywheel version it adopted has
 recorded which version of the method it follows.
+
+## Adopting the method
+
+The method sorts what a project needs into three levels, each built on the
+one below. Level 1 has agents build only what someone asked for, level 2
+backs that with checks, and level 3 has the loop measure itself. Each level
+lists its **controls**, such as a rules file for agents or a written review
+policy, in [docs/adoption.md](docs/adoption.md).
+
+Ask Claude to adopt flywheel in your project, or to assess it. Claude follows
+the plugin's adopt skill:
+
+1. It lists each control with what it found in the project, or what is
+   missing.
+2. It asks you which level to adopt. It never chooses one for you.
+3. It writes the roles file and the review and merge policies, and asks you
+   for each setting they leave for you.
+4. It adds the method's rules for agents, up to your level, to your
+   project's `CLAUDE.md`, beside the rules you already have.
+5. It records the plugin version, your level and the controls your project
+   holds in `.flywheel/adoption.json`.
+6. It files each missing control as an issue, all in one plan for you to
+   approve.
+
+Commit what it wrote. When you ask again after updating the plugin, Claude
+shows only what changed since the record, such as a control the method added.
+
+## Keeping `approved` for the owner
+
+Agents post under your GitHub account, so GitHub cannot tell an agent adding
+the `approved` label from you adding it. The plugin's hook stops any command
+Claude Code runs that would add it. To approve an issue with Claude's help,
+run `! gh issue edit <N> --add-label approved`: the `!` runs it in your own
+shell, where the hook does not run. The hook reads the command's text, so it
+stops a mistake rather than a determined workaround.
 
 ## Setting it up in a project
 

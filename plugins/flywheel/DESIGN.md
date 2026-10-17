@@ -131,6 +131,26 @@ out.
 The dispatcher learns of a merge when it is woken: by a session it started
 ending a turn, or by the owner's message.
 
+## Adoption
+
+#651 gives the method's adoption.md a command. The controls live in
+`CONTROLS` in the script rather than parsed from adoption.md, because the
+copy in `.flywheel/` does not carry the docs. A test reads adoption.md's
+tables and fails when the two differ.
+
+Most evidence is a file the project holds. A control held by an instruction
+to agents, or by a CI check whose shape varies by project, is held when the
+rules files or a workflow cite its principle id. `templates/agent-rules.md`
+holds the rules adopt writes, by level, each citing its id. The adopt skill
+merges them into the project's `CLAUDE.md` itself, since placing them beside
+the project's own rules is judgment.
+
+The approval guard moved from this repo's `.claude/hooks/` into the plugin's
+`hooks/`, so an adopting project gets it by installing the plugin. This
+repo's `.claude/settings.json` runs the plugin's copy, so it guards a session
+here whether or not the plugin is installed. Its requirements stay in
+`specs/repo.md`, and its tests cite them as `repo:<id>`.
+
 ## The reviewer and the merge policy
 
 #650 pairs every implementer with a reviewer that starts without any of its
