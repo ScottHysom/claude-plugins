@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"$CLAUDE_PROJECT_DIR/.claude/hooks/issue_guard.py\"",
+            "command": "python3 \"$CLAUDE_PROJECT_DIR/plugins/flywheel/hooks/issue_guard.py\"",
             "timeout": 10
           }
         ]

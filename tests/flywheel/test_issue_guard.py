@@ -12,7 +12,9 @@ from pathlib import Path
 
 import pytest
 
-_PATH = Path(__file__).resolve().parent.parent / "issue_guard.py"
+REPO = Path(__file__).resolve().parents[2]
+HOOKS = REPO / "plugins" / "flywheel" / "hooks"
+_PATH = HOOKS / "issue_guard.py"
 _spec = importlib.util.spec_from_file_location("issue_guard", _PATH)
 issue_guard = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(issue_guard)
@@ -85,17 +87,17 @@ def nested(command, depth):
 
 class DescribeCheck:
     @pytest.mark.parametrize("command", BLOCKED)
-    @pytest.mark.spec("guard-blocks-approved-label")
+    @pytest.mark.spec("repo:guard-blocks-approved-label")
     def it_blocks_a_command_adding_the_label(self, command):
         assert issue_guard.check(command), command
 
-    @pytest.mark.spec("guard-blocks-approved-label")
+    @pytest.mark.spec("repo:guard-blocks-approved-label")
     def it_blocks_the_label_however_deep_the_shells_nest(self):
         command = nested("cd x && gh issue edit 12 --add-label approved", 6)
         assert issue_guard.check(command), command
 
     @pytest.mark.parametrize("command", ALLOWED)
-    @pytest.mark.spec("guard-allows-quoted-text")
+    @pytest.mark.spec("repo:guard-allows-quoted-text")
     def it_allows_a_command_that_does_not_add_the_label(self, command):
         assert issue_guard.check(command) is None, command
 
@@ -110,27 +112,27 @@ def event(command):
 
 
 class DescribeMain:
-    @pytest.mark.spec("guard-blocks-approved-label")
+    @pytest.mark.spec("repo:guard-blocks-approved-label")
     def it_blocks_with_exit_2_and_the_reason_on_stderr(self, capsys):
         code, out = run_main(event("gh issue edit 1 --add-label bug,approved"), capsys)
         assert code == issue_guard.BLOCK == 2
         assert "adds the approved label" in out.err
         assert out.out == ""
 
-    @pytest.mark.spec("guard-allows-quoted-text")
+    @pytest.mark.spec("repo:guard-allows-quoted-text")
     def it_allows_with_exit_0_and_says_nothing(self, capsys):
         code, out = run_main(event("gh issue edit 1 --add-label bug"), capsys)
         assert code == issue_guard.ALLOW == 0
         assert out.out == out.err == ""
 
-    @pytest.mark.spec("guard-scans-unparsed-input")
+    @pytest.mark.spec("repo:guard-scans-unparsed-input")
     def it_matches_unreadable_input_as_text(self, capsys):
         code, _ = run_main("not json: gh issue edit 1 --add-label approved", capsys)
         assert code == issue_guard.BLOCK
         code, _ = run_main("not json at all", capsys)
         assert code == issue_guard.ALLOW
 
-    @pytest.mark.spec("guard-scans-unparsed-input")
+    @pytest.mark.spec("repo:guard-scans-unparsed-input")
     def it_allows_a_command_it_cannot_split_that_names_no_label(self, capsys):
         code, out = run_main(event("echo 'unclosed"), capsys)
         assert code == issue_guard.ALLOW
@@ -138,22 +140,37 @@ class DescribeMain:
 
 
 class DescribeSimpleCommands:
-    @pytest.mark.spec("guard-allows-quoted-text")
+    @pytest.mark.spec("repo:guard-allows-quoted-text")
     def it_drops_heredoc_bodies_and_keeps_the_commands_around_them(self):
         words = ["cat", "<<", "EOF", "\n", "gh", "x", "\n", "EOF", "\n", "ls"]
         assert issue_guard.simple_commands(words) == [["cat", "<<", "EOF"], ["ls"]]
 
 
+def bash_hooks(path):
+    """Each hook the file at path runs before a Bash command."""
+    settings = json.loads(path.read_text())
+    return [
+        hook
+        for entry in settings["hooks"]["PreToolUse"]
+        if entry["matcher"] == "Bash"
+        for hook in entry["hooks"]
+    ]
+
+
+def guard_hook(path):
+    return next(h for h in bash_hooks(path) if "hooks/issue_guard.py" in h["command"])
+
+
 class DescribeRegistration:
-    @pytest.mark.spec("settingsjson-registers-guard")
-    def it_runs_before_every_bash_command(self):
-        settings = json.loads((_PATH.parent.parent / "settings.json").read_text())
-        hooks = [
-            hook
-            for entry in settings["hooks"]["PreToolUse"]
-            if entry["matcher"] == "Bash"
-            for hook in entry["hooks"]
-        ]
-        hook = next(h for h in hooks if "hooks/issue_guard.py" in h["command"])
-        assert "$CLAUDE_PROJECT_DIR/.claude/hooks/issue_guard.py" in hook["command"]
+    @pytest.mark.spec("repo:settingsjson-registers-guard")
+    def it_runs_the_plugins_copy_before_every_bash_command_in_this_repo(self):
+        hook = guard_hook(REPO / ".claude" / "settings.json")
+        assert "$CLAUDE_PROJECT_DIR/plugins/flywheel/hooks/issue_guard.py" in hook["command"]
         assert hook["timeout"] == 10
+
+    @pytest.mark.spec("hook-ships-with-plugin")
+    def it_runs_before_every_bash_command_wherever_the_plugin_is_installed(self):
+        hook = guard_hook(HOOKS / "hooks.json")
+        assert hook["command"] == 'python3 "${CLAUDE_PLUGIN_ROOT}/hooks/issue_guard.py"'
+        assert hook["timeout"] == 10
+        assert _PATH.is_file()
