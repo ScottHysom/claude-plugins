@@ -1,0 +1,22 @@
+{
+  "roles": {
+    "dispatcher": {
+      "tier": 2,
+      "model": null,
+      "effort": null,
+      "version": "0.8.0"
+    },
+    "implementer": {
+      "tier": 3,
+      "model": null,
+      "effort": null,
+      "version": "0.8.0"
+    },
+    "reviewer": {
+      "tier": 2,
+      "model": null,
+      "effort": null,
+      "version": "0.8.0"
+    }
+  }
+}
