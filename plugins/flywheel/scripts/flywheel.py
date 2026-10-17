@@ -20,6 +20,10 @@ Usage:
     python3 flywheel.py brief 12
     python3 flywheel.py role implementer
     python3 flywheel.py events --since 2026-10-15T09:00:00Z
+    python3 flywheel.py review-policy
+    python3 flywheel.py review-brief 71
+    python3 flywheel.py review-post 71 --findings findings.json
+    python3 flywheel.py merge-check 71 --merge
     python3 flywheel.py release 12
     python3 flywheel.py stale
     python3 flywheel.py clear 12
@@ -30,13 +34,14 @@ Usage:
     python3 flywheel.py plan close 347
 
 Run from anywhere in a clone, with git and, for every command but setup,
-config init and ids, an authenticated gh on PATH.
+config init, review-policy and ids, an authenticated gh on PATH.
 
 Commands:
     setup        copy this script, the templates it reads and the plugin's
                  manifest into the project's .flywheel/, which git ignores
-    config init  write .flywheel/roles.json from the plugin's template, and
-                 name each field the owner fills in
+    config init  write .flywheel/roles.json, review-policy.md and
+                 merge-policy.md from the plugin's templates, leaving each
+                 that exists as it is, and name each field the owner fills in
     queue        up to --count of the oldest open approved issues nobody
                  holds and no open issue blocks, or an approved tracking
                  issue that comes first. With --tracking N, up to --count of
@@ -56,6 +61,16 @@ Commands:
     events       each open pull request from an issue/N branch, with its CI
                  and review state, and with --since TIME each merged after
                  TIME. Its as_of is the --since of the next look.
+    review-policy  print .flywheel/review-policy.md, its P3 cap and the
+                 files its rules pass reads.
+    review-brief N print pull request N for the reviewer: its head,
+                 description, requirement ids, review threads and diff.
+    review-post N  check the reviewer's findings against pull request N and
+                 the review policy, resolve the threads they name, and post
+                 one review of the head that only comments.
+    merge-check N  whether pull request N flows or holds under
+                 .flywheel/merge-policy.md, each reason it holds, and the
+                 next step. With --merge, squash it when it flows.
     release N    give issue N up: delete issue/N if it holds no work, remove
                  the label, comment.
     stale        labels, branches and issue states that disagree, including a
@@ -89,7 +104,8 @@ disagree, the issue changed after approval, the roles file exists already,
 `claim --next` found nothing free to claim, the roles file leaves a role's
 model or effort unset, a plan is refused or not filed
 as it says, a tracking issue is not an open approved plan or has open
-sub-issues), 2 could not run.
+sub-issues, the reviewer's findings are refused, a pull request holds or is
+not open for review), 2 could not run.
 
 The copy. Each shell call in Claude Code starts without the last one's
 variables, and the plugin's own path is too long to repeat in every command,
@@ -108,6 +124,29 @@ roles.md, the model and the default effort, and the plugin version it was set
 under. `config init` fills in the version. A field the template leaves null is
 one only the owner can fill, such as the model behind a tier, and `config
 init` names each one by its path in the file.
+
+The policies. .flywheel/review-policy.md and merge-policy.md are prose the
+owner reads and edits, each with its settings in the first ```json fence.
+`config init` copies them from the templates as they are, and names each
+setting the template leaves null, as it does for the roles file.
+
+The review. Agents and the owner all post under the owner's account, so the
+script tells a reviewer's post by its text. `review-post` opens the review's
+body with REVIEW_MARK and the head it reviewed, and each finding's comment
+with **Claude:** and its level, which FINDING_RE reads back. A thread whose
+first comment does not open that way is not a finding. A reviewer's review is
+the latest review whose body opens with REVIEW_MARK. It always comments, and
+is never an approval, since the owner and the merge policy decide the merge.
+
+merge-check reads the review against the pull request as it is now. A thread
+that is unresolved and has no answer waits on the implementer. One whose
+answer came after the review, or any thread when the head moved since the
+review, waits on the reviewer's second look, in which it resolves each
+answer it accepts. One still unresolved after that look holds for the owner:
+a finding at P0 to P2 is open, and any other finding is a disagreement. Its
+`next` says who acts: review first when there is no review, then wait while
+a check, a conflict or a thread waits on the implementer, then review again,
+then ask the owner.
 
 The gates file. .flywheel/gates.json maps each gate the project has, such as
 `check` or `verify`, to the command that runs it, under "gates". The owner
@@ -244,6 +283,18 @@ Things that look like bugs and are not:
   clock only when no claim pull request has ever merged. As a
   simplification, it leaves out a merge made in the same second as the as_of
   of the look before, after that look ran.
+- `merge-check` reads a requirement change from the pull request's
+  ## Requirements section alone: a backticked id there, or no section, holds.
+  A section that says "changes none" but quotes an id still holds, since a
+  false hold costs the owner a look and a false flow costs a gate.
+- `merge-check` does not hold a thread that is not a finding, such as the
+  owner's question, once it has an answer. The owner resolves or reopens it.
+- `merge-check --merge` passes --match-head-commit, so a push made after the
+  check makes the merge fail, and the pull request holds for the owner.
+- `review-post` resolves threads before it posts the review, so the review's
+  time comes after the look at every answer it settled.
+- `config init` exits 1 when any of its files exists, and still writes the
+  others, so a project set up before the policies existed gets them.
 - `role` takes any name, not only the roles the template ships. The roles
   file is the owner's, and may add one.
 - `brief` reads the last 100 label events and the last 100 comments. As a
@@ -271,7 +322,8 @@ Things that look like bugs and are not:
   issue again, so check the repository before running it again.
 
 `setup`, `config init`, `plan report` and `plan file` write only under
-.flywheel/, and `plan file` also files issues through gh. `claim`, `release`,
+.flywheel/, and `plan file` also files issues through gh. `review-post` and
+`merge-check --merge` write only to GitHub, through gh. `claim`, `release`,
 `clear` and `sweep` write to git (a push, a branch switch, a branch deletion),
 so they are not for Cowork's device bridge, where a git write strands
 `.git/*.lock` files. COWORK.md, at the repo root, has the rest of what the
@@ -281,6 +333,7 @@ Python 3.9 is the floor. No match statements, no X | Y unions.
 """
 
 import argparse
+import fnmatch
 import hashlib
 import json
 import os
@@ -304,11 +357,17 @@ MANIFEST = "plugin.json"
 SHIPPED_MANIFEST = ".claude-plugin/" + MANIFEST
 ROLES_TEMPLATE = "roles.json"
 SHIPPED_ROLES = "templates/" + ROLES_TEMPLATE
+REVIEW_TEMPLATE = "review-policy.md"
+SHIPPED_REVIEW = "templates/" + REVIEW_TEMPLATE
+MERGE_TEMPLATE = "merge-policy.md"
+SHIPPED_MERGE = "templates/" + MERGE_TEMPLATE
 
 COPY_DIR = ".flywheel"
 COPY_SCRIPT = COPY_DIR + "/" + SCRIPT_NAME
 COPY_MANIFEST = COPY_DIR + "/" + MANIFEST
 COPY_ROLES = COPY_DIR + "/roles.template.json"
+COPY_REVIEW = COPY_DIR + "/review-policy.template.md"
+COPY_MERGE = COPY_DIR + "/merge-policy.template.md"
 COPY_IGNORE = COPY_DIR + "/.gitignore"
 COPY_PREFIX = "FLYWHEEL=" + COPY_SCRIPT
 
@@ -329,6 +388,14 @@ VERSION_KEY = "version"
 TIER_KEY = "tier"
 GATES_FILE = COPY_DIR + "/gates.json"
 GATES_KEY = "gates"
+REVIEW_POLICY = COPY_DIR + "/" + REVIEW_TEMPLATE
+MERGE_POLICY = COPY_DIR + "/" + MERGE_TEMPLATE
+# A policy's settings: the first fenced block whose info string is json.
+SETTINGS_RE = re.compile(r"^```json[ \t]*\n(.*?)^```[ \t]*$", re.M | re.S)
+P3_CAP_KEY = "p3_cap"
+RULES_KEY = "rules"
+PROTECTED_KEY = "protected"
+AREAS_KEY = "areas"
 # The role a session started from `brief` plays.
 BRIEF_ROLE = "implementer"
 
@@ -379,6 +446,65 @@ query($owner: String!, $name: String!, $number: Int!) {
     }
   }
 }
+"""
+
+
+# `review-brief`, `review-post` and `merge-check`.
+PULL_FIELDS = (
+    "number,title,url,state,headRefName,headRefOid,body,files,mergeable,statusCheckRollup,"
+    "closingIssuesReferences,reviews"
+)
+THREADS_QUERY = """\
+query($owner: String!, $name: String!, $number: Int!) {
+  repository(owner: $owner, name: $name) {
+    pullRequest(number: $number) {
+      reviewThreads(first: 100) {
+        nodes {
+          id isResolved path line originalLine
+          comments(first: 100) { nodes { body createdAt } }
+        }
+      }
+    }
+  }
+}
+"""
+RESOLVE_MUTATION = """\
+mutation($id: ID!) {
+  resolveReviewThread(input: {threadId: $id}) { thread { id isResolved } }
+}
+"""
+REVIEWS_PATH = "repos/{owner}/{repo}/pulls/%d/reviews"
+# A reviewer's review opens with this, then the head it reviewed.
+REVIEW_MARK = AGENT_MARK + " Review of "
+LEVELS = ("P0", "P1", "P2", "P3")
+# A finding at one of these levels holds the merge while its thread is open.
+HOLDING_LEVELS = ("P0", "P1", "P2")
+NIT = "P3"
+FINDING_RE = re.compile(r"^%s (P[0-3])\b" % re.escape(AGENT_MARK))
+REQUIREMENTS_HEADING = "Requirements"
+SECTION_RE = re.compile(r"^(#{1,6})[ \t]+(.*?)[ \t]*#*[ \t]*$")
+REQUIREMENT_ID_RE = re.compile(r"`((?:[a-z][a-z0-9-]*:)?[a-z0-9]+(?:-[a-z0-9]+)+)`")
+POST_KEYS = ("head", "summary", "findings", "resolve")
+FINDING_KEYS = ("path", "line", "level", "body")
+CONFLICTING = "CONFLICTING"
+FLOW, HOLD = "flow", "hold"
+# What the dispatcher does next with a pull request merge-check has read.
+NEXT_REVIEW, NEXT_WAIT, NEXT_ASK, NEXT_MERGE = "review", "wait", "ask", "merge"
+
+
+REVIEW_POST_HELP = """\
+The findings file is one JSON object:
+
+  {
+    "head": "<the head review-brief printed>",
+    "summary": "<optional text under the review's first line>",
+    "findings": [
+      {"path": "src/app.py", "line": 42, "level": "P1", "body": "<the finding>"}
+    ],
+    "resolve": ["<the id of each thread whose answer the reviewer accepts>"]
+  }
+
+review-post opens each finding's comment with **Claude:** and its level.
 """
 
 
@@ -681,7 +807,7 @@ def summary(item):
 
 
 # What setup copies, beside the .gitignore it writes.
-COPIES = (COPY_SCRIPT, COPY_ROLES, COPY_MANIFEST)
+COPIES = (COPY_SCRIPT, COPY_ROLES, COPY_REVIEW, COPY_MERGE, COPY_MANIFEST)
 
 
 def ignore_text():
@@ -696,6 +822,8 @@ def cmd_setup(args):
     sources = {
         COPY_SCRIPT: SCRIPT_PATH,
         COPY_ROLES: plugin_file(COPY_ROLES, SHIPPED_ROLES),
+        COPY_REVIEW: plugin_file(COPY_REVIEW, SHIPPED_REVIEW),
+        COPY_MERGE: plugin_file(COPY_MERGE, SHIPPED_MERGE),
         COPY_MANIFEST: plugin_file(COPY_MANIFEST, SHIPPED_MANIFEST),
     }
     contents = [(rel, read_bytes(sources[rel])) for rel in COPIES]
@@ -729,18 +857,22 @@ def owner_fields(roles):
     return out
 
 
-def cmd_config_init(args):
-    """Write the roles file from the template, with the plugin's version."""
-    root = project_root(args.repo)
-    target = os.path.join(root, *ROLES_FILE.split("/"))
-    if os.path.lexists(target):
-        data = {"file": ROLES_FILE, "written": False, "owner_fields": []}
-        error = (
-            "%s already exists, so it was left as it is. Edit it to change a role, or delete"
-            " it and run config init again to start from the template." % ROLES_FILE
+def policy_settings(text, name, remedy):
+    """The settings object in a policy's text. `remedy` ends the error."""
+    m = SETTINGS_RE.search(text)
+    try:
+        settings = json.loads(m.group(1)) if m else None
+    except ValueError as exc:
+        raise Fatal("the settings in %s are not valid JSON: %s. %s" % (name, exc, remedy)) from exc
+    if not isinstance(settings, dict):
+        raise Fatal(
+            "%s does not hold its settings as a JSON object in a ```json fence. %s" % (name, remedy)
         )
-        return emit(args, "config init", data, errors=[error], human=lambda: None)
+    return settings
 
+
+def roles_text():
+    """The roles file from the template, with the plugin's version, and its owner fields."""
     template = read_json(plugin_file(COPY_ROLES, SHIPPED_ROLES))
     roles = template.get(ROLES_KEY) if isinstance(template, dict) else None
     if not isinstance(roles, dict) or not all(isinstance(e, dict) for e in roles.values()):
@@ -751,19 +883,52 @@ def cmd_config_init(args):
     version = plugin_version()
     for entry in roles.values():
         entry[VERSION_KEY] = version
-    fields = owner_fields(roles)
-    text = json.dumps(template, indent=2) + "\n"
-    write_bytes(root, ROLES_FILE, text.encode("utf-8"))
-    data = {"file": ROLES_FILE, "written": True, "owner_fields": fields}
+    return json.dumps(template, indent=2) + "\n", owner_fields(roles)
+
+
+def policy_text(copied, shipped):
+    """A policy as the template gives it, and the settings it leaves for the owner."""
+    path = plugin_file(copied, shipped)
+    text = read_bytes(path).decode("utf-8")
+    settings = policy_settings(text, path, "Install the flywheel plugin again, then run its setup.")
+    return text, [key for key, value in settings.items() if value is None]
+
+
+def cmd_config_init(args):
+    """Write the roles file and the policies from the templates. Each file that
+    exists already is left as it is, and the rest are written."""
+    root = project_root(args.repo)
+    # Every template is read before anything is written, so a broken one
+    # writes nothing.
+    made = [
+        (ROLES_FILE, *roles_text()),
+        (REVIEW_POLICY, *policy_text(COPY_REVIEW, SHIPPED_REVIEW)),
+        (MERGE_POLICY, *policy_text(COPY_MERGE, SHIPPED_MERGE)),
+    ]
+    files, errors = [], []
+    for rel, text, fields in made:
+        if os.path.lexists(os.path.join(root, *rel.split("/"))):
+            files.append({"file": rel, "written": False, "owner_fields": []})
+            errors.append(
+                "%s already exists, so it was left as it is. Edit it to change it, or delete"
+                " it and run config init again to start from the template." % rel
+            )
+            continue
+        write_bytes(root, rel, text.encode("utf-8"))
+        files.append({"file": rel, "written": True, "owner_fields": fields})
+    data = {"files": files}
 
     def human():
-        print("wrote %s" % ROLES_FILE)
+        for f in files:
+            if f["written"]:
+                print("wrote %s" % f["file"])
+        fields = [(f["file"], name) for f in files for name in f["owner_fields"]]
         if fields:
             print("\nthe owner fills in each of these:")
-            for f in fields:
-                print("  %s" % f)
+            for rel, name in fields:
+                print("  %s: %s" % (rel, name))
 
-    return emit(args, "config init", data, human=human)
+    return emit(args, "config init", data, errors, human=human)
 
 
 # --------------------------------------------------------------------------
@@ -1390,6 +1555,531 @@ def cmd_events(args):
         print("Next look: %s events --since %s" % (PROG, as_of))
 
     return emit(args, "events", data, human=human)
+
+
+# --------------------------------------------------------------------------
+# review and merge
+# --------------------------------------------------------------------------
+
+
+def project_policy(root, rel):
+    """A policy file of the project's: its text and its settings."""
+    path = os.path.join(root, *rel.split("/"))
+    if not os.path.isfile(path):
+        raise Fatal(
+            "%s is missing. Run config init to write it, then fill in each setting it names." % rel
+        )
+    text = read_bytes(path).decode("utf-8")
+    return text, policy_settings(text, rel, "Fix it, then run again.")
+
+
+def unset_settings(rel, settings):
+    return [
+        '%s leaves "%s" unset. The owner fills it in.' % (rel, key)
+        for key, value in settings.items()
+        if value is None
+    ]
+
+
+def is_paths(value):
+    return isinstance(value, list) and all(is_text(p) for p in value)
+
+
+def review_settings(settings):
+    """The review policy's P3 cap and rules files, checked."""
+    cap = settings.get(P3_CAP_KEY)
+    if isinstance(cap, bool) or not isinstance(cap, int) or cap < 0:
+        raise Fatal(
+            '%s gives "%s" as %s. Make it a whole number, 0 or more, then run again.'
+            % (REVIEW_POLICY, P3_CAP_KEY, json.dumps(cap))
+        )
+    rules = settings.get(RULES_KEY)
+    if rules is not None and not is_paths(rules):
+        raise Fatal(
+            '%s gives "%s" as %s. Make it a list of file paths, then run again.'
+            % (REVIEW_POLICY, RULES_KEY, json.dumps(rules))
+        )
+    return cap, rules
+
+
+def merge_settings(settings):
+    """The merge policy's protected paths and areas, checked. areas is None when unset."""
+    protected = settings.get(PROTECTED_KEY)
+    if not is_paths(protected):
+        raise Fatal(
+            '%s gives "%s" as %s. Make it a list of paths, then run again.'
+            % (MERGE_POLICY, PROTECTED_KEY, json.dumps(protected))
+        )
+    areas = settings.get(AREAS_KEY)
+    if areas is not None and not (
+        isinstance(areas, dict) and all(is_paths(v) for v in areas.values())
+    ):
+        raise Fatal(
+            '%s gives "%s" as %s. Make it an object that maps each area label to a list of'
+            " paths, then run again." % (MERGE_POLICY, AREAS_KEY, json.dumps(areas))
+        )
+    if areas is not None:
+        areas = {label.lower(): paths for label, paths in areas.items()}
+    return protected, areas
+
+
+def path_matches(path, pattern):
+    """Whether a policy's path pattern covers path. A trailing / covers what is under it."""
+    if pattern.endswith("/"):
+        pattern += "*"
+    return fnmatch.fnmatchcase(path, pattern)
+
+
+def cmd_review_policy(args):
+    """The review policy, for the reviewer to work from."""
+    root = project_root(args.repo)
+    text, settings = project_policy(root, REVIEW_POLICY)
+    cap, rules = review_settings(settings)
+    data = {"file": REVIEW_POLICY, "text": text, P3_CAP_KEY: cap, RULES_KEY: rules}
+    warnings = unset_settings(REVIEW_POLICY, settings)
+    return emit(
+        args, "review-policy", data, warnings=warnings, human=lambda: sys.stdout.write(text)
+    )
+
+
+def pull_request(root, number):
+    return gh_json(root, "pr", "view", str(number), "--json", PULL_FIELDS)
+
+
+def review_threads(root, number):
+    """Pull request `number`'s review threads, each with its finding's level, if any."""
+    found = gh_json(
+        root,
+        "api",
+        "graphql",
+        "-F",
+        "owner={owner}",
+        "-F",
+        "name={repo}",
+        "-F",
+        "number=%d" % number,
+        "-f",
+        "query=" + THREADS_QUERY,
+    )
+    pull = ((found.get("data") or {}).get("repository") or {}).get("pullRequest")
+    if not pull:
+        raise Fatal(
+            "#%d is not a pull request in this repository. Name a pull request's number." % number
+        )
+    out = []
+    for node in pull["reviewThreads"]["nodes"]:
+        comments = [
+            {"body": c.get("body") or "", "created_at": c["createdAt"]}
+            for c in node["comments"]["nodes"]
+        ]
+        m = FINDING_RE.match(comments[0]["body"]) if comments else None
+        out.append(
+            {
+                "id": node["id"],
+                "path": node.get("path"),
+                "line": node.get("line") or node.get("originalLine"),
+                "resolved": bool(node.get("isResolved")),
+                "level": m.group(1) if m else None,
+                "comments": comments,
+            }
+        )
+    return out
+
+
+def requirement_ids(body):
+    """Whether body has a Requirements section, and each id the section names."""
+    lines, found = None, []
+    for line in body.splitlines():
+        m = SECTION_RE.match(line)
+        if m and lines is not None and len(m.group(1)) <= 2:
+            break
+        if m and len(m.group(1)) == 2 and m.group(2) == REQUIREMENTS_HEADING:
+            lines = []
+        elif lines is not None:
+            lines.append(line)
+    if lines is None:
+        return False, []
+    for name in REQUIREMENT_ID_RE.findall("\n".join(lines)):
+        if name not in found:
+            found.append(name)
+    return True, found
+
+
+def last_review(pull):
+    """The reviewer's latest review of the pull request, or None."""
+    reviews = [
+        r for r in pull.get("reviews") or [] if (r.get("body") or "").startswith(REVIEW_MARK)
+    ]
+    return max(reviews, key=lambda r: r.get("submittedAt") or "") if reviews else None
+
+
+def reviewed_head(review):
+    return ((review or {}).get("commit") or {}).get("oid")
+
+
+def where(thread):
+    return "%s:%s" % (thread["path"], thread["line"])
+
+
+def short(sha):
+    return (sha or "")[:7]
+
+
+def assess(root, number):
+    """merge-check's verdict on pull request `number`: flow or hold, each reason it
+    holds, and what the dispatcher does next."""
+    _, settings = project_policy(root, MERGE_POLICY)
+    protected, areas = merge_settings(settings)
+    pull = pull_request(root, number)
+    threads = review_threads(root, number)
+    head = pull["headRefOid"]
+    # Who a reason waits on: the owner, the implementer, or the reviewer.
+    owner, implementer, reviewer = [], [], []
+
+    is_open_pull = pull.get("state") == "OPEN"
+    if not is_open_pull:
+        owner.append("#%d is %s, not open" % (number, (pull.get("state") or "").lower()))
+    claimed = claim_number(pull["headRefName"])
+    closes = [i.get("number") for i in pull.get("closingIssuesReferences") or []]
+    area_labels = None
+    if claimed is None:
+        owner.append(
+            "its branch %s is not a claim branch, %sN" % (pull["headRefName"], BRANCH_PREFIX)
+        )
+    elif claimed not in closes:
+        owner.append("it does not close #%d, the issue its branch claims" % claimed)
+    else:
+        found = labels(issue(root, claimed))
+        if APPROVED not in found:
+            owner.append("#%d is not labeled %s" % (claimed, APPROVED))
+        area_labels = sorted(label for label in found if areas and label in areas)
+
+    present, ids = requirement_ids(pull.get("body") or "")
+    if not present:
+        owner.append(
+            "its description has no ## %s section, so it may change a requirement"
+            % REQUIREMENTS_HEADING
+        )
+    elif ids:
+        owner.append(
+            "it changes requirements: its ## %s section names %s"
+            % (REQUIREMENTS_HEADING, ", ".join(ids))
+        )
+
+    paths = [f["path"] for f in pull.get("files") or []]
+    for path in paths:
+        hit = next((p for p in protected if path_matches(path, p)), None)
+        if hit:
+            owner.append("it touches %s, which the merge policy protects as %s" % (path, hit))
+    if areas is None:
+        owner.append(
+            '%s leaves "%s" unset, so no file lies inside an area. The owner fills it in'
+            % (MERGE_POLICY, AREAS_KEY)
+        )
+    elif area_labels is not None and not area_labels:
+        owner.append("#%d has no area label that the merge policy's areas name" % claimed)
+    elif area_labels:
+        allowed = [p for label in area_labels for p in areas[label]]
+        for path in paths:
+            if not any(path_matches(path, p) for p in allowed):
+                owner.append(
+                    "it changes %s, outside the paths areas gives %s"
+                    % (path, ", ".join(area_labels))
+                )
+
+    ci = ci_state(pull.get("statusCheckRollup"))
+    if ci == CI_NONE:
+        owner.append("no check ran on its head")
+    elif ci == CI_FAILING:
+        implementer.append("a check fails on its head")
+    elif ci == CI_PENDING:
+        implementer.append("a check is still running on its head")
+    if pull.get("mergeable") == CONFLICTING:
+        implementer.append("it conflicts with its base branch")
+
+    review = last_review(pull)
+    if review is None:
+        reviewer.append("the reviewer has not reviewed it")
+    else:
+        since = review.get("submittedAt") or ""
+        moved = reviewed_head(review) != head
+        if moved:
+            reviewer.append(
+                "the reviewer's last review is of %s, not of the head, %s"
+                % (short(reviewed_head(review)), short(head))
+            )
+        for t in threads:
+            if t["resolved"]:
+                continue
+            if len(t["comments"]) < 2:
+                implementer.append("the thread at %s has no answer" % where(t))
+            elif any(c["created_at"] > since for c in t["comments"][1:]):
+                reviewer.append(
+                    "the thread at %s has an answer the reviewer has not looked at" % where(t)
+                )
+            elif moved:
+                continue
+            elif t["level"] in HOLDING_LEVELS:
+                owner.append("a %s finding is open at %s" % (t["level"], where(t)))
+            elif t["level"]:
+                owner.append(
+                    "the thread at %s is unresolved after the reviewer looked at its answer, so"
+                    " the reviewer and the implementer disagree" % where(t)
+                )
+
+    if not is_open_pull:
+        step = NEXT_ASK
+    elif review is None:
+        step = NEXT_REVIEW
+    elif implementer:
+        step = NEXT_WAIT
+    elif reviewer:
+        step = NEXT_REVIEW
+    elif owner:
+        step = NEXT_ASK
+    else:
+        step = NEXT_MERGE
+    reasons = owner + implementer + reviewer
+    return {
+        "number": number,
+        "url": pull.get("url"),
+        "head": head,
+        "verdict": HOLD if reasons else FLOW,
+        "next": step,
+        "reasons": reasons,
+        "merged": False,
+    }
+
+
+def cmd_merge_check(args):
+    """Whether pull request N flows or holds under the merge policy, and why.
+    With --merge, squash it when it flows."""
+    root = project_root(args.repo)
+    data = assess(root, args.number)
+    if args.merge and data["verdict"] == FLOW:
+        try:
+            gh(
+                root,
+                "pr",
+                "merge",
+                str(args.number),
+                "--squash",
+                "--match-head-commit",
+                data["head"],
+            )
+        except Fatal as exc:
+            data.update(verdict=HOLD, next=NEXT_ASK, reasons=["the merge failed: %s" % exc])
+        else:
+            data["merged"] = True
+
+    def human():
+        if data["merged"]:
+            print("#%d merged at %s" % (data["number"], short(data["head"])))
+        elif data["verdict"] == FLOW:
+            print("#%d flows at %s" % (data["number"], short(data["head"])))
+        else:
+            print("#%d holds at %s, next: %s" % (data["number"], short(data["head"]), data["next"]))
+
+    return emit(args, "merge-check", data, data["reasons"], human=human)
+
+
+def review_brief_text(data):
+    """What the reviewer reads: the pull request, its threads and its diff."""
+    out = [
+        "# #%d %s" % (data["number"], data["title"]),
+        "",
+        "%s, head %s." % (data["url"], data["head"]),
+        "",
+    ]
+    if data["reviewed"]:
+        out += ["The reviewer last reviewed %s." % data["reviewed"], ""]
+    else:
+        out += ["The reviewer has not reviewed it before.", ""]
+    if data["requirements"]:
+        out += ["Requirement ids it lists: %s" % ", ".join(data["requirements"]), ""]
+    out += ["## Description", "", quoted(data["body"]) if data["body"] else "(empty)", ""]
+    unresolved = [t for t in data["threads"] if not t["resolved"]]
+    out += ["## Unresolved threads", ""]
+    if not unresolved:
+        out += ["None.", ""]
+    for t in unresolved:
+        out += ["### %s, thread %s" % (where(t), t["id"]), ""]
+        for c in t["comments"]:
+            out += [quoted("**%s**\n\n%s" % (c["created_at"], c["body"])), ""]
+    out += ["## Diff", "", "```diff", data["diff"].rstrip("\n"), "```", ""]
+    return "\n".join(out)
+
+
+def cmd_review_brief(args):
+    """Print what the reviewer reviews: the pull request, its threads and its diff."""
+    root = project_root(args.repo)
+    n = args.number
+    pull = pull_request(root, n)
+    threads = review_threads(root, n)
+    _, ids = requirement_ids(pull.get("body") or "")
+    data = {
+        "number": n,
+        "title": pull.get("title") or "",
+        "url": pull.get("url"),
+        "head": pull["headRefOid"],
+        "body": pull.get("body") or "",
+        "requirements": ids,
+        "reviewed": reviewed_head(last_review(pull)),
+        "threads": threads,
+        "diff": gh(root, "pr", "diff", str(n)),
+    }
+    errors = []
+    if pull.get("state") != "OPEN":
+        errors.append(
+            "#%d is %s. The reviewer reviews an open pull request"
+            % (n, (pull.get("state") or "").lower())
+        )
+    return emit(
+        args,
+        "review-brief",
+        data,
+        errors,
+        human=None if errors else lambda: sys.stdout.write(review_brief_text(data)),
+    )
+
+
+def read_findings(path):
+    raw = sys.stdin.read() if path == "-" else read_bytes(path).decode("utf-8")
+    try:
+        return json.loads(raw)
+    except ValueError as exc:
+        raise Fatal(
+            "the findings are not valid JSON: %s. Write them as `review-post --help` shows,"
+            " then run again." % exc
+        ) from exc
+
+
+def check_findings(found, pull, threads, cap):
+    """Each fault in the reviewer's findings, against the pull request as it is now."""
+    if not isinstance(found, dict):
+        return ["the findings are not a JSON object. Write them as `review-post --help` shows"]
+    faults = [
+        'the findings hold "%s", which review-post does not take' % key
+        for key in found
+        if key not in POST_KEYS
+    ]
+    head = found.get("head")
+    if head != pull["headRefOid"]:
+        faults.append(
+            "the findings are for %s, but the head of #%d is %s. Read review-brief again and"
+            " review the head" % (json.dumps(head), pull["number"], pull["headRefOid"])
+        )
+    if pull.get("state") != "OPEN":
+        faults.append("#%d is %s, not open" % (pull["number"], (pull.get("state") or "").lower()))
+    summary_text = found.get("summary", "")
+    if not isinstance(summary_text, str):
+        faults.append('"summary" is not text')
+    findings = found.get("findings", [])
+    if not isinstance(findings, list):
+        faults.append('"findings" is not a list')
+        findings = []
+    paths = {f["path"] for f in pull.get("files") or []}
+    for i, item in enumerate(findings, 1):
+        name = "finding %d" % i
+        if not isinstance(item, dict) or sorted(item) != sorted(FINDING_KEYS):
+            faults.append("%s does not hold exactly %s" % (name, ", ".join(FINDING_KEYS)))
+            continue
+        if item["path"] not in paths:
+            faults.append(
+                "%s is on %s, which #%d does not change"
+                % (name, json.dumps(item["path"]), pull["number"])
+            )
+        line = item["line"]
+        if isinstance(line, bool) or not isinstance(line, int) or line < 1:
+            faults.append("%s gives line %s, not a line number" % (name, json.dumps(line)))
+        if item["level"] not in LEVELS:
+            faults.append(
+                "%s gives level %s, not one of %s"
+                % (name, json.dumps(item["level"]), ", ".join(LEVELS))
+            )
+        if not is_text(item["body"]):
+            faults.append("%s has an empty body" % name)
+        elif item["body"].startswith(AGENT_MARK):
+            faults.append(
+                "%s opens with %s. Leave it out, since review-post adds it with the level"
+                % (name, AGENT_MARK)
+            )
+    nits = sum(1 for item in findings if isinstance(item, dict) and item.get("level") == NIT)
+    if nits > cap:
+        faults.append(
+            "the findings hold %d %s findings, more than the review policy's cap of %d. Post the"
+            " %d that matter most" % (nits, NIT, cap, cap)
+        )
+    resolve = found.get("resolve", [])
+    if not isinstance(resolve, list):
+        faults.append('"resolve" is not a list')
+        resolve = []
+    open_ids = {t["id"] for t in threads if not t["resolved"]}
+    for tid in resolve:
+        if tid not in open_ids:
+            faults.append(
+                "%s is not an unresolved thread on #%d" % (json.dumps(tid), pull["number"])
+            )
+    if len(set(map(json.dumps, resolve))) != len(resolve):
+        faults.append('"resolve" names a thread more than once')
+    return faults
+
+
+def review_body(head, findings, summary_text):
+    counts = [
+        "%s %d" % (level, n)
+        for level in LEVELS
+        for n in [sum(1 for f in findings if f["level"] == level)]
+        if n
+    ]
+    tally = "%d findings (%s)." % (len(findings), ", ".join(counts)) if findings else "no findings."
+    body = "%s`%s`: %s" % (REVIEW_MARK, head, tally)
+    return body + ("\n\n" + summary_text.strip() if summary_text.strip() else "")
+
+
+def cmd_review_post(args):
+    """Post the reviewer's findings as one review that only comments, and resolve
+    each thread whose answer the reviewer accepts."""
+    root = project_root(args.repo)
+    n = args.number
+    found = read_findings(args.findings)
+    _, settings = project_policy(root, REVIEW_POLICY)
+    cap, _ = review_settings(settings)
+    pull = pull_request(root, n)
+    threads = review_threads(root, n)
+    faults = check_findings(found, pull, threads, cap)
+    data = {"number": n, "posted": False, "findings": 0, "resolved": []}
+    if faults:
+        return emit(args, "review-post", data, faults, human=lambda: None)
+
+    findings = found.get("findings", [])
+    resolve = found.get("resolve", [])
+    for tid in resolve:
+        gh(root, "api", "graphql", "-F", "id=%s" % tid, "-f", "query=" + RESOLVE_MUTATION)
+    payload = {
+        "commit_id": found["head"],
+        "event": "COMMENT",
+        "body": review_body(found["head"], findings, found.get("summary", "")),
+        "comments": [
+            {
+                "path": f["path"],
+                "line": f["line"],
+                "side": "RIGHT",
+                "body": "%s %s: %s" % (AGENT_MARK, f["level"], f["body"]),
+            }
+            for f in findings
+        ],
+    }
+    gh(root, "api", REVIEWS_PATH % n, "--method", "POST", "--input", "-", stdin=json.dumps(payload))
+    data.update(posted=True, findings=len(findings), resolved=resolve)
+
+    def human():
+        print(
+            "posted a review of #%d at %s with %d findings, and resolved %d threads"
+            % (n, short(found["head"]), len(findings), len(resolve))
+        )
+
+    return emit(args, "review-post", data, human=human)
 
 
 # --------------------------------------------------------------------------
@@ -2721,6 +3411,45 @@ def build_parser():
         help="name each claim pull request merged after TIME, the as_of of the last look",
     )
     p.set_defaults(func=cmd_events)
+
+    pulled = argparse.ArgumentParser(add_help=False)
+    pulled.add_argument("number", type=int, help="the pull request's number")
+
+    p = sub.add_parser(
+        "review-policy",
+        parents=[common],
+        help="print %s, which the reviewer works from" % REVIEW_POLICY,
+    )
+    p.set_defaults(func=cmd_review_policy)
+
+    p = sub.add_parser(
+        "review-brief",
+        parents=[common, pulled],
+        help="print a pull request for the reviewer: its description, threads and diff",
+    )
+    p.set_defaults(func=cmd_review_brief)
+
+    p = sub.add_parser(
+        "review-post",
+        parents=[common, pulled],
+        help="check the reviewer's findings, post them as a review that only comments, and"
+        " resolve the threads it accepts",
+        epilog=REVIEW_POST_HELP,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p.add_argument(
+        "--findings", required=True, metavar="FILE", help="the findings, as JSON, or - for stdin"
+    )
+    p.set_defaults(func=cmd_review_post)
+
+    p = sub.add_parser(
+        "merge-check",
+        parents=[common, pulled],
+        help="whether a pull request flows or holds under %s, why, and what comes next"
+        % MERGE_POLICY,
+    )
+    p.add_argument("--merge", action="store_true", help="squash the pull request when it flows")
+    p.set_defaults(func=cmd_merge_check)
 
     p = sub.add_parser("release", parents=[common, numbered, preview], help="give an issue up")
     p.set_defaults(func=cmd_release)

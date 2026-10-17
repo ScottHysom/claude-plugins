@@ -13,10 +13,10 @@ a merged pull request through Claude sessions that each play one role. A
 with a GitHub remote.
 
 This version installs the plugin's script, writes the file that says which
-model each role runs on, takes and frees the claim on an issue, files an
-issue or a plan of issues, ships the docs that define the method the loop
-follows, and carries the dispatcher's and the implementer's skills. The
-reviewer's skill arrives in a later version.
+model each role runs on and the review and merge policies, takes and frees
+the claim on an issue, files an issue or a plan of issues, ships the docs
+that define the method the loop follows, and carries the dispatcher's, the
+implementer's and the reviewer's skills.
 
 ## The method
 
@@ -56,8 +56,34 @@ writes `.flywheel/roles.json` with one entry per role:
   fill in.
 - `version` is the version of this plugin the file was written under.
 
-`config init` never overwrites a roles file that already exists. Commit the
-file once it is filled in, so every session reads the same choices.
+`config init` never overwrites a file that already exists. Commit the file
+once it is filled in, so every session reads the same choices.
+
+## Setting the review and merge policies
+
+`config init` also writes two policies into `.flywheel/`. Each is a page you
+read and edit, with its settings in a JSON block at the end. Claude lists
+each setting you need to fill in. Commit both once they are filled in.
+
+- `review-policy.md` is what the reviewer works from: the passes it reads a
+  pull request in, the P0 to P3 scale it gives each finding (P0 is broken or
+  unsafe, P3 is a nit), and `p3_cap`, the most P3 findings one review posts.
+  Fill in `rules` with the files that hold your project's own rules, such as
+  `["CLAUDE.md"]`.
+- `merge-policy.md` says which pull requests the dispatcher merges without
+  you. A pull request that changes a requirement, touches a path under
+  `protected`, has a finding still open, or reaches outside its issue's area
+  waits for you. Fill in `areas` with the paths each area label covers, such
+  as `{"plugin:todos": ["plugins/todos/", "tests/todos/"]}`.
+
+The merge policy is a request the dispatcher follows. To make GitHub enforce
+the checks too, set these on your `main` branch, under the repository's
+Settings, then Rules:
+
+1. Require the status check that runs your `verify` gate to pass before
+   merging.
+2. Require a branch to be up to date with `main` before merging.
+3. Allow nobody to bypass the rule, administrators included.
 
 ## Claiming an issue
 
@@ -117,6 +143,24 @@ the plugin's work-issue skill:
    fails, the pull request has a conflict or a review comment arrives. It also
    has the app archive the session once the pull request merges or closes.
    The app may ask you to approve that call.
+7. When a review comment arrives, it answers each thread with what it changed
+   or why not, and leaves resolving the thread to the reviewer.
+
+## Reviewing a pull request
+
+Ask Claude to review a pull request, such as "review #671", or let the
+dispatcher start a reviewer. Claude follows the plugin's review-pr skill:
+
+1. It reads your review policy, and the pull request's description, threads
+   and diff.
+2. It reviews the diff in each of the policy's passes, against the
+   requirements the description lists.
+3. It posts its findings as one review, each opening with `**Claude:**` and
+   its level, and no more P3 findings than the policy allows. It never
+   approves a pull request or requests changes.
+4. On a second look, once the implementer has answered, it resolves each
+   thread whose answer it accepts. A thread it leaves unresolved waits for
+   you.
 
 ## Running a round of issues
 
@@ -124,25 +168,30 @@ Ask Claude to run a number of issues, such as "run 3 issues", or to run a
 plan, such as "run #653 three at a time". That session becomes the
 dispatcher and follows the plugin's run skill:
 
-1. It checks that `.flywheel/roles.json` gives the implementer a model and
-   an effort, and stops naming each one you still need to fill in.
+1. It checks that `.flywheel/roles.json` gives the implementer and the
+   reviewer a model and an effort, and stops naming each one you still need
+   to fill in.
 2. It takes the next approved issues, in the plan's order when you named a
    plan.
 3. It starts one session per issue, each in its own worktree, with the
    issue's brief as its first message and the implementer's model and
    effort. Each of those sessions works its issue as "Working an issue"
    describes.
-4. It tells you each pull request as it opens. You review and merge it.
-5. Once a pull request merges, it clears the claim and starts a session on
+4. It tells you each pull request as it opens, and starts a reviewer session
+   on it. It starts the reviewer again once the implementer has answered the
+   review.
+5. It merges a pull request when the merge policy lets it through, and
+   otherwise tells you why it waits for you. You merge those yourself.
+6. Once a pull request merges, it clears the claim and starts a session on
    the next issue, so the number you named stays in flight. It looks again
    whenever one of its sessions finishes a turn, or when you send it a
    message, such as after a merge.
-6. It closes a plan once every issue in it is closed, and stops when no
+7. It closes a plan once every issue in it is closed, and stops when no
    issue is left to start and no pull request is open.
 
 The app starts a session at or below the model and effort of the session
 that starts it. So run the dispatcher on a model and effort at least as
-strong as the implementer's.
+strong as the implementer's and the reviewer's.
 
 ## Filing an issue or a plan
 

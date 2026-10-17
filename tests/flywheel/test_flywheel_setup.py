@@ -7,7 +7,13 @@ import pytest
 
 import flywheel
 
-COPIED = [".flywheel/flywheel.py", ".flywheel/roles.template.json", ".flywheel/plugin.json"]
+COPIED = [
+    ".flywheel/flywheel.py",
+    ".flywheel/roles.template.json",
+    ".flywheel/review-policy.template.md",
+    ".flywheel/merge-policy.template.md",
+    ".flywheel/plugin.json",
+]
 
 
 @pytest.mark.spec("setup-cmd-copies-script")
@@ -18,11 +24,14 @@ class DescribeTheCopy:
         with open(flywheel.SCRIPT_PATH, "rb") as fh:
             assert project.read(".flywheel/flywheel.py") == fh.read()
 
-    def it_copies_the_template_and_manifest_the_copy_reads(self, project):
+    def it_copies_the_templates_and_manifest_the_copy_reads(self, project):
         project.run("setup")
         plugin = flywheel.os.path.dirname(flywheel.os.path.dirname(flywheel.SCRIPT_PATH))
         with open(plugin + "/templates/roles.json", "rb") as fh:
             assert project.read(".flywheel/roles.template.json") == fh.read()
+        for name in ("review-policy", "merge-policy"):
+            with open(plugin + "/templates/%s.md" % name, "rb") as fh:
+                assert project.read(".flywheel/%s.template.md" % name) == fh.read()
         with open(plugin + "/.claude-plugin/plugin.json", "rb") as fh:
             assert project.read(".flywheel/plugin.json") == fh.read()
 
@@ -38,6 +47,7 @@ class DescribeTheCopy:
         assert code == flywheel.OK
         assert out == (
             "wrote .flywheel/flywheel.py\nwrote .flywheel/roles.template.json\n"
+            "wrote .flywheel/review-policy.template.md\nwrote .flywheel/merge-policy.template.md\n"
             "wrote .flywheel/plugin.json\nwrote .flywheel/.gitignore\n"
             "\nfrom %s, start every command with:\nFLYWHEEL=.flywheel/flywheel.py && \n"
             % project.root.resolve()
@@ -74,7 +84,8 @@ class DescribeIgnoringTheCopy:
     def it_names_only_the_copies_and_itself(self, project):
         project.run("setup")
         assert project.read(".flywheel/.gitignore") == (
-            b".gitignore\nflywheel.py\nplugin.json\nroles.template.json\n"
+            b".gitignore\nflywheel.py\nmerge-policy.template.md\nplugin.json\n"
+            b"review-policy.template.md\nroles.template.json\n"
         )
 
     def it_leaves_the_owners_files_for_git(self, project):

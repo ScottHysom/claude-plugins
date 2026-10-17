@@ -29,6 +29,10 @@ Source: #643, and the method's `match-capability-to-task` and
 - `configinit-cmd-writes-roles-file` (test): When `flywheel.py config init`
   runs, it writes `.flywheel/roles.json` from the plugin's template with one
   entry per role, and refuses to overwrite one that exists.
+- `configinit-cmd-writes-policies` (test): When `config init` runs, it also
+  writes `.flywheel/review-policy.md` and `.flywheel/merge-policy.md` from the
+  plugin's templates. It leaves as it is each file of the three that exists,
+  names it and exits 1, and still writes the others.
 - `configinit-cmd-names-owner-fields` (test): When `config init` writes a file
   with a field only the owner can fill, it names each such field in its
   result.
@@ -351,3 +355,90 @@ Source: #649, and the method's `decompose-into-parallel-units` and
   is finished, `run` closes it with `plan close N`.
 - `run-stops-on-empty-queue` (step): When `queue` offers nothing and no pull
   request is open, `run` reports what merged and stops.
+
+## need owner-keeps-gate-on-behavior-changes: Keep the owner's gate on changes to behavior
+
+When a pull request would change what the product does, the owner wants to
+approve it themselves, and when it would not, they want it merged once the
+checks and the reviewer pass, so their attention goes where the risk is.
+
+Source: #650, and the method's `autonomy-scales-with-risk` and
+`owner-admits-every-need`.
+
+- `mergecheck-cmd-holds-requirement-changes` (test): When
+  `flywheel.py merge-check N` finds that pull request N adds, changes or
+  removes a requirement, it reports hold with that reason. It reads that from
+  N's `## Requirements` section, which names a requirement id or is missing.
+- `mergecheck-cmd-holds-protected-paths` (test): When pull request N touches
+  a path the merge policy protects, `merge-check` reports hold and names the
+  path.
+- `mergecheck-cmd-holds-outside-area` (test): When pull request N changes a
+  file outside the paths the merge policy's `areas` gives its issue's area
+  label, `merge-check` reports hold and names the file. It also holds when
+  the issue has no area label that `areas` names, or `areas` is unset.
+- `mergecheck-cmd-holds-open-findings` (test): When any of these holds,
+  `merge-check` reports hold and names the thread's file and line, or the
+  review:
+  - the reviewer has not posted a review of pull request N's head.
+  - a thread on N has no answer.
+  - a thread stays unresolved after the reviewer's look at its answer.
+- `mergecheck-cmd-flows-clean-pr` (test): When pull request N meets every
+  flow condition in the policy, `merge-check` reports flow.
+- `mergecheck-cmd-names-next-step` (test): When `merge-check` reports hold,
+  it names the next step: `review` when the reviewer has yet to look at the
+  head or at an answer, `wait` when a check, a conflict or a thread waits on
+  the implementer, and `ask` when only the owner can settle it.
+- `mergecheck-cmd-merges-on-flow` (test): When `merge-check N --merge` finds
+  that N flows, it squashes N at the head it checked. When N holds, it merges
+  nothing, and when the merge fails, it reports hold with GitHub's reason.
+- `run-merges-what-flows` (step): When `merge-check` reports flow, `run`
+  merges the pull request with a squash and clears the claim.
+- `run-asks-owner-on-hold` (step): When `merge-check` reports hold, `run`
+  asks the owner with its reasons and merges nothing until they answer.
+- `run-reviews-each-pull-request` (step): When `merge-check` names `review`
+  as the next step for a pull request from the round, `run` starts a reviewer
+  session on it at the roles file's model and effort for the reviewer.
+- `workissue-answers-each-thread` (step): When a review comment arrives on
+  its pull request, work-issue answers each unresolved thread with a reply
+  opening with `**Claude:**`, and leaves resolving it to the reviewer.
+
+## need owner-gets-review-from-policy: Review every pull request from a written policy
+
+When a pull request is reviewed by an agent, the owner wants the review made
+from a written policy in a fresh context, so reviews are comparable and nits
+cannot bury a real finding.
+
+Source: #650, and the method's `review-against-written-policy` and
+`separate-generation-from-verification`.
+
+- `reviewpolicy-cmd-prints-policy` (test): When `flywheel.py review-policy`
+  runs, it prints the project's review policy with its scale and cap, and
+  exits 2 when the file is missing.
+- `reviewbrief-cmd-prints-pull-request` (test): When
+  `flywheel.py review-brief N` runs, it prints pull request N's head, its
+  description, the requirement ids its `## Requirements` section names, its
+  review threads, its diff, and the head the reviewer last reviewed. It
+  exits 1 when N is not open.
+- `reviewpost-cmd-checks-findings` (test): When
+  `flywheel.py review-post N --findings <file>` reads findings that do any of
+  these, it names each fault, posts nothing and exits 1:
+  - name a head other than N's.
+  - hold more P3 findings than the review policy's cap.
+  - put a finding on a file N does not change, or at a level outside P0 to P3.
+  - resolve a thread that is not an unresolved thread on N.
+- `reviewpost-cmd-posts-comment-review` (test): When `review-post` accepts
+  the findings, it resolves each thread they name. It then posts one review
+  of the head that only comments, with each finding's comment opening with
+  `**Claude:**` and its level.
+- `reviewpr-reviews-against-policy` (step): When review-pr starts, it reads
+  the policy with `review-policy` and the pull request with `review-brief`,
+  and reviews the diff in each of the policy's passes, against the
+  requirement ids the description lists.
+- `reviewpr-posts-findings-under-cap` (step): When review-pr has its
+  findings, it posts each as a review comment opening with `**Claude:**` and
+  its level, and posts no more P3 findings than the cap.
+- `reviewpr-never-approves` (step): When review-pr finishes, it has posted
+  comments only, and no approval or request for changes.
+- `reviewpr-rechecks-answered-threads` (step): When review-pr runs on a pull
+  request it has reviewed before, it resolves each thread whose answer it
+  accepts, and leaves the others unresolved.
