@@ -1,6 +1,6 @@
 ---
 name: work-issue
-description: Work one approved GitHub issue as the implementer, from its claim to a pull request the session watches. Claims the issue with flywheel.py claim, works from the issue as the owner approved it through flywheel.py brief, stops and asks on a gap the issue does not answer, runs the project's check gate, opens the pull request through the project's pull request skill, and turns on the session's Auto-fix and archive-on-close for it. Claude Code desktop app only. Use when a session's first message is a brief that says to work an issue as the implementer, or when asked to work, fix or take an issue, the next issue, or the next issue in a plan.
+description: Work one approved GitHub issue as the implementer, from its claim to a pull request the session watches. Claims the issue with flywheel.py claim, works from the issue as the owner approved it through flywheel.py brief, stops and asks on a gap the issue does not answer, runs the project's check gate, opens the pull request through the project's pull request skill, turns on the session's Auto-fix and archive-on-close for it, and answers each review thread. Claude Code desktop app only. Use when a session's first message is a brief that says to work an issue as the implementer, or when asked to work, fix or take an issue, the next issue, or the next issue in a plan.
 ---
 
 # Work an issue
@@ -155,3 +155,16 @@ Turn on the session's watch with `set_monitor`, in one call:
 Then report the pull request's url to the owner. When the session has no
 `set_monitor` tool, or the call is refused, say so in the same report, so the
 owner turns the watch on by hand.
+
+## Step 7: answer each review thread
+<!-- spec: workissue-answers-each-thread -->
+<!-- no-command: the implementer's judgment of each finding, posted as replies on GitHub -->
+
+When the app wakes this session on a review comment, answer every
+unresolved thread on the pull request with a reply under it. Open each reply
+with `**Claude:**`, and say what changed and the commit that changed it, or
+why the change is not made. Push the fixes before replying.
+
+Leave resolving a thread to the reviewer. The merge policy reads an
+unresolved thread after the reviewer's second look as a disagreement, and
+holds the pull request for the owner.

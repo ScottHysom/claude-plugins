@@ -128,7 +128,29 @@ than the time of the look, so a merge is never named twice and `clear` never
 runs twice on one claim. The script's docstring has the case this leaves
 out.
 
-The dispatcher does not review or merge. Until the reviewer's skill and the
-merge policy arrive with #650, it reports each pull request to the owner,
-and learns of a merge when it is woken: by an implementer ending a turn, or
-by the owner's message.
+The dispatcher learns of a merge when it is woken: by a session it started
+ending a turn, or by the owner's message.
+
+## The reviewer and the merge policy
+
+#650 pairs every implementer with a reviewer that starts without any of its
+context, and lets the dispatcher merge under a written policy. Both policies
+are markdown, since the owner reads and edits them as prose, with their
+settings in one JSON fence that the script reads. `config init` copies them
+whole and names each null setting, as it does for the roles file.
+
+The reviewer, the implementer and the owner all post under the owner's
+account, so `merge-check` cannot tell them apart by author. It tells them
+apart by text the script writes itself: `review-post` opens the review and
+each finding with a mark that `merge-check` reads back. The reviewer posts
+through `review-post` rather than `gh`, so the mark, the P3 cap and the
+"comment only" event are checked before anything reaches GitHub, and a skill
+fence runs only the plugin's script.
+
+The script cannot read whether an answer settles a finding, so the reviewer
+looks again once the implementer has answered, and resolves what it
+accepts. The owner chose that second look while #650 was worked. A thread left unresolved
+after it is a disagreement, and holds for the owner. `merge-check` names the
+next step, so the dispatcher does not weigh reasons itself. `--merge` merges
+at the head it checked, so a push between the check and the merge cannot
+slip through.
