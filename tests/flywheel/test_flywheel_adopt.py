@@ -1,5 +1,6 @@
-"""What `flywheel.py assess` reports of the method's controls, and what
-`flywheel.py record` writes for a later assessment to compare against."""
+"""What `flywheel.py assess` reports of the method's levels and the controls
+each introduces, and what `flywheel.py record` writes for a later assessment
+to compare against."""
 
 import json
 import re
@@ -10,18 +11,36 @@ import pytest
 import flywheel
 
 PLUGIN = Path(flywheel.SCRIPT_PATH).resolve().parents[1]
+REPO = PLUGIN.parents[1]
 ADOPTION_DOC = PLUGIN / "docs" / "adoption.md"
 RULES_TEMPLATE = PLUGIN / "templates" / "agent-rules.md"
+SPEC = REPO / "specs" / "flywheel.md"
 RECORD = ".flywheel/adoption.json"
 GATES = {"build": "make", "test": "make test", "check": "make check", "verify": "make verify"}
 WORKFLOW = "on: pull_request\njobs:\n  v:\n    steps:\n      - run: make verify\n"
+LEVEL_SPECS = ["assess-cmd-checks-level-%d-controls" % n for n in flywheel.ADOPTION_LEVELS]
+
+
+def controls():
+    """(level, key, text, ids, evidence) for each control, in the method's order."""
+    return [
+        (level, *control)
+        for level, _, introduced in flywheel.METHOD_LEVELS
+        for control in introduced
+    ]
+
+
+def template_sections():
+    """{level: the rules template's section for that level}."""
+    parts = re.split(r"(?m)^(?=### Level )", RULES_TEMPLATE.read_text())
+    return {int(p[10]): p for p in parts if p.startswith("### Level ")}
 
 
 def rules_up_to(level):
     """The rules template with its sections above `level` left out."""
     text = RULES_TEMPLATE.read_text()
-    parts = re.split(r"(?m)^(?=### Level )", text)
-    return "".join(p for p in parts if not p.startswith("### Level ") or int(p[10]) <= level)
+    head = text[: text.index("### Level ")]
+    return head + "".join(t for n, t in sorted(template_sections().items()) if n <= level)
 
 
 def cite(ids):
@@ -29,11 +48,11 @@ def cite(ids):
 
 
 def ci_ids():
-    return [i for c in flywheel.CONTROLS if c[4] is flywheel.ci_evidence for i in c[3]]
+    return [i for c in controls() if c[4] is flywheel.ci_evidence for i in c[3]]
 
 
 def states(env):
-    return {c["key"]: c for c in env["data"]["controls"]}
+    return {c["key"]: c for level in env["data"]["levels"] for c in level["controls"]}
 
 
 def held(env):
@@ -74,45 +93,88 @@ def adoption_tables():
     return rows
 
 
-@pytest.mark.spec("assess-cmd-reports-gaps-by-id")
-class DescribeAssess:
-    def it_reports_each_control_adoption_md_lists_by_level_and_ids(self, project):
-        code, env = project.run("assess")
-        assert code == flywheel.OK
-        reported = [(c["level"], c["control"], tuple(c["ids"])) for c in env["data"]["controls"]]
-        assert reported == adoption_tables()
-        assert len({c["key"] for c in env["data"]["controls"]}) == len(reported)
+def spec_controls(requirement):
+    """(key, ids) for each control the spec's requirement lists, in its order."""
+    lines = SPEC.read_text().splitlines()
+    start = next(i for i, line in enumerate(lines) if line.startswith("- `%s`" % requirement))
+    items = []
+    for line in lines[start + 1 :]:
+        if not line.startswith("  "):
+            break
+        if line.startswith("  - "):
+            items.append(line[4:])
+        elif items:
+            items[-1] += " " + line.strip()
+    return [
+        (re.match(r"`([^`]+)`", item).group(1), [n for n, _ in flywheel.cited_ids(item)])
+        for item in items
+    ]
 
-    def it_reports_every_control_missing_in_a_bare_project_and_exits_0(self, project):
-        code, env = project.run("assess")
-        assert code == flywheel.OK
-        assert held(env) == set()
-        assert env["data"]["level"] == 0
-        assert env["data"]["recorded"] is None
-        assert env["data"]["changes"] == []
-        assert states(env)["agent-rules"]["evidence"] == (
-            "the project has no rules file (CLAUDE.md, AGENTS.md)"
-        )
+
+@pytest.mark.spec(
+    "assess-cmd-checks-level-1-controls",
+    "assess-cmd-checks-level-2-controls",
+    "assess-cmd-checks-level-3-controls",
+)
+class DescribeTheLevels:
+    def it_introduces_the_controls_each_level_of_the_spec_names(self):
+        for (level, _, introduced), requirement in zip(flywheel.METHOD_LEVELS, LEVEL_SPECS):
+            listed = [(key, list(ids)) for key, _, ids, _ in introduced]
+            assert listed == spec_controls(requirement), level
+
+    def it_words_each_control_as_adoption_md_does(self, project):
+        _, env = project.run("assess")
+        reported = [
+            (level["level"], c["control"], tuple(c["ids"]))
+            for level in env["data"]["levels"]
+            for c in level["controls"]
+        ]
+        assert reported == adoption_tables()
+        assert len(states(env)) == len(reported)
+
+    def it_has_a_rule_in_the_template_for_every_id_each_level_names(self):
+        sections = template_sections()
+        assert sorted(sections) == list(flywheel.ADOPTION_LEVELS)
+        for level, _, introduced in flywheel.METHOD_LEVELS:
+            named = {i for _, _, ids, _ in introduced for i in ids}
+            assert {n for n, _ in flywheel.cited_ids(sections[level])} == named, level
 
     def it_holds_level_3_when_every_control_has_its_evidence(self, project):
         adopt_everything(project)
         code, env = project.run("assess")
         assert code == flywheel.OK
-        assert held(env) == {c[0] for c in flywheel.CONTROLS}
+        assert held(env) == {c[1] for c in controls()}
+        assert [lv["held"] for lv in env["data"]["levels"]] == [True, True, True]
         assert env["data"]["level"] == 3
 
     def it_holds_a_level_only_when_every_lower_level_is_held(self, project):
         adopt_everything(project)
         project.write("specs/app.md", "# app\n")
         _, env = project.run("assess")
+        assert [lv["held"] for lv in env["data"]["levels"]] == [False, True, True]
         assert env["data"]["level"] == 0
 
     @pytest.mark.parametrize("level", flywheel.ADOPTION_LEVELS)
     def it_holds_each_rule_the_template_states_up_to_its_level(self, project, level):
         project.write("CLAUDE.md", rules_up_to(level))
         _, env = project.run("assess")
-        ruled = {c[0]: c[1] for c in flywheel.CONTROLS if c[4] is flywheel.rules_evidence}
+        ruled = {c[1]: c[0] for c in controls() if c[4] is flywheel.rules_evidence}
         assert {k for k in ruled if k in held(env)} == {k for k, n in ruled.items() if n <= level}
+
+
+@pytest.mark.spec("assess-cmd-reports-gaps-by-id")
+class DescribeAssess:
+    def it_reports_every_control_missing_in_a_bare_project_and_exits_0(self, project):
+        code, env = project.run("assess")
+        assert code == flywheel.OK
+        assert held(env) == set()
+        assert [lv["name"] for lv in env["data"]["levels"]] == ["Core", "Enforced", "Measured"]
+        assert env["data"]["level"] == 0
+        assert env["data"]["recorded"] is None
+        assert env["data"]["changes"] == []
+        assert states(env)["agent-rules"]["evidence"] == (
+            "the project has no rules file (CLAUDE.md, AGENTS.md)"
+        )
 
     def it_reads_the_rules_from_agents_md_and_claude_rules(self, project):
         project.write("AGENTS.md", cite(["trace-behavior-to-need"]))
@@ -219,40 +281,41 @@ class DescribeAssess:
             " `reviewer.effort` unset"
         )
 
-    def it_prints_each_control_with_its_evidence(self, project):
+    def it_prints_each_level_with_its_controls_and_their_evidence(self, project):
         adopt_everything(project)
         code, out, _ = project.human("assess")
         assert code == flywheel.OK
-        assert "[x] level 1 core-gates (one-command-per-gate): .flywheel/gates.json names" in out
+        assert "level 1 (Core): held\n" in out
+        assert "  [x] core-gates (one-command-per-gate): .flywheel/gates.json names" in out
         assert "the project holds level 3" in out
         assert "recorded" not in out
 
 
 @pytest.mark.spec("record-cmd-writes-version-and-controls")
 class DescribeRecord:
-    def it_writes_the_version_the_level_and_each_controls_state(self, project):
+    def it_writes_the_version_the_level_and_each_controls_state_under_its_level(self, project):
         project.write(".flywheel/gates.json", json.dumps({"gates": GATES}))
         code, env = project.run("record", "--level", "2")
         assert code == flywheel.OK
         record = json.loads(project.read(RECORD))
         assert record["version"] == flywheel.plugin_version() == env["data"]["version"]
         assert record["level"] == 2
-        assert record["controls"]["core-gates"] == {
-            "level": 1,
+        assert sorted(record["levels"]) == ["1", "2", "3"]
+        assert record["levels"]["1"]["core-gates"] == {
             "ids": ["one-command-per-gate"],
             "held": True,
         }
-        assert record["controls"]["verify-gate"]["held"] is False
+        assert record["levels"]["2"]["verify-gate"]["held"] is False
         assert env["data"]["held"] == ["core-gates"]
-        assert [g["key"] for g in env["data"]["gaps"]] == [
-            c[0] for c in flywheel.CONTROLS if c[1] <= 2 and c[0] != "core-gates"
+        assert [(g["level"], [c["key"] for c in g["controls"]]) for g in env["data"]["gaps"]] == [
+            (n, [c[1] for c in controls() if c[0] == n and c[1] != "core-gates"]) for n in (1, 2)
         ]
 
     def it_prints_each_gap_up_to_the_level(self, project):
         code, out, _ = project.human("record", "--level", "1")
         assert code == flywheel.OK
         assert "wrote .flywheel/adoption.json: level 1 under flywheel" in out
-        assert "level 1 control `core-gates` (one-command-per-gate) is missing" in out
+        assert "level 1 (Core) control `core-gates` (one-command-per-gate) is missing" in out
         assert "level 2" not in out
 
     @pytest.mark.parametrize("level", ["0", "4", "two"])
@@ -268,15 +331,21 @@ class DescribeAssessAfterRecord:
     def it_names_each_control_whose_state_changed_since(self, project):
         project.run("record", "--level", "1")
         record = json.loads(project.read(RECORD))
-        del record["controls"]["mistakes-to-checks"]
+        del record["levels"]["3"]["mistakes-to-checks"]
+        record["levels"]["1"]["tests-first"] = "held"
+        del record["levels"]["2"]
         project.write(RECORD, json.dumps(record))
         project.write(".flywheel/gates.json", json.dumps({"gates": GATES}))
         _, env = project.run("assess")
         assert env["data"]["recorded"] == {"version": flywheel.plugin_version(), "level": 1}
         assert env["data"]["changes"] == [
-            {"key": "core-gates", "was": "missing", "now": "held"},
-            {"key": "mistakes-to-checks", "was": "new", "now": "missing"},
-        ]
+            {"level": 1, "key": "core-gates", "was": "missing", "now": "held"},
+            {"level": 1, "key": "tests-first", "was": "new", "now": "missing"},
+        ] + [
+            {"level": 2, "key": c[1], "was": "new", "now": "missing"}
+            for c in controls()
+            if c[0] == 2
+        ] + [{"level": 3, "key": "mistakes-to-checks", "was": "new", "now": "missing"}]
 
     @pytest.mark.spec("assess-cmd-reports-gaps-by-id")
     def it_exits_1_naming_each_control_missing_at_or_below_the_recorded_level(self, project):
@@ -286,8 +355,8 @@ class DescribeAssessAfterRecord:
         assert code == flywheel.PROBLEMS
         assert len(env["errors"]) == 4
         assert env["errors"][0].startswith(
-            "level 1 control `agent-rules` (trace-behavior-to-need, humans-decide-agents-record)"
-            " is missing: "
+            "level 1 (Core) control `agent-rules` (trace-behavior-to-need,"
+            " humans-decide-agents-record) is missing: "
         )
         assert env["errors"][0].endswith(
             "at or below the recorded level 1. The adopt skill files it as an issue."
@@ -307,16 +376,17 @@ class DescribeAssessAfterRecord:
         code, out, _ = project.human("assess")
         assert code == flywheel.PROBLEMS
         assert "recorded: level 1 under flywheel %s, now" % flywheel.plugin_version() in out
-        assert "  core-gates: missing, now held" in out
+        assert "  level 1 core-gates: missing, now held" in out
 
     @pytest.mark.parametrize(
         "text",
         [
             "not json",
             "[]",
-            json.dumps({"version": "1.0.0", "level": 5, "controls": {}}),
-            json.dumps({"version": "1.0.0", "level": 1, "controls": []}),
-            json.dumps({"version": 1, "level": 1, "controls": {}}),
+            json.dumps({"version": "1.0.0", "level": 5, "levels": {}}),
+            json.dumps({"version": "1.0.0", "level": 1, "levels": []}),
+            json.dumps({"version": "1.0.0", "level": 1, "controls": {}}),
+            json.dumps({"version": 1, "level": 1, "levels": {}}),
         ],
     )
     def it_stops_on_a_record_that_record_did_not_write(self, project, text):

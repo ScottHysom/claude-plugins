@@ -41,11 +41,12 @@ ignores. Each later command starts a fresh shell, so start every one with
 FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" assess --json
 ```
 
-`data.controls` lists each control with its `level`, its principle `ids`,
-whether it is `held`, and its `evidence`. `data.level` is the highest level
-the repository holds whole. When the repository has adopted before,
-`data.recorded` gives the version and the target level it recorded, and
-`data.changes` names each control whose state changed since, including a
+`data.levels` lists each level, whether the repository holds it, and the
+`controls` the level introduces, each with its principle `ids`, whether it
+is `held`, and its `evidence`. `data.level` is the highest level the
+repository holds, with every level below it. When the repository has adopted
+before, `data.recorded` gives the version and the target level it recorded,
+and `data.changes` names each control whose state changed since, including a
 control the method added after that version, as `new`.
 
 Exit 1 means a control at or below the recorded level is missing. That is a
@@ -113,8 +114,9 @@ FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" record --level 2 --json
 ```
 
 `record` writes `.flywheel/adoption.json` with the plugin's version, the
-level and each control's state. `data.gaps` lists each control at or below
-the level that is still missing, with its evidence.
+level and, under each level, each control's state. `data.gaps` lists each
+level up to the target that has a control missing, with the `controls`
+still missing and their evidence.
 
 ## Step 6: file the gaps
 <!-- spec: adopt-files-gaps-as-plan -->
@@ -123,11 +125,13 @@ the level that is still missing, with its evidence.
 When `data.gaps` is empty, skip to the report.
 
 Otherwise hand the gaps to the plugin's file-issue skill as one plan, with
-one issue per control, in the order of `data.gaps`. Each issue:
+one issue per missing control, level by level in the order of `data.gaps`.
+Each issue:
 
 - is titled for the control the repository lacks, such as "Nothing runs the
   verify gate in CI".
-- gives the control, its level and its principle ids under "What's wrong",
+- gives the control, the level that introduces it and its principle ids
+  under "What's wrong",
   and the evidence `record` reported under "Evidence".
 - says under "Done when" that `flywheel.py assess` reports the control held.
 - for a missing spec, says the owner supplies each need and constraint, and

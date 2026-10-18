@@ -133,17 +133,39 @@ ending a turn, or by the owner's message.
 
 ## Adoption
 
-#651 gives the method's adoption.md a command. The controls live in
-`CONTROLS` in the script rather than parsed from adoption.md, because the
-copy in `.flywheel/` does not carry the docs. A test reads adoption.md's
-tables and fails when the two differ.
+#651 gives the method's adoption.md a command. A level is how far a project
+has adopted the method, and each level introduces controls. A control does
+not have a level of its own: it belongs to the level that introduces it.
 
-Most evidence is a file the project holds. A control held by an instruction
-to agents, or by a CI check whose shape varies by project, is held when the
-rules files or a workflow cite its principle id. `templates/agent-rules.md`
-holds the rules adopt writes, by level, each citing its id. The adopt skill
-merges them into the project's `CLAUDE.md` itself, since placing them beside
-the project's own rules is judgment.
+The controls each level introduces have their home in `specs/flywheel.md`,
+in the requirements `assess-cmd-checks-level-1-controls` to `-3-`, so
+changing one is a requirement change that holds the pull request for the
+owner. adoption.md is the view that ships with the plugin, since `specs/`
+does not. The script's `METHOD_LEVELS` is a third copy, because the copy in
+`.flywheel/` carries neither, and tests fail when it differs from either.
+
+The evidence for a control is something a script can read without
+judgment, so two runs on the same project agree. The kinds of evidence
+`assess` reads, and why each counts:
+
+- A file the control names, such as `.flywheel/gates.json` or a policy,
+  counts when it exists and the owner has filled in every setting, since a
+  setting left null is a decision not yet made.
+- A control kept by an instruction to agents counts when the rules files
+  agents load every session cite its principle id. A script cannot see
+  whether an agent follows a rule, only whether the rule is stated where the
+  agent reads it.
+- A control kept by a CI check counts when a workflow cites its principle
+  id. The shape of a traceability check or an audit differs by project, so
+  the citation is how the project says which step keeps the control.
+- The approval guard counts when the project's settings run it, directly or
+  by enabling the plugin, since a hook that is not registered does not run.
+
+`templates/agent-rules.md` holds the rules adopt writes, by level, with a
+rule for every principle each level's controls name. A test fails when a
+level's section misses one. The adopt skill merges the sections into the
+project's `CLAUDE.md` itself, since placing them beside the project's own
+rules is judgment.
 
 The approval guard moved from this repo's `.claude/hooks/` into the plugin's
 `hooks/`, so an adopting project gets it by installing the plugin. This

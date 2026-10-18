@@ -45,12 +45,13 @@ Commands:
     config init  write .flywheel/roles.json, review-policy.md and
                  merge-policy.md from the plugin's templates, leaving each
                  that exists as it is, and name each field the owner fills in
-    assess       each of the method's controls, by level and principle id,
-                 with the evidence the project holds for it, the level it
-                 holds whole, and each control whose state changed since
-                 the adoption record.
+    assess       each of the method's levels, and each control it introduces
+                 by principle id with the evidence the project holds for it,
+                 the level the project holds, and each control whose state
+                 changed since the adoption record.
     record       write .flywheel/adoption.json: the plugin version, the
-                 owner's target level from --level and each control's state.
+                 owner's target level from --level and, under each level,
+                 each control's state.
     queue        up to --count of the oldest open approved issues nobody
                  holds and no open issue blocks, or an approved tracking
                  issue that comes first. With --tracking N, up to --count of
@@ -158,9 +159,13 @@ a finding at P0 to P2 is open, and any other finding is a disagreement. Its
 a check, a conflict or a thread waits on the implementer, then review again,
 then ask the owner.
 
-The controls. CONTROLS holds each control of the method's adoption.md, in its
-order, with its level and principle ids, and a test holds the two in step.
-What counts as evidence for each:
+The levels. METHOD_LEVELS holds the method's levels, each with the controls
+it introduces. The requirements assess-cmd-checks-level-N-controls in
+specs/flywheel.md are their home, and adoption.md is the view that ships;
+tests hold the script to both. A project holds a level when it holds every
+control the level introduces and every lower level. plugins/flywheel/
+DESIGN.md says why each kind of evidence counts. What counts as evidence for
+each control:
 
 - agent-rules, approved-ticket, tests-first, plan-first, measured-trials and
   mistakes-to-checks: the rules files agents load every session (CLAUDE.md,
@@ -182,10 +187,11 @@ What counts as evidence for each:
   every setting.
 - role-tiers: .flywheel/roles.json gives every role a model and an effort.
 
-The record. `record` writes each control's level, ids and state to
-.flywheel/adoption.json, beside the version and the target level, and the
-owner commits it. `assess` then names each control whose state differs, and
-each control the record lacks as new: one the method added since.
+The record. `record` writes, under each level, the ids and the state of each
+control the level introduces to .flywheel/adoption.json, beside the version
+and the target level, and the owner commits it. `assess` then names each
+control whose state differs, and each control the record lacks under its
+level as new: one the method added, or moved to that level, since.
 
 The gates file. .flywheel/gates.json maps each gate the project has, such as
 `check` or `verify`, to the command that runs it, under "gates". The owner
@@ -446,13 +452,11 @@ AREAS_KEY = "areas"
 # The role a session started from `brief` plays.
 BRIEF_ROLE = "implementer"
 
-# `assess` and `record`. CONTROLS, after the evidence it names, lists the
-# method's controls.
+# `assess` and `record`. METHOD_LEVELS, after the evidence it names, lists the
+# method's levels and the controls each introduces.
 ADOPTION_FILE = COPY_DIR + "/adoption.json"
-CONTROLS_KEY = "controls"
+LEVELS_KEY = "levels"
 LEVEL_KEY = "level"
-ADOPTION_LEVELS = (1, 2, 3)
-TOP_LEVEL = ADOPTION_LEVELS[-1]
 HELD, MISSING, NEW = "held", "missing", "new"
 RULES_FILES = ("CLAUDE.md", "AGENTS.md")
 RULES_DIR = ".claude/rules"
@@ -1145,165 +1149,184 @@ def roles_evidence(root, ids):
     return True, "%s gives every role a model and an effort" % ROLES_FILE
 
 
-# Each control of the method's adoption.md, in its order: (key, level, the
+# The method's levels, each with the controls it introduces, in the order of the
+# method's adoption.md: (level, its name, its controls). A control is (key, the
 # control as adoption.md words it, its principle ids, its evidence). The
 # module docstring says what counts as evidence.
-CONTROLS = (
+METHOD_LEVELS = (
     (
-        "agent-rules",
         1,
-        "Rules for agents, in the file agents read every session",
-        ("trace-behavior-to-need", "humans-decide-agents-record"),
-        rules_evidence,
+        "Core",
+        (
+            (
+                "agent-rules",
+                "Rules for agents, in the file agents read every session",
+                ("trace-behavior-to-need", "humans-decide-agents-record"),
+                rules_evidence,
+            ),
+            (
+                "needs-spec",
+                "A needs spec for each component, opening with its out-of-scope list",
+                ("list-out-of-scope-first", "source-needs-outside-code"),
+                specs_evidence,
+            ),
+            (
+                "approved-ticket",
+                "The ticket as the home of each change's intent; the owner approves it",
+                ("owner-admits-every-need", "one-home-per-artifact"),
+                rules_evidence,
+            ),
+            (
+                "core-gates",
+                "The `build`, `test` and `check` commands",
+                ("one-command-per-gate",),
+                gates_evidence,
+            ),
+            (
+                "tests-first",
+                "Tests written first and named for behavior",
+                ("write-behavior-tests-first",),
+                rules_evidence,
+            ),
+        ),
     ),
     (
-        "needs-spec",
-        1,
-        "A needs spec for each component, opening with its out-of-scope list",
-        ("list-out-of-scope-first", "source-needs-outside-code"),
-        specs_evidence,
-    ),
-    (
-        "approved-ticket",
-        1,
-        "The ticket as the home of each change's intent; the owner approves it",
-        ("owner-admits-every-need", "one-home-per-artifact"),
-        rules_evidence,
-    ),
-    (
-        "core-gates",
-        1,
-        "The `build`, `test` and `check` commands",
-        ("one-command-per-gate",),
-        gates_evidence,
-    ),
-    (
-        "tests-first",
-        1,
-        "Tests written first and named for behavior",
-        ("write-behavior-tests-first",),
-        rules_evidence,
-    ),
-    (
-        "trace-checks",
         2,
-        "Traceability checks in CI: tests cite requirements, requirements sit under needs,"
-        " PRs list what they change, coverage floors hold",
-        ("checks-over-instructions", "no-merge-without-alignment"),
-        ci_evidence,
+        "Enforced",
+        (
+            (
+                "trace-checks",
+                "Traceability checks in CI: tests cite requirements, requirements sit under needs,"
+                " PRs list what they change, coverage floors hold",
+                ("checks-over-instructions", "no-merge-without-alignment"),
+                ci_evidence,
+            ),
+            (
+                "verify-gate",
+                "The `verify` command, run by CI on every PR",
+                ("one-command-per-gate",),
+                verify_evidence,
+            ),
+            (
+                "unweakened-checks",
+                "New tests must fail on the base; agents cannot loosen checks",
+                ("agents-never-weaken-checks",),
+                ci_evidence,
+            ),
+            (
+                "approval-guard",
+                "Approval kept out of agent reach, by a hook or CI check",
+                ("checks-over-instructions", "owner-admits-every-need"),
+                guard_evidence,
+            ),
+            (
+                "plan-first",
+                "A plan approved before code",
+                ("approve-plan-before-code",),
+                rules_evidence,
+            ),
+            (
+                "review-policy",
+                "A written review policy and a fresh-context reviewer",
+                ("review-against-written-policy", "separate-generation-from-verification"),
+                policy_evidence(REVIEW_POLICY),
+            ),
+        ),
     ),
     (
-        "verify-gate",
-        2,
-        "The `verify` command, run by CI on every PR",
-        ("one-command-per-gate",),
-        verify_evidence,
-    ),
-    (
-        "unweakened-checks",
-        2,
-        "New tests must fail on the base; agents cannot loosen checks",
-        ("agents-never-weaken-checks",),
-        ci_evidence,
-    ),
-    (
-        "approval-guard",
-        2,
-        "Approval kept out of agent reach, by a hook or CI check",
-        ("checks-over-instructions", "owner-admits-every-need"),
-        guard_evidence,
-    ),
-    (
-        "plan-first",
-        2,
-        "A plan approved before code",
-        ("approve-plan-before-code",),
-        rules_evidence,
-    ),
-    (
-        "review-policy",
-        2,
-        "A written review policy and a fresh-context reviewer",
-        ("review-against-written-policy", "separate-generation-from-verification"),
-        policy_evidence(REVIEW_POLICY),
-    ),
-    (
-        "instruction-evals",
         3,
-        "Evals for the agent's instructions, rerun on every change to them",
-        ("eval-instructions-on-change",),
-        ci_evidence,
-    ),
-    (
-        "role-tiers",
-        3,
-        "Agents assigned by role and tier, each tier with a model class and a default effort,"
-        " with the mapping in the implementation layer",
-        ("match-capability-to-task",),
-        roles_evidence,
-    ),
-    (
-        "merge-policy",
-        3,
-        "A written merge policy",
-        ("autonomy-scales-with-risk",),
-        policy_evidence(MERGE_POLICY),
-    ),
-    (
-        "scheduled-audit",
-        3,
-        "A scheduled audit",
-        ("audit-on-schedule",),
-        ci_evidence,
-    ),
-    (
-        "loop-measures",
-        3,
-        "Measures for each stage, spend per merged unit, with control bands",
-        ("measure-the-loop", "scripts-detect-models-diagnose"),
-        ci_evidence,
-    ),
-    (
-        "measured-trials",
-        3,
-        "Improvement trials, one change at a time against a baseline",
-        ("improve-by-measured-trial",),
-        rules_evidence,
-    ),
-    (
-        "mistakes-to-checks",
-        3,
-        "Repeated mistakes climb to checks",
-        ("repeat-mistakes-become-checks",),
-        rules_evidence,
+        "Measured",
+        (
+            (
+                "instruction-evals",
+                "Evals for the agent's instructions, rerun on every change to them",
+                ("eval-instructions-on-change",),
+                ci_evidence,
+            ),
+            (
+                "role-tiers",
+                "Agents assigned by role and tier, each tier with a model class and a default effort,"
+                " with the mapping in the implementation layer",
+                ("match-capability-to-task",),
+                roles_evidence,
+            ),
+            (
+                "merge-policy",
+                "A written merge policy",
+                ("autonomy-scales-with-risk",),
+                policy_evidence(MERGE_POLICY),
+            ),
+            (
+                "scheduled-audit",
+                "A scheduled audit",
+                ("audit-on-schedule",),
+                ci_evidence,
+            ),
+            (
+                "loop-measures",
+                "Measures for each stage, spend per merged unit, with control bands",
+                ("measure-the-loop", "scripts-detect-models-diagnose"),
+                ci_evidence,
+            ),
+            (
+                "measured-trials",
+                "Improvement trials, one change at a time against a baseline",
+                ("improve-by-measured-trial",),
+                rules_evidence,
+            ),
+            (
+                "mistakes-to-checks",
+                "Repeated mistakes climb to checks",
+                ("repeat-mistakes-become-checks",),
+                rules_evidence,
+            ),
+        ),
     ),
 )
+ADOPTION_LEVELS = tuple(level for level, _, _ in METHOD_LEVELS)
+TOP_LEVEL = ADOPTION_LEVELS[-1]
 
 
-def control_states(root):
-    """Each control with whether the project holds it, and the evidence."""
+def level_states(root):
+    """Each level, with each control it introduces, whether the project holds
+    it, and the evidence."""
     out = []
-    for key, level, text, ids, evidence in CONTROLS:
-        held, found = evidence(root, ids)
+    for level, name, controls in METHOD_LEVELS:
+        states = []
+        for key, text, ids, evidence in controls:
+            held, found = evidence(root, ids)
+            states.append(
+                {"key": key, "control": text, "ids": list(ids), "held": held, "evidence": found}
+            )
         out.append(
             {
-                "key": key,
                 "level": level,
-                "control": text,
-                "ids": list(ids),
-                "held": held,
-                "evidence": found,
+                "name": name,
+                "held": all(c["held"] for c in states),
+                "controls": states,
             }
         )
     return out
 
 
-def held_level(states):
-    """The highest level whose controls, and every lower level's, the project holds."""
-    level = 0
-    while level < TOP_LEVEL and all(s["held"] for s in states if s["level"] == level + 1):
-        level += 1
-    return level
+def held_level(levels):
+    """The highest level the project holds, with every level below it."""
+    held = 0
+    for level in levels:
+        if not level["held"]:
+            break
+        held = level["level"]
+    return held
+
+
+def gaps_up_to(levels, top):
+    """Each level up to top that has a control missing, with those controls."""
+    out = []
+    for level in levels:
+        missing = [c for c in level["controls"] if not c["held"]]
+        if missing and level["level"] <= top:
+            out.append({"level": level["level"], "name": level["name"], "controls": missing})
+    return out
 
 
 def read_record(root):
@@ -1319,7 +1342,7 @@ def read_record(root):
         isinstance(record, dict)
         and is_text(record.get(VERSION_KEY))
         and record.get(LEVEL_KEY) in ADOPTION_LEVELS
-        and isinstance(record.get(CONTROLS_KEY), dict)
+        and isinstance(record.get(LEVELS_KEY), dict)
     ):
         raise Fatal(
             "%s is not a record that record wrote. Delete it, then run record again with the"
@@ -1332,59 +1355,72 @@ def state_word(held):
     return HELD if held else MISSING
 
 
-def changes_since(record, states):
-    """Each control whose state differs from the record's, or that the record lacks."""
+def changes_since(record, levels):
+    """Each control whose state differs from the record's, or that the record
+    lacks under its level."""
     out = []
-    for s in states:
-        was = record[CONTROLS_KEY].get(s["key"])
-        before = state_word(was.get("held")) if isinstance(was, dict) else NEW
-        if before != state_word(s["held"]):
-            out.append({"key": s["key"], "was": before, "now": state_word(s["held"])})
+    for level in levels:
+        recorded = record[LEVELS_KEY].get(str(level["level"]))
+        recorded = recorded if isinstance(recorded, dict) else {}
+        for c in level["controls"]:
+            was = recorded.get(c["key"])
+            before = state_word(was.get("held")) if isinstance(was, dict) else NEW
+            if before != state_word(c["held"]):
+                out.append(
+                    {
+                        "level": level["level"],
+                        "key": c["key"],
+                        "was": before,
+                        "now": state_word(c["held"]),
+                    }
+                )
     return out
 
 
-def gap_text(s):
-    return "level %d control `%s` (%s) is missing: %s" % (
-        s["level"],
-        s["key"],
-        ", ".join(s["ids"]),
-        s["evidence"],
-    )
+def gap_lines(gaps):
+    return [
+        "level %d (%s) control `%s` (%s) is missing: %s"
+        % (g["level"], g["name"], c["key"], ", ".join(c["ids"]), c["evidence"])
+        for g in gaps
+        for c in g["controls"]
+    ]
 
 
-def print_states(states):
-    for s in states:
-        print(
-            "[%s] level %d %s (%s): %s"
-            % ("x" if s["held"] else " ", s["level"], s["key"], ", ".join(s["ids"]), s["evidence"])
-        )
+def print_levels(levels):
+    for level in levels:
+        print("level %d (%s): %s" % (level["level"], level["name"], state_word(level["held"])))
+        for c in level["controls"]:
+            print(
+                "  [%s] %s (%s): %s"
+                % ("x" if c["held"] else " ", c["key"], ", ".join(c["ids"]), c["evidence"])
+            )
 
 
 def cmd_assess(args):
-    """Each of the method's controls, with the evidence the project holds for it."""
+    """Each level of the method, with the evidence the project holds for each
+    control it introduces."""
     root = project_root(args.repo)
-    states = control_states(root)
+    levels = level_states(root)
     record = read_record(root)
     data = {
         "version": plugin_version(),
-        "level": held_level(states),
+        "level": held_level(levels),
         "recorded": None,
-        "controls": states,
+        "levels": levels,
         "changes": [],
     }
     errors = []
     if record is not None:
         data["recorded"] = {k: record[k] for k in (VERSION_KEY, LEVEL_KEY)}
-        data["changes"] = changes_since(record, states)
+        data["changes"] = changes_since(record, levels)
         errors = [
             "%s, at or below the recorded level %d. The adopt skill files it as an issue."
-            % (gap_text(s), record[LEVEL_KEY])
-            for s in states
-            if not s["held"] and s["level"] <= record[LEVEL_KEY]
+            % (line, record[LEVEL_KEY])
+            for line in gap_lines(gaps_up_to(levels, record[LEVEL_KEY]))
         ]
 
     def human():
-        print_states(states)
+        print_levels(levels)
         print("\nthe project holds level %d" % data["level"])
         if record is not None:
             print(
@@ -1392,38 +1428,41 @@ def cmd_assess(args):
                 % (record[LEVEL_KEY], record[VERSION_KEY], data["version"])
             )
             for c in data["changes"]:
-                print("  %s: %s, now %s" % (c["key"], c["was"], c["now"]))
+                print("  level %d %s: %s, now %s" % (c["level"], c["key"], c["was"], c["now"]))
 
     return emit(args, "assess", data, errors, human=human)
 
 
 def cmd_record(args):
-    """Write the plugin version, the owner's target level and each control's
-    state to the adoption record."""
+    """Write the plugin version, the owner's target level and, under each
+    level, each control's state to the adoption record."""
     root = project_root(args.repo)
-    states = control_states(root)
+    levels = level_states(root)
     version = plugin_version()
     record = {
         VERSION_KEY: version,
         LEVEL_KEY: args.level,
-        CONTROLS_KEY: {
-            s["key"]: {"level": s["level"], "ids": s["ids"], "held": s["held"]} for s in states
+        LEVELS_KEY: {
+            str(level["level"]): {
+                c["key"]: {"ids": c["ids"], "held": c["held"]} for c in level["controls"]
+            }
+            for level in levels
         },
     }
     write_bytes(root, ADOPTION_FILE, (json.dumps(record, indent=2) + "\n").encode("utf-8"))
-    gaps = [s for s in states if not s["held"] and s["level"] <= args.level]
+    gaps = gaps_up_to(levels, args.level)
     data = {
         "file": ADOPTION_FILE,
         "version": version,
         "level": args.level,
-        "held": [s["key"] for s in states if s["held"]],
+        "held": [c["key"] for level in levels for c in level["controls"] if c["held"]],
         "gaps": gaps,
     }
 
     def human():
         print("wrote %s: level %d under flywheel %s" % (ADOPTION_FILE, args.level, version))
-        for s in gaps:
-            print("  %s" % gap_text(s))
+        for line in gap_lines(gaps):
+            print("  %s" % line)
 
     return emit(args, "record", data, human=human)
 
