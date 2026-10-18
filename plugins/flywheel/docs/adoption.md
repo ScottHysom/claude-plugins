@@ -1,6 +1,6 @@
 # Adoption: bringing a repo under the paradigm
 
-What "adopted" means, for a new repo or an existing one, stated by level and principle ID. This file names no tools. A plugin or skill in the implementation layer does the assessing and the applying, and cites the IDs below.
+What "adopted" means, for a new repo or an existing one, stated by level and principle ID. A plugin or skill in the implementation layer does the assessing and the applying, and cites the IDs below. In the flywheel plugin, `flywheel.py assess` does the assessing, and its docstring says what counts as evidence for each control.
 
 **A new repo is an existing repo with every gap open.** So both take one path:
 
@@ -72,7 +72,7 @@ Each level is a floor. A repo may adopt a control from a higher level early.
 
 ## The record
 
-After each step, the repo records which paradigm version it adopted, and which controls, by principle ID. Where the record lives is the implementation layer's choice.
+After each step, the repo records which paradigm version it adopted, and which controls, by principle ID. Where the record lives is the implementation layer's choice. In the flywheel plugin, `flywheel.py record` writes it to `.flywheel/adoption.json`.
 
 Re-running the assessment against a newer paradigm version then shows exactly what changed. A new principle shows as a new gap; a changed one shows what to revisit. This works only because principle IDs are never renamed or reused.
 

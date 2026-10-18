@@ -240,7 +240,7 @@ every file Hypothesis builds, that:
 ## `approved`
 
 In the owner's repositories only the owner adds the `approved` label.
-`.claude/hooks/issue_guard.py` reads only the text of a Bash command, so it
+`plugins/flywheel/hooks/issue_guard.py` reads only the text of a Bash command, so it
 does not see a script that runs `gh`, and CI lets through an issue labeled
 when it is created. `report` and `file` therefore refuse a draft carrying the
 label, in any case.

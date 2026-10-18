@@ -1,10 +1,10 @@
 """Stop Claude Code from adding the `approved` label to an issue or pull request.
 
-Runs as a PreToolUse hook on Bash, configured in .claude/settings.json. The
-`approved` label is how the owner says an issue may be worked on; README.md,
-under "Issues", describes the process. Agents post as the owner, so GitHub
-cannot tell an agent adding the label from the owner adding it. This hook is
-what can.
+Runs as a PreToolUse hook on Bash. The flywheel plugin's hooks/hooks.json
+registers it wherever the plugin is installed, and a project may also run it
+from its own .claude/settings.json. The `approved` label is how the owner says
+an issue may be worked on. Agents post as the owner, so GitHub cannot tell an
+agent adding the label from the owner adding it. This hook is what can.
 
 It catches a mistake, or an agent talked into approving its own work, not a
 determined attempt: it sees only the command text, so `curl` with a token,
@@ -182,8 +182,8 @@ def main(stdin=None):
     if reason is None:
         return ALLOW
     sys.stderr.write(
-        "Blocked: %s. Only the owner adds `%s`; README.md, under Issues, says why. "
-        "Ask the owner to add it.\n" % (reason, LABEL)
+        "Blocked: %s. Only the owner adds `%s`, since agents post under the owner's "
+        "account and GitHub cannot tell them apart. Ask the owner to add it.\n" % (reason, LABEL)
     )
     return BLOCK
 

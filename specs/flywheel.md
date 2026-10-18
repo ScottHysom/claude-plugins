@@ -442,3 +442,85 @@ Source: #650, and the method's `review-against-written-policy` and
 - `reviewpr-rechecks-answered-threads` (step): When review-pr runs on a pull
   request it has reviewed before, it resolves each thread whose answer it
   accepts, and leaves the others unresolved.
+
+## need owner-adopts-by-level: Adopt the method by level
+
+When the owner brings a repo under the method, they want its gaps named by
+principle id against the level they chose, filed one control per issue, and
+the version recorded, so a later assessment shows only what changed.
+
+Source: #651, the method's adoption.md, and the method's
+`checks-over-instructions`.
+
+- `assess-cmd-reports-gaps-by-id` (test): When `flywheel.py assess` runs in a
+  project, it reports each level, and each control the level introduces by its
+  principle ids, with its evidence found or missing. It exits 1 when a control
+  that a level at or below the recorded level introduces is missing.
+- `assess-cmd-checks-level-1-controls` (test): When `flywheel.py assess`
+  runs, it holds level 1 only when the project holds all of these controls,
+  each named by its key:
+  - `agent-rules`, rules for agents in the file agents read every session,
+    from the method's `trace-behavior-to-need` and
+    `humans-decide-agents-record`.
+  - `needs-spec`, a needs spec for each component opening with its
+    out-of-scope list, from the method's `list-out-of-scope-first` and
+    `source-needs-outside-code`.
+  - `approved-ticket`, the ticket as the home of each change's intent, which
+    the owner approves, from the method's `owner-admits-every-need` and
+    `one-home-per-artifact`.
+  - `core-gates`, the `build`, `test` and `check` commands, from the method's
+    `one-command-per-gate`.
+  - `tests-first`, tests written first and named for behavior, from the
+    method's `write-behavior-tests-first`.
+- `assess-cmd-checks-level-2-controls` (test): When `flywheel.py assess`
+  runs, it holds level 2 only when the project holds level 1 and all of these
+  controls, each named by its key:
+  - `trace-checks`, traceability checks in CI, from the method's
+    `checks-over-instructions` and `no-merge-without-alignment`.
+  - `verify-gate`, the `verify` command run by CI on every pull request, from
+    the method's `one-command-per-gate`.
+  - `unweakened-checks`, new tests that must fail on the base and checks that
+    agents cannot loosen, from the method's `agents-never-weaken-checks`.
+  - `approval-guard`, approval kept out of agent reach by a hook or a CI
+    check, from the method's `checks-over-instructions` and
+    `owner-admits-every-need`.
+  - `plan-first`, a plan approved before code, from the method's
+    `approve-plan-before-code`.
+  - `review-policy`, a written review policy and a fresh-context reviewer,
+    from the method's `review-against-written-policy` and
+    `separate-generation-from-verification`.
+- `assess-cmd-checks-level-3-controls` (test): When `flywheel.py assess`
+  runs, it holds level 3 only when the project holds level 2 and all of these
+  controls, each named by its key:
+  - `instruction-evals`, evals for the agent's instructions rerun on every
+    change to them, from the method's `eval-instructions-on-change`.
+  - `role-tiers`, agents assigned by role and tier, each tier with a model and
+    a default effort, from the method's `match-capability-to-task`.
+  - `merge-policy`, a written merge policy, from the method's
+    `autonomy-scales-with-risk`.
+  - `scheduled-audit`, a scheduled audit, from the method's
+    `audit-on-schedule`.
+  - `loop-measures`, measures for each stage with control bands, from the
+    method's `measure-the-loop` and `scripts-detect-models-diagnose`.
+  - `measured-trials`, improvement trials one change at a time against a
+    baseline, from the method's `improve-by-measured-trial`.
+  - `mistakes-to-checks`, repeated mistakes that climb to checks, from the
+    method's `repeat-mistakes-become-checks`.
+- `record-cmd-writes-version-and-controls` (test): When
+  `flywheel.py record --level N` runs, it writes the plugin version, level N
+  and, under each level, whether each control the level introduces is held,
+  to `.flywheel/adoption.json`. `assess` then names each control whose state
+  changed since, and each control the record lacks under its level.
+- `adopt-never-invents-owner-fields` (step): When adopt needs a need, a
+  constraint, the target level, a policy's terms or a role's model, it asks
+  the owner and writes nothing until they answer.
+- `adopt-writes-agent-rules` (step): When adopt has the target level, it
+  writes the plugin's rules for agents up to that level into the project's
+  `CLAUDE.md`, with a rule for every principle that each level's controls
+  name, each citing the principle it serves, and leaves the project's own
+  rules as they are.
+- `adopt-files-gaps-as-plan` (step): When `record` names a control missing at
+  or below the target level, adopt files the gaps as one plan through
+  file-issue, one control per issue, in the order of the method's tables.
+- `hook-ships-with-plugin` (test): When the plugin is installed, its
+  `hooks/hooks.json` runs the approval guard on every Bash call.

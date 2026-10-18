@@ -1,0 +1,127 @@
+{
+  "version": "0.8.0",
+  "level": 2,
+  "levels": {
+    "1": {
+      "agent-rules": {
+        "ids": [
+          "trace-behavior-to-need",
+          "humans-decide-agents-record"
+        ],
+        "held": true
+      },
+      "needs-spec": {
+        "ids": [
+          "list-out-of-scope-first",
+          "source-needs-outside-code"
+        ],
+        "held": true
+      },
+      "approved-ticket": {
+        "ids": [
+          "owner-admits-every-need",
+          "one-home-per-artifact"
+        ],
+        "held": true
+      },
+      "core-gates": {
+        "ids": [
+          "one-command-per-gate"
+        ],
+        "held": false
+      },
+      "tests-first": {
+        "ids": [
+          "write-behavior-tests-first"
+        ],
+        "held": true
+      }
+    },
+    "2": {
+      "trace-checks": {
+        "ids": [
+          "checks-over-instructions",
+          "no-merge-without-alignment"
+        ],
+        "held": false
+      },
+      "verify-gate": {
+        "ids": [
+          "one-command-per-gate"
+        ],
+        "held": false
+      },
+      "unweakened-checks": {
+        "ids": [
+          "agents-never-weaken-checks"
+        ],
+        "held": false
+      },
+      "approval-guard": {
+        "ids": [
+          "checks-over-instructions",
+          "owner-admits-every-need"
+        ],
+        "held": true
+      },
+      "plan-first": {
+        "ids": [
+          "approve-plan-before-code"
+        ],
+        "held": true
+      },
+      "review-policy": {
+        "ids": [
+          "review-against-written-policy",
+          "separate-generation-from-verification"
+        ],
+        "held": true
+      }
+    },
+    "3": {
+      "instruction-evals": {
+        "ids": [
+          "eval-instructions-on-change"
+        ],
+        "held": false
+      },
+      "role-tiers": {
+        "ids": [
+          "match-capability-to-task"
+        ],
+        "held": false
+      },
+      "merge-policy": {
+        "ids": [
+          "autonomy-scales-with-risk"
+        ],
+        "held": false
+      },
+      "scheduled-audit": {
+        "ids": [
+          "audit-on-schedule"
+        ],
+        "held": false
+      },
+      "loop-measures": {
+        "ids": [
+          "measure-the-loop",
+          "scripts-detect-models-diagnose"
+        ],
+        "held": false
+      },
+      "measured-trials": {
+        "ids": [
+          "improve-by-measured-trial"
+        ],
+        "held": false
+      },
+      "mistakes-to-checks": {
+        "ids": [
+          "repeat-mistakes-become-checks"
+        ],
+        "held": false
+      }
+    }
+  }
+}
