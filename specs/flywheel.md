@@ -522,6 +522,13 @@ Source: #651, the method's adoption.md, and the method's
   `CLAUDE.md`, with a rule for every principle that each level's controls
   name, each citing the principle it serves, and leaves the project's own
   rules as they are.
+- `labels-cmd-names-missing-labels` (test): When `flywheel.py labels` runs,
+  it names each label the loop and file-issue need that the repository
+  lacks, and exits 1 when one is missing. With `--create`, it creates each
+  one.
+- `adopt-creates-missing-labels` (step): When adopt has gaps to file, it
+  shows the owner the missing labels and creates them once the owner agrees,
+  before it hands the gaps to file-issue.
 - `adopt-files-gaps-as-plan` (step): When `record` names a control missing at
   or below the target level, adopt files the gaps as one plan through
   file-issue, one control per issue, in the order of the method's tables.
