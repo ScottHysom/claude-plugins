@@ -524,3 +524,18 @@ Source: #651, the method's adoption.md, and the method's
   file-issue, one control per issue, in the order of the method's tables.
 - `hook-ships-with-plugin` (test): When the plugin is installed, its
   `hooks/hooks.json` runs the approval guard on every Bash call.
+
+## need owner-measures-loop: Measure the loop before changing a role
+
+When the owner considers a change to a role's model or effort, they want the
+loop's cost, first-pass CI rate, review findings and lead time over a period,
+so the change is a trial against a baseline and not a guess.
+
+Source: #652, and the method's `measure-the-loop` and
+`improve-by-measured-trial`. specs/repo.md holds the requirement this repo's
+scheduled workflow meets under this need.
+
+- `measure-cmd-reports-starting-measures` (test): When
+  `flywheel.py measure --since <date>` runs, it reports spend, first-pass CI,
+  reviewer findings by level and lead time for each pull request merged
+  since, and a summary, and says which it could not compute and why.

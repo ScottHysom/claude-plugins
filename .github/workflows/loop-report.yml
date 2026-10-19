@@ -1,0 +1,65 @@
+name: loop-report
+
+# Copied from the flywheel plugin's template,
+# plugins/flywheel/templates/loop-report.yml, with the spec line below
+# added. Change the template, then copy it here again.
+#
+# Once a week, `flywheel.py stale` names claims whose label and branch
+# disagree, and `flywheel.py measure` reports the week's merged pull
+# requests: each one's spend, whether CI was green on its first run, the
+# reviewer's findings and its lead time from approval to merge. Both results
+# go into one open issue titled "Loop report", which the run opens the first
+# time and updates after that. The usage records that spend is read from are
+# on the machine that ran the sessions, so this report names spend as not
+# computed. The flywheel plugin's README.md, under "Measuring the loop",
+# describes the measures.
+#
+# The script comes from the repository that ships the plugin, at its default
+# branch. Set `ref` on that checkout to hold it at one version.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: read
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch the flywheel plugin
+        uses: actions/checkout@v4
+        with:
+          repository: ScottHysom/claude-plugins
+          path: .flywheel-plugin
+      # spec: ci-runs-stale-and-measure-weekly
+      - name: Record stale claims and the loop's measures in one issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          FLYWHEEL: .flywheel-plugin/plugins/flywheel/scripts/flywheel.py
+          TITLE: Loop report
+        run: |
+          since=$(date -u -d '7 days ago' +%Y-%m-%d)
+          stale=0
+          measure=0
+          {
+            printf '## Stale claims\n\n```text\n'
+            python3 "$FLYWHEEL" stale 2>&1 || stale=$?
+            printf '```\n\n## Measures since %s\n\n```text\n' "$since"
+            python3 "$FLYWHEEL" measure --since "$since" 2>&1 || measure=$?
+            printf '```\n'
+          } > report.md
+          number=$(gh issue list --state open --limit 1000 --json number,title \
+            --jq "map(select(.title == \"$TITLE\"))[0].number // empty")
+          if [ -n "$number" ]; then
+            gh issue edit "$number" --body-file report.md
+          else
+            gh issue create --title "$TITLE" --body-file report.md
+          fi
+          # stale exits 1 when it finds a stale claim, which the report shows.
+          # Exit 2 means a command could not run.
+          [ "$stale" -ne 2 ] && [ "$measure" -ne 2 ]

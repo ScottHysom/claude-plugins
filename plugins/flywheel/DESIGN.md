@@ -87,6 +87,14 @@ since a claim usually ends with a merge, where no command of the script
 runs. A project copies it into `.github/workflows/`. This repository's copy
 adds the `# spec:` line that ties its step to `specs/repo.md`.
 
+## The loop report
+
+`templates/loop-report.yml` runs `stale` and `measure` weekly and keeps the
+result in one open issue, found by its title. It fetches the script from the
+repository that ships the plugin, because a project's `.flywheel/` copy is
+ignored by git and so is not in the checkout. This repository's copy adds the
+`# spec:` line that ties its step to `specs/repo.md`.
+
 ## The brief
 
 `brief` reads the issue through GitHub's GraphQL API, since only that reports

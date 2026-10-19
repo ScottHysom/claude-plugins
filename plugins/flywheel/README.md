@@ -252,3 +252,29 @@ The plugin's `templates/issue-closed.yml` is a GitHub Actions workflow that
 takes the `in-progress` label off an issue when it closes. Copy it into your
 project's `.github/workflows/` to keep the label meaning that someone is
 working on the issue.
+
+## Measuring the loop
+
+Ask Claude to measure the loop since a date, such as "measure the loop since
+2026-10-01". Claude runs `measure`, which reports, for each pull request
+merged since then and as a summary:
+
+- **spend**: the tokens Claude Code used on the pull request's branch, read
+  from the session records on your machine.
+- **first-pass CI**: whether the checks passed the first time CI ran on the
+  pull request.
+- **findings**: how many findings the reviewer posted, at each level from P0
+  to P3.
+- **lead time**: the hours from when the issue was approved to the merge.
+
+Read these before and after changing a role's model or effort in
+`.flywheel/roles.json`, so you can tell whether the change paid off. Each
+measure is there because it informs a decision like that one. A measure that
+informs no decision is dropped. `measure` says which measure it could not
+compute for a pull request, and why.
+
+The plugin's `templates/loop-report.yml` is a GitHub Actions workflow that
+runs `stale` and `measure` every Monday and records the results in one open
+issue titled "Loop report", which it updates each week. Copy it into your
+project's `.github/workflows/`. GitHub does not have your session records,
+so that report leaves spend out.
