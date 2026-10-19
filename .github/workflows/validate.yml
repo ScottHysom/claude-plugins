@@ -75,6 +75,11 @@ jobs:
       # checks does not rest on an agent reading it, and a pull request whose
       # code and spec disagree does not merge. Source: the method's
       # `checks-over-instructions` and `no-merge-without-alignment`.
+      # `verify` also runs `check-tests.py fails-on-base`, which fails a test
+      # the pull request adds that passes on the base branch's code, unless
+      # the test says why. Beside it, a coverage floor only rises and the
+      # untraced list only shrinks, so an agent cannot loosen a check to
+      # pass. Source: the method's `agents-never-weaken-checks`.
       # spec: ci-runs-verify, ci-validates-manifests, ci-runs-manifest-check
       # spec: ci-runs-drift, ci-runs-descriptions, ci-runs-checklinkedissues
       # spec: ci-runs-description, ci-checks-python-formatting, ci-lints-python
@@ -84,6 +89,7 @@ jobs:
       # spec: ci-runs-repeats, ci-runs-commands
       # spec: ci-runs-steps, ci-runs-steps-for-seams, ci-runs-fences
       # spec: ci-runs-trace, ci-runs-surface, ci-runs-changes
+      # spec: ci-runs-fails-on-base
       - name: Verify
         env:
           BASE: ${{ github.base_ref }}

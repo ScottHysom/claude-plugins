@@ -290,9 +290,11 @@ class DescribeVerify:
         root = make_repo()
         code, out, _ = run("verify", "-C", str(root), "--json")
         assert code == gate.OK
-        assert steps_of(out) == [*CHECK, "diff"]
+        assert steps_of(out) == [*CHECK, "diff", "fails-on-base"]
         (diff,) = recorder.ran("diff")
         assert diff[2:] == ["diff", "--base", gate.DEFAULT_BASE]
+        (new_tests,) = recorder.ran("fails-on-base")
+        assert new_tests[2:] == ["fails-on-base", "--base", gate.DEFAULT_BASE]
 
     @pytest.mark.spec("verify-cmd-runs-check-first")
     def it_holds_the_floors_to_the_base(self, make_repo, recorder, run):
@@ -307,7 +309,7 @@ class DescribeVerify:
         environ = {"PATH": os.environ["PATH"], gate.EVENT_NAME_ENV: gate.PULL_REQUEST_EVENT}
         code, out, _ = run("verify", "-C", str(root), "--json", environ=environ)
         assert code == gate.OK
-        assert steps_of(out) == [*CHECK, "diff", *PULL_REQUEST_CHECKS]
+        assert steps_of(out) == [*CHECK, "diff", "fails-on-base", *PULL_REQUEST_CHECKS]
         (changes,) = recorder.ran("changes")
         assert changes[2:] == ["changes", "--base", gate.DEFAULT_BASE]
 
@@ -317,7 +319,8 @@ class DescribeVerify:
         _, _, err = run("verify", "-C", str(root))
         first = err.splitlines()[0]
         assert first.startswith(
-            "verify: check (lint, test, checks), then diff, linked-issues, description, changes."
+            "verify: check (lint, test, checks), then diff, fails-on-base, linked-issues, "
+            "description, changes."
         )
         assert "check: lint (format, ruff, shell)" in first
 
