@@ -70,6 +70,11 @@ jobs:
       # Each id below names a check `verify` runs. The token lets `trace` fail
       # an untraced entry whose issue has closed, and lets the pull request
       # checks read the issues it closes.
+      # `verify` holds the traceability checks: `trace`, `surface`, `changes`,
+      # the pull request description and the coverage floors. A rule CI
+      # checks does not rest on an agent reading it, and a pull request whose
+      # code and spec disagree does not merge. Source: the method's
+      # `checks-over-instructions` and `no-merge-without-alignment`.
       # spec: ci-runs-verify, ci-validates-manifests, ci-runs-manifest-check
       # spec: ci-runs-drift, ci-runs-descriptions, ci-runs-checklinkedissues
       # spec: ci-runs-description, ci-checks-python-formatting, ci-lints-python
