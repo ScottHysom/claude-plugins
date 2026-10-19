@@ -15,7 +15,8 @@ Each gate runs the one before it:
   check   lint, then the suite under coverage, then every repo check that
           reads only the clone.
   verify  check, then the checks that read the base branch or the pull
-          request.
+          request. One of those runs each test the branch adds against the
+          base branch's code.
 
 Run from anywhere in the clone, with the Python of the venv that holds
 requirements-dev.txt:
@@ -434,7 +435,10 @@ def cmd_check(args, machine):
 def cmd_verify(args, machine):
     check_tools(machine)
     groups = list(check_steps(machine, args.base).items())
-    then = [Step("diff", [script("check-coverage.py", "diff", "--base", args.base)])]
+    then = [
+        Step("diff", [script("check-coverage.py", "diff", "--base", args.base)]),
+        Step("fails-on-base", [script("check-tests.py", "fails-on-base", "--base", args.base)]),
+    ]
     then += pull_request_steps(machine, args.base)
     chain = "verify: check (%s), then %s. %s" % (
         ", ".join(g for g, _ in groups),
