@@ -145,6 +145,13 @@ class DescribeANewTest:
         assert code == flywheel.OK
         assert "0 new test(s)" in out
 
+    def it_prints_nothing_on_stdout_for_a_failing_test(self, work):
+        add_tests(work, "b.t", "still: app.txt old")
+        code, out, err = work.human("fails-on-base", "--base", "main")
+        assert code == flywheel.PROBLEMS
+        assert out == ""
+        assert "tests/b.t::still passes against the code at the merge base" in err
+
     def it_names_the_base_in_text(self, work):
         change_app(work, "new")
         add_tests(work, "b.t", "changed: app.txt new")
@@ -183,6 +190,12 @@ class DescribeTheTestCommands:
 
     def it_runs_the_list_command_it_is_given(self, work):
         gates(work, list="%s runner.py list && echo tests/z.t::extra" % PYTHON)
+        add_tests(work, "b.t", "still: app.txt old")
+        code, env = work.run("fails-on-base", "--base", "main")
+        assert env["data"]["new"] == ["tests/b.t::still"]
+
+    def it_reads_a_list_that_ends_without_a_blank_line(self, work):
+        gates(work, list="%s runner.py list | grep ::" % PYTHON)
         add_tests(work, "b.t", "still: app.txt old")
         code, env = work.run("fails-on-base", "--base", "main")
         assert env["data"]["new"] == ["tests/b.t::still"]
