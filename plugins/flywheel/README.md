@@ -196,6 +196,36 @@ List your gate commands in `.flywheel/gates.json`, and commit it:
 }
 ```
 
+At level 2, the same file also says how to list your tests and how to run
+one. Claude writes these for you when your project uses pytest, and asks you
+for them otherwise:
+
+```json
+{
+  "tests": {
+    "list": "python3 -m pytest --collect-only -q -p no:cacheprovider",
+    "run": "python3 -m pytest -q -p no:cacheprovider {id}",
+    "paths": ["tests", "pytest.ini"]
+  }
+}
+```
+
+With them, `flywheel.py fails-on-base` runs each test a pull request adds
+against your code as it was before the change, and fails the pull request
+when a new test passes there. A test that passes there anyway would pass
+without the change, so it proves nothing about it. Have your `verify`
+command run it. When a new test passes before the change on purpose, such as
+one that pins behavior the change keeps, give its id and the reason in
+`.flywheel/passes-on-base.json`:
+
+```json
+{
+  "tests": {
+    "tests/test_app.py::test_keeps_old_format": "pins the format this change keeps"
+  }
+}
+```
+
 ## Working an issue
 
 Ask Claude to work an issue, such as "fix #12", or to take the next issue, or

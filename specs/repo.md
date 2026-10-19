@@ -541,26 +541,17 @@ Source: README.md, under "Running the tests", CLAUDE.md, under "Tests", and
 ## need owner-trusts-each-new-test: Know each new test can fail
 
 When an agent adds a test, the owner wants CI to fail a pull request whose
-new test passes on the code before the change, unless the test says why, at
-the cost of one pytest run of the new tests.
+new test passes on the code before the change, unless the test says why.
+This repo runs the flywheel plugin's check for it, at the cost of one run of
+each new test at the branch and one on the base.
 
 Source: the method's `agents-never-weaken-checks`, CLAUDE.md, under "Tests",
-and #669.
+#669 and #682. specs/flywheel.md has the check's own requirements, under
+`owner-checks-new-tests-fail`.
 
-- `failsonbase-cmd-fails-passing-new-test` (test): When a test the branch
-  adds since its merge base with `--base` passes against the merge base's
-  code, `check-tests.py fails-on-base` fails and names it. A test that errors
-  or is skipped there does not pass.
-- `failsonbase-cmd-runs-only-new-tests` (test): When `fails-on-base` runs, it
-  runs only the tests the branch adds, in one pytest run. When a `conftest.py`
-  fails to load on the base, it fails the new tests under it and runs the rest
-  again.
-- `failsonbase-cmd-excuses-marked-test` (test): When a passing new test
-  carries `passes_on_base` with a reason, on itself, its class or its module,
-  `fails-on-base` passes it and warns with the test and its reason. A marker
-  without a reason fails.
 - `ci-runs-fails-on-base` (check): When a pull request is opened or updated,
-  CI runs `fails-on-base` against its base.
+  CI runs `flywheel.py fails-on-base` against its base, with the pytest
+  commands in `.flywheel/gates.json`.
 
 ## need owner-keeps-one-code-style: Keep one code style, applied by tools
 

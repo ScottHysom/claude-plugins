@@ -15,8 +15,9 @@ Each gate runs the one before it:
   check   lint, then the suite under coverage, then every repo check that
           reads only the clone.
   verify  check, then the checks that read the base branch or the pull
-          request. One of those runs each test the branch adds against the
-          base branch's code.
+          request. One of those, the flywheel plugin's `fails-on-base`,
+          runs each test the branch adds against the base branch's code,
+          with the test commands in .flywheel/gates.json.
 
 Run from anywhere in the clone, with the Python of the venv that holds
 requirements-dev.txt:
@@ -79,6 +80,10 @@ OK, PROBLEMS, CANNOT_RUN = 0, 1, 2
 
 PROG = "gate.py"
 SCRIPTS = os.path.dirname(os.path.abspath(__file__))
+# The flywheel plugin's script, which runs each new test against the base.
+FLYWHEEL = os.path.join(
+    os.path.dirname(os.path.dirname(SCRIPTS)), "plugins", "flywheel", "scripts", "flywheel.py"
+)
 CHECK_COVERAGE = os.path.join(SCRIPTS, "check-coverage.py")
 DEFAULT_BASE = "origin/main"
 PLUGINS = "plugins"
@@ -437,7 +442,7 @@ def cmd_verify(args, machine):
     groups = list(check_steps(machine, args.base).items())
     then = [
         Step("diff", [script("check-coverage.py", "diff", "--base", args.base)]),
-        Step("fails-on-base", [script("check-tests.py", "fails-on-base", "--base", args.base)]),
+        Step("fails-on-base", [[sys.executable, FLYWHEEL, "fails-on-base", "--base", args.base]]),
     ]
     then += pull_request_steps(machine, args.base)
     chain = "verify: check (%s), then %s. %s" % (

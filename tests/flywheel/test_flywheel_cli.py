@@ -25,7 +25,7 @@ class DescribeTheEnvelope:
         project.run("config", "init")
         code, env = project.run("config", "init")
         assert code == flywheel.PROBLEMS
-        assert len(env["errors"]) == 3
+        assert len(env["errors"]) == 4
         assert project.err == ""
 
 

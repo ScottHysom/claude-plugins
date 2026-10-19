@@ -18,6 +18,8 @@ SPEC = REPO / "specs" / "flywheel.md"
 RECORD = ".flywheel/adoption.json"
 GATES = {"build": "make", "test": "make test", "check": "make check", "verify": "make verify"}
 WORKFLOW = "on: pull_request\njobs:\n  v:\n    steps:\n      - run: make verify\n"
+TESTS = {"list": "t list", "run": "t run {id}", "paths": ["tests"]}
+CHECKED_VERIFY = "make verify && flywheel.py fails-on-base"
 LEVEL_SPECS = ["assess-cmd-checks-level-%d-controls" % n for n in flywheel.ADOPTION_LEVELS]
 
 
@@ -48,7 +50,8 @@ def cite(ids):
 
 
 def ci_ids():
-    return [i for c in controls() if c[4] is flywheel.ci_evidence for i in c[3]]
+    cited = (flywheel.ci_evidence, flywheel.unweakened_evidence)
+    return [i for c in controls() if c[4] in cited for i in c[3]]
 
 
 def states(env):
@@ -69,8 +72,10 @@ def adopt_everything(project):
     """Give the project the evidence for every control."""
     project.write("CLAUDE.md", rules_up_to(3))
     project.write("specs/app.md", "# app\n\n## Out of scope\n\n- nothing\n")
-    project.write(".flywheel/gates.json", json.dumps({"gates": GATES}))
-    project.write(".github/workflows/ci.yml", WORKFLOW + cite(ci_ids()))
+    gates = dict(GATES, verify=CHECKED_VERIFY)
+    project.write(".flywheel/gates.json", json.dumps({"gates": gates, "tests": TESTS}))
+    workflow = WORKFLOW.replace("make verify", CHECKED_VERIFY)
+    project.write(".github/workflows/ci.yml", workflow + cite(ci_ids()))
     project.write(".claude/settings.json", json.dumps({"enabledPlugins": {"flywheel@m": True}}))
     fill_policy(project, ".flywheel/review-policy.md")
     fill_policy(project, ".flywheel/merge-policy.md")
@@ -233,6 +238,59 @@ class DescribeAssess:
         _, env = project.run("assess")
         assert "scheduled-audit" in held(env)
         assert "unweakened-checks" not in held(env)
+
+    @pytest.mark.spec("assess-cmd-checks-level-2-controls")
+    def it_holds_unweakened_checks_only_where_verify_runs_fails_on_base(self, project):
+        project.write(".github/workflows/ci.yml", cite(["agents-never-weaken-checks"]))
+        _, env = project.run("assess")
+        assert states(env)["unweakened-checks"]["evidence"] == (
+            ".flywheel/gates.json does not give `tests.list`, `tests.run`, `tests.paths`"
+        )
+        project.write(".flywheel/gates.json", json.dumps({"gates": GATES, "tests": TESTS}))
+        _, env = project.run("assess")
+        assert states(env)["unweakened-checks"]["evidence"] == (
+            "the `verify` gate, `make verify`, does not run `fails-on-base`,"
+            " and neither does a file it names"
+        )
+        gates = dict(GATES, verify=CHECKED_VERIFY)
+        project.write(".flywheel/gates.json", json.dumps({"gates": gates, "tests": TESTS}))
+        _, env = project.run("assess")
+        assert states(env)["unweakened-checks"]["held"] is True
+        assert states(env)["unweakened-checks"]["evidence"] == (
+            "the `verify` gate runs `fails-on-base`, and the files read"
+            " (.github/workflows/ci.yml) cite `agents-never-weaken-checks` as the method's"
+        )
+
+    @pytest.mark.spec("assess-cmd-checks-level-2-controls")
+    def it_asks_for_the_verify_gate_before_unweakened_checks(self, project):
+        project.write(".flywheel/gates.json", json.dumps({"gates": {}, "tests": TESTS}))
+        _, env = project.run("assess")
+        assert states(env)["unweakened-checks"]["evidence"] == (
+            ".flywheel/gates.json does not name `verify`"
+        )
+
+    @pytest.mark.spec("assess-cmd-checks-level-2-controls")
+    def it_holds_unweakened_checks_where_a_file_verify_names_runs_it(self, project):
+        project.write(".github/workflows/ci.yml", cite(["agents-never-weaken-checks"]))
+        project.write("ci/verify.py", "steps = ['flywheel.py fails-on-base']\n")
+        gates = dict(GATES, verify="python3 ci/verify.py --all")
+        project.write(".flywheel/gates.json", json.dumps({"gates": gates, "tests": TESTS}))
+        _, env = project.run("assess")
+        assert states(env)["unweakened-checks"]["evidence"].startswith(
+            "ci/verify.py, which the `verify` gate runs, runs `fails-on-base`, and"
+        )
+
+    @pytest.mark.spec("assess-cmd-checks-level-2-controls")
+    def it_still_asks_for_the_citation_where_verify_runs_fails_on_base(self, project):
+        gates = dict(GATES, verify=CHECKED_VERIFY)
+        project.write(".flywheel/gates.json", json.dumps({"gates": gates, "tests": TESTS}))
+        project.write(".github/workflows/ci.yml", "on: push\n")
+        _, env = project.run("assess")
+        assert states(env)["unweakened-checks"]["held"] is False
+        assert (
+            "do not cite `agents-never-weaken-checks`"
+            in (states(env)["unweakened-checks"]["evidence"])
+        )
 
     def it_holds_the_guard_when_settings_enable_the_plugin(self, project):
         plugins = {"other@m": True, "flywheel@m": True}

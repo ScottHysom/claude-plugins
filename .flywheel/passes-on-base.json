@@ -1,0 +1,5 @@
+{
+  "tests": {
+    "tests/flywheel/test_flywheel_adopt.py::DescribeAssess::it_still_asks_for_the_citation_where_verify_runs_fails_on_base": "pins the workflow citation that unweakened-checks asked for before #682, and still asks for beside the run"
+  }
+}

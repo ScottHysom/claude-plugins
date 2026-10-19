@@ -75,7 +75,7 @@ jobs:
       # checks does not rest on an agent reading it, and a pull request whose
       # code and spec disagree does not merge. Source: the method's
       # `checks-over-instructions` and `no-merge-without-alignment`.
-      # `verify` also runs `check-tests.py fails-on-base`, which fails a test
+      # `verify` also runs flywheel's `fails-on-base`, which fails a test
       # the pull request adds that passes on the base branch's code, unless
       # the test says why. Beside it, a coverage floor only rises and the
       # untraced list only shrinks, so an agent cannot loosen a check to

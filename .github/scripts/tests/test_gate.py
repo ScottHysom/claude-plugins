@@ -294,6 +294,7 @@ class DescribeVerify:
         (diff,) = recorder.ran("diff")
         assert diff[2:] == ["diff", "--base", gate.DEFAULT_BASE]
         (new_tests,) = recorder.ran("fails-on-base")
+        assert new_tests[1].endswith("/plugins/flywheel/scripts/flywheel.py")
         assert new_tests[2:] == ["fails-on-base", "--base", gate.DEFAULT_BASE]
 
     @pytest.mark.spec("verify-cmd-runs-check-first")

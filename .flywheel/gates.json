@@ -4,5 +4,10 @@
     "test": "python3 .github/scripts/gate.py test",
     "check": "python3 .github/scripts/gate.py check",
     "verify": "python3 .github/scripts/gate.py verify"
+  },
+  "tests": {
+    "list": "python3 -m pytest --collect-only -q -p no:cacheprovider -n 0",
+    "run": "python3 -m pytest -q -p no:cacheprovider -n 0 {id}",
+    "paths": ["tests", ".claude/hooks/tests", ".github/scripts/tests", "pytest.ini"]
   }
 }
