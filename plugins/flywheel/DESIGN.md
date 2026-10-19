@@ -89,8 +89,10 @@ adds the `# spec:` line that ties its step to `specs/repo.md`.
 
 ## The loop report
 
-`templates/loop-report.yml` runs `stale` and `measure` weekly and keeps the
-result in one open issue, found by its title. It fetches the script from the
+`templates/loop-report.yml` runs `stale` and `measure` on the schedule its
+`cron` line sets, and keeps the result in one open issue, found by its title.
+Its `measure` window opens on the day the last successful run started, so a
+project that changes the schedule still gets each merge reported. It fetches the script from the
 repository that ships the plugin, because a project's `.flywheel/` copy is
 ignored by git and so is not in the checkout. This repository's copy adds the
 `# spec:` line that ties its step to `specs/repo.md`.

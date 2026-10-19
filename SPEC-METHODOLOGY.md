@@ -368,7 +368,8 @@ can also be `never` or `only`, followed by a verb ending in `s`, as in
 as a noun: `claim-labels` reads as "the claim's labels" as easily as "claim adds a
 label", so `claim-cmd-adds-label` is clearer.
 
-An id has two to six words, not counting `cmd`.
+A need's or a constraint's id has two to six words, and a requirement's id
+has two to seven, not counting `cmd`.
 
 The words after the verb name what the requirement covers, and no more.
 `report-cmd-refuses-insertions` names a class wider than the empty spans its

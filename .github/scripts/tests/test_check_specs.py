@@ -447,7 +447,7 @@ class DescribeTrace:
         assert "already the id of the requirement at line 11" in err
 
     @pytest.mark.spec("trace-cmd-checks-spec-grammar")
-    @pytest.mark.parametrize("rid", ["Does_Y", "foo-cmd-can-do-y-and-z-too"])
+    @pytest.mark.parametrize("rid", ["Does_Y", "foo-cmd-can-do-y-and-z-too-now"])
     def it_fails_an_id_that_breaks_the_grammar(self, make_repo, run, rid):
         spec = FOO_SPEC + "- `%s` (test): When asked, foo does y.\n" % rid
         code, _, err = run("trace", "-C", str(make_repo({"specs/foo.md": spec})))
@@ -502,8 +502,8 @@ class DescribeTrace:
         )
 
     @pytest.mark.spec("trace-cmd-checks-spec-grammar")
-    def it_traces_an_id_of_six_words_and_cmd(self, make_repo, run):
-        rid = "steps-cmd-does-x-when-asked-twice"
+    def it_traces_a_requirement_id_of_seven_words_and_cmd(self, make_repo, run):
+        rid = "steps-cmd-does-x-when-asked-twice-more"
         root = make_repo(
             {
                 "specs/foo.md": FOO_SPEC + "- `%s` (test): When asked, foo does x.\n" % rid,
@@ -517,7 +517,7 @@ class DescribeTrace:
     @pytest.mark.parametrize(
         ("rid", "says"),
         [
-            ("foo", "it has 1 word(s), and an id has 2 to 6"),
+            ("foo", "it has 1 word(s), and a requirement id has 2 to 7"),
             ("receipt-late-fee", "`late` is not a verb ending in `s`"),
             ("steps-cmd", "it has 1 word(s)"),
             ("steps-cmd-late-x", "`late` is not a verb ending in `s`"),
@@ -525,7 +525,7 @@ class DescribeTrace:
                 "claim-command-adds-y",
                 "`command` sits where a command's marker goes, and the marker is `cmd`",
             ),
-            ("foo-does-x-and-y-too-now", "it has 7 word(s)"),
+            ("foo-does-x-and-y-too-now-again", "it has 8 word(s)"),
             ("foo-cannot", "`cannot` is followed by no verb"),
             ("foo-never-drop-x", "`never` is followed by `drop`"),
         ],
@@ -571,6 +571,33 @@ class DescribeTrace:
             "specs/foo.md:7: the need id `foo-gets-things-done` is not in the form, since a need's"
             in err
         )
+
+    @pytest.mark.spec("trace-cmd-checks-spec-grammar")
+    @pytest.mark.parametrize(
+        ("path", "spec", "where", "kind"),
+        [
+            (
+                "specs/foo.md",
+                FOO_SPEC.replace(
+                    "need user-gets-things-done:", "need user-gets-things-done-when-asked-twice:"
+                ),
+                "specs/foo.md:7",
+                "need",
+            ),
+            (
+                "specs/bar.md",
+                "# bar\n\n## constraint bar-runs-slowly-when-asked-to-run: Bar\n\nIt is.\n",
+                "specs/bar.md:3",
+                "constraint",
+            ),
+        ],
+        ids=["need", "constraint"],
+    )
+    def it_fails_a_heading_id_of_seven_words(self, make_repo, run, path, spec, where, kind):
+        code, _, err = run("trace", "-C", str(make_repo({path: spec})))
+        assert code == cp.PROBLEMS
+        assert "%s: the %s id `" % (where, kind) in err
+        assert "it has 7 word(s), and a %s id has 2 to 6" % kind in err
 
     @pytest.mark.spec("trace-cmd-checks-spec-grammar")
     def it_fails_a_constraint_id_not_in_the_form(self, make_repo, run):

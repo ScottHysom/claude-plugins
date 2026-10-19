@@ -250,9 +250,12 @@ ROLES = ("owner", "agent", "contributor", "model", "user")
 MODALS = ("can", "cannot", "may", "must")
 ADVERBS = ("never", "only")
 ID_WORDS = (2, 6)
+# A requirement may need a seventh word to name all it covers.
+REQUIREMENT_WORDS = (2, 7)
 CMD = "cmd"
-# Any id's spelling: the most words an id may have, and `cmd` beside them.
-ID_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+){0,%d}$" % ID_WORDS[1])
+REQUIREMENT = "requirement"
+# Any id's spelling: the most words any kind of id may have, and `cmd` beside them.
+ID_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+){0,%d}$" % REQUIREMENT_WORDS[1])
 COMMAND = "command"
 ID_FORM = 'SPEC-METHODOLOGY.md, under "Ids", has the form.'
 TEST, STEP, CHECK, EVAL = "test", "step", "check", "eval"
@@ -461,7 +464,7 @@ def not_an_id(where, rid, errors):
         return False
     errors.append(
         "%s: `%s` is not an id. An id is one to %d lower-case words joined by "
-        "hyphens." % (where, rid, ID_WORDS[1] + 1)
+        "hyphens." % (where, rid, REQUIREMENT_WORDS[1] + 1)
     )
     return True
 
@@ -528,8 +531,8 @@ def parse_spec(path, text, errors):
         rid, kind = m.group(1), m.group(2)
         if not_an_id(where, rid, errors):
             continue
-        form_error(where, "requirement", rid, errors)
-        if repeated_id(where, "requirement", rid, number, ids, errors):
+        form_error(where, REQUIREMENT, rid, errors)
+        if repeated_id(where, REQUIREMENT, rid, number, ids, errors):
             continue
         if kind == EVAL:
             errors.append(
@@ -1483,10 +1486,10 @@ def id_form(kind, rid):
         return "`%s` sits where a command's marker goes, and the marker is `%s`" % (COMMAND, CMD)
     if rest and rest[0] == CMD:
         rest = rest[1:]
-    low, high = ID_WORDS
+    low, high = REQUIREMENT_WORDS if kind == REQUIREMENT else ID_WORDS
     counted = 1 + len(rest)
     if not low <= counted <= high:
-        return "it has %d word(s), and an id has %d to %d" % (counted, low, high)
+        return "it has %d word(s), and a %s id has %d to %d" % (counted, kind, low, high)
     if kind == "need" and words[0] not in ROLES:
         return "a need's id opens with the role that wants it, one of %s" % ", ".join(ROLES)
     verb = rest[0]

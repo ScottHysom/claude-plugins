@@ -887,6 +887,6 @@ so the change is a trial against a baseline and not a guess.
 Source: #652. specs/flywheel.md holds the requirements the flywheel plugin
 meets under this need.
 
-- `ci-runs-stale-and-measure-weekly` (check): When the scheduled
+- `ci-runs-stale-and-measure-on-schedule` (check): When the scheduled
   workflow runs, it runs `stale` and `measure` and records the result in one
   issue.
