@@ -11,6 +11,7 @@ Usage:
     python3 flywheel.py <command> [options]
     python3 flywheel.py --help
 
+    python3 flywheel.py fails-on-base --base origin/main
     python3 flywheel.py assess
     python3 flywheel.py record --level 2
     python3 flywheel.py queue
@@ -37,15 +38,20 @@ Usage:
     python3 flywheel.py plan close 347
 
 Run from anywhere in a clone, with git and, for every command but setup,
-config init, assess, record, review-policy and ids, an authenticated gh on
+config init, fails-on-base, assess, record, review-policy and ids, an
+authenticated gh on
 PATH.
 
 Commands:
     setup        copy this script, the templates it reads and the plugin's
                  manifest into the project's .flywheel/, which git ignores
     config init  write .flywheel/roles.json, review-policy.md and
-                 merge-policy.md from the plugin's templates, leaving each
-                 that exists as it is, and name each field the owner fills in
+                 merge-policy.md from the plugin's templates, and the test
+                 commands into .flywheel/gates.json, leaving each that exists
+                 as it is, and name each field the owner fills in
+    fails-on-base  fail each test the branch adds since its merge base with
+                 --base that passes on the merge base's code, unless
+                 .flywheel/passes-on-base.json gives the reason it does.
     assess       each of the method's levels, and each control it introduces
                  by principle id with the evidence the project holds for it,
                  the level the project holds, and each control whose state
@@ -121,8 +127,9 @@ disagree, the issue changed after approval, the roles file exists already,
 model or effort unset, a plan is refused or not filed
 as it says, a tracking issue is not an open approved plan or has open
 sub-issues, the reviewer's findings are refused, a pull request holds or is
-not open for review, a control at or below the recorded level is missing),
-2 could not run.
+not open for review, a control at or below the recorded level is missing,
+a new test passes on the base unexcused), 2 could not run (including a new
+test that fails at the branch).
 
 The copy. Each shell call in Claude Code starts without the last one's
 variables, and the plugin's own path is too long to repeat in every command,
@@ -145,7 +152,9 @@ init` names each one by its path in the file.
 The policies. .flywheel/review-policy.md and merge-policy.md are prose the
 owner reads and edits, each with its settings in the first ```json fence.
 `config init` copies them from the templates as they are, and names each
-setting the template leaves null, as it does for the roles file.
+setting the template leaves null, as it does for the roles file. It writes
+the gates file's "tests" the same way: filled in for pytest, which it knows
+by its config file, and otherwise null for the owner.
 
 The review. Agents and the owner all post under the owner's account, so the
 script tells a reviewer's post by its text. `review-post` opens the review's
@@ -183,9 +192,13 @@ each control:
 - core-gates: .flywheel/gates.json names `build`, `test` and `check`.
 - verify-gate: .flywheel/gates.json names `verify`, and a workflow under
   .github/workflows/ holds its command.
-- trace-checks, unweakened-checks, instruction-evals, scheduled-audit and
-  loop-measures: a workflow under .github/workflows/ cites each of the
-  control's ids, as a comment in the citation form `ids` reads.
+- trace-checks, instruction-evals, scheduled-audit and loop-measures: a
+  workflow under .github/workflows/ cites each of the control's ids, as a
+  comment in the citation form `ids` reads.
+- unweakened-checks: .flywheel/gates.json gives the test commands under
+  "tests", and its `verify` command, or a file in the project that the
+  command names, holds `fails-on-base`. A workflow also cites the control's
+  id, since the checks that agents cannot loosen have no run to read.
 - approval-guard: .claude/settings.json enables the flywheel plugin, whose
   hooks/hooks.json runs the guard, or runs issue_guard.py on PreToolUse with
   a matcher that names Bash.
@@ -202,7 +215,26 @@ level as new: one the method added, or moved to that level, since.
 The gates file. .flywheel/gates.json maps each gate the project has, such as
 `check` or `verify`, to the command that runs it, under "gates". The owner
 writes it. `brief` names those commands to the session it starts, and warns
-when the file is missing.
+when the file is missing. Under "tests", it gives the commands
+`fails-on-base` runs:
+
+- list, a command that prints one test id per line. The list ends at the
+  first blank line, which is where pytest's `--collect-only -q` ends it.
+- run, a command that runs one test, holding {id} where the test's id goes,
+  shell-quoted. Only its exit code is read: 0 is a pass.
+- paths, the files and directories that hold the tests and the runner's
+  config.
+
+The base tree. `fails-on-base` writes the merge base's tree into a temporary
+directory with `git archive`, and lists the tests there and at the branch.
+The ids the branch lists and the base does not are the new tests. Each runs
+alone at the branch first, since a `run` command that matches nothing exits
+nonzero for every test, and every test would then look as if it fails on the
+base. It then copies the branch's paths over the base tree, as git carries
+them, and runs each new test there. A run that errors fails, as a test that
+imports a name the base lacks does. A test that is renamed or moved has a new
+id, so it counts as new. .flywheel/passes-on-base.json maps, under "tests",
+each id excused to the reason it passes before the change.
 
 The lock. The claim on an approved issue is a branch named `issue/<N>` on
 origin. `claim` creates it with a push that the server refuses when the
@@ -416,7 +448,7 @@ Things that look like bugs and are not:
 
 `measure` writes nothing.
 `setup`, `config init`, `record`, `plan report` and `plan file` write only
-under .flywheel/, and `plan file` also files issues through gh. `review-post` and
+under .flywheel/, `fails-on-base` writes only under a temporary directory, and `plan file` also files issues through gh. `review-post` and
 `merge-check --merge` write only to GitHub, through gh. `claim`, `release`,
 `clear` and `sweep` write to git (a push, a branch switch, a branch deletion),
 so they are not for Cowork's device bridge, where a git write strands
@@ -428,14 +460,19 @@ Python 3.9 is the floor. No match statements, no X | Y unions.
 
 import argparse
 import calendar
+import configparser
 import fnmatch
 import hashlib
+import io
 import json
 import os
 import re
+import shlex
+import shutil
 import statistics
 import subprocess
 import sys
+import tarfile
 import tempfile
 import time
 
@@ -484,6 +521,42 @@ VERSION_KEY = "version"
 TIER_KEY = "tier"
 GATES_FILE = COPY_DIR + "/gates.json"
 GATES_KEY = "gates"
+TESTS_KEY = "tests"
+LIST_FIELD = "list"
+RUN_FIELD = "run"
+PATHS_FIELD = "paths"
+ID_PLACE = "{id}"
+EXCUSES_FILE = COPY_DIR + "/passes-on-base.json"
+EXCUSES_KEY = "tests"
+PASSED = "passed"
+FAILED = "failed"
+FAILS_ON_BASE = "fails-on-base"
+# What each field of the gates file's `tests` holds, for an error that names it.
+TEST_FIELD_HELP = {
+    TESTS_KEY + "." + LIST_FIELD: "a command that prints one test id per line",
+    TESTS_KEY + "." + RUN_FIELD: "a command that runs one test, holding %s where its id goes"
+    % ID_PLACE,
+    TESTS_KEY + "." + PATHS_FIELD: "a list of the files and directories that hold the tests"
+    " and the runner's config",
+}
+# How much of a command's output an error shows.
+OUTPUT_TAIL = 2000
+# The test commands `config init` writes for pytest, and the config files it
+# recognizes pytest by, in the order pytest itself looks for them.
+PYTEST_LIST = "python3 -m pytest --collect-only -q -p no:cacheprovider"
+PYTEST_RUN = "python3 -m pytest -q -p no:cacheprovider " + ID_PLACE
+PYTEST_INI = "pytest.ini"
+PYPROJECT = "pyproject.toml"
+SETUP_CFG = "setup.cfg"
+PYTEST_SECTION = "pytest"
+PYPROJECT_TABLE = "tool.pytest.ini_options"
+SETUP_CFG_SECTION = "tool:pytest"
+TESTPATHS = "testpaths"
+TOML_TABLE_RE = re.compile(r"^\[([^\]]+)\][ \t]*$", re.M)
+TOML_TESTPATHS_RE = re.compile(
+    r"^%s[ \t]*=[ \t]*(\[.*?\]|\"[^\"]*\"|'[^']*')" % TESTPATHS, re.M | re.S
+)
+TOML_STRING_RE = re.compile(r"\"([^\"]*)\"|'([^']*)'")
 REVIEW_POLICY = COPY_DIR + "/" + REVIEW_TEMPLATE
 MERGE_POLICY = COPY_DIR + "/" + MERGE_TEMPLATE
 # A policy's settings: the first fenced block whose info string is json.
@@ -832,16 +905,23 @@ def read_json(path):
         ) from exc
 
 
-def read_project_json(root, rel, key):
-    """The object under `key` in the project's file `rel`, or None when the
-    file is missing."""
+def project_json(root, rel):
+    """The project's file `rel` as JSON, or None when the file is missing."""
     path = os.path.join(root, *rel.split("/"))
     if not os.path.isfile(path):
         return None
     try:
-        found = json.loads(read_bytes(path).decode("utf-8"))
+        return json.loads(read_bytes(path).decode("utf-8"))
     except ValueError as exc:
         raise Fatal("%s is not valid JSON: %s. Fix it, then run again." % (rel, exc)) from exc
+
+
+def read_project_json(root, rel, key):
+    """The object under `key` in the project's file `rel`, or None when the
+    file is missing."""
+    found = project_json(root, rel)
+    if found is None:
+        return None
     inner = found.get(key) if isinstance(found, dict) else None
     if not isinstance(inner, dict):
         raise Fatal('%s does not hold a "%s" object. Fix it, then run again.' % (rel, key))
@@ -1050,25 +1130,110 @@ def policy_text(copied, shipped):
     return text, [key for key, value in settings.items() if value is None]
 
 
+def ini_testpaths(root, rel, section):
+    """Whether pytest reads its config from `rel`, and the testpaths it gives."""
+    parser = configparser.ConfigParser(interpolation=None)
+    try:
+        parser.read_string(read_bytes(os.path.join(root, rel)).decode("utf-8"), rel)
+    except configparser.Error as exc:
+        raise Fatal(
+            "%s cannot be read as an ini file: %s. Fix it, then run again." % (rel, exc)
+        ) from exc
+    if not parser.has_section(section):
+        # pytest takes a pytest.ini as its config even without the section.
+        return rel == PYTEST_INI, []
+    return True, parser.get(section, TESTPATHS, fallback="").split()
+
+
+def toml_testpaths(root, rel, table):
+    """Whether `rel` has pytest's table, and the testpaths it gives. As a
+    simplification, it reads only a string or a list of strings."""
+    text = read_bytes(os.path.join(root, rel)).decode("utf-8")
+    headers = list(TOML_TABLE_RE.finditer(text))
+    for i, header in enumerate(headers):
+        if header.group(1).strip() != table:
+            continue
+        end = headers[i + 1].start() if i + 1 < len(headers) else len(text)
+        found = TOML_TESTPATHS_RE.search(text, header.end(), end)
+        if not found:
+            return True, []
+        return True, [a or b for a, b in TOML_STRING_RE.findall(found.group(1))]
+    return False, []
+
+
+def pytest_config(root):
+    """The pytest config file the project has, and its testpaths, or None."""
+    readers = (
+        (PYTEST_INI, ini_testpaths, PYTEST_SECTION),
+        (PYPROJECT, toml_testpaths, PYPROJECT_TABLE),
+        (SETUP_CFG, ini_testpaths, SETUP_CFG_SECTION),
+    )
+    for rel, reader, section in readers:
+        if os.path.isfile(os.path.join(root, rel)):
+            found, paths = reader(root, rel, section)
+            if found:
+                return rel, paths
+    return None, []
+
+
+def gates_text(root):
+    """The gates file with the test commands added, the fields they leave for
+    the owner, and why it is left as it is when it gives them already."""
+    found = project_json(root, GATES_FILE)
+    if found is None:
+        found = {GATES_KEY: {}}
+    if not isinstance(found, dict):
+        raise Fatal("%s does not hold a JSON object. Fix it, then run again." % GATES_FILE)
+    if TESTS_KEY in found:
+        return (
+            None,
+            [],
+            (
+                '%s already gives "%s", so it was left as it is. Edit it to change the test'
+                " commands." % (GATES_FILE, TESTS_KEY)
+            ),
+        )
+    config, paths = pytest_config(root)
+    tests = {LIST_FIELD: None, RUN_FIELD: None, PATHS_FIELD: None}
+    if config:
+        tests[LIST_FIELD], tests[RUN_FIELD] = PYTEST_LIST, PYTEST_RUN
+        tests[PATHS_FIELD] = [*paths, config] if paths else None
+    found[TESTS_KEY] = tests
+    fields = ["%s.%s" % (TESTS_KEY, key) for key, value in tests.items() if value is None]
+    return json.dumps(found, indent=2) + "\n", fields, None
+
+
+def exists_refusal(root, rel):
+    if os.path.lexists(os.path.join(root, *rel.split("/"))):
+        return (
+            "%s already exists, so it was left as it is. Edit it to change it, or delete"
+            " it and run config init again to start from the template." % rel
+        )
+    return None
+
+
 def cmd_config_init(args):
-    """Write the roles file and the policies from the templates. Each file that
-    exists already is left as it is, and the rest are written."""
+    """Write the roles file and the policies from the templates, and the test
+    commands into the gates file. Each that exists already is left as it is,
+    and the rest are written."""
     root = project_root(args.repo)
     # Every template is read before anything is written, so a broken one
     # writes nothing.
     made = [
-        (ROLES_FILE, *roles_text()),
-        (REVIEW_POLICY, *policy_text(COPY_REVIEW, SHIPPED_REVIEW)),
-        (MERGE_POLICY, *policy_text(COPY_MERGE, SHIPPED_MERGE)),
+        (ROLES_FILE, *roles_text(), exists_refusal(root, ROLES_FILE)),
+        (
+            REVIEW_POLICY,
+            *policy_text(COPY_REVIEW, SHIPPED_REVIEW),
+            exists_refusal(root, REVIEW_POLICY),
+        ),
+        (MERGE_POLICY, *policy_text(COPY_MERGE, SHIPPED_MERGE), exists_refusal(root, MERGE_POLICY)),
+        (GATES_FILE, *gates_text(root)),
     ]
     files, errors = [], []
-    for rel, text, fields in made:
-        if os.path.lexists(os.path.join(root, *rel.split("/"))):
+    for rel, text, fields, refusal in made:
+        if refusal:
             files.append({"file": rel, "written": False, "owner_fields": []})
-            errors.append(
-                "%s already exists, so it was left as it is. Edit it to change it, or delete"
-                " it and run config init again to start from the template." % rel
-            )
+            errors.append(refusal)
             continue
         write_bytes(root, rel, text.encode("utf-8"))
         files.append({"file": rel, "written": True, "owner_fields": fields})
@@ -1085,6 +1250,168 @@ def cmd_config_init(args):
                 print("  %s: %s" % (rel, name))
 
     return emit(args, "config init", data, errors, human=human)
+
+
+# --------------------------------------------------------------------------
+# fails-on-base
+# --------------------------------------------------------------------------
+
+
+def project_tests(root):
+    """The `tests` object of the gates file, or {} when it gives none."""
+    found = project_json(root, GATES_FILE)
+    tests = found.get(TESTS_KEY) if isinstance(found, dict) else None
+    return tests if isinstance(tests, dict) else {}
+
+
+def missing_tests(tests):
+    """Each field of the gates file's `tests` that is unset, by its path in the file."""
+    missing = []
+    if not is_text(tests.get(LIST_FIELD)):
+        missing.append(LIST_FIELD)
+    run_command = tests.get(RUN_FIELD)
+    if not (is_text(run_command) and ID_PLACE in run_command):
+        missing.append(RUN_FIELD)
+    paths = tests.get(PATHS_FIELD)
+    if not (isinstance(paths, list) and paths and all(is_text(p) for p in paths)):
+        missing.append(PATHS_FIELD)
+    return ["%s.%s" % (TESTS_KEY, name) for name in missing]
+
+
+def shell(cwd, command):
+    """Run one of the project's own commands, as its shell would."""
+    return subprocess.run(command, shell=True, cwd=cwd, capture_output=True, text=True)
+
+
+def tail(proc):
+    return (proc.stdout + proc.stderr).strip()[-OUTPUT_TAIL:]
+
+
+def listed_tests(cwd, command, where):
+    """The ids `command` prints in `cwd`, up to its first blank line."""
+    proc = shell(cwd, command)
+    if proc.returncode != 0:
+        raise Fatal(
+            "`%s` exited %d at %s, so the tests there are unknown. Fix what it reports, then"
+            " run again:\n%s" % (command, proc.returncode, where, tail(proc))
+        )
+    ids = []
+    for line in proc.stdout.splitlines():
+        if not line.strip():
+            break
+        ids.append(line.strip())
+    return ids
+
+
+def test_passes(cwd, command, test_id):
+    return shell(cwd, command.replace(ID_PLACE, shlex.quote(test_id))).returncode == 0
+
+
+def merge_base(root, ref):
+    proc = git(root, "merge-base", ref, "HEAD", check=False)
+    if proc.returncode != 0:
+        raise Fatal(
+            "cannot find where HEAD left %s: %s. Pass --base the ref the branch merges into,"
+            " such as %s/%s." % (ref, proc.stderr.strip() or "no common commit", REMOTE, BASE)
+        )
+    return proc.stdout.strip()
+
+
+def extract(root, commit, dest):
+    """Write the tree at `commit` into `dest`, reading git and writing nothing to it."""
+    try:
+        proc = subprocess.run(
+            ["git", "archive", "--format=tar", commit], cwd=root, capture_output=True
+        )
+    except OSError as exc:  # pragma: no cover - merge_base ran git a moment before
+        raise Fatal("cannot run git: %s. Install it, then run again." % exc) from exc
+    if proc.returncode != 0:  # pragma: no cover - merge-base names a commit that exists
+        raise Fatal("`git archive %s` failed: %s" % (commit, proc.stderr.decode().strip()))
+    with tarfile.open(fileobj=io.BytesIO(proc.stdout)) as tar:
+        # The data filter is the default from Python 3.14, and older versions
+        # warn without it.
+        if hasattr(tarfile, "data_filter"):
+            tar.extractall(dest, filter="data")
+        else:  # pragma: no cover - only Python before 3.12 lacks the filter
+            tar.extractall(dest)
+
+
+def overlay(root, dest, paths):
+    """Replace each of `paths` in `dest` with the branch's, as git would carry it."""
+    paths = [p.rstrip("/") for p in paths]
+    for rel in paths:
+        target = os.path.join(dest, *rel.split("/"))
+        # A test file the branch deletes must not run on the base. A file
+        # path is replaced by the copy below.
+        if os.path.isdir(target) and not os.path.islink(target):
+            shutil.rmtree(target)
+    listed = git(root, "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", *paths)
+    for rel in listed.stdout.split("\0"):
+        source = os.path.join(root, *rel.split("/")) if rel else ""
+        if not os.path.isfile(source):
+            continue
+        target = os.path.join(dest, *rel.split("/"))
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        shutil.copyfile(source, target)
+
+
+def cmd_fails_on_base(args):
+    """Fail each test the branch adds that passes on the merge base's code. The
+    module docstring has how."""
+    root = project_root(args.repo)
+    tests = project_tests(root)
+    missing = missing_tests(tests)
+    if missing:
+        raise Fatal(
+            "%s does not give these: %s. Add them, then run again."
+            % (GATES_FILE, "; ".join("`%s`, %s" % (f, TEST_FIELD_HELP[f]) for f in missing))
+        )
+    excuses = read_project_json(root, EXCUSES_FILE, EXCUSES_KEY) or {}
+    base = merge_base(root, args.base)
+    with tempfile.TemporaryDirectory() as scratch:
+        extract(root, base, scratch)
+        branch_ids = listed_tests(root, tests[LIST_FIELD], "the branch")
+        before = set(listed_tests(scratch, tests[LIST_FIELD], "the merge base %s" % short(base)))
+        new = sorted(set(branch_ids) - before)
+        failing = [t for t in new if not test_passes(root, tests[RUN_FIELD], t)]
+        if failing:
+            raise Fatal(
+                "these new tests fail at the branch under `%s`, so a run on the base would show"
+                " nothing about them: %s. Make them pass, or fix the command, then run again."
+                % (tests[RUN_FIELD], ", ".join(failing))
+            )
+        if new:
+            overlay(root, scratch, tests[PATHS_FIELD])
+        outcomes = {t: PASSED if test_passes(scratch, tests[RUN_FIELD], t) else FAILED for t in new}
+
+    errors, warnings, excused = [], [], {}
+    for test_id in new:
+        if outcomes[test_id] != PASSED:
+            continue
+        if test_id not in excuses:
+            errors.append(
+                "%s passes against the code at the merge base with %s, so it would pass"
+                " without the change it tests. Make it fail there first. If it pins behavior"
+                " the change keeps, give its id and why in %s." % (test_id, args.base, EXCUSES_FILE)
+            )
+        elif not is_text(excuses[test_id]):
+            errors.append(
+                "%s is excused in %s without a reason. Say why it passes before the change."
+                % (test_id, EXCUSES_FILE)
+            )
+        else:
+            excused[test_id] = excuses[test_id]
+            warnings.append("%s passes on the base, excused: %s" % (test_id, excuses[test_id]))
+
+    def human():
+        if not errors:
+            print(
+                "%d new test(s) against the merge base %s, none passing there unexcused."
+                % (len(new), short(base))
+            )
+
+    data = {"base": base, "new": new, "outcomes": outcomes, "excused": excused}
+    return emit(args, FAILS_ON_BASE, data, errors, warnings, human)
 
 
 # --------------------------------------------------------------------------
@@ -1173,6 +1500,31 @@ def verify_evidence(root, ids):
     if not runs:
         return False, "no workflow under %s/ runs `%s`" % (WORKFLOWS_DIR, command)
     return True, "%s runs `%s`" % (runs[0], command)
+
+
+def unweakened_evidence(root, ids):
+    """Held when the `verify` gate runs fails-on-base, with the test commands it
+    reads, and a workflow cites the ids for the checks agents cannot loosen."""
+    missing = missing_tests(project_tests(root))
+    if missing:
+        return False, "%s does not give %s" % (GATES_FILE, ticked(missing))
+    command = project_gates(root).get(VERIFY_GATE)
+    if not is_text(command):
+        return False, "%s does not name `%s`" % (GATES_FILE, VERIFY_GATE)
+    if FAILS_ON_BASE in command:
+        where = "the `%s` gate" % VERIFY_GATE
+    else:
+        # A gate such as `python3 ci/gate.py verify` runs it from a file it names.
+        named = [w for w in command.split() if os.path.isfile(os.path.join(root, w))]
+        runs = [rel for rel, text in project_texts(root, named) if FAILS_ON_BASE in text]
+        if not runs:
+            return False, (
+                "the `%s` gate, `%s`, does not run `%s`, and neither does a file it names"
+                % (VERIFY_GATE, command, FAILS_ON_BASE)
+            )
+        where = "%s, which the `%s` gate runs," % (runs[0], VERIFY_GATE)
+    held, cited = ci_evidence(root, ids)
+    return held, "%s runs `%s`, and %s" % (where, FAILS_ON_BASE, cited)
 
 
 def guard_evidence(root, ids):
@@ -1291,7 +1643,7 @@ METHOD_LEVELS = (
                 "unweakened-checks",
                 "New tests must fail on the base; agents cannot loosen checks",
                 ("agents-never-weaken-checks",),
-                ci_evidence,
+                unweakened_evidence,
             ),
             (
                 "approval-guard",
@@ -4290,6 +4642,19 @@ def build_parser():
         % ROLES_FILE,
     )
     p.set_defaults(func=cmd_config_init)
+
+    p = sub.add_parser(
+        FAILS_ON_BASE,
+        parents=[common],
+        help="fail each test the branch adds that passes on the code before its change",
+    )
+    p.add_argument(
+        "--base",
+        default="%s/%s" % (REMOTE, BASE),
+        metavar="REF",
+        help="the ref the branch merges into (default: %s/%s)" % (REMOTE, BASE),
+    )
+    p.set_defaults(func=cmd_fails_on_base)
 
     p = sub.add_parser(
         "assess",

@@ -216,7 +216,7 @@ drift from CI's. Each gate runs the one before it:
 | `build` | nothing, since the repo ships its scripts as source | always |
 | `test` | the suite, without coverage | a change's tests pass |
 | `check` | ruff, `sh -n` and shellcheck, the suite under coverage, `claude plugin validate --strict` on the marketplace and every plugin, and every `check-*.py` command that reads only the clone | a unit of work is done |
-| `verify` | `check`, then `check-coverage.py diff` and `check-tests.py fails-on-base` against the base branch and, on a pull request, the checks that read it | a pull request is ready |
+| `verify` | `check`, then `check-coverage.py diff` and flywheel's `fails-on-base` against the base branch and, on a pull request, the checks that read it | a pull request is ready |
 
 From the venv:
 

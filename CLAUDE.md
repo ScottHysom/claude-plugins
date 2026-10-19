@@ -367,10 +367,10 @@ requirement is admitted.
   floor in the same pull request. README.md, under "Coverage", has the rest.
 - A new test is not finished until it has failed. Break the code it guards and
   confirm the test notices; the Properties section of the README says how, and
-  why a green first run proves little. `check-tests.py fails-on-base`, in
+  why a green first run proves little. flywheel's `fails-on-base`, in
   `verify`, fails a new test that passes on the base branch's code. A test
   that rightly passes there, such as one pinning behavior before a refactor,
-  says why with `@pytest.mark.passes_on_base("<reason>")`.
+  gets its id and the reason in `.flywheel/passes-on-base.json`.
 - A test is named for the behavior it checks, not the operation it performs:
   `it_<does x>` in a `Describe<Subject>` class, a sentence in the active voice
   with the unit under test as its subject, and never the word "should". A

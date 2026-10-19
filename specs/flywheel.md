@@ -481,6 +481,9 @@ Source: #651, the method's adoption.md, and the method's
     the method's `one-command-per-gate`.
   - `unweakened-checks`, new tests that must fail on the base and checks that
     agents cannot loosen, from the method's `agents-never-weaken-checks`.
+    It is held only when `.flywheel/gates.json` gives the test commands
+    under `tests`, the `verify` command or a file it names runs
+    `fails-on-base`, and a workflow cites the principle.
   - `approval-guard`, approval kept out of agent reach by a hook or a CI
     check, from the method's `checks-over-instructions` and
     `owner-admits-every-need`.
@@ -524,6 +527,42 @@ Source: #651, the method's adoption.md, and the method's
   file-issue, one control per issue, in the order of the method's tables.
 - `hook-ships-with-plugin` (test): When the plugin is installed, its
   `hooks/hooks.json` runs the approval guard on every Bash call.
+
+## need owner-checks-new-tests-fail: Check that each new test fails on the base
+
+When the owner adopts the method at level 2, they want the plugin to fail a
+pull request whose new test passes on the code before its change, in a
+project of any language, so the control is a check rather than a comment.
+
+Source: #682, and the method's `agents-never-weaken-checks`.
+
+- `failsonbase-cmd-fails-test-passing-on-base` (test): When a test that the
+  branch adds since its merge base with `--base` passes in the base tree,
+  `flywheel.py fails-on-base` fails and names it. The base tree is the merge
+  base's code with the branch's test paths copied over it. A test whose run
+  exits nonzero there does not pass.
+- `failsonbase-cmd-reads-gates-test-commands` (test): When `fails-on-base`
+  runs, it lists the tests at the branch and at the merge base with the
+  `list` command under `tests` in `.flywheel/gates.json`, runs each new test
+  alone with the `run` command, which holds `{id}` where the test's id goes,
+  and copies the `paths` from the branch over the base tree. It exits 2 and
+  names each of the three that is missing.
+- `failsonbase-cmd-refuses-failing-branch-run` (test): When a new test fails
+  at the branch, `fails-on-base` exits 2 and names the test and the `run`
+  command.
+- `failsonbase-cmd-excuses-listed-test` (test): When
+  `.flywheel/passes-on-base.json` maps a passing new test's id to a reason,
+  `fails-on-base` passes the test and warns with its id and the reason. An
+  empty reason fails.
+- `configinit-cmd-fills-pytest-test-commands` (test): When
+  `flywheel.py config init` runs in a project that configures pytest in
+  `pytest.ini`, in `pyproject.toml` under `[tool.pytest.ini_options]` or in
+  `setup.cfg` under `[tool:pytest]`, it writes the pytest `list` and `run`
+  commands under `tests` in `.flywheel/gates.json`, and `paths` from its
+  `testpaths` and the config file. For any other runner, or without
+  `testpaths`, it leaves each field it cannot fill unset, for the owner. It
+  leaves the file's other keys as they are, and leaves a `tests` object that
+  exists as it is, names the file and exits 1.
 
 ## need owner-measures-loop: Measure the loop before changing a role
 

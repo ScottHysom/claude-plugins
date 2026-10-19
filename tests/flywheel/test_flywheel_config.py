@@ -9,7 +9,8 @@ import flywheel
 ROLES = ".flywheel/roles.json"
 REVIEW = ".flywheel/review-policy.md"
 MERGE = ".flywheel/merge-policy.md"
-FILES = [ROLES, REVIEW, MERGE]
+GATES = ".flywheel/gates.json"
+FILES = [ROLES, REVIEW, MERGE, GATES]
 OWNER_FIELDS = [
     "roles.dispatcher.model",
     "roles.dispatcher.effort",
@@ -74,8 +75,8 @@ class DescribeTheRolesFile:
         project.run("setup")
         project.run("config", "init")
         assert project.git("status", "--porcelain", "--untracked-files=all") == (
-            b"?? .flywheel/merge-policy.md\n?? .flywheel/review-policy.md\n"
-            b"?? .flywheel/roles.json\n"
+            b"?? .flywheel/gates.json\n?? .flywheel/merge-policy.md\n"
+            b"?? .flywheel/review-policy.md\n?? .flywheel/roles.json\n"
         )
 
 
@@ -84,7 +85,7 @@ class DescribeThePolicies:
     def it_writes_both_policies_from_the_templates(self, project):
         code, env = project.run("config", "init")
         assert code == flywheel.OK
-        assert written(env) == {ROLES: True, REVIEW: True, MERGE: True}
+        assert written(env) == {ROLES: True, REVIEW: True, MERGE: True, GATES: True}
         assert project.read(REVIEW) == shipped("review-policy.md")
         assert project.read(MERGE) == shipped("merge-policy.md")
 
@@ -92,7 +93,7 @@ class DescribeThePolicies:
         project.write(ROLES, '{"mine": true}\n')
         code, env = project.run("config", "init")
         assert code == flywheel.PROBLEMS
-        assert written(env) == {ROLES: False, REVIEW: True, MERGE: True}
+        assert written(env) == {ROLES: False, REVIEW: True, MERGE: True, GATES: True}
         assert project.read(REVIEW) == shipped("review-policy.md")
         assert env["errors"] == [
             "%s already exists, so it was left as it is. Edit it to change it, or delete it and"
@@ -103,7 +104,7 @@ class DescribeThePolicies:
         project.write(MERGE, "mine\n")
         code, env = project.run("config", "init")
         assert code == flywheel.PROBLEMS
-        assert written(env) == {ROLES: True, REVIEW: True, MERGE: False}
+        assert written(env) == {ROLES: True, REVIEW: True, MERGE: False, GATES: True}
         assert project.read(MERGE) == b"mine\n"
 
     @pytest.mark.parametrize(
@@ -130,7 +131,7 @@ class DescribeAnExistingRolesFile:
 
     def it_says_how_to_start_again(self, project):
         for rel in FILES:
-            project.write(rel, "{}\n")
+            project.write(rel, '{"tests": {}}\n')
         code, out, err = project.human("config", "init")
         assert code == flywheel.PROBLEMS
         assert out == ""
@@ -160,6 +161,7 @@ class DescribeTheOwnersFields:
         _, out, _ = project.human("config", "init")
         named = ["%s: %s" % (ROLES, f) for f in OWNER_FIELDS]
         named += ["%s: rules" % REVIEW, "%s: areas" % MERGE]
+        named += ["%s: tests.%s" % (GATES, f) for f in ("list", "run", "paths")]
         assert out == "%s\nthe owner fills in each of these:\n%s" % (
             "".join("wrote %s\n" % rel for rel in FILES),
             "".join("  %s\n" % f for f in named),
@@ -170,9 +172,109 @@ class DescribeTheOwnersFields:
         template.write_text(json.dumps({"roles": {"implementer": {"tier": 3, "model": "m"}}}))
         for name in ("review-policy.md", "merge-policy.md"):
             (plugin_copy / "templates" / name).write_text('```json\n{"set": 1}\n```\n')
+        project.write("pytest.ini", "[pytest]\ntestpaths = tests\n")
         code, out, _ = project.human("config", "init")
         assert code == flywheel.OK
         assert out == "".join("wrote %s\n" % rel for rel in FILES)
+
+
+PYTEST_LIST = "python3 -m pytest --collect-only -q -p no:cacheprovider"
+PYTEST_RUN = "python3 -m pytest -q -p no:cacheprovider {id}"
+
+
+def tests_object(project):
+    return json.loads(project.read(GATES))["tests"]
+
+
+@pytest.mark.spec("configinit-cmd-fills-pytest-test-commands")
+class DescribeTheTestCommands:
+    @pytest.mark.parametrize(
+        ("rel", "text"),
+        [
+            ("pytest.ini", "[pytest]\ntestpaths = tests extra\n"),
+            ("setup.cfg", "[metadata]\nname = x\n\n[tool:pytest]\ntestpaths =\n  tests\n  extra\n"),
+            (
+                "pyproject.toml",
+                '[project]\nname = "x"\n\n[tool.pytest.ini_options]\n'
+                'testpaths = [\n  "tests",\n  "extra",\n]\n\n[tool.ruff]\nline-length = 99\n',
+            ),
+        ],
+    )
+    def it_fills_them_in_from_the_pytest_config(self, project, rel, text):
+        project.write(rel, text)
+        code, env = project.run("config", "init")
+        assert code == flywheel.OK
+        assert tests_object(project) == {
+            "list": PYTEST_LIST,
+            "run": PYTEST_RUN,
+            "paths": ["tests", "extra", rel],
+        }
+        assert fields(env, GATES) == []
+
+    def it_reads_testpaths_given_as_one_string_in_pyproject(self, project):
+        project.write("pyproject.toml", '[tool.pytest.ini_options]\ntestpaths = "tests"\n')
+        project.run("config", "init")
+        assert tests_object(project)["paths"] == ["tests", "pyproject.toml"]
+
+    def it_leaves_the_paths_to_the_owner_without_testpaths(self, project):
+        project.write("pytest.ini", "[pytest]\naddopts = -ra\n")
+        _, env = project.run("config", "init")
+        assert tests_object(project)["paths"] is None
+        assert tests_object(project)["run"] == PYTEST_RUN
+        assert fields(env, GATES) == ["tests.paths"]
+
+    def it_leaves_every_field_to_the_owner_for_another_runner(self, project):
+        project.write("pyproject.toml", "[tool.ruff]\nline-length = 99\n")
+        _, env = project.run("config", "init")
+        assert tests_object(project) == {"list": None, "run": None, "paths": None}
+        assert fields(env, GATES) == ["tests.list", "tests.run", "tests.paths"]
+
+    def it_keeps_the_gates_the_file_names(self, project):
+        project.write(GATES, '{"gates": {"check": "make check"}}\n')
+        project.write("pytest.ini", "[pytest]\ntestpaths = tests\n")
+        code, env = project.run("config", "init")
+        assert code == flywheel.OK
+        written_gates = json.loads(project.read(GATES))
+        assert written_gates["gates"] == {"check": "make check"}
+        assert written_gates["tests"]["paths"] == ["tests", "pytest.ini"]
+
+    def it_writes_an_empty_gates_object_into_a_new_file(self, project):
+        project.run("config", "init")
+        assert json.loads(project.read(GATES))["gates"] == {}
+
+    def it_refuses_to_overwrite_test_commands_that_exist(self, project):
+        project.write(GATES, '{"gates": {}, "tests": {"list": "mine"}}\n')
+        project.write("pytest.ini", "[pytest]\ntestpaths = tests\n")
+        code, env = project.run("config", "init")
+        assert code == flywheel.PROBLEMS
+        assert written(env)[GATES] is False
+        assert project.read(GATES) == b'{"gates": {}, "tests": {"list": "mine"}}\n'
+        assert '%s already gives "tests"' % GATES in env["errors"][0]
+
+    def it_stops_on_a_pytest_config_it_cannot_read(self, project):
+        project.write("pytest.ini", "testpaths = tests\n")
+        code, _ = project.run("config", "init")
+        assert code == flywheel.CANNOT_RUN
+        assert "pytest.ini cannot be read as an ini file" in project.err
+        assert not (project.root / GATES).exists()
+
+    def it_takes_a_pyproject_without_testpaths(self, project):
+        project.write("pyproject.toml", '[tool.pytest.ini_options]\naddopts = "-ra"\n')
+        _, env = project.run("config", "init")
+        assert tests_object(project)["list"] == PYTEST_LIST
+        assert fields(env, GATES) == ["tests.paths"]
+
+    def it_passes_over_a_setup_cfg_without_the_pytest_section(self, project):
+        project.write("setup.cfg", "[metadata]\nname = x\n")
+        _, env = project.run("config", "init")
+        assert fields(env, GATES) == ["tests.list", "tests.run", "tests.paths"]
+
+    def it_stops_on_a_gates_file_that_is_not_an_object(self, project):
+        project.write(GATES, "[]\n")
+        code, _ = project.run("config", "init")
+        assert code == flywheel.CANNOT_RUN
+        assert "%s does not hold a JSON object" % GATES in project.err
+        assert not (project.root / ROLES).exists()
 
 
 @pytest.mark.spec("repo:script-exits-2-when-unrunnable", "repo:script-names-remedy-on-stop")

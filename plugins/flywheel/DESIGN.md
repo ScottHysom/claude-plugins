@@ -170,6 +170,12 @@ judgment, so two runs on the same project agree. The kinds of evidence
   the citation is how the project says which step keeps the control.
 - The approval guard counts when the project's settings run it, directly or
   by enabling the plugin, since a hook that is not registered does not run.
+- The check that new tests fail on the base counts when the `verify` gate
+  runs `fails-on-base`, in its command or in a file the command names, and
+  the gates file gives the test commands it reads. The plugin ships that
+  check, so a citation alone would hold the control without running it. A
+  workflow must still cite the principle, for the checks that agents cannot
+  loosen.
 
 `templates/agent-rules.md` holds the rules adopt writes, by level, with a
 rule for every principle each level's controls name. A test fails when a
