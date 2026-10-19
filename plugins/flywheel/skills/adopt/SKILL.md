@@ -93,7 +93,7 @@ test commands, ask for the command that prints one test id per line, the
 command that runs one test with `{id}` where its id goes, and the files and
 directories that hold the tests. Write
 each answer into its file as the owner gave it. Leave a field the owner
-defers unset, and say so in step 6.
+defers unset, and say so in step 7.
 
 ## Step 4: write the rules for agents
 <!-- spec: adopt-writes-agent-rules -->
@@ -107,7 +107,7 @@ rule's `Source:` line, which is what `assess` reads.
 
 Leave every rule the project already has as it is. When one of the
 template's rules contradicts one of the project's, keep both, and name the
-pair to the owner in step 6.
+pair to the owner in step 7.
 
 ## Step 5: record the adoption
 <!-- spec: record-cmd-writes-version-and-controls -->
@@ -123,7 +123,33 @@ level and, under each level, each control's state. `data.gaps` lists each
 level up to the target that has a control missing, with the `controls`
 still missing and their evidence.
 
-## Step 6: file the gaps
+## Step 6: create the missing labels
+<!-- spec: adopt-creates-missing-labels, labels-cmd-names-missing-labels -->
+<!-- seam: judgment: the owner agrees to create the labels before the second command runs -->
+
+When `data.gaps` is empty, skip to the report in step 7.
+
+Otherwise name the labels the plan of gaps and the loop need that the
+repository lacks:
+
+```sh
+FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" labels --json
+```
+
+Exit 0 means the repository has every label, so go on to step 7. Exit 1
+means `data.missing` names each label it lacks. Show the owner those labels,
+and ask with one `AskUserQuestion` whether to create them. Once the owner
+agrees, create them:
+
+```sh
+FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" labels --create --json
+```
+
+`data.created` names each label it created. If the owner declines, file
+nothing, and say in the report that file-issue refuses a plan whose labels
+the repository lacks.
+
+## Step 7: file the gaps
 <!-- spec: adopt-files-gaps-as-plan -->
 <!-- no-command: hand-off to the file-issue skill -->
 

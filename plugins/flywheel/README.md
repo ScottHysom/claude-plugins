@@ -122,6 +122,16 @@ Settings, then Rules:
 2. Require a branch to be up to date with `main` before merging.
 3. Allow nobody to bypass the rule, administrators included.
 
+## Creating the loop's labels
+
+The loop sorts issues by label. Each issue Claude files carries one kind
+label (`bug`, `enhancement` or `docs`) and one area label (`repo`, or
+`plugin:` and a plugin's name). A tracking issue carries `tracking`, an
+approved issue `approved`, and a claimed issue `in-progress`. A repository
+GitHub has just created lacks most of these, and Claude refuses to file an
+issue whose labels the repository does not have. The adopt skill names the
+missing labels and creates them once you agree.
+
 ## Filing an issue or a plan
 
 An issue reaches the loop from any of these:

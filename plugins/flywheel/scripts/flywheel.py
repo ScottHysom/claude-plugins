@@ -14,6 +14,7 @@ Usage:
     python3 flywheel.py fails-on-base --base origin/main
     python3 flywheel.py assess
     python3 flywheel.py record --level 2
+    python3 flywheel.py labels --create
     python3 flywheel.py queue
     python3 flywheel.py queue --count 3
     python3 flywheel.py queue --tracking 347
@@ -59,6 +60,9 @@ Commands:
     record       write .flywheel/adoption.json: the plugin version, the
                  owner's target level from --level and, under each level,
                  each control's state.
+    labels       each label the loop and file-issue need that the repository
+                 lacks, such as `repo` and `tracking`. With --create, create
+                 each one.
     queue        up to --count of the oldest open approved issues nobody
                  holds and no open issue blocks, or an approved tracking
                  issue that comes first. With --tracking N, up to --count of
@@ -123,7 +127,8 @@ plan file take --dry-run.
 Exit codes: 0 clean, 1 ran and found problems (the issue is held or not
 approved, or still open, the branch holds work, a label and a branch
 disagree, the issue changed after approval, the roles file exists already,
-`claim --next` found nothing free to claim, the roles file leaves a role's
+`claim --next` found nothing free to claim, the repository lacks a label
+the loop needs and --create was not given, the roles file leaves a role's
 model or effort unset, a plan is refused or not filed
 as it says, a tracking issue is not an open approved plan or has open
 sub-issues, the reviewer's findings are refused, a pull request holds or is
@@ -744,6 +749,18 @@ HEADINGS = ("What's wrong", "Evidence", "Done when", "Requirements")
 HEADING_RE = re.compile(r"^##[ \t]+(.*?)[ \t]*$", re.M)
 KIND_LABELS = ("bug", "enhancement", "docs")
 AREA_LABEL_RE = re.compile(r"^(?:repo|plugin:.+)$")
+# `labels`: each label the loop and file-issue need, with its description.
+# `repo` is the area the controls adopt files carry.
+REPO_AREA = "repo"
+LOOP_LABELS = (
+    ("bug", "Something is broken"),
+    ("enhancement", "New behavior"),
+    ("docs", "Documentation only"),
+    (REPO_AREA, "The repository as a whole"),
+    (TRACKING, "Groups a plan's issues as sub-issues"),
+    (APPROVED, "The owner approved this issue to be worked"),
+    (IN_PROGRESS, "A session has claimed this issue"),
+)
 PLAN_KEYS = ("issues", "tracking")
 ISSUE_KEYS = ("key", "title", "labels", "body", "blocked_by")
 # An issue of the plan that is open on GitHub already, named by its number.
@@ -1897,6 +1914,40 @@ def cmd_record(args):
             print("  %s" % line)
 
     return emit(args, "record", data, human=human)
+
+
+# --------------------------------------------------------------------------
+# labels
+# --------------------------------------------------------------------------
+
+
+def cmd_labels(args):
+    """Name each label the loop and file-issue need that the repository lacks,
+    and create each one with --create."""
+    root = project_root(args.repo)
+    have = {name.lower() for name in repo_labels(root)}
+    missing = [(name, text) for name, text in LOOP_LABELS if name.lower() not in have]
+    created = []
+    if args.create:
+        for name, text in missing:
+            gh(root, "label", "create", name, "--description", text)
+            created.append(name)
+        missing = []
+    errors = []
+    if missing:
+        errors.append(
+            "the repository lacks %d label%s the loop needs; run labels --create to create them"
+            % (len(missing), "" if len(missing) == 1 else "s")
+        )
+    data = {"missing": [name for name, _ in missing], "created": created}
+
+    def human():
+        for name, text in missing:
+            print("missing: %s (%s)" % (name, text))
+        for name in created:
+            print("created: %s" % name)
+
+    return emit(args, "labels", data, errors=errors, human=human)
 
 
 # --------------------------------------------------------------------------
@@ -4677,6 +4728,14 @@ def build_parser():
         help="the level the owner set as the target, from 1 to %d" % TOP_LEVEL,
     )
     p.set_defaults(func=cmd_record)
+
+    p = sub.add_parser(
+        "labels",
+        parents=[common],
+        help="each label the loop and file-issue need that the repository lacks",
+    )
+    p.add_argument("--create", action="store_true", help="create each missing label")
+    p.set_defaults(func=cmd_labels)
 
     p = sub.add_parser(
         "queue", parents=[common], help="the oldest approved issues nobody holds, to work next"
