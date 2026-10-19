@@ -1,23 +1,33 @@
 # Flywheel
 
-Flywheel runs a repository's issue loop: it takes an approved GitHub issue to
-a merged pull request through Claude sessions that each play one role. A
-**role** is one part of the loop:
+Flywheel runs a repository's issue loop. The loop takes a GitHub issue from
+the moment it is filed, through your approval, to a merged pull request. You
+file issues by asking Claude, and Claude sessions file them too, as "Filing
+an issue or a plan" describes. You approve each issue before any session
+works it.
 
-- the **dispatcher** starts a session for each issue, and starts the next one
-  when a pull request merges.
+Claude sessions do the rest of the work, each in one role. A **role** is one
+part of the loop:
+
+- the **dispatcher** starts a session for each approved issue, and starts the
+  next one when a pull request merges.
 - an **implementer** works one issue and opens its pull request.
 - a **reviewer** reviews that pull request.
 
 **Claude Code only.** The loop runs in the Claude desktop app, in a git clone
 with a GitHub remote.
 
-This version installs the plugin's script, writes the file that says which
-model each role runs on and the review and merge policies, takes and frees
-the claim on an issue, files an issue or a plan of issues, ships the docs
-that define the method the loop follows, assesses which of the method's
-controls a project holds, guards the `approved` label, and carries the
-dispatcher's, the implementer's and the reviewer's skills.
+This version of the plugin:
+
+- installs the plugin's script.
+- ships the docs that define the method the loop follows.
+- assesses which of the method's controls a project holds.
+- writes the file that says which model each role runs on, and the review
+  and merge policies.
+- files an issue or a plan of issues.
+- guards the `approved` label.
+- takes and frees the claim on an issue.
+- carries the dispatcher's, the implementer's and the reviewer's skills.
 
 ## The method
 
@@ -31,6 +41,12 @@ The method's principles and stage rules each have an id, such as
 to the document in `docs/` that defines it. The docs carry the plugin's
 version, so a repo that records which flywheel version it adopted has
 recorded which version of the method it follows.
+
+## Setting it up in a project
+
+Ask Claude to set up flywheel in the project. Claude runs the plugin's
+`setup`, which copies the plugin's script into a `.flywheel/` folder in the
+project. Git ignores that copy, so it never reaches a commit.
 
 ## Adopting the method
 
@@ -57,21 +73,6 @@ the plugin's adopt skill:
 
 Commit what it wrote. When you ask again after updating the plugin, Claude
 shows only what changed since the record, such as a control the method added.
-
-## Keeping `approved` for the owner
-
-Agents post under your GitHub account, so GitHub cannot tell an agent adding
-the `approved` label from you adding it. The plugin's hook stops any command
-Claude Code runs that would add it. To approve an issue with Claude's help,
-run `! gh issue edit <N> --add-label approved`: the `!` runs it in your own
-shell, where the hook does not run. The hook reads the command's text, so it
-stops a mistake rather than a determined workaround.
-
-## Setting it up in a project
-
-Ask Claude to set up flywheel in the project. Claude runs the plugin's
-`setup`, which copies the plugin's script into a `.flywheel/` folder in the
-project. Git ignores that copy, so it never reaches a commit.
 
 ## Choosing each role's model
 
@@ -120,6 +121,43 @@ Settings, then Rules:
    merging.
 2. Require a branch to be up to date with `main` before merging.
 3. Allow nobody to bypass the rule, administrators included.
+
+## Filing an issue or a plan
+
+An issue reaches the loop from any of these:
+
+- you, when you ask Claude to file an issue, or a plan that splits into
+  several issues.
+- the adopt skill, which files each control your project is missing, all in
+  one plan.
+- an implementer, which files an idea its issue does not ask for as a new
+  issue, and goes on with its own issue.
+
+Claude files each one the same way. It drafts each issue, then publishes a
+report that shows every issue exactly as it will be filed. You read the
+report, and comment on it or approve it. Claude files nothing until you
+approve, and files exactly what the report showed.
+
+A plan of several issues also gets a **tracking issue**: an issue that lists
+the plan's issues in the order to work them, as its sub-issues. Each issue
+that waits on another is marked "blocked by" it on GitHub. When every issue
+in a plan is closed, ask Claude to close the plan, and Claude closes the
+tracking issue.
+
+The report and Claude's record of what it filed live in `.flywheel/plan/`,
+which git ignores.
+
+## Approving an issue
+
+A filed issue waits until you approve it by adding the `approved` label.
+Claude offers only approved issues for a session to work.
+
+Agents post under your GitHub account, so GitHub cannot tell an agent adding
+the `approved` label from you adding it. The plugin's hook stops any command
+Claude Code runs that would add it. To approve an issue with Claude's help,
+run `! gh issue edit <N> --add-label approved`: the `!` runs it in your own
+shell, where the hook does not run. The hook reads the command's text, so it
+stops a mistake rather than a determined workaround.
 
 ## Claiming an issue
 
@@ -229,30 +267,6 @@ The app starts a session at or below the model and effort of the session
 that starts it. So run the dispatcher on a model and effort at least as
 strong as the implementer's and the reviewer's.
 
-## Filing an issue or a plan
-
-Ask Claude to file an issue, or to file a plan that splits into several
-issues. Claude drafts each issue, then publishes a report that shows every
-issue exactly as it will be filed. You read the report, and comment on it or
-approve it. Claude files nothing until you approve, and files exactly what
-the report showed.
-
-A plan of several issues also gets a **tracking issue**: an issue that lists
-the plan's issues in the order to work them, as its sub-issues. Each issue
-that waits on another is marked "blocked by" it on GitHub. When every issue
-in a plan is closed, ask Claude to close the plan, and Claude closes the
-tracking issue.
-
-The report and Claude's record of what it filed live in `.flywheel/plan/`,
-which git ignores.
-
-## Clearing the label when an issue closes
-
-The plugin's `templates/issue-closed.yml` is a GitHub Actions workflow that
-takes the `in-progress` label off an issue when it closes. Copy it into your
-project's `.github/workflows/` to keep the label meaning that someone is
-working on the issue.
-
 ## Measuring the loop
 
 Ask Claude to measure the loop since a date, such as "measure the loop since
@@ -278,3 +292,10 @@ runs `stale` and `measure` every Monday and records the results in one open
 issue titled "Loop report", which it updates each week. Copy it into your
 project's `.github/workflows/`. GitHub does not have your session records,
 so that report leaves spend out.
+
+## Clearing the label when an issue closes
+
+The plugin's `templates/issue-closed.yml` is a GitHub Actions workflow that
+takes the `in-progress` label off an issue when it closes. Copy it into your
+project's `.github/workflows/` to keep the label meaning that someone is
+working on the issue.
