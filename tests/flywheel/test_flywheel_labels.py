@@ -101,6 +101,14 @@ class DescribeLabels:
         assert "--create" in err
 
     @pytest.mark.spec("labels-cmd-names-missing-labels")
+    def it_prints_each_label_it_creates_without_json(self, project, fake):
+        hub = fake()
+        code, out, err = project.human("labels", "--create")
+        assert code == flywheel.OK
+        assert out.splitlines() == ["created: %s" % name for name in hub.created]
+        assert err == ""
+
+    @pytest.mark.spec("labels-cmd-names-missing-labels")
     def it_lets_a_plan_of_gaps_pass_report_once_it_creates_them(
         self, project, fake, tmp_path, monkeypatch
     ):
