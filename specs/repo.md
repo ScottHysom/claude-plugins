@@ -877,3 +877,16 @@ artifact", and the probe recorded in #334.
   report's artifact to Claude, the file-issue skill revises the plan, runs
   `plan report` again, publishes the new report at the same address, and
   answers in the comment's thread.
+
+## need owner-measures-loop: Measure the loop before changing a role
+
+When the owner considers a change to a role's model or effort, they want the
+loop's cost, first-pass CI rate, review findings and lead time over a period,
+so the change is a trial against a baseline and not a guess.
+
+Source: #652. specs/flywheel.md holds the requirements the flywheel plugin
+meets under this need.
+
+- `ci-runs-stale-and-measure-weekly` (check): When the scheduled
+  workflow runs, it runs `stale` and `measure` and records the result in one
+  issue.

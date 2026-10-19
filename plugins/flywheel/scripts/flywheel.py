@@ -28,6 +28,7 @@ Usage:
     python3 flywheel.py merge-check 71 --merge
     python3 flywheel.py release 12
     python3 flywheel.py stale
+    python3 flywheel.py measure --since 2026-10-01
     python3 flywheel.py clear 12
     python3 flywheel.py sweep --dry-run
     python3 flywheel.py plan draft
@@ -86,6 +87,11 @@ Commands:
     stale        labels, branches and issue states that disagree, including a
                  closed issue that still has the label and a held issue that
                  lacks it.
+    measure      for each pull request merged on or after --since, and as a
+                 summary: its spend in tokens, whether CI was green on its
+                 first run, the reviewer's findings by level, and its lead
+                 time from approval to merge, with why any of them could not
+                 be computed.
     clear N      once issue N is closed, delete the local issue/N if a merged
                  pull request or main has everything on it, first moving any
                  worktree on it to a detached origin/main.
@@ -209,6 +215,35 @@ closes. `clear` then deletes the local claim branch that the merge left
 behind. `sweep` deletes every local branch whose work is on main, whatever its
 name.
 
+The measures. `measure` reads only records the work already leaves, and
+each measure informs a decision, as the method's metrics.md asks. A measure
+that informs none is dropped. The owner reads them against a baseline when
+changing a role's model or effort, so the change is a trial:
+
+- spend, the tokens of every Claude Code session whose record names the pull
+  request's head branch, from the usage records under
+  $CLAUDE_CONFIG_DIR/projects (~/.claude/projects by default). It informs
+  whether a role's model or effort costs what it returns. A session counts
+  when it ran in the main checkout or under it, as a worktree the desktop app
+  makes does. As a simplification, a session's work before it switched to the
+  branch, and a reviewer's session on another branch, are left out. The
+  records are on the machine that ran the sessions, so a run in CI names
+  spend as not computed.
+- first-pass CI, whether the checks passed on the first commit of the pull
+  request that CI ran on. It informs whether a cheaper model or a lower
+  effort still lands work that passes. As a simplification, a check re-run on
+  that commit counts with its latest result.
+- the reviewer's findings by level, from the review threads whose first
+  comment FINDING_RE reads. They inform whether the work's quality holds
+  under the change.
+- lead time, the hours from the earliest approval of the issues the pull
+  request closes to its merge, each issue's approval being the last time
+  `approved` was added before the merge. It informs estimating, and whether a
+  change slows the loop. A re-approval after an edit restarts it.
+
+Control bands and their triggers wait for the history the method says they
+need.
+
 The brief. `brief` reads the issue through GitHub's GraphQL API, since only
 that reports when the body was last edited and when each label was added. The
 issue as approved is its body as it stands, and `brief` refuses one edited
@@ -319,6 +354,11 @@ Things that look like bugs and are not:
 - `clear` deletes only the local branch and removes no worktree. GitHub
   deletes the remote branch when the pull request merges, and the desktop app
   manages worktrees.
+- `measure` exits 0 when it could not compute a measure. It names each one
+  and why, since a missing measure is not a problem with the loop.
+- `measure` reads the first 100 commits and review threads of a pull
+  request, the first 10 issues it closes and the last 100 label events of
+  each, as a simplification.
 - `events` exits 0 whatever state the pull requests are in. A failing check
   is for the implementer's session to fix, not a problem with the look.
 - `events` without --since names no merge. The first look has nothing to
@@ -374,6 +414,7 @@ Things that look like bugs and are not:
   `plan file` cannot record the number and stops. A re-run would file that
   issue again, so check the repository before running it again.
 
+`measure` writes nothing.
 `setup`, `config init`, `record`, `plan report` and `plan file` write only
 under .flywheel/, and `plan file` also files issues through gh. `review-post` and
 `merge-check --merge` write only to GitHub, through gh. `claim`, `release`,
@@ -386,11 +427,13 @@ Python 3.9 is the floor. No match statements, no X | Y unions.
 """
 
 import argparse
+import calendar
 import fnmatch
 import hashlib
 import json
 import os
 import re
+import statistics
 import subprocess
 import sys
 import tempfile
@@ -500,6 +543,43 @@ PASSING_CONCLUSIONS = ("SUCCESS", "NEUTRAL", "SKIPPED")
 PENDING_STATES = ("PENDING", "EXPECTED")
 COMPLETED = "COMPLETED"
 TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
+DATE_FORMAT = "%Y-%m-%d"
+# `measure`. A commit's checks sum up to one of these states.
+ROLLUP_GREEN = "SUCCESS"
+ROLLUP_RED = ("FAILURE", "ERROR")
+MEASURE_QUERY = """\
+query($owner: String!, $name: String!, $number: Int!) {
+  repository(owner: $owner, name: $name) {
+    pullRequest(number: $number) {
+      commits(first: 100) { nodes { commit { statusCheckRollup { state } } } }
+      reviewThreads(first: 100) { nodes { comments(first: 1) { nodes { body } } } }
+      closingIssuesReferences(first: 10) {
+        nodes {
+          number
+          timelineItems(itemTypes: LABELED_EVENT, last: 100) {
+            nodes { ... on LabeledEvent { createdAt label { name } } }
+          }
+        }
+      }
+    }
+  }
+}
+"""
+# Claude Code keeps each session's records under <config>/projects/<slug>/,
+# where the slug is the session's directory with every other character a dash.
+CONFIG_DIR_ENV = "CLAUDE_CONFIG_DIR"
+DEFAULT_CONFIG_DIR = "~/.claude"
+USAGE_DIR = "projects"
+USAGE_SUFFIX = ".jsonl"
+USAGE_SLUG_RE = re.compile(r"[^A-Za-z0-9]")
+USAGE_KEYS = (
+    "input_tokens",
+    "output_tokens",
+    "cache_creation_input_tokens",
+    "cache_read_input_tokens",
+)
+USAGE_NAMES = ("input", "output", "cache write", "cache read")
+TOTAL_KEY = "total"
 BLOCKED_BY_PATH = "repos/{owner}/{repo}/issues/%d/dependencies/blocked_by"
 # GitHub caps a parent at 100 sub-issues, so one page holds them all.
 SUB_ISSUES_PATH = "repos/{owner}/{repo}/issues/%d/sub_issues?per_page=100"
@@ -2091,6 +2171,315 @@ def cmd_events(args):
         print("Next look: %s events --since %s" % (PROG, as_of))
 
     return emit(args, "events", data, human=human)
+
+
+# --------------------------------------------------------------------------
+# measure
+# --------------------------------------------------------------------------
+
+
+def day(text):
+    """argparse type: a date such as 2026-10-15."""
+    try:
+        time.strptime(text, DATE_FORMAT)
+    except ValueError:
+        raise argparse.ArgumentTypeError("%r is not a date such as 2026-10-15" % text) from None
+    return text
+
+
+def epoch(stamp):
+    return calendar.timegm(time.strptime(stamp, TIME_FORMAT))
+
+
+def usage_slug(path):
+    """The name Claude Code gives the folder of records for sessions run in path."""
+    return USAGE_SLUG_RE.sub("-", path)
+
+
+def usage_dir():
+    config = os.environ.get(CONFIG_DIR_ENV) or DEFAULT_CONFIG_DIR
+    return os.path.join(os.path.expanduser(config), USAGE_DIR)
+
+
+def under(top, path):
+    real = os.path.realpath(path)
+    return real == top or real.startswith(top + os.sep)
+
+
+def usage_by_branch(root):
+    """{branch: {usage key: tokens}} over the records of sessions run in this repo.
+
+    None when the folder of records is missing. A session counts when it ran
+    in the main checkout or under it, as a worktree the desktop app makes
+    does. A message is written once per content block with the same usage,
+    so each message id counts once.
+    """
+    where = usage_dir()
+    if not os.path.isdir(where):
+        return None
+    main = os.path.dirname(
+        git(root, "rev-parse", "--path-format=absolute", "--git-common-dir").stdout.strip()
+    )
+    top = os.path.realpath(main)
+    prefixes = tuple({usage_slug(main), usage_slug(top)})
+    seen, spent = set(), {}
+    for name in sorted(os.listdir(where)):
+        if not name.startswith(prefixes):
+            continue
+        for folder, _, files in sorted(os.walk(os.path.join(where, name))):
+            for file in sorted(f for f in files if f.endswith(USAGE_SUFFIX)):
+                with open(os.path.join(folder, file), encoding="utf-8", errors="replace") as f:
+                    for line in f:
+                        if '"usage"' not in line:
+                            continue
+                        try:
+                            entry = json.loads(line)
+                        except ValueError:
+                            continue
+                        entry = entry if isinstance(entry, dict) else {}
+                        message = entry.get("message")
+                        usage = message.get("usage") if isinstance(message, dict) else None
+                        if (
+                            entry.get("type") != "assistant"
+                            or not isinstance(usage, dict)
+                            or not isinstance(entry.get("cwd"), str)
+                            or not under(top, entry["cwd"])
+                            or message.get("id") in seen
+                        ):
+                            continue
+                        seen.add(message.get("id"))
+                        totals = spent.setdefault(
+                            entry.get("gitBranch"), dict.fromkeys(USAGE_KEYS, 0)
+                        )
+                        for key in USAGE_KEYS:
+                            totals[key] += int(usage.get(key) or 0)
+    return spent
+
+
+def first_pass(number, commits):
+    """Whether CI passed on the first commit it ran on, and why it is unknown if it is."""
+    rollups = [(c.get("commit") or {}).get("statusCheckRollup") for c in commits]
+    first = next((r for r in rollups if r), None)
+    if first is None:
+        return None, "CI did not run on any of #%d's commits" % number
+    state = first.get("state")
+    if state == ROLLUP_GREEN:
+        return True, None
+    if state in ROLLUP_RED:
+        return False, None
+    return None, (
+        "CI's first run on #%d ended %s, which is neither a pass nor a failure" % (number, state)
+    )
+
+
+def finding_counts(threads):
+    """How many of the review threads open with a reviewer's finding, by level."""
+    counts = dict.fromkeys(LEVELS, 0)
+    for thread in threads:
+        comments = thread["comments"]["nodes"]
+        m = FINDING_RE.match(comments[0].get("body") or "") if comments else None
+        if m:
+            counts[m.group(1)] += 1
+    return counts
+
+
+def lead_time(number, merged_at, issues):
+    """Hours from the approval of the issues the pull request closes to its merge.
+
+    Each issue's approval is the last time `approved` was added before the
+    merge, and the lead time runs from the earliest of those.
+    """
+    if not issues:
+        return None, "#%d does not close an issue, so the approval it started from is unknown" % (
+            number
+        )
+    approvals, unapproved = [], []
+    for item in issues:
+        times = [
+            e["createdAt"]
+            for e in item["timelineItems"]["nodes"]
+            if e
+            and ((e.get("label") or {}).get("name") or "").lower() == APPROVED
+            and e["createdAt"] <= merged_at
+        ]
+        if times:
+            approvals.append(max(times))
+        else:
+            unapproved.append("#%d" % item["number"])
+    if not approvals:
+        return None, "%s %s not labeled %s before #%d merged" % (
+            " and ".join(unapproved),
+            "was" if len(unapproved) == 1 else "were",
+            APPROVED,
+            number,
+        )
+    return round((epoch(merged_at) - epoch(min(approvals))) / 3600.0, 1), None
+
+
+def measured_pull(root, pull, spent):
+    n = pull["number"]
+    found = gh_json(
+        root,
+        "api",
+        "graphql",
+        "-F",
+        "owner={owner}",
+        "-F",
+        "name={repo}",
+        "-F",
+        "number=%d" % n,
+        "-f",
+        "query=" + MEASURE_QUERY,
+    )
+    detail = found["data"]["repository"]["pullRequest"]
+    issues = detail["closingIssuesReferences"]["nodes"]
+    missing = {}
+    spend = (spent or {}).get(pull["headRefName"])
+    if spend is None and spent is None:
+        missing["spend"] = (
+            "No usage records are at %s. Run measure on the machine that ran the sessions, or"
+            " set %s to the folder Claude Code keeps them in" % (usage_dir(), CONFIG_DIR_ENV)
+        )
+    elif spend is None:
+        missing["spend"] = "No usage record under %s names branch %s" % (
+            usage_dir(),
+            pull["headRefName"],
+        )
+    else:
+        spend = dict(spend, **{TOTAL_KEY: sum(spend.values())})
+    green, why = first_pass(n, detail["commits"]["nodes"])
+    if why:
+        missing["first_pass_ci"] = why
+    hours, why = lead_time(n, pull["mergedAt"], issues)
+    if why:
+        missing["lead_time_hours"] = why
+    return {
+        "number": n,
+        "title": pull["title"],
+        "url": pull["url"],
+        "branch": pull["headRefName"],
+        "merged_at": pull["mergedAt"],
+        "issues": [i["number"] for i in issues],
+        "spend": spend,
+        "first_pass_ci": green,
+        "findings": finding_counts(detail["reviewThreads"]["nodes"]),
+        "lead_time_hours": hours,
+        "missing": missing,
+    }
+
+
+def measure_summary(pulls):
+    spent = [p["spend"] for p in pulls if p["spend"]]
+    known = [p["first_pass_ci"] for p in pulls if p["first_pass_ci"] is not None]
+    leads = sorted(p["lead_time_hours"] for p in pulls if p["lead_time_hours"] is not None)
+    green = sum(1 for k in known if k)
+    return {
+        "pulls": len(pulls),
+        "spend": (
+            dict({k: sum(s[k] for s in spent) for k in (*USAGE_KEYS, TOTAL_KEY)}, pulls=len(spent))
+            if spent
+            else None
+        ),
+        "first_pass_ci": {
+            "pulls": len(known),
+            "green": green,
+            "rate": round(float(green) / len(known), 2) if known else None,
+        },
+        "findings": {level: sum(p["findings"][level] for p in pulls) for level in LEVELS},
+        "lead_time_hours": (
+            {
+                "pulls": len(leads),
+                "median": round(statistics.median(leads), 1),
+                "min": leads[0],
+                "max": leads[-1],
+            }
+            if leads
+            else None
+        ),
+    }
+
+
+def tokens(count):
+    return f"{count:,}"
+
+
+def findings_text(counts):
+    return ", ".join("%s %d" % (level, counts[level]) for level in LEVELS)
+
+
+def cmd_measure(args):
+    """The loop's starting measures over the pull requests merged since --since."""
+    root = project_root(args.repo)
+    merged = gh_json(
+        root,
+        "pr",
+        "list",
+        "--state",
+        "merged",
+        "--limit",
+        str(LIST_LIMIT),
+        "--json",
+        MERGED_PULL_FIELDS,
+    )
+    start = args.since + "T00:00:00Z"
+    spent = usage_by_branch(root)
+    pulls = [
+        measured_pull(root, pull, spent)
+        for pull in sorted(merged, key=lambda p: (p["mergedAt"], p["number"]))
+        if pull["mergedAt"] >= start
+    ]
+    summary = measure_summary(pulls)
+    data = {"since": args.since, "pulls": pulls, "summary": summary}
+
+    def human():
+        print("Since %s: %d merged pull requests." % (args.since, len(pulls)))
+        for p in pulls:
+            gone = p["missing"]
+            print("#%d %s, merged %s" % (p["number"], p["branch"], p["merged_at"]))
+            if p["spend"]:
+                s = p["spend"]
+                print(
+                    "  spend: %s tokens (%s)"
+                    % (
+                        tokens(s[TOTAL_KEY]),
+                        ", ".join(
+                            "%s %s" % (name, tokens(s[key]))
+                            for name, key in zip(USAGE_NAMES, USAGE_KEYS)
+                        ),
+                    )
+                )
+            else:
+                print("  spend: not computed. %s" % gone["spend"])
+            if p["first_pass_ci"] is None:
+                print("  first-pass CI: not computed. %s" % gone["first_pass_ci"])
+            else:
+                print("  first-pass CI: %s" % ("green" if p["first_pass_ci"] else "not green"))
+            print("  findings: %s" % findings_text(p["findings"]))
+            if p["lead_time_hours"] is None:
+                print("  lead time: not computed. %s" % gone["lead_time_hours"])
+            else:
+                print("  lead time: %.1f hours" % p["lead_time_hours"])
+        print("Summary:")
+        spend, ci, lead = summary["spend"], summary["first_pass_ci"], summary["lead_time_hours"]
+        if spend:
+            print(
+                "  spend: %s tokens over %d of %d pull requests"
+                % (tokens(spend[TOTAL_KEY]), spend["pulls"], len(pulls))
+            )
+        else:
+            print("  spend: not computed for any pull request")
+        rate = " (%d%%)" % round(ci["rate"] * 100) if ci["rate"] is not None else ""
+        print("  first-pass CI: %d of %d green%s" % (ci["green"], ci["pulls"], rate))
+        print("  findings: %s" % findings_text(summary["findings"]))
+        if lead:
+            print(
+                "  lead time: median %.1f hours, from %.1f to %.1f, over %d of %d pull requests"
+                % (lead["median"], lead["min"], lead["max"], lead["pulls"], len(pulls))
+            )
+        else:
+            print("  lead time: not computed for any pull request")
+
+    return emit(args, "measure", data, human=human)
 
 
 # --------------------------------------------------------------------------
@@ -4023,6 +4412,21 @@ def build_parser():
 
     p = sub.add_parser("stale", parents=[common], help="labels and branches that disagree")
     p.set_defaults(func=cmd_stale)
+
+    p = sub.add_parser(
+        "measure",
+        parents=[common],
+        help="spend, first-pass CI, findings and lead time for each pull request merged since"
+        " --since, and a summary",
+    )
+    p.add_argument(
+        "--since",
+        type=day,
+        required=True,
+        metavar="DATE",
+        help="measure each pull request merged on or after DATE, such as 2026-10-01",
+    )
+    p.set_defaults(func=cmd_measure)
 
     p = sub.add_parser(
         "clear", parents=[common, numbered, preview], help="delete a merged claim's local branch"
