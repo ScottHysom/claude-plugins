@@ -1,0 +1,7 @@
+{
+  "gates": {
+    "build": "python3 .github/scripts/gate.py build",
+    "test": "python3 .github/scripts/gate.py test",
+    "check": "python3 .github/scripts/gate.py check"
+  }
+}
