@@ -288,9 +288,11 @@ informs no decision is dropped. `measure` says which measure it could not
 compute for a pull request, and why.
 
 The plugin's `templates/loop-report.yml` is a GitHub Actions workflow that
-runs `stale` and `measure` every Monday and records the results in one open
-issue titled "Loop report", which it updates each week. Copy it into your
-project's `.github/workflows/`. GitHub does not have your session records,
+runs `stale` and `measure` on a schedule and records the results in one open
+issue titled "Loop report", which it updates on each run. Each run measures
+the pull requests merged since the last run. Copy it into your project's
+`.github/workflows/`, and set its `cron` line to the schedule you want. It
+runs on Mondays until you do. GitHub does not have your session records,
 so that report leaves spend out.
 
 ## Clearing the label when an issue closes
