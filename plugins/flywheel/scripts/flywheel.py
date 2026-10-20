@@ -18,6 +18,7 @@ Usage:
     python3 flywheel.py queue
     python3 flywheel.py queue --count 3
     python3 flywheel.py queue --tracking 347
+    python3 flywheel.py queue 12 14
     python3 flywheel.py claim 12
     python3 flywheel.py claim --next
     python3 flywheel.py claim --next --tracking 347
@@ -69,8 +70,10 @@ Commands:
                  holds and no open issue blocks, or an approved tracking
                  issue that comes first. With --tracking N, up to --count of
                  tracking issue N's sub-issues in its order instead, or that
-                 N's plan is finished when every sub-issue is closed. Changes
-                 nothing.
+                 N's plan is finished when every sub-issue is closed. With
+                 issue numbers, as in `queue 12 14`, each one named that can
+                 start, a tracking issue named on its own, and the reason
+                 each other one cannot start. Changes nothing.
     claim N      take issue N: push issue/N, switch to it, label and comment.
     claim --next take the issue `queue` would offer, or with --tracking N
                  the one `queue --tracking N` would. When another agent
@@ -132,7 +135,8 @@ plan file take --dry-run.
 Exit codes: 0 clean, 1 ran and found problems (the issue is held or not
 approved, or still open, the branch holds work, a label and a branch
 disagree, the issue changed after approval, the roles file exists already,
-`claim --next` found nothing free to claim, the repository lacks a label
+`claim --next` found nothing free to claim, an issue named to `queue`
+cannot start, the repository lacks a label
 the loop needs and --create was not given, the roles file leaves a role's
 model or effort unset, a plan is refused or not filed
 as it says, a tracking issue is not an open approved plan or has open
@@ -369,6 +373,9 @@ Things that look like bugs and are not:
   to a later approved one, since skipping would work the plan out of its
   order. It exits 1 when that sub-issue is the first it would offer, and
   otherwise offers the ones before it and warns.
+- `queue 12 14` offers a sub-issue of an approved plan, which plain `queue`
+  never does, since the owner named it. It ignores --count, since the round
+  is the issues named.
 - `claim --next` exits 1 when it claims nothing, though `queue` exits 0 on
   the same queue. The agent asked for an issue and has none to work. `claim N`
   stops on a held issue rather than moving on, since the owner named it.
@@ -2008,6 +2015,8 @@ def cmd_queue(args):
     root = project_root(args.repo)
     if args.tracking is not None:
         return queue_in_plan(args, root, args.tracking)
+    if args.numbers:
+        return queue_named(args, root, args.numbers)
     offer = free_issues(root, args.count)
     found, blocked, plan = offer["found"], offer["blocked"], offer["plan"]
 
@@ -2108,6 +2117,47 @@ def queue_in_plan(args, root, number):
             print("No %ssub-issue of #%d is free." % (other, number))
 
     return emit(args, "queue", data, warnings=offer["warnings"], human=human)
+
+
+def queue_named(args, root, numbers):
+    """`queue N...`: each issue the owner named that can start, and why each other cannot."""
+    numbers = list(dict.fromkeys(numbers))
+    items = [issue(root, n) for n in numbers]
+    plans = [item for item in items if TRACKING in labels(item)]
+    if len(items) == 1 and plans:
+        plan = summary(plans[0])
+
+        def human_plan():
+            print("#%d %s is a tracking issue." % (plan["number"], plan["title"]))
+            print("To run its plan, run: %s queue --tracking %d" % (PROG, plan["number"]))
+
+        return emit(args, "queue", queue_data([], [], plan), human=human_plan)
+
+    held = claims(root)
+    found, blocked, errors = [], [], []
+    for item in items:
+        n = item["number"]
+        reasons = []
+        if TRACKING in labels(item):
+            reasons.append("it is a tracking issue; to run its plan, name it on its own")
+        elif not is_open(item):
+            reasons.append("it is closed")
+        else:
+            if APPROVED not in labels(item):
+                reasons.append("it is not labeled %s; ask the owner to approve it" % APPROVED)
+            if n in held:
+                reasons.append("another session holds its claim on %s" % branch(n))
+            open_blockers = blockers(root, n)
+            if open_blockers:
+                blocked.append(dict(summary(item), blocked_by=open_blockers))
+                reasons.append("it is blocked by %s" % ", ".join("#%d" % b for b in open_blockers))
+        if reasons:
+            errors.append("#%d %s cannot start: %s" % (n, item["title"], "; ".join(reasons)))
+        else:
+            found.append(summary(item))
+    return emit(
+        args, "queue", queue_data(found, blocked, None), errors, human=lambda: print_issues(found)
+    )
 
 
 def plan_issues(root, number, count):
@@ -4780,7 +4830,16 @@ def build_parser():
     p.add_argument(
         "--count", type=positive, default=1, metavar="N", help="offer up to N issues (default: 1)"
     )
-    p.add_argument(
+    which = p.add_mutually_exclusive_group()
+    which.add_argument(
+        "numbers",
+        type=int,
+        nargs="*",
+        default=[],
+        metavar="N",
+        help="check only the issues named, for a round of those issues",
+    )
+    which.add_argument(
         "--tracking", type=int, metavar="N", help="take the next sub-issues of tracking issue N"
     )
     p.set_defaults(func=cmd_queue)

@@ -873,6 +873,88 @@ class DescribeQueueCount:
         assert "is not a whole number of 1 or more" in capsys.readouterr().err
 
 
+@pytest.mark.spec("queue-cmd-checks-named-issues")
+class DescribeQueueNamed:
+    def it_offers_each_named_issue_that_can_start_in_the_order_named(self, capsys, clone, github):
+        github(make_issue(14, "approved"), make_issue(12, "approved"), make_issue(10, "approved"))
+        code, out = run(capsys, clone("a"), "queue", "14", "12", "14")
+        assert code == flywheel.OK
+        assert (out.out, out.err) == ("#14 issue 14\n#12 issue 12\n", "")
+        code, data = run_json(capsys, clone("b"), "queue", "14", "12")
+        assert data["data"]["issues"] == [{"number": 14}, {"number": 12}]
+
+    def it_offers_a_named_sub_issue_of_an_approved_plan(self, capsys, clone, github):
+        github(
+            make_issue(20, "approved", "tracking"),
+            make_issue(11, "approved"),
+            make_issue(12, "approved"),
+            subs={20: [11, 12]},
+        )
+        code, data = run_json(capsys, clone("a"), "queue", "12")
+        assert code == flywheel.OK
+        assert data["data"]["issues"] == [{"number": 12}]
+
+    def it_names_the_reason_each_other_issue_cannot_start(self, capsys, remote, clone, github):
+        a = clone("a")
+        github(make_issue(13, "approved"))
+        run(capsys, a, "claim", "13")
+        github(
+            make_issue(10, "approved"),
+            make_issue(11, "approved", state="CLOSED"),
+            make_issue(12),
+            make_issue(13, "approved", "in-progress"),
+            make_issue(14, "approved"),
+            make_issue(15),
+            blockers={14: [(9, "open"), (8, "closed")], 15: [(9, "open")]},
+        )
+        code, out = run(capsys, a, "queue", "10", "11", "12", "13", "14", "15")
+        assert code == flywheel.PROBLEMS
+        assert out.out == "#10 issue 10\n"
+        assert out.err == (
+            "#11 issue 11 cannot start: it is closed\n"
+            "#12 issue 12 cannot start: it is not labeled approved; "
+            "ask the owner to approve it\n"
+            "#13 issue 13 cannot start: another session holds its claim on issue/13\n"
+            "#14 issue 14 cannot start: it is blocked by #9\n"
+            "#15 issue 15 cannot start: it is not labeled approved; "
+            "ask the owner to approve it; it is blocked by #9\n"
+        )
+        code, data = run_json(capsys, a, "queue", "10", "14")
+        assert code == flywheel.PROBLEMS
+        assert data["data"]["issues"] == [{"number": 10}]
+        assert data["data"]["blocked"] == [{"number": 14, "blocked_by": [9]}]
+        assert data["errors"] == ["#14 issue 14 cannot start: it is blocked by #9"]
+
+    def it_names_a_tracking_issue_and_the_command_that_runs_its_plan(self, capsys, clone, github):
+        gh = github(make_issue(20, "approved", "tracking"), subs={20: [11]})
+        code, out = run(capsys, clone("a"), "queue", "20")
+        assert code == flywheel.OK
+        assert out.out == (
+            "#20 issue 20 is a tracking issue.\n"
+            "To run its plan, run: flywheel.py queue --tracking 20\n"
+        )
+        code, data = run_json(capsys, clone("b"), "queue", "20")
+        assert data["data"]["issues"] == []
+        assert data["data"]["tracking"] == {"number": 20}
+        assert not any(c[0] == "api" for c in gh.calls)
+
+    def it_refuses_a_tracking_issue_named_beside_other_issues(self, capsys, clone, github):
+        github(make_issue(20, "approved", "tracking"), make_issue(12, "approved"))
+        code, data = run_json(capsys, clone("a"), "queue", "12", "20")
+        assert code == flywheel.PROBLEMS
+        assert data["data"]["issues"] == [{"number": 12}]
+        assert data["data"]["tracking"] is None
+        assert data["errors"] == [
+            "#20 issue 20 cannot start: it is a tracking issue; to run its plan, name it on its own"
+        ]
+
+    def it_cannot_run_with_tracking_too(self, capsys, clone):
+        with pytest.raises(SystemExit) as exc:
+            flywheel.main(["queue", "12", "--tracking", "20", "-C", str(clone("a"))])
+        assert exc.value.code == flywheel.CANNOT_RUN
+        assert "not allowed with argument" in capsys.readouterr().err
+
+
 class DescribeRelease:
     @pytest.mark.spec("release-cmd-frees-unused-claim")
     def it_deletes_an_empty_branch_and_the_label(self, capsys, remote, clone, github):

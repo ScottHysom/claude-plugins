@@ -282,15 +282,17 @@ dispatcher start a reviewer. Claude follows the plugin's review-pr skill:
 
 ## Running a round of issues
 
-Ask Claude to run a number of issues, such as "run 3 issues", or to run a
-plan, such as "run #653 three at a time". That session becomes the
-dispatcher and follows the plugin's run skill:
+Ask Claude to run a number of issues, such as "run 3 issues", to run a
+plan, such as "run #653 three at a time", or to run the issues you pick,
+such as "run #12 #14". That session becomes the dispatcher and follows the
+plugin's run skill:
 
 1. It checks that `.flywheel/roles.json` gives the implementer and the
    reviewer a model and an effort, and stops naming each one you still need
    to fill in.
 2. It takes the next approved issues, in the plan's order when you named a
-   plan.
+   plan. When you named issues, it takes those, and tells you why any of
+   them cannot start, such as a missing approval or an open blocker.
 3. It starts one session per issue, each in its own worktree, with the
    issue's brief as its first message and the implementer's model and
    effort. Each of those sessions works its issue as "Working an issue"
@@ -301,7 +303,8 @@ dispatcher and follows the plugin's run skill:
 5. It merges a pull request when the merge policy lets it through, and
    otherwise tells you why it waits for you. You merge those yourself.
 6. Once a pull request merges, it clears the claim and starts a session on
-   the next issue, so the number you named stays in flight. It looks again
+   the next issue, so the number you named stays in flight. A round of
+   issues you named takes no other issue. It looks again
    whenever one of its sessions finishes a turn, or when you send it a
    message, such as after a merge.
 7. It closes a plan once every issue in it is closed, and stops when no
