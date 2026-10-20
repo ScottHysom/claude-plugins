@@ -1478,6 +1478,17 @@ class DescribeBrief:
         assert "The issue, as the owner approved it:\n" in out.out
         assert "> Early.\n" in out.out
 
+    def it_leaves_out_each_gate_the_owner_has_not_set(self, capsys, clone, github):
+        a = clone("a")
+        configure(a)
+        (a / flywheel.GATES_FILE).write_text(
+            json.dumps({"gates": {"build": None, "check": "make check", "verify": None}})
+        )
+        github(graphql=answer((APPROVED_AT, "approved")))
+        _, out = run(capsys, a, "brief", "12")
+        assert "The gate commands, from .flywheel/gates.json:\n- check: `make check`\n\n" in out.out
+        assert "None" not in out.out
+
     def it_warns_without_a_roles_or_a_gates_file(self, capsys, clone, github):
         a = clone("a")
         github(graphql=answer((APPROVED_AT, "approved")))

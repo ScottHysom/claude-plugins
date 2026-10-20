@@ -195,7 +195,10 @@ command that says a piece of work is done, such as running the tests. Claude
 refuses the brief for an issue edited after you approved it, until you
 approve it again.
 
-List your gate commands in `.flywheel/gates.json`, and commit it:
+Your gate commands go in `.flywheel/gates.json`. `config init` writes
+`build`, `test`, `check` and `verify` there for you to fill in, and keeps any
+gate the file already gives. Claude offers the command it finds in your
+project for each one. Commit the file once it is filled in:
 
 ```json
 {

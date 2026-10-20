@@ -66,26 +66,31 @@ suits. When `data.recorded` gives a level, offer it first.
 Never choose the level for the owner, and run nothing further until they
 answer.
 
-## Step 3: write the roles file, the policies and the test commands
-<!-- spec: configinit-cmd-writes-roles-file, configinit-cmd-writes-policies, configinit-cmd-names-owner-fields, configinit-cmd-fills-pytest-test-commands, adopt-never-invents-owner-fields -->
+## Step 3: write the roles file, the policies, the gates and the test commands
+<!-- spec: configinit-cmd-writes-roles-file, configinit-cmd-writes-policies, configinit-cmd-names-owner-fields, configinit-cmd-writes-gate-fields, configinit-cmd-fills-pytest-test-commands, adopt-never-invents-owner-fields -->
 
 ```sh
 FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" config init --json
 ```
 
 `config init` writes `.flywheel/roles.json`, `.flywheel/review-policy.md` and
-`.flywheel/merge-policy.md`, and leaves each that exists as it is. It also
-writes the commands that list the tests and run one under `tests` in
-`.flywheel/gates.json`, filled in when the project runs pytest, and leaves
-them as they are when the file gives them. Exit 1 means one existed already,
-which is expected on a repository that adopted before.
+`.flywheel/merge-policy.md`, and leaves each that exists as it is. In
+`.flywheel/gates.json`, it writes the gates `build`, `test`, `check` and
+`verify` under `gates`, unset, and keeps each gate the file gives. It also
+writes the commands that list the tests and run one under `tests`, filled in
+when the project runs pytest, and leaves them as they are when the file gives
+them. Exit 1 means one existed already, which is expected on a repository
+that adopted before.
 
 Each entry of `data.files` names the `owner_fields` its file leaves unset.
-Ask the owner for each field in a file whose control is at or below the
-target level:
+Ask the owner for each field in any of these:
 
+- the gates, whatever the target level.
 - the review policy and the gates file's test commands, from level 2.
 - the roles file and the merge policy, at level 3.
+
+For each gate, offer the command the project already runs for it, from its
+`CLAUDE.md`, a Makefile or a CI workflow, and ask the owner to confirm it.
 
 Ask for the merge policy's terms, such as the paths it protects and the paths
 each area covers, and for the model and the effort behind each role. For the
@@ -93,7 +98,9 @@ test commands, ask for the command that prints one test id per line, the
 command that runs one test with `{id}` where its id goes, and the files and
 directories that hold the tests. Write
 each answer into its file as the owner gave it. Leave a field the owner
-defers unset, and say so in step 7.
+defers unset, and say so in step 7. Leave a gate unset when the project
+lacks its command. `record` in step 5 then lists its control among the gaps,
+and step 7 files it.
 
 ## Step 4: write the rules for agents
 <!-- spec: adopt-writes-agent-rules -->
@@ -176,6 +183,7 @@ Then tell the owner:
 
 - the level the repository holds now and the level recorded.
 - the files this run wrote, to review and commit: `.flywheel/adoption.json`,
-  the roles file, the policies and the rules for agents.
+  the roles file, the policies, `.flywheel/gates.json` and the rules for
+  agents.
 - each field left unset, and each pair of contradicting rules from step 4.
 - the plan file-issue filed, or that there was nothing to file.
