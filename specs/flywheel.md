@@ -36,6 +36,10 @@ Source: #643, and the method's `match-capability-to-task` and
 - `configinit-cmd-names-owner-fields` (test): When `config init` writes a file
   with a field only the owner can fill, it names each such field in its
   result.
+- `configinit-cmd-writes-gate-fields` (test): When `config init` writes
+  `.flywheel/gates.json`, it writes `build`, `test`, `check` and `verify`
+  under `gates`, unset, names each one as a field the owner fills in, and
+  leaves each gate the file gives as it is.
 
 ## need contributor-reads-method-beside-plugin: Read the method beside the plugin
 
@@ -515,8 +519,8 @@ Source: #651, the method's adoption.md, and the method's
   to `.flywheel/adoption.json`. `assess` then names each control whose state
   changed since, and each control the record lacks under its level.
 - `adopt-never-invents-owner-fields` (step): When adopt needs a need, a
-  constraint, the target level, a policy's terms or a role's model, it asks
-  the owner and writes nothing until they answer.
+  constraint, the target level, a policy's terms, a role's model or a gate's
+  command, it asks the owner and writes nothing until they answer.
 - `adopt-writes-agent-rules` (step): When adopt has the target level, it
   writes the plugin's rules for agents up to that level into the project's
   `CLAUDE.md`, with a rule for every principle that each level's controls

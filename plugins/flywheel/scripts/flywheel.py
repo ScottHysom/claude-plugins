@@ -47,9 +47,10 @@ Commands:
     setup        copy this script, the templates it reads and the plugin's
                  manifest into the project's .flywheel/, which git ignores
     config init  write .flywheel/roles.json, review-policy.md and
-                 merge-policy.md from the plugin's templates, and the test
-                 commands into .flywheel/gates.json, leaving each that exists
-                 as it is, and name each field the owner fills in
+                 merge-policy.md from the plugin's templates, and the gates
+                 and the test commands into .flywheel/gates.json, leaving
+                 each that exists as it is, and name each field the owner
+                 fills in
     fails-on-base  fail each test the branch adds since its merge base with
                  --base that passes on the merge base's code, unless
                  .flywheel/passes-on-base.json gives the reason it does.
@@ -159,7 +160,9 @@ owner reads and edits, each with its settings in the first ```json fence.
 `config init` copies them from the templates as they are, and names each
 setting the template leaves null, as it does for the roles file. It writes
 the gates file's "tests" the same way: filled in for pytest, which it knows
-by its config file, and otherwise null for the owner.
+by its config file, and otherwise null for the owner. Under "gates", it
+writes `build`, `test`, `check` and `verify` as null, keeps each gate the
+file gives, and names each null gate.
 
 The review. Agents and the owner all post under the owner's account, so the
 script tells a reviewer's post by its text. `review-post` opens the review's
@@ -218,8 +221,9 @@ control whose state differs, and each control the record lacks under its
 level as new: one the method added, or moved to that level, since.
 
 The gates file. .flywheel/gates.json maps each gate the project has, such as
-`check` or `verify`, to the command that runs it, under "gates". The owner
-writes it. `brief` names those commands to the session it starts, and warns
+`check` or `verify`, to the command that runs it, under "gates". `config
+init` writes the gates the method names, null, and the owner gives each its
+command. `brief` names those that are set to the session it starts, and warns
 when the file is missing. Under "tests", it gives the commands
 `fails-on-base` runs:
 
@@ -589,6 +593,8 @@ SPEC_RE = re.compile(r"^%s/[^/]+\.md$" % SPECS_DIR)
 OUT_OF_SCOPE = "Out of scope"
 CORE_GATES = ("build", "test", "check")
 VERIFY_GATE = "verify"
+# The gates `config init` writes for the owner to fill in.
+METHOD_GATES = (*CORE_GATES, VERIFY_GATE)
 SETTINGS_FILE = ".claude/settings.json"
 ENABLED_KEY = "enabledPlugins"
 PLUGIN_NAME = "flywheel"
@@ -1194,66 +1200,76 @@ def pytest_config(root):
 
 
 def gates_text(root):
-    """The gates file with the test commands added, the fields they leave for
-    the owner, and why it is left as it is when it gives them already."""
+    """The gates file with each gate the method names and the test commands
+    added, or None when it gives them all, the fields left for the owner, and
+    why the test commands are left as they are when it gives them already."""
     found = project_json(root, GATES_FILE)
     if found is None:
-        found = {GATES_KEY: {}}
+        found = {}
     if not isinstance(found, dict):
         raise Fatal("%s does not hold a JSON object. Fix it, then run again." % GATES_FILE)
-    if TESTS_KEY in found:
-        return (
-            None,
-            [],
-            (
-                '%s already gives "%s", so it was left as it is. Edit it to change the test'
-                " commands." % (GATES_FILE, TESTS_KEY)
-            ),
+    gates = found.setdefault(GATES_KEY, {})
+    if not isinstance(gates, dict):
+        raise Fatal(
+            '%s does not hold a "%s" object. Make it map each gate to its command, then run'
+            " again." % (GATES_FILE, GATES_KEY)
         )
+    added = [name for name in METHOD_GATES if name not in gates]
+    for name in added:
+        gates[name] = None
+    fields = ["%s.%s" % (GATES_KEY, key) for key, value in gates.items() if value is None]
+    if TESTS_KEY in found:
+        refusal = (
+            '%s already gives "%s", so the test commands were left as they are. Edit it to'
+            " change them." % (GATES_FILE, TESTS_KEY)
+        )
+        text = json.dumps(found, indent=2) + "\n" if added else None
+        return text, fields if added else [], refusal
     config, paths = pytest_config(root)
     tests = {LIST_FIELD: None, RUN_FIELD: None, PATHS_FIELD: None}
     if config:
         tests[LIST_FIELD], tests[RUN_FIELD] = PYTEST_LIST, PYTEST_RUN
         tests[PATHS_FIELD] = [*paths, config] if paths else None
     found[TESTS_KEY] = tests
-    fields = ["%s.%s" % (TESTS_KEY, key) for key, value in tests.items() if value is None]
+    fields += ["%s.%s" % (TESTS_KEY, key) for key, value in tests.items() if value is None]
     return json.dumps(found, indent=2) + "\n", fields, None
 
 
-def exists_refusal(root, rel):
+def unless_exists(root, rel, text, fields):
+    """A template's text and fields, or None and why, when `rel` exists."""
     if os.path.lexists(os.path.join(root, *rel.split("/"))):
         return (
+            None,
+            [],
             "%s already exists, so it was left as it is. Edit it to change it, or delete"
-            " it and run config init again to start from the template." % rel
+            " it and run config init again to start from the template." % rel,
         )
-    return None
+    return text, fields, None
 
 
 def cmd_config_init(args):
-    """Write the roles file and the policies from the templates, and the test
-    commands into the gates file. Each that exists already is left as it is,
-    and the rest are written."""
+    """Write the roles file and the policies from the templates, and the gates
+    and the test commands into the gates file. Each that exists already is left
+    as it is, and the rest are written."""
     root = project_root(args.repo)
     # Every template is read before anything is written, so a broken one
     # writes nothing.
     made = [
-        (ROLES_FILE, *roles_text(), exists_refusal(root, ROLES_FILE)),
+        (ROLES_FILE, *unless_exists(root, ROLES_FILE, *roles_text())),
         (
             REVIEW_POLICY,
-            *policy_text(COPY_REVIEW, SHIPPED_REVIEW),
-            exists_refusal(root, REVIEW_POLICY),
+            *unless_exists(root, REVIEW_POLICY, *policy_text(COPY_REVIEW, SHIPPED_REVIEW)),
         ),
-        (MERGE_POLICY, *policy_text(COPY_MERGE, SHIPPED_MERGE), exists_refusal(root, MERGE_POLICY)),
+        (MERGE_POLICY, *unless_exists(root, MERGE_POLICY, *policy_text(COPY_MERGE, SHIPPED_MERGE))),
         (GATES_FILE, *gates_text(root)),
     ]
     files, errors = [], []
     for rel, text, fields, refusal in made:
         if refusal:
-            files.append({"file": rel, "written": False, "owner_fields": []})
             errors.append(refusal)
-            continue
-        write_bytes(root, rel, text.encode("utf-8"))
-        files.append({"file": rel, "written": True, "owner_fields": fields})
+        if text is not None:
+            write_bytes(root, rel, text.encode("utf-8"))
+        files.append({"file": rel, "written": text is not None, "owner_fields": fields})
     data = {"files": files}
 
     def human():
@@ -2397,7 +2413,7 @@ def cmd_brief(args):
             if c and owners_comment(c, owner, approved_at)
         ],
         "role": {"name": BRIEF_ROLE, "tier": entry.get(TIER_KEY)},
-        "gates": gates or {},
+        "gates": {name: c for name, c in (gates or {}).items() if is_text(c)},
         "prompt": None,
     }
     errors = []
