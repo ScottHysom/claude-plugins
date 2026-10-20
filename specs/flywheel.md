@@ -283,8 +283,8 @@ Source: #645, and the method's `humans-decide-agents-record` and
 `owner-admits-every-need`.
 
 - `brief-cmd-prints-issue-as-approved` (test): When `flywheel.py brief N`
-  runs, it prints the issue's title and body as they stood when `approved`
-  was last added, the owner's comments since, the role, and the gate commands
+  runs, it prints the skill that works the issue, the issue's title and body
+  as they stood when `approved` was last added, the owner's comments since, the role, and the gate commands
   from `.flywheel/gates.json`, and warns when `.flywheel/` does not give the
   role's tier or the gate commands. It exits 1 when the body changed after
   approval, or the issue lacks `approved`.
@@ -335,7 +335,7 @@ merge and reported on, so the loop runs without the owner typing each start.
 They want to run more than one round at once, each on its own plan, count or
 issues, without one round acting on another's pull requests.
 
-Source: #649, #665, #688, and the method's `decompose-into-parallel-units`
+Source: #649, #665, #688, #689, and the method's `decompose-into-parallel-units`
 and `match-capability-to-task`.
 
 - `events-cmd-lists-claim-prs` (test): When `flywheel.py events` runs, it
@@ -369,6 +369,9 @@ and `match-capability-to-task`.
 - `run-starts-named-issues` (step): When the owner names issues, `run`
   starts one session for each issue that can start, tells the owner why each
   other one cannot, and stops once each has merged or stopped.
+- `run-takes-issue-requests` (step): When the owner asks to fix, work or
+  take an issue, or the next issue, the session runs that issue as a round,
+  unless the owner asks for the work in this session.
 - `run-reports-pull-request` (step): When a worker reports its pull request,
   `run` reports the pull request to the owner.
 - `run-restarts-after-merge` (step): When `events` reports a merge from its

@@ -1,6 +1,6 @@
 ---
 name: work-issue
-description: Work one approved GitHub issue as the implementer, from its claim to a pull request the session watches. Claims the issue with flywheel.py claim, works from the issue as the owner approved it through flywheel.py brief, stops and asks on a gap the issue does not answer, runs the project's check gate, opens the pull request through the project's pull request skill, turns on the session's Auto-fix and archive-on-close for it, and answers each review thread. Claude Code desktop app only. Use when a session's first message is a brief that says to work an issue as the implementer, or when asked to work, fix or take an issue, the next issue, or the next issue in a plan.
+description: Work one approved GitHub issue as the implementer, from its claim to a pull request the session watches. Claims the issue with flywheel.py claim, works from the issue as the owner approved it through flywheel.py brief, stops and asks on a gap the issue does not answer, runs the project's check gate, opens the pull request through the project's pull request skill, turns on the session's Auto-fix and archive-on-close for it, and answers each review thread. Claude Code desktop app only. Use when a session's first message is a brief that says to work an issue as the implementer with the work-issue skill, or when asked to work, fix or take an issue, the next issue, or the next issue in a plan here or in this session. A request to fix, work or take an issue that does not say here or this session goes to the plugin's run skill, which starts a reviewer and checks the merge.
 ---
 
 # Work an issue
@@ -39,7 +39,7 @@ FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" queue --json
 
 Claim the issue before any other work, including reading code. When the
 session's first message is a brief, or the request names an issue, as in
-"fix #648", claim that issue:
+"fix #648 here", claim that issue:
 
 ```sh
 FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" claim 648 --json

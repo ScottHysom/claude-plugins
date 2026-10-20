@@ -587,8 +587,9 @@ P3_CAP_KEY = "p3_cap"
 RULES_KEY = "rules"
 PROTECTED_KEY = "protected"
 AREAS_KEY = "areas"
-# The role a session started from `brief` plays.
+# The role a session started from `brief` plays, and the skill it plays it with.
 BRIEF_ROLE = "implementer"
+BRIEF_SKILL = "work-issue"
 
 # `assess` and `record`. METHOD_LEVELS, after the evidence it names, lists the
 # method's levels and the controls each introduces.
@@ -2387,7 +2388,8 @@ def brief_text(data):
     """The first message of a session that works the issue."""
     role, gates = data["role"], data["gates"]
     out = [
-        "Work issue #%d in %s, as the %s." % (data["number"], data["repository"], role["name"]),
+        "Work issue #%d in %s, as the %s, with the %s skill."
+        % (data["number"], data["repository"], role["name"], BRIEF_SKILL),
         "",
     ]
     if role["tier"] is not None:

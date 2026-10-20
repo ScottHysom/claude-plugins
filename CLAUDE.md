@@ -105,6 +105,10 @@ back them. What agents do:
   a tracking issue. README.md, under "Tracking issues", has the convention.
 - **Work only on issues labeled `approved`.** The owner may also ask for work
   directly, without an issue; that does not need a label.
+- **Work an issue in the session that is asked.** This repository runs
+  flywheel's script from `plugins/` and does not install the plugin, so
+  "fix #N" or "the next issue" is worked here, as below, rather than as a
+  round of the plugin's run skill. The owner reviews and merges.
 - **Claim an issue before any work on it.** Asked for the next issue, run
   `python3 plugins/flywheel/scripts/flywheel.py claim --next`. It claims the
   issue `queue` would offer, and when another agent wins that one, the next

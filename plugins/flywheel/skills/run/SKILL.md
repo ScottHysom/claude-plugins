@@ -1,6 +1,6 @@
 ---
 name: run
-description: Run a round of approved GitHub issues as the dispatcher, starting one implementer session per issue, a reviewer session on each pull request, and a new implementer each time a pull request merges. Checks each role's model and effort with flywheel.py role, takes the issues from flywheel.py queue, starts each session in its own worktree with flywheel.py brief as its first message, watches the claim pull requests with flywheel.py events, merges what the merge policy lets flow with flywheel.py merge-check, asks the owner about what it holds, clears each merged claim and closes a finished plan. Claude Code desktop app only. Use when asked to run, start or work a round of issues, a number of issues at once, particular issues named by number, or the issues of a plan or tracking issue.
+description: Run a round of approved GitHub issues as the dispatcher, starting one implementer session per issue, a reviewer session on each pull request, and a new implementer each time a pull request merges. Checks each role's model and effort with flywheel.py role, takes the issues from flywheel.py queue, starts each session in its own worktree with flywheel.py brief as its first message, watches the claim pull requests with flywheel.py events, merges what the merge policy lets flow with flywheel.py merge-check, asks the owner about what it holds, clears each merged claim and closes a finished plan. Claude Code desktop app only. Use when asked to run, start or work a round of issues, a number of issues at once, particular issues named by number, or the issues of a plan or tracking issue, and when asked to fix, work or take an issue, the next issue, or the next issue in a plan, unless the request says to do it here or in this session. Never use it in a session whose first message is a brief, which the work-issue skill takes.
 ---
 
 # Run a round of issues
@@ -18,6 +18,13 @@ The owner names the round in one of these ways:
 - a count, as in "run 3 issues".
 - a tracking issue's plan, as in "run #653", with or without a count.
 - issues, as in "run #12" or "run #12 #14".
+- one issue to fix, work or take, as in "fix #12", which is a round of that
+  issue.
+- the next issue, as in "take the next issue" or "the next issue in #653",
+  which is a round of the one issue the queue offers.
+
+A request to work an issue here, or in this session, is not a round. The
+work-issue skill takes it, and this session becomes the implementer.
 
 A number the owner names may be an issue or a tracking issue, and step 4
 tells them apart. When the owner names a plan without a count, ask how many
@@ -96,8 +103,8 @@ For issues the owner named, with `--issue` once for each:
 FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" events --issue 12 --issue 14 --json
 ```
 
-For a count alone, the round has not started any issue yet, so look without
-naming one:
+For a count alone, or the next issue, the round has not started any issue
+yet, so look without naming one:
 
 ```sh
 FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" events --json
@@ -107,7 +114,7 @@ Keep `data.as_of`. Each later look passes it as `--since` and keeps the new
 `data.as_of` in its place.
 
 ## Step 4: read the queue
-<!-- spec: run-starts-one-session-per-issue, run-closes-finished-plan, run-stops-on-empty-queue, run-starts-named-issues -->
+<!-- spec: run-starts-one-session-per-issue, run-closes-finished-plan, run-stops-on-empty-queue, run-starts-named-issues, run-takes-issue-requests -->
 <!-- seam: judgment: the owner chose a count, a plan or issues, and the command differs by that choice -->
 
 Ask the queue for as many issues as there are free places in the round. At
@@ -139,8 +146,8 @@ What the result means:
   11 says.
 - On exit 1, relay the errors to the owner and stop starting sessions.
 
-For issues the owner named, read the queue once, at the start of the round,
-with every number the owner named:
+For issues the owner named, including one issue to fix, work or take, read
+the queue once, at the start of the round, with every number the owner named:
 
 ```sh
 FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" queue 12 14 --json
@@ -155,6 +162,17 @@ What the result means:
 - `data.tracking` means the one number named is a tracking issue. The round
   runs that plan from here, as a plan the owner named. Look again as step 3
   says for a plan, and read the queue with `--tracking`.
+
+For the next issue, read the queue once, at the start of the round, for one
+issue, with `--tracking` when the owner named a plan:
+
+```sh
+FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" queue --tracking 653 --count 1 --json
+```
+
+The issue in `data.issues` is the round, and the round goes on as a round of
+that one named issue. Act on `data.tracking`, `data.finished` and exit 1 as
+for a count or a plan.
 
 Later in a round of named issues, read the queue no more. A merge or a
 stopped implementer frees a place that no issue takes, and the round stops
