@@ -74,9 +74,17 @@ every reviewer starts at.
 
 ## Step 3: take the first look
 <!-- spec: run-restarts-after-merge -->
+<!-- seam: judgment: the owner chose a count or a plan, and the command differs by that choice -->
 
 Take the first look at the claim pull requests, so later looks name only what
-changed since:
+changed since. For a plan, with its tracking issue:
+
+```sh
+FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" events --tracking 653 --json
+```
+
+For a count alone, the round has not started any issue yet, so look without
+naming one:
 
 ```sh
 FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" events --json
@@ -150,19 +158,27 @@ message, such as after merging a pull request.
 
 ## Step 6: look again when woken
 <!-- spec: run-reports-pull-request, run-restarts-after-merge -->
+<!-- seam: judgment: the owner chose a count or a plan, and the command differs by that choice -->
 
-Each time this session is woken, look again with the last `data.as_of`:
+Each time this session is woken, look again with the last `data.as_of`, at
+this round's pull requests alone. For a plan, with its tracking issue:
 
 ```sh
-FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" events --since 2026-10-15T09:00:00Z --json
+FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" events --tracking 653 --since 2026-10-15T09:00:00Z --json
+```
+
+Otherwise, with `--issue` once for each issue this round started, including
+those whose pull request merged:
+
+```sh
+FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" events --issue 649 --issue 650 --since 2026-10-15T09:00:00Z --json
 ```
 
 Keep the new `data.as_of`. Then act on each of these that the look or the
 note that woke this session shows:
 
-- A pull request in `data.open` from an issue this round started. Report its
-  `url` to the owner the first time a look shows it. Then check it as step 7
-  says.
+- A pull request in `data.open`. Report its `url` to the owner the first
+  time a look shows it. Then check it as step 7 says.
 - A pull request in `data.merged` whose claim this session has not cleared
   since step 7 merged it. Clear its claim as step 9 says.
 - An implementer that stopped without a pull request. Relay what it said to
@@ -172,7 +188,7 @@ note that woke this session shows:
 ## Step 7: check each pull request
 <!-- spec: run-merges-what-flows, run-asks-owner-on-hold, run-reviews-each-pull-request -->
 
-For each open pull request from this round, ask the merge policy whether it
+For each pull request in `data.open`, ask the merge policy whether it
 flows, and merge it when it does:
 
 ```sh
@@ -225,8 +241,8 @@ FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" clear 649 --json
 ```
 
 When `clear` exits 1, relay its error to the owner and delete nothing by
-hand. Either way, the merge freed a place in the round, so read the queue as
-step 4 says.
+hand. Either way, a merge from this round freed a place in it, so read the
+queue as step 4 says.
 
 ## Step 10: close a finished plan
 <!-- spec: run-closes-finished-plan -->
@@ -245,6 +261,6 @@ once no session is still working or waiting on a merge.
 <!-- spec: run-stops-on-empty-queue -->
 <!-- no-command: reports to the owner what the round's earlier looks found -->
 
-When the queue offers nothing and `data.open` in the last look holds no pull
-request from this round, report to the owner each pull request in the round
+When the queue offers nothing, and either the round started no issue or
+`data.open` in the last look of step 6 is empty, report to the owner each pull request in the round
 that merged, and each issue that stopped without one. Then stop.

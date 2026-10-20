@@ -44,13 +44,16 @@ def merged_pull(number, head, merged_at):
 
 @pytest.fixture
 def pulls(monkeypatch):
-    """Answer gh pr list with the open and merged pull requests given."""
+    """Answer gh pr list with the pull requests given, and each tracking issue's sub-issues."""
 
-    def install(opened=(), merged=()):
+    def install(opened=(), merged=(), subs=None):
         calls = []
 
         def fake(root, *args):
             calls.append(args)
+            if args[0] == "api" and "/sub_issues" in args[1]:
+                number = int(args[1].split("/")[-2])
+                return json.dumps([{"number": n, "state": "open"} for n in subs[number]])
             state = args[args.index("--state") + 1]
             return json.dumps(list(opened if state == "open" else merged))
 
@@ -242,4 +245,53 @@ class DescribeEvents:
         assert (
             "'yesterday' is not a UTC time such as 2026-10-15T09:00:00Z" in capsys.readouterr().err
         )
+        assert calls == []
+
+
+@pytest.mark.spec("events-cmd-scopes-to-round")
+class DescribeEventsForOneRound:
+    @pytest.fixture
+    def two_rounds(self, pulls):
+        """Plan #70 holds issues 12 and 14, and a round started by a count holds 20 and 22."""
+        return pulls(
+            opened=[
+                open_pull(31, "issue/12"),
+                open_pull(33, "issue/20"),
+                open_pull(35, "issue/30"),
+            ],
+            merged=[
+                merged_pull(41, "issue/14", "2026-10-15T11:00:00Z"),
+                merged_pull(43, "issue/22", "2026-10-15T12:00:00Z"),
+                merged_pull(45, "issue/30", "2026-10-15T13:00:00Z"),
+            ],
+            subs={70: [12, 14, 16]},
+        )
+
+    def it_lists_only_the_pull_requests_from_a_plans_sub_issues(self, project, two_rounds):
+        code, env = project.run("events", "--tracking", "70", "--since", SINCE)
+        assert code == flywheel.OK
+        assert [p["number"] for p in env["data"]["open"]] == [31]
+        assert [p["number"] for p in env["data"]["merged"]] == [41]
+
+    def it_lists_only_the_pull_requests_from_the_issues_it_names(self, project, two_rounds):
+        code, env = project.run("events", "--issue", "20", "--issue", "22", "--since", SINCE)
+        assert code == flywheel.OK
+        assert [p["number"] for p in env["data"]["open"]] == [33]
+        assert [p["number"] for p in env["data"]["merged"]] == [43]
+
+    def it_takes_the_next_look_from_every_claims_merge(self, project, two_rounds):
+        _, env = project.run("events", "--issue", "20", "--since", SINCE)
+        assert env["data"]["merged"] == []
+        assert env["data"]["as_of"] == "2026-10-15T13:00:00Z"
+
+    def it_reads_no_sub_issues_without_a_plan(self, project, two_rounds):
+        project.run("events", "--issue", "20")
+        assert not [c for c in two_rounds if c[0] == "api"]
+
+    def it_takes_a_plan_or_issues_but_not_both(self, project, pulls, capsys):
+        calls = pulls()
+        with pytest.raises(SystemExit) as exc:
+            flywheel.main(["events", "--tracking", "70", "--issue", "20", "-C", str(project.root)])
+        assert exc.value.code == flywheel.CANNOT_RUN
+        assert "not allowed with argument" in capsys.readouterr().err
         assert calls == []
