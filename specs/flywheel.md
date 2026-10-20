@@ -331,9 +331,11 @@ Source: #305, #648, and the method's `checks-over-instructions`.
 
 When the owner wants a round of issues worked, they want to name the count or
 the plan once and have sessions started, restarted after each merge and
-reported on, so the loop runs without the owner typing each start.
+reported on, so the loop runs without the owner typing each start. They want
+to run more than one round at once, each on its own plan or count, without
+one round acting on another's pull requests.
 
-Source: #649, and the method's `decompose-into-parallel-units` and
+Source: #649, #665, and the method's `decompose-into-parallel-units` and
 `match-capability-to-task`.
 
 - `events-cmd-lists-claim-prs` (test): When `flywheel.py events` runs, it
@@ -341,6 +343,10 @@ Source: #649, and the method's `decompose-into-parallel-units` and
   review state, and each merged since `--since`. It gives as `as_of` the
   newest merge it saw, so a look that passes it as `--since` does not name a
   merge twice.
+- `events-cmd-scopes-to-round` (test): When `flywheel.py events` runs with
+  `--tracking N`, it lists only the pull requests from sub-issues of #N, and
+  with `--issue M`, given once per issue, only those from the issues it
+  names. Its `as_of` still comes from every claim pull request's merge.
 - `role-cmd-names-unset-fields` (test): When `flywheel.py role NAME` runs, it
   prints the model and effort `.flywheel/roles.json` gives the role. It exits
   1 naming the field when the file leaves either unset, and naming the role
@@ -356,12 +362,12 @@ Source: #649, and the method's `decompose-into-parallel-units` and
   one when either is above its own session's.
 - `run-reports-pull-request` (step): When a worker reports its pull request,
   `run` reports the pull request to the owner.
-- `run-restarts-after-merge` (step): When `events` reports a merge, `run`
-  clears the claim and starts a worker on the next free issue.
+- `run-restarts-after-merge` (step): When `events` reports a merge from its
+  round, `run` clears the claim and starts a worker on the next free issue.
 - `run-closes-finished-plan` (step): When `queue --tracking N` says #N's plan
   is finished, `run` closes it with `plan close N`.
 - `run-stops-on-empty-queue` (step): When `queue` offers nothing and no pull
-  request is open, `run` reports what merged and stops.
+  request from its round is open, `run` reports what merged and stops.
 
 ## need owner-keeps-gate-on-behavior-changes: Keep the owner's gate on changes to behavior
 

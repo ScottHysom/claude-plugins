@@ -24,6 +24,7 @@ Usage:
     python3 flywheel.py brief 12
     python3 flywheel.py role implementer
     python3 flywheel.py events --since 2026-10-15T09:00:00Z
+    python3 flywheel.py events --tracking 347 --since 2026-10-15T09:00:00Z
     python3 flywheel.py review-policy
     python3 flywheel.py review-brief 71
     python3 flywheel.py review-post 71 --findings findings.json
@@ -82,7 +83,10 @@ Commands:
                  which the dispatcher starts its sessions at.
     events       each open pull request from an issue/N branch, with its CI
                  and review state, and with --since TIME each merged after
-                 TIME. Its as_of is the --since of the next look.
+                 TIME. Its as_of is the --since of the next look. With
+                 --tracking N, only those from tracking issue N's
+                 sub-issues, and with --issue N, given once for each issue,
+                 only those from the issues it names.
     review-policy  print .flywheel/review-policy.md, its P3 cap and the
                  files its rules pass reads.
     review-brief N print pull request N for the reviewer: its head,
@@ -406,7 +410,9 @@ Things that look like bugs and are not:
   compare with, and its as_of starts the record.
 - `events` gives as its as_of the newest merge it saw, rather than the time
   of the look, so the next look never names a merge twice. It reads the
-  clock only when no claim pull request has ever merged. As a
+  clock only when no claim pull request has ever merged. It finds that merge
+  among every claim pull request, even with --tracking or --issue, so a look
+  at one round does not move where the next look starts. As a
   simplification, it leaves out a merge made in the same second as the as_of
   of the look before, after that look ran.
 - `merge-check` reads a requirement change from the pull request's
@@ -2532,9 +2538,24 @@ def pull_row(pull):
     }
 
 
+def round_issues(root, args):
+    """The issues of the round `events` looks at, or None to look at every claim."""
+    if args.tracking is not None:
+        return {s["number"] for s in sub_issues(root, args.tracking)}
+    if args.issue:
+        return set(args.issue)
+    return None
+
+
+def in_round(pull, ours):
+    n = claim_number(pull["headRefName"])
+    return n is not None and (ours is None or n in ours)
+
+
 def cmd_events(args):
     """What the dispatcher acts on: open claim pull requests, and merges since its last look."""
     root = project_root(args.repo)
+    ours = round_issues(root, args)
     opened = gh_json(
         root,
         "pr",
@@ -2559,7 +2580,7 @@ def cmd_events(args):
     )
     rows = []
     for pull in sorted(opened, key=lambda p: p["number"]):
-        if claim_number(pull["headRefName"]) is None:
+        if not in_round(pull, ours):
             continue
         row = pull_row(pull)
         row["ci"] = ci_state(pull.get("statusCheckRollup"))
@@ -2569,7 +2590,7 @@ def cmd_events(args):
     news = []
     if args.since is not None:
         for pull in sorted(claimed, key=lambda p: (p["mergedAt"], p["number"])):
-            if pull["mergedAt"] > args.since:
+            if pull["mergedAt"] > args.since and in_round(pull, ours):
                 news.append(dict(pull_row(pull), merged_at=pull["mergedAt"]))
     # The next look starts after the newest merge seen, so it never names a
     # merge twice. The clock is read only when there is no merge to go by.
@@ -4805,6 +4826,20 @@ def build_parser():
         type=timestamp,
         metavar="TIME",
         help="name each claim pull request merged after TIME, the as_of of the last look",
+    )
+    scope = p.add_mutually_exclusive_group()
+    scope.add_argument(
+        "--tracking",
+        type=int,
+        metavar="N",
+        help="name only the pull requests from tracking issue N's sub-issues",
+    )
+    scope.add_argument(
+        "--issue",
+        type=int,
+        action="append",
+        metavar="N",
+        help="name only the pull requests from issue N; give it once for each issue",
     )
     p.set_defaults(func=cmd_events)
 
