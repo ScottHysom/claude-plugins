@@ -67,7 +67,7 @@ Never choose the level for the owner, and run nothing further until they
 answer.
 
 ## Step 3: write the roles file, the policies, the gates and the test commands
-<!-- spec: configinit-cmd-writes-roles-file, configinit-cmd-writes-policies, configinit-cmd-names-owner-fields, configinit-cmd-writes-gate-fields, configinit-cmd-fills-pytest-test-commands, adopt-never-invents-owner-fields -->
+<!-- spec: configinit-cmd-writes-roles-file, configinit-cmd-writes-policies, configinit-cmd-names-owner-fields, configinit-cmd-writes-gate-fields, configinit-cmd-fills-pytest-test-commands, adopt-never-invents-owner-fields, adopt-asks-roles-at-every-level -->
 
 ```sh
 FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" config init --json
@@ -85,9 +85,10 @@ that adopted before.
 Each entry of `data.files` names the `owner_fields` its file leaves unset.
 Ask the owner for each field in any of these:
 
-- the gates, whatever the target level.
+- the gates and the roles file, whatever the target level, since every round
+  the run skill starts reads each role's model and effort.
 - the review policy and the gates file's test commands, from level 2.
-- the roles file and the merge policy, at level 3.
+- the merge policy, at level 3.
 
 For each gate, offer the command the project already runs for it, from its
 `CLAUDE.md`, a Makefile or a CI workflow, and ask the owner to confirm it.

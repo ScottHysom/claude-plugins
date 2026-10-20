@@ -347,6 +347,9 @@ Source: #649, and the method's `decompose-into-parallel-units` and
   when the file does not have it.
 - `run-refuses-unmapped-role` (step): When the roles file does not name a
   role `run` needs, `run` stops and names the field.
+- `adopt-asks-roles-at-every-level` (step): When adopt runs at any target
+  level, it asks the owner for each role's model and effort, since every
+  round starts its sessions from them.
 - `run-starts-one-session-per-issue` (step): When `run` has the issues from
   `queue`, it starts one session per issue with `brief N`, at the roles
   file's model and effort for the implementer. It stops rather than start

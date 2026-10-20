@@ -89,8 +89,9 @@ writes `.flywheel/roles.json` with one entry per role:
 ```
 
 - `tier` is how much reasoning the role needs, from 1 (the most) to 3.
-- `model` and `effort` are left for you. Claude lists each one you need to
-  fill in.
+- `model` and `effort` are left for you. Claude asks you for each one when
+  it adopts flywheel, at any level, because every round of issues starts its
+  sessions from them.
 - `version` is the version of this plugin the file was written under.
 
 `config init` never overwrites a file that already exists. Commit the file
