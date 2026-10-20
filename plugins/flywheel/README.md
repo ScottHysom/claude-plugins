@@ -242,9 +242,15 @@ one that pins behavior the change keeps, give its id and the reason in
 
 ## Working an issue
 
-Ask Claude to work an issue, such as "fix #12", or to take the next issue, or
-start a session with an issue's brief as its first message. Claude follows
-the plugin's work-issue skill:
+Ask Claude to work an issue in the session you are talking to, such as "fix
+#12 here" or "take the next issue in this session", or start a session with
+an issue's brief as its first message. Claude follows the plugin's work-issue
+skill, and you review and merge the pull request yourself. A request that
+does not say "here" or "in this session", such as "fix #12", runs a round of
+that issue instead, as "Running a round of issues" describes, with a
+reviewer and a merge check.
+
+The work-issue skill:
 
 1. It claims the issue and tells you how the claim went, before any other
    work. When it took the issue from the queue and another session got there
@@ -282,10 +288,16 @@ dispatcher start a reviewer. Claude follows the plugin's review-pr skill:
 
 ## Running a round of issues
 
-Ask Claude to run a number of issues, such as "run 3 issues", to run a
-plan, such as "run #653 three at a time", or to run the issues you pick,
-such as "run #12 #14". That session becomes the dispatcher and follows the
-plugin's run skill:
+Ask Claude for a round in any of these ways:
+
+- a number of issues, such as "run 3 issues".
+- a plan, such as "run #653 three at a time".
+- the issues you pick, such as "run #12 #14".
+- one issue to work, such as "fix #12", or the next issue, such as "take the
+  next issue" or "take the next issue in #653". The round is that one issue.
+
+The session you ask becomes the dispatcher and follows the plugin's run
+skill:
 
 1. It checks that `.flywheel/roles.json` gives the implementer and the
    reviewer a model and an effort, and stops naming each one you still need

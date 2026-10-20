@@ -1464,7 +1464,7 @@ class DescribeBrief:
         assert code == flywheel.OK
         assert out.err == ""
         assert out.out == (
-            "Work issue #12 in owner/project, as the implementer.\n"
+            "Work issue #12 in owner/project, as the implementer, with the work-issue skill.\n"
             "\n"
             "The implementer is tier 3 in .flywheel/roles.json.\n"
             "\n"
@@ -1499,6 +1499,13 @@ class DescribeBrief:
         assert env["data"]["role"] == {"name": "implementer", "tier": 3}
         assert env["data"]["approved_at"] == APPROVED_AT
         assert env["data"]["comments"] == []
+
+    def it_names_the_skill_that_works_the_issue_in_its_first_line(self, capsys, clone, github):
+        a = clone("a")
+        configure(a)
+        github(graphql=answer((APPROVED_AT, "approved")))
+        _, out = run(capsys, a, "brief", "12")
+        assert out.out.split("\n")[0].endswith(", with the work-issue skill.")
 
     def it_says_when_the_owner_has_not_commented(self, capsys, clone, github):
         a = clone("a")
@@ -1577,7 +1584,7 @@ class DescribeBrief:
         code, out = run(capsys, a, "brief", "12")
         assert code == flywheel.OK
         assert out.out.startswith(
-            "Work issue #12 in owner/project, as the implementer.\n\nThe issue, as the owner"
+            "Work issue #12 in owner/project, as the implementer, with the work-issue skill.\n\nThe issue, as the owner"
         )
         assert out.err == (
             "warning: .flywheel/roles.json does not name the implementer role, so the brief"
