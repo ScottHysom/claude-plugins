@@ -329,14 +329,14 @@ Source: #305, #648, and the method's `checks-over-instructions`.
 
 ## need owner-starts-round-with-one-command: Start a round of issues with one command
 
-When the owner wants a round of issues worked, they want to name the count or
-the plan once and have sessions started, restarted after each merge and
-reported on, so the loop runs without the owner typing each start. They want
-to run more than one round at once, each on its own plan or count, without
-one round acting on another's pull requests.
+When the owner wants a round of issues worked, they want to name the count,
+the plan or the issues once and have sessions started, restarted after each
+merge and reported on, so the loop runs without the owner typing each start.
+They want to run more than one round at once, each on its own plan, count or
+issues, without one round acting on another's pull requests.
 
-Source: #649, #665, and the method's `decompose-into-parallel-units` and
-`match-capability-to-task`.
+Source: #649, #665, #688, and the method's `decompose-into-parallel-units`
+and `match-capability-to-task`.
 
 - `events-cmd-lists-claim-prs` (test): When `flywheel.py events` runs, it
   lists each open pull request from an `issue/N` branch with its CI and
@@ -360,6 +360,15 @@ Source: #649, #665, and the method's `decompose-into-parallel-units` and
   `queue`, it starts one session per issue with `brief N`, at the roles
   file's model and effort for the implementer. It stops rather than start
   one when either is above its own session's.
+- `queue-cmd-checks-named-issues` (test): When `flywheel.py queue` is given
+  issue numbers, as in `queue 12 14`, it reports each as an issue to start, a
+  tracking issue, or the reason it cannot start: closed, lacking `approved`,
+  held by another session's claim, or blocked by an open issue. It exits 1
+  when any named issue cannot start, and refuses issue numbers given with
+  `--tracking`.
+- `run-starts-named-issues` (step): When the owner names issues, `run`
+  starts one session for each issue that can start, tells the owner why each
+  other one cannot, and stops once each has merged or stopped.
 - `run-reports-pull-request` (step): When a worker reports its pull request,
   `run` reports the pull request to the owner.
 - `run-restarts-after-merge` (step): When `events` reports a merge from its

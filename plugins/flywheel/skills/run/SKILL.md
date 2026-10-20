@@ -1,6 +1,6 @@
 ---
 name: run
-description: Run a round of approved GitHub issues as the dispatcher, starting one implementer session per issue, a reviewer session on each pull request, and a new implementer each time a pull request merges. Checks each role's model and effort with flywheel.py role, takes the issues from flywheel.py queue, starts each session in its own worktree with flywheel.py brief as its first message, watches the claim pull requests with flywheel.py events, merges what the merge policy lets flow with flywheel.py merge-check, asks the owner about what it holds, clears each merged claim and closes a finished plan. Claude Code desktop app only. Use when asked to run, start or work a round of issues, a number of issues at once, or the issues of a plan or tracking issue.
+description: Run a round of approved GitHub issues as the dispatcher, starting one implementer session per issue, a reviewer session on each pull request, and a new implementer each time a pull request merges. Checks each role's model and effort with flywheel.py role, takes the issues from flywheel.py queue, starts each session in its own worktree with flywheel.py brief as its first message, watches the claim pull requests with flywheel.py events, merges what the merge policy lets flow with flywheel.py merge-check, asks the owner about what it holds, clears each merged claim and closes a finished plan. Claude Code desktop app only. Use when asked to run, start or work a round of issues, a number of issues at once, particular issues named by number, or the issues of a plan or tracking issue.
 ---
 
 # Run a round of issues
@@ -13,9 +13,16 @@ its pull request. A **reviewer** reviews a pull request with the plugin's
 review-pr skill, from the project's review policy. A **brief** is the first
 message `flywheel.py brief N` prints for the session that works issue N.
 
-The owner names the round as a count, as in "run 3 issues", or as a tracking
-issue's plan, as in "run #653", or both. When the owner names a plan without
-a count, ask how many sessions to keep in flight.
+The owner names the round in one of these ways:
+
+- a count, as in "run 3 issues".
+- a tracking issue's plan, as in "run #653", with or without a count.
+- issues, as in "run #12" or "run #12 #14".
+
+A number the owner names may be an issue or a tracking issue, and step 4
+tells them apart. When the owner names a plan without a count, ask how many
+sessions to keep in flight. A round of named issues starts each one that can
+start at once, and takes nothing more from the queue.
 
 The dispatcher merges a pull request only when `merge-check` reports that it
 flows under the project's merge policy, in `.flywheel/merge-policy.md`, and
@@ -74,13 +81,19 @@ every reviewer starts at.
 
 ## Step 3: take the first look
 <!-- spec: run-restarts-after-merge -->
-<!-- seam: judgment: the owner chose a count or a plan, and the command differs by that choice -->
+<!-- seam: judgment: the owner chose a count, a plan or issues, and the command differs by that choice -->
 
 Take the first look at the claim pull requests, so later looks name only what
 changed since. For a plan, with its tracking issue:
 
 ```sh
 FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" events --tracking 653 --json
+```
+
+For issues the owner named, with `--issue` once for each:
+
+```sh
+FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" events --issue 12 --issue 14 --json
 ```
 
 For a count alone, the round has not started any issue yet, so look without
@@ -94,8 +107,8 @@ Keep `data.as_of`. Each later look passes it as `--since` and keeps the new
 `data.as_of` in its place.
 
 ## Step 4: read the queue
-<!-- spec: run-starts-one-session-per-issue, run-closes-finished-plan, run-stops-on-empty-queue -->
-<!-- seam: judgment: the owner chose a count or a plan, and the command differs by that choice -->
+<!-- spec: run-starts-one-session-per-issue, run-closes-finished-plan, run-stops-on-empty-queue, run-starts-named-issues -->
+<!-- seam: judgment: the owner chose a count, a plan or issues, and the command differs by that choice -->
 
 Ask the queue for as many issues as there are free places in the round. At
 the start that is the count; later it is the count less the sessions still
@@ -125,6 +138,27 @@ What the result means:
   still working or waiting on a merge, means the round is over. Stop as step
   11 says.
 - On exit 1, relay the errors to the owner and stop starting sessions.
+
+For issues the owner named, read the queue once, at the start of the round,
+with every number the owner named:
+
+```sh
+FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" queue 12 14 --json
+```
+
+What the result means:
+
+- `data.issues` lists the named issues that can start. Start each as step 5
+  says, even on exit 1.
+- Each entry in `errors` names an issue that cannot start and the reason.
+  Tell the owner each one, and start no session on it.
+- `data.tracking` means the one number named is a tracking issue. The round
+  runs that plan from here, as a plan the owner named. Look again as step 3
+  says for a plan, and read the queue with `--tracking`.
+
+Later in a round of named issues, read the queue no more. A merge or a
+stopped implementer frees a place that no issue takes, and the round stops
+as step 11 says once each named issue has merged or stopped.
 
 ## Step 5: start a worker for each issue
 <!-- spec: run-starts-one-session-per-issue -->
@@ -158,7 +192,7 @@ message, such as after merging a pull request.
 
 ## Step 6: look again when woken
 <!-- spec: run-reports-pull-request, run-restarts-after-merge -->
-<!-- seam: judgment: the owner chose a count or a plan, and the command differs by that choice -->
+<!-- seam: judgment: the owner chose a count, a plan or issues, and the command differs by that choice -->
 
 Each time this session is woken, look again with the last `data.as_of`, at
 this round's pull requests alone. For a plan, with its tracking issue:
@@ -258,9 +292,12 @@ exits 1. A finished plan has nothing left to start, so stop as step 11 says
 once no session is still working or waiting on a merge.
 
 ## Step 11: stop
-<!-- spec: run-stops-on-empty-queue -->
+<!-- spec: run-stops-on-empty-queue, run-starts-named-issues -->
 <!-- no-command: reports to the owner what the round's earlier looks found -->
 
 When the queue offers nothing, and either the round started no issue or
 `data.open` in the last look of step 6 is empty, report to the owner each pull request in the round
 that merged, and each issue that stopped without one. Then stop.
+
+A round of named issues stops the same way once each issue it started has
+merged or stopped, without reading the queue again.
