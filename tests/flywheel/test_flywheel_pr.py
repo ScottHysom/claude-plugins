@@ -192,6 +192,17 @@ class DescribePrCheckOnTheShape:
         assert code == flywheel.PROBLEMS
         assert [e for e in out["errors"] if e.startswith(says)], out["errors"]
 
+    def it_reads_the_first_of_a_repeated_subsection(self, project, drafted):
+        body = GOOD.replace(BEFORE, BEFORE + "### Before\n\nAgain.\n\n")
+        assert check(project, drafted(body))[0] == flywheel.OK
+
+    def it_names_each_fault_on_stderr_in_text(self, project, drafted):
+        body = GOOD.replace(CHANGE, "")
+        code, out, err = project.human("pr", "check", "--body-file", drafted(body))
+        assert code == flywheel.PROBLEMS
+        assert out == ""
+        assert "the description lacks the section `## Change`." in err
+
     def it_reads_headings_in_a_fence_or_a_comment_as_text(self, project, drafted):
         body = GOOD.replace(
             "Fixes it.", "Fixes it.\n\n```markdown\n## Scenario\n```\n\n<!--\n## Test plan\n-->"
@@ -317,6 +328,12 @@ class DescribePrOpenOpening:
 
 @pytest.mark.spec("propen-cmd-refuses-failing-draft")
 class DescribePrOpenRefusing:
+    def it_prints_nothing_on_stdout_in_text(self, project, drafted, opener):
+        path = drafted(GOOD.replace(CLOSES, ""))
+        code, out, err = project.human("pr", "open", "--title", "t", "--body-file", path)
+        assert (code, out) == (flywheel.PROBLEMS, "")
+        assert "does not close an issue" in err
+
     def it_opens_nothing_from_a_draft_that_fails_the_check(self, project, drafted, opener):
         code, out = open_pr(project, drafted(GOOD.replace("Closes #12\n", "")))
         assert code == flywheel.PROBLEMS

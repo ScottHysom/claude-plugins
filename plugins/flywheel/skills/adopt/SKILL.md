@@ -104,7 +104,7 @@ lacks its command. `record` in step 5 then lists its control among the gaps,
 and step 7 files it.
 
 ## Step 4: write the rules for agents
-<!-- spec: adopt-writes-agent-rules -->
+<!-- spec: adopt-writes-agent-rules, agentrules-names-requirements-section -->
 <!-- no-command: merging the rules into the project's own instructions is judgment -->
 
 Read `$ROOT/templates/agent-rules.md`. Write its sections up to the target
