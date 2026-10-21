@@ -67,8 +67,10 @@ Commands:
                  lacks, such as `repo` and `tracking`, and the claim label
                  when the repository describes it otherwise. With --set
                  ROLE=NAME, first write NAME as ROLE's label into
-                 .flywheel/labels.json. With --create, create
-                 each one.
+                 .flywheel/labels.json. With --kind NAME=TEXT or --area
+                 NAME=TEXT, first write the project's kinds or areas there,
+                 in place of the ones it gives. With --create, create
+                 each one, except an area pattern such as `plugin:*`.
     queue        up to --count of the oldest open approved issues nobody
                  holds and no open issue blocks, or an approved tracking
                  issue that comes first. With --tracking N, up to --count of
@@ -1061,10 +1063,9 @@ def checked_roles(given):
     return names
 
 
-def labels_section(root, key):
-    """The object under `key` in LABELS_FILE, or None when the file or the key
-    is missing."""
-    found = project_json(root, LABELS_FILE)
+def labels_section(found, key):
+    """The object under `key` in `found`, LABELS_FILE as JSON, or None when the
+    file or the key is missing."""
     if found is None or (isinstance(found, dict) and key not in found):
         return None
     inner = found.get(key) if isinstance(found, dict) else None
@@ -1075,7 +1076,7 @@ def labels_section(root, key):
 
 def role_labels(root):
     """The label for each role: what LABELS_FILE gives, else its default."""
-    return checked_roles(labels_section(root, ROLES_KEY) or {})
+    return checked_roles(labels_section(project_json(root, LABELS_FILE), ROLES_KEY) or {})
 
 
 def checked_texts(key, given):
@@ -1098,15 +1099,21 @@ def checked_texts(key, given):
 def label_rules(root):
     """The role labels, the kinds and the areas LABELS_FILE gives, each
     checked, with the defaults for what it leaves out."""
-    names = role_labels(root)
-    kinds = labels_section(root, KINDS_KEY)
+    return checked_labels(project_json(root, LABELS_FILE))
+
+
+def checked_labels(found):
+    """The role labels, the kinds and the areas in `found`, LABELS_FILE as
+    JSON, or Fatal naming the fault."""
+    names = checked_roles(labels_section(found, ROLES_KEY) or {})
+    kinds = labels_section(found, KINDS_KEY)
     if kinds is not None and not kinds:
         raise Fatal(
             '%s gives no label under "%s". Name at least one kind, or remove "%s", then run again.'
             % (LABELS_FILE, KINDS_KEY, KINDS_KEY)
         )
     kinds = checked_texts(KINDS_KEY, DEFAULT_KINDS if kinds is None else kinds)
-    areas = checked_texts(AREAS_KEY, labels_section(root, AREAS_KEY) or {})
+    areas = checked_texts(AREAS_KEY, labels_section(found, AREAS_KEY) or {})
     both = sorted({k.lower() for k in kinds} & {a.lower() for a in areas})
     if both:
         raise Fatal(
@@ -2210,20 +2217,21 @@ def cmd_record(args):
 # --------------------------------------------------------------------------
 
 
-def set_roles(root, pairs):
-    """Write each (role, label) pair into LABELS_FILE, keeping its other roles
-    and keys."""
+def set_labels(root, roles, kinds, areas):
+    """Write each (role, label) pair of `roles` into LABELS_FILE, keeping its
+    other roles, and `kinds` and `areas`, (label, description) pairs, in place
+    of the file's kinds and areas when given. Keeps the file's other keys, and
+    writes nothing when the result breaks a rule."""
     found = project_json(root, LABELS_FILE)
     if found is None:
         found = {}
-    given = found.get(ROLES_KEY, {}) if isinstance(found, dict) else None
-    if not isinstance(given, dict):
-        raise Fatal(
-            '%s does not hold a "%s" object. Fix it, then run again.' % (LABELS_FILE, ROLES_KEY)
-        )
-    given = dict(given, **dict(pairs))
-    checked_roles(given)
-    found[ROLES_KEY] = given
+    if roles:
+        found[ROLES_KEY] = dict(labels_section(found, ROLES_KEY) or {}, **dict(roles))
+    for key, pairs in ((KINDS_KEY, kinds), (AREAS_KEY, areas)):
+        if pairs:
+            labels_section(found, key)
+            found[key] = dict(pairs)
+    checked_labels(found)
     write_bytes(root, LABELS_FILE, (json.dumps(found, indent=2) + "\n").encode("utf-8"))
 
 
@@ -2240,15 +2248,21 @@ def cmd_labels(args):
     """Name each label the loop and file-issue need that the repository lacks,
     and create each one with --create."""
     root = project_root(args.repo)
-    if args.set:
-        set_roles(root, args.set)
-    names = role_labels(root)
+    if args.set or args.kind or args.area:
+        set_labels(root, args.set, args.kind, args.area)
+    names, kinds, areas = label_rules(root)
     listed = gh_json(
         root, "label", "list", "--limit", str(LIST_LIMIT), "--json", "name,description"
     )
     have = {lbl["name"].lower(): lbl for lbl in listed}
-    needed = [*DEFAULT_KINDS.items(), *((names[role], text) for role, text in ROLE_TEXTS.items())]
-    missing = [(name, text) for name, text in needed if name.lower() not in have]
+    # An area pattern names no one label, so there is none to create.
+    exact = [(name, text) for name, text in areas.items() if not name.endswith(AREA_PATTERN)]
+    needed = [*kinds.items(), *exact, *((names[role], text) for role, text in ROLE_TEXTS.items())]
+    missing = []
+    for name, text in needed:
+        # An area may also be the repo-area role's label.
+        if name.lower() not in have and name.lower() not in {m.lower() for m, _ in missing}:
+            missing.append((name, text))
     created = []
     if args.create:
         for name, text in missing:
@@ -2273,6 +2287,8 @@ def cmd_labels(args):
         "missing": [name for name, _ in missing],
         "created": created,
         "roles": names,
+        "kinds": kinds,
+        "areas": areas,
         "taken": taken["name"] if taken else None,
     }
 
@@ -5093,6 +5109,16 @@ def role_pair(text):
     return role, name.strip()
 
 
+def label_pair(text):
+    """argparse type for --kind and --area: NAME=TEXT, NAME a label."""
+    name, sep, description = text.partition("=")
+    if not sep or not name.strip():
+        raise argparse.ArgumentTypeError(
+            "%r is not NAME=TEXT with NAME a label and TEXT its description" % text
+        )
+    return name.strip(), description.strip()
+
+
 def adoption_level(text):
     """argparse type: one of the method's levels."""
     if text not in [str(n) for n in ADOPTION_LEVELS]:
@@ -5184,6 +5210,23 @@ def build_parser():
         metavar="ROLE=NAME",
         help="write NAME as ROLE's label into %s first, ROLE being one of %s; give it once"
         " for each role" % (LABELS_FILE, ", ".join(ROLE_LABELS)),
+    )
+    p.add_argument(
+        "--kind",
+        action="append",
+        type=label_pair,
+        metavar="NAME=TEXT",
+        help="write the kind labels into %s first, in place of the kinds it gives, each"
+        " with its description TEXT; give it once for each kind" % LABELS_FILE,
+    )
+    p.add_argument(
+        "--area",
+        action="append",
+        type=label_pair,
+        metavar="NAME=TEXT",
+        help="write the area labels into %s first, in place of the areas it gives, each"
+        " with its description TEXT; a NAME ending in %s stands for each label it"
+        " prefixes; give it once for each area" % (LABELS_FILE, AREA_PATTERN),
     )
     p.set_defaults(func=cmd_labels)
 

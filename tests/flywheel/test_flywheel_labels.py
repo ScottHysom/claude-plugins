@@ -189,6 +189,70 @@ class DescribeLabelsSet:
         assert project.read(flywheel.LABELS_FILE).decode() == text
 
 
+class DescribeLabelsKindsAreas:
+    @pytest.mark.spec("labels-cmd-sets-kinds-areas", "labels-cmd-names-missing-labels")
+    def it_writes_the_kinds_and_areas_and_creates_each_but_a_pattern(self, project, fake):
+        hub = fake()
+        project.write(
+            flywheel.LABELS_FILE,
+            json.dumps({"roles": {"plan": "epic"}, "kinds": {"chore": ""}, "notes": 1}),
+        )
+        code, env = project.run(
+            "labels",
+            "--kind",
+            "bug=Something broke",
+            "--kind",
+            "docs=Words only",
+            "--area",
+            "web=The web app",
+            "--area",
+            "plugin:*=One plugin",
+            "--area",
+            "repo=Everything else",
+            "--create",
+        )
+        assert code == flywheel.OK, env["errors"]
+        assert labels_file(project) == {
+            "roles": {"plan": "epic"},
+            "kinds": {"bug": "Something broke", "docs": "Words only"},
+            "areas": {"web": "The web app", "plugin:*": "One plugin", "repo": "Everything else"},
+            "notes": 1,
+        }
+        assert env["data"]["kinds"] == {"bug": "Something broke", "docs": "Words only"}
+        assert hub.created.count("repo") == 1
+        assert {"docs", "web", "repo", "epic"} <= set(hub.created)
+        assert not {"chore", "plugin:*", "documentation"} & set(hub.created)
+        assert ("docs", "Words only") in hub.labels
+
+    @pytest.mark.spec("labels-cmd-names-missing-labels")
+    def it_names_githubs_kinds_without_the_file(self, project, fake):
+        fake(["bug", "enhancement"])
+        code, env = project.run("labels")
+        assert code == flywheel.PROBLEMS
+        assert "documentation" in env["data"]["missing"]
+        assert env["data"]["areas"] == {}
+
+    @pytest.mark.parametrize("value", ["docs", "=Words"])
+    @pytest.mark.spec("labels-cmd-sets-kinds-areas")
+    def it_refuses_an_option_without_a_name(self, project, fake, value, capsys):
+        fake()
+        with pytest.raises(SystemExit) as exc:
+            flywheel.main(["labels", "--kind", value, "-C", str(project.root)])
+        assert exc.value.code == flywheel.CANNOT_RUN
+        assert "NAME=TEXT" in capsys.readouterr().err
+        assert not (project.root / flywheel.LABELS_FILE).exists()
+
+    @pytest.mark.spec("labels-cmd-sets-kinds-areas", "labelsfile-refuses-bad-map")
+    def it_writes_nothing_when_a_label_is_both_a_kind_and_an_area(self, project, fake):
+        hub = fake()
+        project.write(flywheel.LABELS_FILE, json.dumps({"kinds": {"web": ""}}))
+        code, _ = project.run("labels", "--area", "Web=The web app", "--create")
+        assert code == flywheel.CANNOT_RUN
+        assert "gives `web` as both a kind and an area" in project.err
+        assert labels_file(project) == {"kinds": {"web": ""}}
+        assert hub.created == []
+
+
 class DescribeLabelsFile:
     @pytest.mark.parametrize(
         ("roles", "says"),

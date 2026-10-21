@@ -640,8 +640,17 @@ Source: #651, the method's adoption.md, and the method's
   rules as they are.
 - `labels-cmd-names-missing-labels` (test): When `flywheel.py labels` runs,
   it names each label the loop and file-issue need that the repository
-  lacks, the role labels as `.flywheel/labels.json` gives them, and exits 1
-  when one is missing. With `--create`, it creates each one.
+  lacks, and exits 1 when one is missing. Those labels are the role labels,
+  the kinds and the areas, as `.flywheel/labels.json` gives them, apart from
+  an area that ends in `*`. With `--create`, it creates each one, with the
+  description the file gives it.
+- `labels-cmd-sets-kinds-areas` (test): When `flywheel.py labels` runs with
+  `--kind NAME=TEXT` or `--area NAME=TEXT`, it writes the kinds or areas
+  given, each with its description, into `.flywheel/labels.json` in place
+  of the ones the file gives, and leaves the file's other keys as they are,
+  before it names the missing labels. It refuses an option without a NAME,
+  and writes nothing when the result breaks a rule that
+  `labelsfile-refuses-bad-map` lists.
 - `adopt-creates-missing-labels` (step): When adopt runs, it shows the owner
   the missing labels and creates them once the owner agrees, before it hands
   any gaps to file-issue.
