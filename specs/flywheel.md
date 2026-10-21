@@ -69,6 +69,10 @@ decisions on it.
   - a role outside the four.
   - a label that is empty.
   - one label for two roles.
+  - a `kinds` that is not an object holding at least one label, or an
+    `areas` that is not an object.
+  - a kind or an area whose description is not text.
+  - one label given as both a kind and an area.
 - `labels-cmd-sets-role` (test): When `flywheel.py labels --set ROLE=NAME`
   runs, it writes NAME as ROLE's label into `.flywheel/labels.json` and
   leaves the file's other roles as they are, before it names the missing
@@ -85,6 +89,31 @@ decisions on it.
   label the repository uses for each role, and for the claim a label that
   nothing else in the repository uses, and sets each answer with
   `labels --set` before it names the missing labels.
+
+## need owner-sets-issue-rules: File issues under the project's own labels and headings
+
+When the owner adopts the loop, they want file-issue to file under the
+project's own kind labels, area labels and issue headings, so the loop fits
+the repository rather than the repository fitting the loop. Where the project
+sets none, they want GitHub's defaults, such as its `documentation` label.
+
+Source: #692 and the owner's comment on it, with the owner's decisions on the
+plan posted there.
+
+- `labelsfile-sets-kinds-areas` (test): When `.flywheel/labels.json` gives
+  `kinds` or `areas`, each an object that maps a label to its description,
+  `plan report` takes a draft's kind label from `kinds` and its area label
+  from `areas` or the `repo-area` role. An area that ends in `*` matches each
+  label it prefixes, as `plugin:*` matches `plugin:flywheel`. Without
+  `kinds`, the kinds are GitHub's `bug`, `enhancement` and `documentation`.
+  Without `areas`, a draft needs no area label, and may carry the
+  `repo-area` label.
+- `issuetemplate-sets-headings` (test): When `.flywheel/issue-template.md`
+  exists, each `##` heading in it is a heading every draft's body holds, and
+  the text under a heading is the guidance for that section. Without the
+  file, the headings are `What's wrong`, `Evidence`, `Done when` and
+  `Requirements`. A template without a `##` heading stops a command that
+  reads it with exit 2.
 
 ## need contributor-reads-method-beside-plugin: Read the method beside the plugin
 
@@ -194,8 +223,10 @@ commands meet.
   --drafts <file>` reads a plan, it names every fault in one run, does not
   print a token, and refuses each issue that meets any of these:
   - has a body that does not open with `**Claude:**`.
-  - lacks a heading CLAUDE.md asks for.
-  - does not carry exactly one kind label and one area label.
+  - lacks a heading the project's issue template gives.
+  - does not carry exactly one kind label.
+  - does not carry exactly one area label, when the project sets `areas`.
+  - carries more than one area label, when it does not.
   - carries the approval label or the plan label.
   - carries a label the repository does not have.
 - `planreport-cmd-checks-plan-links` (test): When a key repeats, a `{KEY}` or a

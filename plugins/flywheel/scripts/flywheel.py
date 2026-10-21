@@ -146,14 +146,16 @@ as it says, a tracking issue is not an open approved plan or has open
 sub-issues, the reviewer's findings are refused, a pull request holds or is
 not open for review, a control at or below the recorded level is missing,
 a new test passes on the base unexcused), 2 could not run (including a new
-test that fails at the branch, and a malformed .flywheel/labels.json).
+test that fails at the branch, a malformed .flywheel/labels.json, and an
+issue template without a heading).
 
 The labels. The loop acts on four labels by their role: the approval label,
 which the owner adds to approve an issue, the plan label of a tracking
 issue, the claim label that `claim` adds, and the area label of an issue
 about the whole repository. A repository may already have labels for these,
 so .flywheel/labels.json can give each role's label under `roles`, and
-ROLE_LABELS holds the label of each role it leaves out. Labels match without
+ROLE_LABELS holds the label of each role it leaves out. The same file gives
+the project's kind and area labels, which file-issue's issues carry. Labels match without
 case, as GitHub matches them. The claim label stays the loop's alone:
 `stale` reads every issue carrying it as a claim, and `release` takes it
 off, so `labels` reports it taken when the repository has it with a
@@ -346,10 +348,10 @@ shows the shape of the plan file. The model writes a plan's issues as JSON,
 each under a key of its own, and names another issue of the plan in a body as
 {KEY}. A plan of several issues takes a tracking issue. A plan of one issue
 may leave it out, and is then filed as that issue alone. `plan report` checks
-each draft's opening, headings and labels against OPENING, HEADINGS,
-KIND_LABELS and AREA_LABEL_RE, the issue rules of the repository this plugin
-comes from, with the whole-repository area from the role labels, and
-checks the plan's keys and links. It refuses a draft's body or the tracking
+each draft's opening against OPENING, its headings against
+.flywheel/issue-template.md, and its labels against the kinds, areas and
+roles .flywheel/labels.json gives, with the defaults beside LABELS_FILE for
+what the project leaves out. It also checks the plan's keys and links. It refuses a draft's body or the tracking
 issue's plan that continues a paragraph or a list item onto a second line, outside a fence or an HTML comment, and names the line.
 GitHub renders that newline in an issue body as a line break, so the
 paragraph reads as a ragged column. It then orders the issues so each comes
@@ -810,30 +812,42 @@ review-post opens each finding's comment with **Claude:** and its level.
 # `plan`: what an issue's body opens with and the headings it holds. A
 # tracking issue's body opens the same way.
 OPENING = AGENT_MARK
-HEADINGS = ("What's wrong", "Evidence", "Done when", "Requirements")
 HEADING_RE = re.compile(r"^##[ \t]+(.*?)[ \t]*$", re.M)
-KIND_LABELS = ("bug", "enhancement", "docs")
-AREA_LABEL_RE = re.compile(r"^plugin:.+$")
+# `.flywheel/issue-template.md`: each `##` heading an issue's body holds, with
+# the text under it as the guidance for that section. Without the file, the
+# headings are DEFAULT_HEADINGS.
+TEMPLATE_FILE = COPY_DIR + "/issue-template.md"
+DEFAULT_HEADINGS = (
+    ("What's wrong", "What happens, and a command that shows it."),
+    ("Evidence", "File and line, commit, pull request, output."),
+    ("Done when", "What a fix has to make true."),
+    ("Requirements", "The ids in specs/ the issue adds, changes or removes."),
+)
 # `.flywheel/labels.json`: the label the repository uses for each role the
 # loop acts on. A role the file leaves out takes its default here. `repo-area`
 # is the area of an issue about the whole repository, which the gaps adopt
-# files carry.
+# files carry. Under KINDS_KEY and AREAS_KEY the file maps each kind and area
+# label to its description. Without kinds, they are GitHub's DEFAULT_KINDS;
+# without areas, an issue needs no area label. An area ending in AREA_PATTERN
+# matches each label it prefixes.
 LABELS_FILE = COPY_DIR + "/labels.json"
+KINDS_KEY = "kinds"
+DEFAULT_KINDS = {
+    "bug": "Something isn't working",
+    "enhancement": "New feature or request",
+    "documentation": "Improvements or additions to documentation",
+}
+AREA_PATTERN = "*"
 APPROVAL, PLAN, CLAIM, REPO_AREA = "approval", "plan", "claim", "repo-area"
 ROLE_LABELS = {APPROVAL: APPROVED, PLAN: TRACKING, CLAIM: IN_PROGRESS, REPO_AREA: "repo"}
 # `labels`: each label the loop and file-issue need, with its description.
-# A role's label is named by its role, and the kinds by their own names.
+# A role's label is named by its role.
 ROLE_TEXTS = {
     REPO_AREA: "The repository as a whole",
     PLAN: "Groups a plan's issues as sub-issues",
     APPROVAL: "The owner approved this issue to be worked",
     CLAIM: "A session has claimed this issue",
 }
-KIND_TEXTS = (
-    ("bug", "Something is broken"),
-    ("enhancement", "New behavior"),
-    ("docs", "Documentation only"),
-)
 PLAN_KEYS = ("issues", "tracking")
 ISSUE_KEYS = ("key", "title", "labels", "body", "blocked_by")
 # An issue of the plan that is open on GitHub already, named by its number.
@@ -1045,9 +1059,95 @@ def checked_roles(given):
     return names
 
 
+def labels_section(root, key):
+    """The object under `key` in LABELS_FILE, or None when the file or the key
+    is missing."""
+    found = project_json(root, LABELS_FILE)
+    if found is None or (isinstance(found, dict) and key not in found):
+        return None
+    inner = found.get(key) if isinstance(found, dict) else None
+    if not isinstance(inner, dict):
+        raise Fatal('%s does not hold a "%s" object. Fix it, then run again.' % (LABELS_FILE, key))
+    return inner
+
+
 def role_labels(root):
     """The label for each role: what LABELS_FILE gives, else its default."""
-    return checked_roles(read_project_json(root, LABELS_FILE, ROLES_KEY) or {})
+    return checked_roles(labels_section(root, ROLES_KEY) or {})
+
+
+def checked_texts(key, given):
+    """Each label under `key` in LABELS_FILE mapped to its description, or
+    Fatal naming the fault."""
+    for name, text in given.items():
+        if not name.strip():
+            raise Fatal(
+                '%s gives an empty label under "%s". Name a label, then run again.'
+                % (LABELS_FILE, key)
+            )
+        if not isinstance(text, str):
+            raise Fatal(
+                '%s gives `%s` under "%s" a description that is not text. Fix it, then run again.'
+                % (LABELS_FILE, name, key)
+            )
+    return {name.strip(): text for name, text in given.items()}
+
+
+def label_rules(root):
+    """The role labels, the kinds and the areas LABELS_FILE gives, each
+    checked, with the defaults for what it leaves out."""
+    names = role_labels(root)
+    kinds = labels_section(root, KINDS_KEY)
+    if kinds is not None and not kinds:
+        raise Fatal(
+            '%s gives no label under "%s". Name at least one kind, or remove "%s", then run again.'
+            % (LABELS_FILE, KINDS_KEY, KINDS_KEY)
+        )
+    kinds = checked_texts(KINDS_KEY, DEFAULT_KINDS if kinds is None else kinds)
+    areas = checked_texts(AREAS_KEY, labels_section(root, AREAS_KEY) or {})
+    both = sorted({k.lower() for k in kinds} & {a.lower() for a in areas})
+    if both:
+        raise Fatal(
+            '%s gives `%s` as both a kind and an area. Keep it under one of "%s" and "%s",'
+            " then run again." % (LABELS_FILE, both[0], KINDS_KEY, AREAS_KEY)
+        )
+    return names, kinds, areas
+
+
+def issue_headings(root):
+    """Each (heading, guidance) pair TEMPLATE_FILE gives, in its order, or
+    DEFAULT_HEADINGS without the file."""
+    path = os.path.join(root, *TEMPLATE_FILE.split("/"))
+    if not os.path.isfile(path):
+        return DEFAULT_HEADINGS
+    text = read_bytes(path).decode("utf-8")
+    found = list(HEADING_RE.finditer(text))
+    if not found:
+        raise Fatal(
+            "%s holds no `##` heading. Give each heading an issue holds as `## <heading>`,"
+            " then run again." % TEMPLATE_FILE
+        )
+    ends = [m.start() for m in found[1:]] + [len(text)]
+    return tuple((m.group(1), text[m.end() : end].strip()) for m, end in zip(found, ends))
+
+
+def either(items):
+    """`items` as one phrase, the last joined by "or"."""
+    return " or ".join(filter(None, [", ".join(items[:-1]), items[-1]]))
+
+
+def is_area(label, areas, names):
+    """Whether `label` is one of `areas` or the repo-area role's label."""
+    low = label.lower()
+    if low == names[REPO_AREA].lower():
+        return True
+    for area in areas:
+        area = area.lower()
+        if area.endswith(AREA_PATTERN) and low.startswith(area[: -len(AREA_PATTERN)]):
+            return True
+        if low == area:
+            return True
+    return False
 
 
 def has_label(item, name):
@@ -2145,7 +2245,7 @@ def cmd_labels(args):
         root, "label", "list", "--limit", str(LIST_LIMIT), "--json", "name,description"
     )
     have = {lbl["name"].lower(): lbl for lbl in listed}
-    needed = [*KIND_TEXTS, *((names[role], text) for role, text in ROLE_TEXTS.items())]
+    needed = [*DEFAULT_KINDS.items(), *((names[role], text) for role, text in ROLE_TEXTS.items())]
     missing = [(name, text) for name, text in needed if name.lower() not in have]
     created = []
     if args.create:
@@ -4227,11 +4327,11 @@ def check_filed(name, key, item, faults):
     return row, faults
 
 
-def check_issue(index, item, known, names):
+def check_issue(index, item, known, rules):
     """One issue of the plan as a row, or None, and the faults in it.
 
     `known` maps each of the repository's labels, in lower case, to its name,
-    and `names` gives each role's label.
+    and `rules` gives each role's label, the kinds, the areas and the headings.
     A row for an issue filed already carries its number; a draft's is None.
     """
     if not isinstance(item, dict):
@@ -4256,7 +4356,9 @@ def check_issue(index, item, known, names):
         body = ""
     elif not body.startswith(OPENING):
         faults.append("%s's body does not open with %s" % (name, OPENING))
-    missing = [h for h in HEADINGS if h not in HEADING_RE.findall(body)]
+    names, kinds, areas = rules["roles"], rules["kinds"], rules["areas"]
+    held = HEADING_RE.findall(body)
+    missing = [h for h, _ in rules["headings"] if h not in held]
     if missing:
         faults.append(
             "%s's body lacks the heading%s %s"
@@ -4265,16 +4367,20 @@ def check_issue(index, item, known, names):
     if not (isinstance(labels, list) and all(isinstance(lbl, str) for lbl in labels)):
         faults.append("%s's labels are not a list of names" % name)
         labels = []
-    kinds = [lbl for lbl in labels if lbl.lower() in KIND_LABELS]
-    areas = [
-        lbl
-        for lbl in labels
-        if AREA_LABEL_RE.match(lbl.lower()) or lbl.lower() == names[REPO_AREA].lower()
-    ]
-    for what, found, choices in (
-        ("kind", kinds, ", ".join(KIND_LABELS)),
-        ("area", areas, "`plugin:<name>` or `%s`" % names[REPO_AREA]),
-    ):
+    lowered = {k.lower() for k in kinds}
+    checks = [("kind", [lbl for lbl in labels if lbl.lower() in lowered], either(list(kinds)))]
+    if areas:
+        choices = list(areas)
+        if names[REPO_AREA].lower() not in {a.lower() for a in areas}:
+            choices.append(names[REPO_AREA])
+        checks.append(
+            (
+                "area",
+                [lbl for lbl in labels if is_area(lbl, areas, names)],
+                either(["`%s`" % a for a in choices]),
+            )
+        )
+    for what, found, choices in checks:
         if len(found) != 1:
             faults.append(
                 "%s carries %d %s labels%s; it takes exactly one, from %s"
@@ -4387,10 +4493,11 @@ def check_plan(repo, plan, labels):
         tracking = {"title": tracking["title"], "plan": tracking["plan"]}
 
     known = {lbl.lower(): lbl for lbl in labels}
-    names = role_labels(repo)
+    names, kinds, areas = label_rules(repo)
+    rules = {"roles": names, "kinds": kinds, "areas": areas, "headings": issue_headings(repo)}
     rows, seen = [], set()
     for index, item in enumerate(issues, 1):
-        row, found = check_issue(index, item, known, names)
+        row, found = check_issue(index, item, known, rules)
         faults += found
         if row is None or row["key"] is None:
             continue
