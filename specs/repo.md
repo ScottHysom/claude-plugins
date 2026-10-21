@@ -724,8 +724,10 @@ Source: #566, #567, and CLAUDE.md, under "Workflow".
   `-C/--repo` names the clone it pushes from.
 - `openpr-drafts-description` (step): When the open-pr skill drafts a pull
   request description, it writes the title and the file with the headings
-  CLAUDE.md, under "Workflow", names, and `Closes #N` after them. It
-  explains each term that CLAUDE.md, under "Workflow", says the owner does
+  CLAUDE.md, under "Workflow", names, and `Closes #N` after them. It follows
+  the rules in `.claude/rules/prose-style.md` as it writes the draft, and
+  gives a Before or an After that covers more than one behavior as bullets, with the
+  After's in the Before's order. It explains each term that CLAUDE.md, under "Workflow", says the owner does
   not know, by the first of these ways that works:
   1. a pointer back to an earlier sentence that explains it.
   2. a qualifier naming its kind, where two of a kind meet.
@@ -746,9 +748,17 @@ Source: #566, #567, and CLAUDE.md, under "Workflow".
   leaves a borderline term that the text around it already explains, and
   checks the draft again until the blocking list is empty and the
   subagent's scenario matches the change.
-- `openpr-opens-through-script` (step): When the cold read finds nothing to
-  revise, the open-pr skill opens the pull request with `open`, from the file
-  it checked, rather than with `gh pr create`.
+- `openpr-gives-draft-to-style-reader` (step): When the cold reader's
+  blocking list is empty, the open-pr skill gives the draft and its title to
+  a new subagent that reads `.claude/rules/prose-style.md` and CLAUDE.md,
+  under "Workflow", and nothing else. The subagent names each breach of
+  either by rule id and quotes its sentence. The skill rewrites each quoted
+  sentence that breaks its rule, and sends any revised draft back through
+  `openpr-checks-draft`, the cold reader and this read.
+- `openpr-opens-through-script` (step): When the cold read and the read
+  against the prose rules find nothing to revise, the open-pr skill opens
+  the pull request with `open`, from the file it checked, rather than with
+  `gh pr create`.
 - `draft-cmd-makes-own-file` (test): When `check-pr.py draft` runs, it makes
   an empty file in the temporary directory, named so that no other run gets
   the same file, and prints its literal path.

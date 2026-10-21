@@ -22,6 +22,10 @@ on a summary here; this file holds what the README does not.
      - what happened before the change, under `### Before`.
      - what happens after it, under `### After`.
 
+     Where a Before or an After covers more than one behavior, each
+     behavior is a bullet, and the After's bullets follow the Before's
+     order.
+
      A change that nobody meets in use, such as a refactor or a CI fix, names
      who would notice it and why it is made.
   2. `## Change` says what the pull request changes. When the fix departs from
@@ -33,24 +37,22 @@ on a summary here; this file holds what the README does not.
 
   `Closes #N` follows them. Each paragraph and each list item sits on one
   line, because GitHub renders a newline inside one as a line break.
-  #559's opening, in this shape:
+  #720's opening, rewritten in this shape:
 
   ```markdown
   ## Scenario
 
-  An author runs apply-prose over their docs. Where a rule's pattern matches, the model writes a **finding** (a rewrite the author approves or rejects) or a **dismissal** (a note that the match is not a breach). `prose.py report` shows the author every finding to approve.
+  An owner adopts flywheel in a repository that already has labels of its own. flywheel's issue loop acts on labels by their **role**: the **approval label** lets a session work an issue, and the **claim label** marks the issue a session holds.
 
   ### Before
 
-  When two findings under different rules rewrote the same sentence, the model could dismiss one, saying the other rewrites it. The author saw one finding. Rejecting it left the other rule's breach in the file, and the author was never asked about it.
+  - A repository that approves with `ready` had to add flywheel's `approved` beside it, and use that.
+  - A repository that already used `in-progress` for its own purpose saw flywheel treat every hand-set `in-progress` label as a claim.
 
   ### After
 
-  `report` shows that dismissal beside the finding it depends on, and says under the finding that rejecting it leaves the dismissed match in the file.
-
-  ## Change
-
-  `report` does not refuse such a dismissal. The issue proposed refusing it, but the author settles two overlapping findings the same way: they keep one, and the one they turn down becomes a dismissal.
+  - The owner names `ready` as the approval label in `.flywheel/labels.json`, and the loop uses it.
+  - The owner gives the claim role a label of its own. `flywheel.py labels` reports `in-progress` as taken when it carries a description other than flywheel's.
   ```
 - Until agents have their own GitHub identity, everything posts under Scott's
   account. Start every reply to a review comment with `**Claude:**`, so the
