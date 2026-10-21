@@ -120,6 +120,72 @@ plan posted there.
   `Requirements`. A template without a `##` heading stops a command that
   reads it with exit 2.
 
+## need owner-sets-pr-shape: Open pull requests in the project's own shape
+
+When the owner adopts the loop, they want each pull request's description in
+the project's own shape, with merge-check and review-brief reading the
+requirement ids from the section the project names. Where the project sets no
+shape, they want this repository's: a scenario with its before and after, the
+change, the requirements and the test plan.
+
+Source: #716, with the owner's approval of the plan posted there.
+
+- `prtemplate-sets-shape` (test): When `.flywheel/pr-template.md` exists,
+  each `##` heading in it is a section every description holds, in its
+  order, each `###` heading under one is a subsection that section holds,
+  and the text under a heading is the guidance for it. The section with
+  `<!-- requirement-ids -->` under its heading is the one that names the
+  requirement ids. Without the file, the sections are `Scenario`, with the
+  subsections `Before` and `After`, then `Change`, `Requirements` (the
+  marked one) and `Test plan`. A template that has no `##` heading, marks
+  no section or more than one, or puts a `###` heading before every `##`
+  stops a command that reads it with exit 2.
+- `prdraft-cmd-makes-own-file` (test): When `flywheel.py pr draft` runs, it
+  makes an empty file that no other run is given, and prints its path with
+  each section, subsection and guidance of the shape to draft from.
+- `prcheck-cmd-requires-shape` (test): When
+  `flywheel.py pr check --body-file FILE` reads a description that does any
+  of these, it names each fault and exits 1:
+  - opens with a heading other than the shape's first section.
+  - lacks a section of the shape, or puts two of them out of order.
+  - leaves a section empty.
+  - lacks a subsection of the shape under its section, leaves one empty, or
+    puts two of them out of order.
+
+  A heading inside a code fence or an HTML comment is text.
+- `prcheck-cmd-refuses-split-lines` (test): When `pr check` finds a
+  paragraph or a list item that continues onto a second line, outside a
+  code fence or an HTML comment, it names the line and exits 1.
+- `prcheck-cmd-requires-closes` (test): When `pr check` finds no line that
+  closes an issue, such as `Closes #N`, outside a code fence or an HTML
+  comment, it says so and exits 1.
+- `propen-cmd-refuses-failing-draft` (test): When
+  `flywheel.py pr open --title TITLE --body-file FILE` reads a description
+  that `pr check` would fail, it names each fault, pushes nothing, opens
+  nothing and exits 1.
+- `propen-cmd-opens-from-file` (test): When `pr open` reads a description
+  that passes, it pushes the branch and opens a pull request with that
+  title, with the file as its description, and prints its url.
+- `prskill-drafts-from-template` (step): When the open-pr skill runs, it
+  drafts the description in the shape `pr draft` gives, into the file
+  `pr draft` made.
+- `prskill-checks-draft` (step): When open-pr has a draft, it checks it with
+  `pr check`, and fixes each fault before anyone reads it.
+- `prskill-gives-draft-to-cold-reader` (step): When the draft passes
+  `pr check`, open-pr gives it to a subagent that has none of the session's
+  context, which names each term the draft leaves undefined, and revises
+  the draft until a subagent names none that blocks the reading.
+- `prskill-opens-through-script` (step): When the cold reader names no
+  blocking term, open-pr opens the pull request with `pr open`.
+- `adopt-asks-pr-shape` (step): When adopt asks the owner for the issue
+  rules, it asks in the same question for the shape of a pull request's
+  description, offering the default first, and writes an answer that
+  differs to `.flywheel/pr-template.md`.
+- `agentrules-names-requirements-section` (step): When adopt writes the
+  rules for agents, they tell the agent to name each requirement id the
+  pull request adds, changes or removes in the section the pull request
+  template marks, and to open the pull request through the open-pr skill.
+
 ## need contributor-reads-method-beside-plugin: Read the method beside the plugin
 
 When a contributor or an adopting owner reads a principle id in a spec, a
@@ -412,8 +478,8 @@ Source: #305, #648, and the method's `checks-over-instructions`.
 
 - `workissue-opens-pr-through-skill` (step): When work-issue has the unit
   committed and `check` passing, it opens the pull request through the
-  installed skill whose description says it opens one, and with
-  `gh pr create` when no skill does.
+  project's own skill for opening one, and through the plugin's open-pr
+  skill when the project has none.
 - `workissue-turns-on-pr-watch` (step): When work-issue has opened the pull
   request, it turns on Auto-fix and archive-on-close for it with the
   session's monitor tool, before reporting.
@@ -489,7 +555,8 @@ Source: #650, and the method's `autonomy-scales-with-risk` and
 - `mergecheck-cmd-holds-requirement-changes` (test): When
   `flywheel.py merge-check N` finds that pull request N adds, changes or
   removes a requirement, it reports hold with that reason. It reads that from
-  N's `## Requirements` section, which names a requirement id or is missing.
+  the section of N's description that the pull request template marks, which
+  names a requirement id or is missing.
 - `mergecheck-cmd-holds-protected-paths` (test): When pull request N touches
   a path the merge policy protects, `merge-check` reports hold and names the
   path.
@@ -537,7 +604,8 @@ Source: #650, and the method's `review-against-written-policy` and
   exits 2 when the file is missing.
 - `reviewbrief-cmd-prints-pull-request` (test): When
   `flywheel.py review-brief N` runs, it prints pull request N's head, its
-  description, the requirement ids its `## Requirements` section names, its
+  description, the requirement ids named in the section the pull request
+  template marks, its
   review threads, its diff, and the head the reviewer last reviewed. It
   exits 1 when N is not open.
 - `reviewpost-cmd-checks-findings` (test): When

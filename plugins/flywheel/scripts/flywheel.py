@@ -35,13 +35,17 @@ Usage:
     python3 flywheel.py measure --since 2026-10-01
     python3 flywheel.py clear 12
     python3 flywheel.py sweep --dry-run
+    python3 flywheel.py pr draft
+    python3 flywheel.py pr check --body-file pr.md
+    python3 flywheel.py pr open --title "fix(app): ..." --body-file pr.md
     python3 flywheel.py plan draft
     python3 flywheel.py plan report --drafts plan.json
     python3 flywheel.py plan file --drafts plan.json --token 3f9a1c0e7b2d4a68
     python3 flywheel.py plan close 347
 
 Run from anywhere in a clone, with git and, for every command but setup,
-config init, fails-on-base, assess, record, review-policy and ids, an
+config init, fails-on-base, assess, record, review-policy, ids, pr draft and
+pr check, an
 authenticated gh on
 PATH.
 
@@ -123,6 +127,16 @@ Commands:
     ids          name each principle or stage-rule id cited in the plugin's
                  templates, skills or the repo's specs/flywheel.md that no
                  document under the plugin's docs/ defines
+    pr draft     make an empty file in the temporary directory for a pull
+                 request's description, named so that no other run gets it,
+                 and print its path. With --json, also the shape the
+                 description takes: .flywheel/pr-template.md's sections,
+                 subsections and guidance, or the plugin's default shape.
+    pr check     check a drafted description against that shape, for a
+                 paragraph or list item split across lines, and for a line
+                 that closes an issue.
+    pr open      make pr check's check, then push the branch and open the
+                 pull request with --title and the draft as its description.
     plan draft   make an empty file in the temporary directory for a plan's
                  drafts, named so that no other run gets it, and print its path.
                  With --json, also the kinds, areas, role labels and headings
@@ -148,10 +162,12 @@ the loop needs and --create was not given, the claim label is taken, the
 roles file leaves a role's model or effort unset, a plan is refused or not filed
 as it says, a tracking issue is not an open approved plan or has open
 sub-issues, the reviewer's findings are refused, a pull request holds or is
-not open for review, a control at or below the recorded level is missing,
+not open for review, a drafted pull request description fails `pr check`,
+a control at or below the recorded level is missing,
 a new test passes on the base unexcused), 2 could not run (including a new
-test that fails at the branch, a malformed .flywheel/labels.json, and an
-issue template without a heading).
+test that fails at the branch, a malformed .flywheel/labels.json, an
+issue template without a heading, and a pull request template without a
+heading or without exactly one section marked for requirement ids).
 
 The labels. The loop acts on four labels by their role: the approval label,
 which the owner adds to approve an issue, the plan label of a tracking
@@ -519,6 +535,7 @@ Python 3.9 is the floor. No match statements, no X | Y unions.
 
 import argparse
 import calendar
+import collections
 import configparser
 import fnmatch
 import hashlib
@@ -786,7 +803,6 @@ LEVELS = ("P0", "P1", "P2", "P3")
 HOLDING_LEVELS = ("P0", "P1", "P2")
 NIT = "P3"
 FINDING_RE = re.compile(r"^%s (P[0-3])\b" % re.escape(AGENT_MARK))
-REQUIREMENTS_HEADING = "Requirements"
 SECTION_RE = re.compile(r"^(#{1,6})[ \t]+(.*?)[ \t]*#*[ \t]*$")
 REQUIREMENT_ID_RE = re.compile(r"`((?:[a-z][a-z0-9-]*:)?[a-z0-9]+(?:-[a-z0-9]+)+)`")
 POST_KEYS = ("head", "summary", "findings", "resolve")
@@ -827,6 +843,44 @@ DEFAULT_HEADINGS = (
     ("Done when", "What a fix has to make true."),
     ("Requirements", "The ids in specs/ the issue adds, changes or removes."),
 )
+# `.flywheel/pr-template.md`: each `##` heading a pull request's description
+# holds, in its order, each `###` heading under one a subsection that section
+# holds, and the text under a heading the guidance for it. IDS_MARK under a
+# `##` heading marks the section that names the requirement ids. Without the
+# file, the shape is DEFAULT_PR_SHAPE.
+PR_TEMPLATE_FILE = COPY_DIR + "/pr-template.md"
+IDS_MARK = "<!-- requirement-ids -->"
+PrSection = collections.namedtuple("PrSection", "heading guidance subsections ids")
+DEFAULT_PR_SHAPE = (
+    PrSection(
+        "Scenario",
+        "Who, by role, does what.",
+        (
+            ("Before", "What happened before the change."),
+            ("After", "What happens after it, in the Before's order."),
+        ),
+        False,
+    ),
+    PrSection(
+        "Change",
+        "What the pull request changes, and why it departs from the issue where it does.",
+        (),
+        False,
+    ),
+    PrSection(
+        "Requirements",
+        "Each requirement id the pull request adds, changes or removes, or that it does"
+        " not change any.",
+        (),
+        True,
+    ),
+    PrSection("Test plan", "What ran.", (), False),
+)
+SUBHEADING_RE = re.compile(r"^###[ \t]+(.*?)[ \t]*$")
+# A line that closes the issue it names, as GitHub reads one.
+CLOSES_RE = re.compile(r"^\s*(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#\d+\b", re.I)
+# `pr draft`: the name of the file a run of the open-pr skill writes its draft to.
+PR_DRAFT_PREFIX, PR_DRAFT_SUFFIX = "pr-", ".md"
 # `.flywheel/labels.json`: the label the repository uses for each role the
 # loop acts on. A role the file leaves out takes its default here. `repo-area`
 # is the area of an issue about the whole repository, which the gaps adopt
@@ -1138,6 +1192,71 @@ def issue_headings(root):
         )
     ends = [m.start() for m in found[1:]] + [len(text)]
     return tuple((m.group(1), text[m.end() : end].strip()) for m, end in zip(found, ends))
+
+
+def pr_shape(root):
+    """Each PrSection PR_TEMPLATE_FILE gives, in its order, or DEFAULT_PR_SHAPE
+    without the file. A heading inside a code fence is guidance."""
+    path = os.path.join(root, *PR_TEMPLATE_FILE.split("/"))
+    if not os.path.isfile(path):
+        return DEFAULT_PR_SHAPE
+    # Each section is [heading, guidance lines, subsections, marked], and each
+    # subsection [heading, guidance lines].
+    sections, fence = [], None
+    for line in read_text(path).splitlines():
+        m = FENCE_RE.match(line)
+        top = sub = None
+        if fence is not None:
+            if m and m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence):
+                fence = None
+        elif m:
+            fence = m.group(1)
+        else:
+            top, sub = HEADING_RE.match(line), SUBHEADING_RE.match(line)
+        if top:
+            sections.append([top.group(1), [], [], False])
+        elif sub and not sections:
+            raise Fatal(
+                "%s puts `### %s` before any `##` heading. Move it under the section it"
+                " belongs to, then run again." % (PR_TEMPLATE_FILE, sub.group(1))
+            )
+        elif sub:
+            sections[-1][2].append([sub.group(1), []])
+        elif sections and fence is None and line.strip() == IDS_MARK:
+            sections[-1][3] = True
+        elif sections:
+            (sections[-1][2][-1] if sections[-1][2] else sections[-1])[1].append(line)
+    if not sections:
+        raise Fatal(
+            "%s holds no `##` heading. Give each section a description holds as"
+            " `## <heading>`, then run again." % PR_TEMPLATE_FILE
+        )
+    marked = ["`## %s`" % s[0] for s in sections if s[3]]
+    if not marked:
+        raise Fatal(
+            "%s marks no section with `%s`. Put the mark under the `##` heading of the"
+            " section that names the requirement ids, then run again."
+            % (PR_TEMPLATE_FILE, IDS_MARK)
+        )
+    if len(marked) > 1:
+        raise Fatal(
+            "%s marks %s and %s with `%s`. Keep the mark under one of them, then run again."
+            % (PR_TEMPLATE_FILE, ", ".join(marked[:-1]), marked[-1], IDS_MARK)
+        )
+    return tuple(
+        PrSection(
+            heading,
+            "\n".join(lines).strip(),
+            tuple((h, "\n".join(sub).strip()) for h, sub in subsections),
+            ids,
+        )
+        for heading, lines, subsections, ids in sections
+    )
+
+
+def ids_heading(root):
+    """The heading of the section that names a pull request's requirement ids."""
+    return next(s.heading for s in pr_shape(root) if s.ids)
 
 
 def either(items):
@@ -3440,14 +3559,14 @@ def review_threads(root, number):
     return out
 
 
-def requirement_ids(body):
-    """Whether body has a Requirements section, and each id the section names."""
+def requirement_ids(body, heading):
+    """Whether body has the `## heading` section, and each id the section names."""
     lines, found = None, []
     for line in body.splitlines():
         m = SECTION_RE.match(line)
         if m and lines is not None and len(m.group(1)) <= 2:
             break
-        if m and len(m.group(1)) == 2 and m.group(2) == REQUIREMENTS_HEADING:
+        if m and len(m.group(1)) == 2 and m.group(2) == heading:
             lines = []
         elif lines is not None:
             lines.append(line)
@@ -3509,16 +3628,15 @@ def assess(root, number):
             owner.append("#%d is not labeled %s" % (claimed, approval))
         area_labels = sorted(label for label in found if areas and label in areas)
 
-    present, ids = requirement_ids(pull.get("body") or "")
+    heading = ids_heading(root)
+    present, ids = requirement_ids(pull.get("body") or "", heading)
     if not present:
         owner.append(
-            "its description has no ## %s section, so it may change a requirement"
-            % REQUIREMENTS_HEADING
+            "its description has no ## %s section, so it may change a requirement" % heading
         )
     elif ids:
         owner.append(
-            "it changes requirements: its ## %s section names %s"
-            % (REQUIREMENTS_HEADING, ", ".join(ids))
+            "it changes requirements: its ## %s section names %s" % (heading, ", ".join(ids))
         )
 
     paths = [f["path"] for f in pull.get("files") or []]
@@ -3671,7 +3789,7 @@ def cmd_review_brief(args):
     n = args.number
     pull = pull_request(root, n)
     threads = review_threads(root, n)
-    _, ids = requirement_ids(pull.get("body") or "")
+    _, ids = requirement_ids(pull.get("body") or "", ids_heading(root))
     data = {
         "number": n,
         "title": pull.get("title") or "",
@@ -4201,6 +4319,208 @@ def cmd_ids(args):
             print("every method id cited in %d files is defined" % len(sources))
 
     return emit(args, "ids", data, errors=errors, human=human)
+
+
+# --------------------------------------------------------------------------
+# pr: a pull request's description
+# --------------------------------------------------------------------------
+
+
+def body_lines(body):
+    """(index, line) for each line of body outside a fence, with each HTML
+    comment emptied but keeping its line breaks, so an index is the line as
+    written. A fence's own lines are left out."""
+    text = COMMENT_RE.sub(lambda m: "\n" * m.group(0).count("\n"), body)
+    fence = None
+    for i, line in enumerate(text.splitlines()):
+        m = FENCE_RE.match(line)
+        if fence is not None:
+            if m and m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence):
+                fence = None
+        elif m:
+            fence = m.group(1)
+        else:
+            yield i, line
+
+
+def order_faults(where, wanted, at, level):
+    """A fault for each heading of `wanted` found in `at` before the one ahead
+    of it in `wanted`."""
+    present = [h for h in wanted if h in at]
+    marks = "#" * level
+    return [
+        "%s puts `%s %s` before `%s %s`. Move `%s %s` and its text first."
+        % (where, marks, cur, marks, prev, marks, prev)
+        for prev, cur in zip(present, present[1:])
+        if at[cur] < at[prev]
+    ]
+
+
+def shape_faults(body, shape):
+    """Each way body departs from shape's sections and subsections."""
+    lines = body.splitlines()
+    found = []
+    for i, line in body_lines(body):
+        m = SECTION_RE.match(line)
+        if m:
+            found.append((i, len(m.group(1)), m.group(2)))
+    errors = []
+    if found and (found[0][1], found[0][2]) != (2, shape[0].heading):
+        errors.append(
+            "the description opens with `%s %s`. It opens with `## %s` instead."
+            % ("#" * found[0][1], found[0][2], shape[0].heading)
+        )
+
+    def end_of(n, level):
+        """The line where the heading at found[n] stops: the next heading of
+        `level` or above."""
+        return next((i for i, lvl, _ in found[n + 1 :] if lvl <= level), len(lines))
+
+    def holds_text(start, end):
+        return any(line.strip() for line in lines[start + 1 : end])
+
+    tops = {}
+    for n, (_, level, title) in enumerate(found):
+        if level == 2 and title not in tops:
+            tops[title] = n
+    for section in shape:
+        if section.heading not in tops:
+            errors.append(
+                "the description lacks the section `## %s`. Add it, with its text under it."
+                % section.heading
+            )
+    errors += order_faults(
+        "the description", [s.heading for s in shape], {h: found[n][0] for h, n in tops.items()}, 2
+    )
+    for section in shape:
+        if section.heading not in tops:
+            continue
+        n = tops[section.heading]
+        start, end = found[n][0], end_of(n, 2)
+        if not holds_text(start, end):
+            errors.append(
+                "the section `## %s` is empty. Write its text under the heading." % section.heading
+            )
+            continue
+        subs = {}
+        for k in range(n + 1, len(found)):
+            i, level, title = found[k]
+            if i >= end:
+                break
+            if level == 3 and title not in subs:
+                subs[title] = k
+        wanted = [h for h, _ in section.subsections]
+        for heading in wanted:
+            if heading not in subs:
+                errors.append(
+                    "the section `## %s` lacks the subsection `### %s`. Add it, with its"
+                    " text under it." % (section.heading, heading)
+                )
+            elif not holds_text(found[subs[heading]][0], end_of(subs[heading], 3)):
+                errors.append(
+                    "the subsection `### %s` is empty. Write its text under the heading." % heading
+                )
+        errors += order_faults(
+            "the section `## %s`" % section.heading,
+            wanted,
+            {h: found[k][0] for h, k in subs.items()},
+            3,
+        )
+    return errors
+
+
+def description_faults(body, shape):
+    """Each fault `pr check` names in body, held to shape."""
+    errors = shape_faults(body, shape)
+    errors += [
+        "line %d continues the paragraph or list item above it. GitHub renders the newline"
+        " as a line break, so join the line to the one above." % n
+        for n in split_lines(body)
+    ]
+    if not any(CLOSES_RE.match(line) for _, line in body_lines(body)):
+        errors.append(
+            "the description does not close an issue. End it with a line `Closes #N`, for the"
+            " issue the branch works."
+        )
+    return errors
+
+
+def read_description(path):
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return fh.read()
+    except (OSError, UnicodeDecodeError) as exc:
+        raise Fatal(
+            "cannot read the description at %s: %s. Write the draft there, then run again."
+            % (path, exc)
+        ) from exc
+
+
+def cmd_pr_draft(args):
+    root = project_root(args.repo)
+    sections = [
+        {
+            "heading": s.heading,
+            "guidance": s.guidance,
+            "subsections": [{"heading": h, "guidance": g} for h, g in s.subsections],
+            "ids": s.ids,
+        }
+        for s in pr_shape(root)
+    ]
+    try:
+        fd, path = tempfile.mkstemp(prefix=PR_DRAFT_PREFIX, suffix=PR_DRAFT_SUFFIX)
+    except OSError as exc:
+        raise Fatal(
+            "cannot make a file for the draft in %s: %s. Set TMPDIR to a directory you can "
+            "write and run this again." % (tempfile.gettempdir(), exc)
+        ) from exc
+    os.close(fd)
+
+    def human():
+        print(path)
+
+    return emit(args, "pr draft", {"path": path, "sections": sections}, human=human)
+
+
+def cmd_pr_check(args):
+    root = project_root(args.repo)
+    shape = pr_shape(root)
+    errors = description_faults(read_description(args.body_file), shape)
+    data = {"ids_heading": next(s.heading for s in shape if s.ids)}
+
+    def human():
+        if not errors:
+            print("the description follows the shape a pull request takes here")
+
+    return emit(args, "pr check", data, errors, human=human)
+
+
+def cmd_pr_open(args):
+    root = project_root(args.repo)
+    shape = pr_shape(root)
+    errors = description_faults(read_description(args.body_file), shape)
+    data = {"ids_heading": next(s.heading for s in shape if s.ids), "branch": None, "url": None}
+    if not errors:
+        data["branch"] = git(root, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
+        # gh pr create, run without a terminal, stops on a branch the remote
+        # does not have yet.
+        git(root, "push", "-u", REMOTE, "HEAD")
+        out = gh(
+            root,
+            "pr",
+            "create",
+            "--title",
+            args.title,
+            "--body-file",
+            os.path.abspath(args.body_file),
+        ).strip()
+        data["url"] = out.splitlines()[-1] if out else None
+
+    def human():
+        if data["url"]:
+            print(data["url"])
+
+    return emit(args, "pr open", data, errors, human=human)
 
 
 # --------------------------------------------------------------------------
@@ -5386,6 +5706,36 @@ def build_parser():
         % (SPEC_FILE, DOCS_DIR),
     )
     p.set_defaults(func=cmd_ids)
+
+    p = sub.add_parser(
+        "pr", help="draft, check and open a pull request in the shape %s gives" % PR_TEMPLATE_FILE
+    )
+    prs = p.add_subparsers(dest="pr_command", required=True)
+    body = argparse.ArgumentParser(add_help=False)
+    body.add_argument("--body-file", required=True, metavar="FILE", help="the drafted description")
+
+    p = prs.add_parser(
+        "draft",
+        parents=[common],
+        help="make an empty file for the description that no other run is given, print its"
+        " path and the shape to draft",
+    )
+    p.set_defaults(func=cmd_pr_draft)
+
+    p = prs.add_parser(
+        "check",
+        parents=[common, body],
+        help="check a drafted description against the shape, its lines and its Closes #N",
+    )
+    p.set_defaults(func=cmd_pr_check)
+
+    p = prs.add_parser(
+        "open",
+        parents=[common, body],
+        help="check the drafted description, push the branch and open the pull request",
+    )
+    p.add_argument("--title", required=True, help="the pull request's title")
+    p.set_defaults(func=cmd_pr_open)
 
     p = sub.add_parser(
         "plan", help="file an issue, or a plan's issues under a tracking issue, and close a plan"

@@ -130,10 +130,11 @@ as step 3 says.
 <!-- spec: workissue-opens-pr-through-skill -->
 <!-- no-command: hands the committed work to the project's pull request skill -->
 
-Commit the work as the project asks. Then open the pull request through the
-installed skill whose description says it opens or creates a pull request,
-with the Skill tool, and pass it the issue's number. When no installed skill
-does, open it with `gh pr create`, with `Closes #N` in its description.
+Commit the work as the project asks. Then open the pull request with the
+Skill tool, and pass it the issue's number. Use the project's own skill whose
+description says it opens or creates a pull request. When the project has
+none, use this plugin's open-pr skill, which writes the description in the
+shape merge-check reads.
 
 ## Step 6: watch the pull request
 <!-- spec: workissue-turns-on-pr-watch -->
