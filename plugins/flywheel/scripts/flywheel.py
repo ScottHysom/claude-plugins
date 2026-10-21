@@ -498,7 +498,7 @@ import tarfile
 import tempfile
 import time
 
-ENVELOPE_VERSION = 1
+ENVELOPE_VERSION = 2
 
 OK = 0
 PROBLEMS = 1
@@ -3619,7 +3619,6 @@ def cmd_clear(args):
         "branch": branch(n),
         "pull_request": None,
         "worktrees": [],
-        "cleared": False,
     }
     item = issue(root, n)
     if item.get("state") == "OPEN":
@@ -3673,7 +3672,6 @@ def cmd_clear(args):
     for path in data["worktrees"]:
         git(path, "switch", "--quiet", "--detach", base)
     git(root, "branch", "--quiet", "-D", branch(n))
-    data["cleared"] = True
     return emit(args, "clear", data, human=human)
 
 
