@@ -87,18 +87,20 @@ back them. What agents do:
 - **Label it** with one of `bug`, `enhancement` or `docs`, and one area:
   `plugin:<name>` or `repo`. Never `approved`.
 - **Choose the area by who needs the change.** This repo ships flywheel and
-  also adopts it, so a problem met here can belong to either. The area is
+  also adopts it, so a problem found here can belong to either. The area is
   `plugin:flywheel` when a project that installs the plugin would need the
   change, even when the symptom shows up only here. It is `repo` only when
-  the change stays inside this repo's own adoption, in any of these:
+  the change stays inside this repo's own settings and files, in any of
+  these:
   - `.flywheel/`, apart from the script copy that `setup` makes.
   - `.github/` and `.claude/settings.json`. A file there that was copied from
     `plugins/flywheel/templates/` changes in the template first.
   - `CLAUDE.md` outside "Rules for agents". That section comes from the
     plugin's `templates/agent-rules.md`.
 
-  A change that needs both is two issues, one per area. Meet a method control
-  with what the plugin ships, rather than with a script in `.github/scripts/`.
+  A change that needs both is two issues, one per area. Satisfy a method
+  control with what the plugin ships, rather than with a script in
+  `.github/scripts/`.
 - **File a plan as issues.** When the owner asks for a plan, or for a fix
   that splits into more than one problem, file the work as issues once the
   owner approves the plan, rather than doing it. A fix of one problem is done
