@@ -141,6 +141,16 @@ out.
 The dispatcher learns of a merge when it is woken: by a session it started
 ending a turn, or by the owner's message.
 
+The app's Auto-fix does not wake an implementer on every CI failure. On
+#700 it woke the session when `validate` failed on head `c72cd46`, and did
+not wake it when an edit to the description re-ran CI on that same head and
+`validate` failed again. The rule behind this is unconfirmed. One that fits
+is that the app reports a failure once per check per head commit. So on
+`wait` the dispatcher reads whether the implementer is working, and messages
+an idle one itself. It messages once for each head and set of reasons, and
+then tells the owner, so that a check still running cannot pass messages
+back and forth between the two sessions.
+
 ## Adoption
 
 #651 gives the method's adoption.md a command. A level is how far a project

@@ -239,7 +239,7 @@ note that woke this session shows:
   round is free, so read the queue as step 4 says.
 
 ## Step 7: check each pull request
-<!-- spec: run-merges-what-flows, run-asks-owner-on-hold, run-reviews-each-pull-request -->
+<!-- spec: run-merges-what-flows, run-asks-owner-on-hold, run-reviews-each-pull-request, run-acts-on-stalled-wait -->
 
 For each pull request in `data.open`, ask the merge policy whether it
 flows, and merge it when it does:
@@ -255,9 +255,21 @@ why it holds:
 - `review`: the pull request needs the reviewer's look at its head. Start a
   reviewer as step 8 says, unless a reviewer this session started on it is
   still working.
-- `wait`: the implementer has work to do, such as a failing check or a
-  thread to answer. Its session is woken by the app's Auto-fix, and nothing
-  starts here.
+- `wait`: the pull request waits on its implementer, such as for a failing
+  check, a thread to answer or a check still running. The app's Auto-fix
+  does not wake the implementer on every failure, so read its state with
+  the app's `list_sessions` tool, with `linked` true. Then act on the one of
+  these that holds:
+  - The implementer is working. Nothing starts here.
+  - The implementer is idle, and this session has not yet messaged it for
+    this `data.head` with these `data.reasons`. Send it the `url` and each
+    reason with `SendMessage`, to its `local_` id. Ask it to fix what it
+    can, push, and end its turn once nothing is left for it to do.
+  - The implementer is idle and this session already messaged it for this
+    head and these reasons, or its session has stopped. Tell the owner the
+    `url`, each reason, and that the round does not act on this pull
+    request again until the owner sends this session a message. Tell them once for each head and
+    reasons.
 - `ask`: the pull request holds for the owner. Tell the owner its `url` and
   every reason in `data.reasons`, once for each `data.head`. The owner merges
   it on GitHub or says what to do. Until the owner answers, start no
