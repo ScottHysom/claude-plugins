@@ -58,18 +58,33 @@ def flag_values(args, flags):
     """Values given to any of these flags, as `--flag value` or `--flag=value`.
 
     A short flag also takes its value attached, as gh reads it: `-lvalue` and
-    `-l=value` both give `value`.
+    `-l=value` both give `value`. gh reads `-wl value` as `-w -l value`, so a
+    short flag counts after other short flags in one word too. When one of
+    those takes a value, gh reads the rest of the word as that value rather
+    than as `-l`, and the guard still counts `-l` there, erring toward
+    blocking.
     """
     out = []
     for i, arg in enumerate(args):
         for flag in flags:
-            if arg == flag and i + 1 < len(args):
+            if flag.startswith("--"):
+                if arg == flag and i + 1 < len(args):
+                    out.append(args[i + 1])
+                elif arg.startswith(flag + "="):
+                    out.append(arg[len(flag) + 1 :])
+                continue
+            if not arg.startswith("-") or arg.startswith("--"):
+                continue
+            group = arg[1:]
+            at = group.find(flag[1:])
+            # Only letters before the flag are other short flags.
+            if at < 0 or (at > 0 and not group[:at].isalpha()):
+                continue
+            rest = group[at + 1 :]
+            if rest:
+                out.append(rest[1:] if rest.startswith("=") else rest)
+            elif i + 1 < len(args):
                 out.append(args[i + 1])
-            elif arg.startswith(flag + "=") and flag.startswith("--"):
-                out.append(arg[len(flag) + 1 :])
-            elif arg.startswith(flag) and not flag.startswith("--") and arg != flag:
-                value = arg[len(flag) :]
-                out.append(value[1:] if value.startswith("=") else value)
     return out
 
 
