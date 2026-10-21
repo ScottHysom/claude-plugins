@@ -1379,6 +1379,13 @@ class DescribeMain:
         row = {"number": 12, "branch": "issue/12"}
         assert (claim, stale, release) == (row, {"claims": [row]}, row)
 
+    @pytest.mark.spec("repo:command-prints-json-envelope")
+    def it_leaves_whether_clear_cleared_to_the_exit_code(self, capsys, remote, clone, github):
+        a = squash_merged(capsys, clone, github, remote)
+        code, data = run_json(capsys, a, "clear", "12")
+        assert code == flywheel.OK
+        assert set(data["data"]) == {"number", "branch", "pull_request", "worktrees"}
+
     @pytest.mark.spec("repo:script-exits-2-when-unrunnable")
     def it_cannot_run_when_gh_fails(self, capsys, clone, github):
         github(fail=("view",))
