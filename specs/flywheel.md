@@ -607,6 +607,8 @@ Source: #652, and the method's `measure-the-loop` and
 scheduled workflow meets under this need.
 
 - `measure-cmd-reports-starting-measures` (test): When
-  `flywheel.py measure --since <date>` runs, it reports spend, first-pass CI,
-  reviewer findings by level and lead time for each pull request merged
-  since, and a summary, and says which it could not compute and why.
+  `flywheel.py measure --since <when>` runs, where `<when>` is a date such as
+  `2026-10-12` or a UTC time such as `2026-10-12T06:03:00Z`, it reports spend,
+  first-pass CI, reviewer findings by level and lead time for each pull
+  request merged at or after it, and a summary, and says which it could not
+  compute and why.

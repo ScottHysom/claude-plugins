@@ -41,13 +41,12 @@ jobs:
           FLYWHEEL: .flywheel-plugin/plugins/flywheel/scripts/flywheel.py
           TITLE: Loop report
         run: |
-          # The window opens on the day the last successful run started, so the
-          # report covers the merges since that run on any schedule. measure
-          # takes a date, so a pull request merged on that day before that run
-          # is in both reports. A first run covers the last seven days.
+          # The window opens when the last successful run started, so the
+          # report covers the merges since that run on any schedule. A first
+          # run covers the last seven days.
           since=$(gh run list --workflow "$WORKFLOW" --status success --limit 1 \
-            --json createdAt --jq '.[0].createdAt[:10] // empty')
-          [ -n "$since" ] || since=$(date -u -d '7 days ago' +%Y-%m-%d)
+            --json startedAt --jq '.[0].startedAt // empty')
+          [ -n "$since" ] || since=$(date -u -d '7 days ago' +%Y-%m-%dT%H:%M:%SZ)
           stale=0
           measure=0
           {
