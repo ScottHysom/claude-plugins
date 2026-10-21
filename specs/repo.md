@@ -724,9 +724,9 @@ Source: #566, #567, and CLAUDE.md, under "Workflow".
   `-C/--repo` names the clone it pushes from.
 - `openpr-drafts-description` (step): When the open-pr skill drafts a pull
   request description, it writes the title and the file with the headings
-  CLAUDE.md, under "Workflow", names, and `Closes #N` after them. It writes
-  the draft to the rules in `.claude/rules/prose-style.md`, and gives a
-  Before or an After that covers more than one behavior as bullets, with the
+  CLAUDE.md, under "Workflow", names, and `Closes #N` after them. It follows
+  the rules in `.claude/rules/prose-style.md` as it writes the draft, and
+  gives a Before or an After that covers more than one behavior as bullets, with the
   After's in the Before's order. It explains each term that CLAUDE.md, under "Workflow", says the owner does
   not know, by the first of these ways that works:
   1. a pointer back to an earlier sentence that explains it.

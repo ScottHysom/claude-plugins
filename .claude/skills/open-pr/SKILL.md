@@ -28,8 +28,8 @@ and each list item on one line, as CLAUDE.md says there. Where a Before or
 an After covers more than one behavior, give each behavior as a bullet, with
 the After's bullets in the Before's order.
 
-Write the draft to the rules in `.claude/rules/prose-style.md`. The rules a
-description most often breaks are judgment rules, which do not have a
+Follow the rules in `.claude/rules/prose-style.md` as you write the draft.
+The rules a description most often breaks are judgment rules, which do not have a
 pattern a script can match:
 
 - `standing-bullet-over-run`: a run of three or more phrases becomes
