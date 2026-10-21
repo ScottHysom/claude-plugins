@@ -268,6 +268,14 @@ commands meet.
 - `plandraft-cmd-makes-own-file` (test): When `flywheel.py plan draft` runs, it
   makes an empty file in the temporary directory, named so that no other run
   gets the same file, and prints its literal path.
+- `plandraft-cmd-gives-issue-rules` (test): When `flywheel.py plan draft
+  --json` runs, its `data` also gives the kinds and areas, each with its
+  description, the role labels, and each heading with its guidance, as
+  `plan report` checks them.
+- `fileissue-follows-issue-rules` (step): When the file-issue skill drafts
+  an issue, it takes the issue's headings and labels from what `plan draft`
+  gives, writes under each heading what its guidance asks for, and chooses
+  each label by its description.
 - `fileissue-drafts-in-own-file` (step): When the file-issue skill drafts a
   plan, it writes the plan to the file `plan draft` made for that run, and
   every later step of the run reads that file, so a plan another session

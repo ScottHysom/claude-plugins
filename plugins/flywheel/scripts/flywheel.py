@@ -123,6 +123,8 @@ Commands:
                  document under the plugin's docs/ defines
     plan draft   make an empty file in the temporary directory for a plan's
                  drafts, named so that no other run gets it, and print its path.
+                 With --json, also the kinds, areas, role labels and headings
+                 the drafts follow, with each heading's guidance.
     plan report  check a plan's drafts, print the plan as it will be filed,
                  ending with an approval token, and write the same report to
                  .flywheel/plan/report.md.
@@ -4742,7 +4744,9 @@ def checked_plan(args, repo):
 
 
 def cmd_plan_draft(args):
-    project_root(args.repo)
+    root = project_root(args.repo)
+    names, kinds, areas = label_rules(root)
+    headings = [{"heading": h, "guidance": g} for h, g in issue_headings(root)]
     try:
         fd, path = tempfile.mkstemp(prefix=DRAFT_PREFIX, suffix=DRAFT_SUFFIX)
     except OSError as exc:
@@ -4755,7 +4759,8 @@ def cmd_plan_draft(args):
     def human():
         print(path)
 
-    return emit(args, "plan draft", {"path": path}, human=human)
+    data = {"path": path, "roles": names, "kinds": kinds, "areas": areas, "headings": headings}
+    return emit(args, "plan draft", data, human=human)
 
 
 def cmd_plan_report(args):

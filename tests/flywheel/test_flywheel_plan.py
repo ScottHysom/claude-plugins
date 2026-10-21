@@ -208,6 +208,35 @@ class DescribePlanDraft:
         assert len(paths) == 5
         assert all(Path(p).is_file() for p in paths)
 
+    @pytest.mark.spec("plandraft-cmd-gives-issue-rules")
+    def it_gives_the_rules_the_drafts_follow(self, capsys, repo, monkeypatch, tmp_path):
+        monkeypatch.setattr(flywheel.tempfile, "tempdir", str(tmp_path))
+        ruled(
+            repo,
+            {"roles": {"repo-area": "general"}, "kinds": {"docs": "Words"}, "areas": AREAS},
+            "## Problem\n\nWhat breaks.\n\n## Fix\n",
+        )
+        code, data = run_json(capsys, repo, "plan", "draft")
+        assert code == flywheel.OK
+        assert data["data"]["kinds"] == {"docs": "Words"}
+        assert data["data"]["areas"] == AREAS
+        assert data["data"]["roles"] == dict(flywheel.ROLE_LABELS, **{"repo-area": "general"})
+        assert data["data"]["headings"] == [
+            {"heading": "Problem", "guidance": "What breaks."},
+            {"heading": "Fix", "guidance": ""},
+        ]
+
+    @pytest.mark.spec("plandraft-cmd-gives-issue-rules")
+    def it_gives_the_defaults_without_the_files(self, capsys, repo, monkeypatch, tmp_path):
+        monkeypatch.setattr(flywheel.tempfile, "tempdir", str(tmp_path))
+        code, data = run_json(capsys, repo, "plan", "draft")
+        assert code == flywheel.OK
+        assert data["data"]["kinds"] == flywheel.DEFAULT_KINDS
+        assert data["data"]["areas"] == {}
+        assert [h["heading"] for h in data["data"]["headings"]] == [
+            h for h, _ in flywheel.DEFAULT_HEADINGS
+        ]
+
     @pytest.mark.spec("repo:script-exits-2-when-unrunnable", "repo:script-names-remedy-on-stop")
     def it_stops_when_the_temporary_directory_cannot_take_a_file(
         self, capsys, repo, monkeypatch, tmp_path
