@@ -487,6 +487,7 @@ for them otherwise:
   "tests": {
     "list": "python3 -m pytest --collect-only -q -p no:cacheprovider",
     "run": "python3 -m pytest -q -p no:cacheprovider {id}",
+    "report": "python3 -m pytest -q -p no:cacheprovider --continue-on-collection-errors --junitxml={report} {files}",
     "paths": ["tests", "pytest.ini"]
   }
 }
@@ -497,6 +498,11 @@ against your code as it was before the change, and fails the pull request
 when a new test passes there. A test that passes there anyway would pass
 without the change, so it proves nothing about it. Have your `verify`
 command run it.
+
+With pytest, `report` runs all the new tests at once and writes a JUnit XML
+report (a file that says how each test ended), rather than starting pytest
+once for each test. For another test runner, leave `report` out, and each new
+test runs on its own with `run`.
 
 #### `passes-on-base.json`
 

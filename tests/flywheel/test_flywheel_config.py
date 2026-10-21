@@ -185,6 +185,10 @@ class DescribeTheOwnersFields:
 
 PYTEST_LIST = "python3 -m pytest --collect-only -q -p no:cacheprovider"
 PYTEST_RUN = "python3 -m pytest -q -p no:cacheprovider {id}"
+PYTEST_REPORT = (
+    "python3 -m pytest -q -p no:cacheprovider --continue-on-collection-errors"
+    " --junitxml={report} {files}"
+)
 
 
 def tests_object(project):
@@ -216,6 +220,7 @@ class DescribeTheTestCommands:
         assert tests_object(project) == {
             "list": PYTEST_LIST,
             "run": PYTEST_RUN,
+            "report": PYTEST_REPORT,
             "paths": ["tests", "extra", rel],
         }
         assert owner_test_fields(env) == []
@@ -281,6 +286,22 @@ class DescribeTheTestCommands:
         assert code == flywheel.CANNOT_RUN
         assert "%s does not hold a JSON object" % GATES in project.err
         assert not (project.root / ROLES).exists()
+
+
+@pytest.mark.spec("configinit-cmd-fills-pytest-report-command")
+class DescribeTheReportCommand:
+    def it_fills_in_the_pytest_report_command(self, project):
+        project.write("pytest.ini", "[pytest]\ntestpaths = tests\n")
+        code, env = project.run("config", "init")
+        assert code == flywheel.OK
+        assert tests_object(project)["report"] == PYTEST_REPORT
+        assert owner_test_fields(env) == []
+
+    def it_leaves_the_report_command_unset_for_another_runner(self, project):
+        project.write("pyproject.toml", "[tool.ruff]\nline-length = 99\n")
+        _, env = project.run("config", "init")
+        assert "report" not in tests_object(project)
+        assert "tests.report" not in owner_test_fields(env)
 
 
 @pytest.mark.spec("configinit-cmd-writes-gate-fields")

@@ -2,6 +2,7 @@
   "tests": {
     "tests/flywheel/test_flywheel_adopt.py::DescribeAssess::it_still_asks_for_the_citation_where_verify_runs_fails_on_base": "pins the workflow citation that unweakened-checks asked for before #682, and still asks for beside the run",
     "tests/flywheel/test_issue_guard.py::DescribeCheck::it_allows_a_command_that_does_not_add_the_label[gh pr create -dlbug]": "pins that the grouped-flag match from #471 still allows a grouped -l whose value is not approved",
-    "tests/flywheel/test_issue_guard.py::DescribeCheck::it_allows_a_command_that_does_not_add_the_label[gh pr create -dl bug]": "pins that the grouped-flag match from #471 still allows a grouped -l whose value is not approved"
+    "tests/flywheel/test_issue_guard.py::DescribeCheck::it_allows_a_command_that_does_not_add_the_label[gh pr create -dl bug]": "pins that the grouped-flag match from #471 still allows a grouped -l whose value is not approved",
+    "tests/flywheel/test_flywheel_config.py::DescribeTheReportCommand::it_leaves_the_report_command_unset_for_another_runner": "pins that config init still leaves the test commands unset for a runner other than pytest, now that it fills in report for pytest"
   }
 }

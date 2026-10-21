@@ -591,6 +591,25 @@ Source: #682, and the method's `agents-never-weaken-checks`.
   `.flywheel/passes-on-base.json` maps a passing new test's id to a reason,
   `fails-on-base` passes the test and warns with its id and the reason. An
   empty reason fails.
+- `failsonbase-cmd-runs-report-command-once` (test): When `tests` in
+  `.flywheel/gates.json` gives `report`, a command that runs the tests in the
+  files that `{files}` names in one run and writes a JUnit XML report to the
+  path that `{report}` names, `fails-on-base` runs it once at the branch and
+  once in the base tree, and reads each new test's outcome from the report.
+  A test's file is its id up to the first `::`. A report that is missing or
+  cannot be parsed exits 2 and names the command. Without `report`,
+  `fails-on-base` runs each new test alone with `run`.
+- `failsonbase-cmd-maps-report-cases-to-ids` (test): `fails-on-base` maps
+  each test case in the report to the id that `list` prints, in pytest's
+  form. The case's `classname` is the id's file with `/` as `.` and `.py`
+  dropped, then its classes, and its `name` is the test's name with any
+  parameters. A new test that the report does not name, or names more than
+  once, does not pass that run. A case with `<failure>` or `<error>` does not
+  pass, and a skipped case passes.
+- `configinit-cmd-fills-pytest-report-command` (test): When
+  `flywheel.py config init` finds pytest, it writes the pytest `report`
+  command, which runs with `--continue-on-collection-errors`, under `tests`
+  in `.flywheel/gates.json`. For any other runner it leaves `report` unset.
 - `configinit-cmd-fills-pytest-test-commands` (test): When
   `flywheel.py config init` runs in a project that configures pytest in
   `pytest.ini`, in `pyproject.toml` under `[tool.pytest.ini_options]` or in
