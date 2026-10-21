@@ -1144,3 +1144,47 @@ class DescribePlanRecord:
         assert code == flywheel.CANNOT_RUN
         assert "cannot read %s" % flywheel.PLAN_LEDGER in out.err
         assert "ask the owner before removing it" in out.err
+
+
+def mapped(repo):
+    """The clone at repo, whose own labels play the loop's roles."""
+    (repo / ".flywheel").mkdir(exist_ok=True)
+    roles = {"approval": "ready", "plan": "epic", "claim": "flywheel-claim", "repo-area": "general"}
+    (repo / ".flywheel" / "labels.json").write_text(json.dumps({"roles": roles}))
+    return repo
+
+
+class DescribeMappedPlanLabels:
+    @pytest.mark.spec("labelsfile-maps-roles", "planreport-cmd-checks-each-draft")
+    def it_checks_each_draft_against_the_mapped_labels(self, capsys, tmp_path, repo, hub):
+        hub(labels=(*LABELS, "ready", "epic", "general"))
+        plan = write_plan(
+            tmp_path,
+            issue("A", labels=("bug", "general", "ready")),
+            issue("B", labels=("bug", "general", "epic")),
+            issue("C", labels=("bug", "repo")),
+            issue("D", labels=("bug", "general", "approved", "tracking")),
+        )
+        code, data = report(capsys, mapped(repo), plan)
+        assert code == flywheel.PROBLEMS
+        assert data["data"]["token"] is None
+        assert data["errors"] == [
+            "`A` carries `ready`, which only the owner adds",
+            "`B` carries `epic`, which only the tracking issue carries",
+            "`C` carries 0 area labels; it takes exactly one, from `plugin:<name>` or `general`",
+        ]
+
+    @pytest.mark.spec("labelsfile-maps-roles", "planfile-cmd-files-in-order")
+    def it_files_the_tracking_issue_with_the_mapped_plan_label(self, capsys, tmp_path, repo, hub):
+        gh = hub(labels=(*LABELS, "ready", "epic", "general"))
+        repo = mapped(repo)
+        plan = write_plan(
+            tmp_path, issue("A", labels=("bug", "general")), issue("B", labels=("docs", "general"))
+        )
+        code, data = report(capsys, repo, plan)
+        assert code == flywheel.OK, data["errors"]
+        assert data["data"]["tracking"]["labels"] == ["epic"]
+        assert "- **Labels:** epic\n" in (repo / flywheel.PLAN_REPORT).read_text()
+        code, data = file_plan(capsys, repo, plan, data["data"]["token"])
+        assert code == flywheel.OK, data["errors"]
+        assert gh.issues[102]["labels"] == ["epic"]

@@ -41,6 +41,51 @@ Source: #643, and the method's `match-capability-to-task` and
   under `gates`, unset, names each one as a field the owner fills in, and
   leaves each gate the file gives as it is.
 
+## need owner-keeps-own-labels: Keep the repository's own labels for the loop's roles
+
+When the owner adopts the loop in a repository that already has labels that
+approve an issue, group a plan or mark work on the whole repository, they
+want the loop to act on those labels, so the repository does not carry two
+labels for one role. When the repository already uses the loop's claim label
+for its own purpose, they want to give the claim a label of its own.
+
+Source: the owner's review comment on #693, and #695 with the owner's
+decisions on it.
+
+- `labelsfile-maps-roles` (test): When `.flywheel/labels.json` gives a label
+  under `roles` for one of the loop's roles, every flywheel command that
+  reads or writes that role's label uses the label it gives. The roles, each
+  with the label used when the file leaves it out or is missing:
+  - `approval`, the **approval label**, which the owner adds to approve an
+    issue: `approved`.
+  - `plan`, the **plan label**, which marks a plan's tracking issue:
+    `tracking`.
+  - `claim`, the **claim label**, which `claim` adds to the issue it holds:
+    `in-progress`.
+  - `repo-area`, the area label of an issue about the whole repository,
+    which the issues adopt files for missing controls carry: `repo`.
+- `labelsfile-refuses-bad-map` (test): When `.flywheel/labels.json` gives
+  any of these, a command that reads it exits 2 and names the fault:
+  - a role outside the four.
+  - a label that is empty.
+  - one label for two roles.
+- `labels-cmd-sets-role` (test): When `flywheel.py labels --set ROLE=NAME`
+  runs, it writes NAME as ROLE's label into `.flywheel/labels.json` and
+  leaves the file's other roles as they are, before it names the missing
+  labels. It refuses a role outside the four, and writes nothing then.
+- `labels-cmd-flags-taken-claim-label` (test): When `flywheel.py labels` finds
+  the claim label in the repository with a description other than the one
+  flywheel gives it, it names the label as taken and exits 1, and the remedy
+  says to give the claim another label with `--set claim=NAME`.
+- `guard-reads-approval-label` (test): When the approval guard checks a Bash
+  command, it blocks the approval label that `.flywheel/labels.json` gives in
+  the session's project. When it cannot read that file, it blocks every
+  command that adds a label.
+- `adopt-asks-role-labels` (step): When adopt runs, it asks the owner which
+  label the repository uses for each role, and for the claim a label that
+  nothing else in the repository uses, and sets each answer with
+  `labels --set` before it names the missing labels.
+
 ## need contributor-reads-method-beside-plugin: Read the method beside the plugin
 
 When a contributor or an adopting owner reads a principle id in a spec, a
@@ -63,16 +108,17 @@ Source: README.md, under "Claiming an issue". #645 moved this need here from
 specs/repo.md, which keeps the requirements this repo's own checks meet.
 
 - `next-cmd-offers-free-issue` (test): When `flywheel.py queue` runs, it
-  names the lowest-numbered open issue labeled `approved` that is unheld by
-  any `issue/N` branch and unblocked by any open issue. It exits 0 even when
-  every such issue is held or blocked. It does not offer a **tracking issue**
-  (an issue labeled `tracking`, which groups a plan's issues as its
-  sub-issues), or a sub-issue of an open tracking issue labeled `approved`.
+  names the lowest-numbered open issue carrying the approval label that is
+  unheld by any `issue/N` branch and unblocked by any open issue. It exits 0
+  even when every such issue is held or blocked. It does not offer a
+  **tracking issue** (an issue carrying the plan label, which groups a plan's
+  issues as its sub-issues), or a sub-issue of an open tracking issue
+  carrying the approval label.
 - `queue-cmd-offers-up-to-count` (test): When `flywheel.py queue --count N`
   runs, it offers up to N free approved issues that no open issue blocks,
   oldest first, and says when fewer are free. With `--tracking`, it offers up
   to N of the plan's sub-issues in the plan's order, and stops with a warning
-  before a sub-issue that lacks `approved`.
+  before a sub-issue that lacks the approval label.
 - `claim-cmd-picks-one-winner` (test): When two agents claim the same
   issue at once, `flywheel.py claim` lets exactly one create `issue/N`, and
   the other exits 1, names the holder and writes nothing.
@@ -112,11 +158,11 @@ Source: the owner's request on 2026-10-05, recorded in #350.
 
 - `next-cmd-follows-tracking-issue` (test): When `flywheel.py queue
   --tracking N` runs, it offers the first sub-issue in #N's listed order that
-  is open, unheld and unblocked. It exits 1 when that sub-issue lacks
-  `approved`, or when #N is not an open issue labeled both `tracking` and
-  `approved`.
-- `next-cmd-names-tracking-issue` (test): When an open tracking issue labeled
-  `approved` takes its place in the queue, at the lowest number among itself
+  is open, unheld and unblocked. It exits 1 when that sub-issue lacks the
+  approval label, or when #N is not an open issue carrying both the plan
+  label and the approval label.
+- `next-cmd-names-tracking-issue` (test): When an open tracking issue
+  carrying the approval label takes its place in the queue, at the lowest number among itself
   and its open sub-issues, before the issue `flywheel.py queue` would offer,
   `queue` names the tracking issue and the command to follow it, and exits 0.
 - `next-cmd-reports-finished-plan` (test): When every sub-issue of #N is
@@ -125,8 +171,8 @@ Source: the owner's request on 2026-10-05, recorded in #350.
   unfinished even when a claim holds it, and so does a tracking issue without
   sub-issues.
 - `planclose-cmd-closes-finished-plan` (test): When `flywheel.py plan close N`
-  runs on an open issue labeled both `tracking` and `approved` whose
-  sub-issues are all closed, it closes #N with a comment naming them. It exits
+  runs on an open issue carrying both the plan label and the approval label
+  whose sub-issues are all closed, it closes #N with a comment naming them. It exits
   1 without writing to #N when any of these holds:
   - any sub-issue of #N is open.
   - #N lacks sub-issues.
@@ -150,7 +196,7 @@ commands meet.
   - has a body that does not open with `**Claude:**`.
   - lacks a heading CLAUDE.md asks for.
   - does not carry exactly one kind label and one area label.
-  - carries `approved` or `tracking`.
+  - carries the approval label or the plan label.
   - carries a label the repository does not have.
 - `planreport-cmd-checks-plan-links` (test): When a key repeats, a `{KEY}` or a
   `blocked_by` key does not name an issue in the plan, a body names an issue
@@ -171,7 +217,8 @@ commands meet.
 - `planfile-cmd-files-in-order` (test): When `plan file` runs with a current
   token, it files the issues in the report's order, each `{KEY}` replaced by
   the number filed, and adds each "blocked by" link. It then files the
-  tracking issue labeled `tracking`, and adds the sub-issues in that order.
+  tracking issue carrying the plan label, and adds the sub-issues in that
+  order.
 - `planfile-cmd-verifies-links` (test): When `plan file` has filed a plan, it
   reads every link and the sub-issues back from GitHub, and exits 1 naming
   each that differs from the plan.
@@ -204,8 +251,8 @@ so a reader never takes a stale label for a claim.
 Source: README.md, under "Claiming an issue", and #33.
 
 - `claim-cmd-adds-in-progress-label` (test): When `flywheel.py claim` wins,
-  it adds `in-progress` and a claim comment, and if either fails, it warns and
-  still exits 0.
+  it adds the claim label and a claim comment, and if either fails, it warns
+  and still exits 0.
 - `stale-cmd-reports-claims-left-behind` (test): When any of these holds, `flywheel.py stale` fails and names the remedy:
   - a label has no branch.
   - a closed issue keeps its label.
@@ -221,13 +268,13 @@ on the claim branch kept through the freeing.
 Source: README.md, under "Claiming an issue", and CLAUDE.md, under "Issues".
 
 - `release-cmd-frees-unused-claim` (test): When `flywheel.py release N`
-  finds `issue/N` with no commits off main, or only the `in-progress` label,
+  finds `issue/N` with no commits off main, or only the claim label,
   it deletes the branch, removes the label and comments.
 - `release-cmd-keeps-work` (test): When `issue/N` has commits off main, or
   changed after `release` checked it, `flywheel.py release` exits 1 and
   deletes nothing.
 - `release-cmd-requires-held-claim` (test): When `flywheel.py release N`
-  finds neither `issue/N` nor the `in-progress` label, it exits 1 without
+  finds neither `issue/N` nor the claim label, it exits 1 without
   commenting, so only an issue that was held can read as released.
 
 ## need owner-clears-merged-claims: Clear a merged claim's local branch
@@ -284,10 +331,10 @@ Source: #645, and the method's `humans-decide-agents-record` and
 
 - `brief-cmd-prints-issue-as-approved` (test): When `flywheel.py brief N`
   runs, it prints the skill that works the issue, the issue's title and body
-  as they stood when `approved` was last added, the owner's comments since, the role, and the gate commands
+  as they stood when the approval label was last added, the owner's comments since, the role, and the gate commands
   from `.flywheel/gates.json`, and warns when `.flywheel/` does not give the
   role's tier or the gate commands. It exits 1 when the body changed after
-  approval, or the issue lacks `approved`.
+  approval, or the issue lacks the approval label.
 - `workissue-works-from-brief` (step): When work-issue has claimed an issue,
   it reads the issue from `flywheel.py brief`, or from the brief that started
   the session, and stops and releases the claim when `brief` refuses the
@@ -362,7 +409,7 @@ and `match-capability-to-task`.
   one when either is above its own session's.
 - `queue-cmd-checks-named-issues` (test): When `flywheel.py queue` is given
   issue numbers, as in `queue 12 14`, it reports each as an issue to start, a
-  tracking issue, or the reason it cannot start: closed, lacking `approved`,
+  tracking issue, or the reason it cannot start: closed, lacking the approval label,
   held by another session's claim, or blocked by an open issue. It exits 1
   when any named issue cannot start, and refuses issue numbers given with
   `--tracking`.
@@ -554,11 +601,11 @@ Source: #651, the method's adoption.md, and the method's
   rules as they are.
 - `labels-cmd-names-missing-labels` (test): When `flywheel.py labels` runs,
   it names each label the loop and file-issue need that the repository
-  lacks, and exits 1 when one is missing. With `--create`, it creates each
-  one.
-- `adopt-creates-missing-labels` (step): When adopt has gaps to file, it
-  shows the owner the missing labels and creates them once the owner agrees,
-  before it hands the gaps to file-issue.
+  lacks, the role labels as `.flywheel/labels.json` gives them, and exits 1
+  when one is missing. With `--create`, it creates each one.
+- `adopt-creates-missing-labels` (step): When adopt runs, it shows the owner
+  the missing labels and creates them once the owner agrees, before it hands
+  any gaps to file-issue.
 - `adopt-files-gaps-as-plan` (step): When `record` names a control missing at
   or below the target level, adopt files the gaps as one plan through
   file-issue, one control per issue, in the order of the method's tables.

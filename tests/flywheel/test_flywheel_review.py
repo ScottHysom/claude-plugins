@@ -501,6 +501,18 @@ class DescribeACleanPullRequest:
         assert "#12 is not labeled approved" in data["reasons"]
 
 
+@pytest.mark.spec("labelsfile-maps-roles")
+class DescribeAMappedApprovalLabel:
+    def it_holds_an_issue_that_lacks_the_mapped_approval_label(self, policies, github):
+        policies.write(flywheel.LABELS_FILE, json.dumps({"roles": {"approval": "ready"}}))
+        _, data = check(policies)
+        assert "#12 is not labeled ready" in data["reasons"]
+
+        github.labels = ["ready", "plugin:demo", "enhancement"]
+        _, data = check(policies)
+        assert not any("is not labeled" in r for r in data["reasons"])
+
+
 @pytest.mark.spec("mergecheck-cmd-holds-requirement-changes")
 class DescribeARequirementChange:
     def it_holds_a_pull_request_that_names_requirement_ids(self, policies, github):

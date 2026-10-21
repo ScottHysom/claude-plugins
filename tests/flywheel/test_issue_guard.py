@@ -180,3 +180,65 @@ class DescribeRegistration:
         assert hook["command"] == 'python3 "${CLAUDE_PLUGIN_ROOT}/hooks/issue_guard.py"'
         assert hook["timeout"] == 10
         assert _PATH.is_file()
+
+
+def project(tmp_path, labels=None):
+    """A project the session runs in, with labels as its .flywheel/labels.json text."""
+    (tmp_path / ".git").mkdir(parents=True)
+    if labels is not None:
+        (tmp_path / ".flywheel").mkdir()
+        (tmp_path / ".flywheel" / "labels.json").write_text(labels)
+    sub = tmp_path / "src"
+    sub.mkdir()
+    return sub
+
+
+def event_in(cwd, command):
+    return json.dumps({"tool_name": "Bash", "cwd": str(cwd), "tool_input": {"command": command}})
+
+
+@pytest.mark.spec("guard-reads-approval-label")
+class DescribeTheProjectsApprovalLabel:
+    def it_blocks_the_approval_label_the_project_gives(self, tmp_path, capsys):
+        cwd = project(tmp_path, json.dumps({"roles": {"approval": "ready"}}))
+        code, out = run_main(event_in(cwd, "gh issue edit 1 --add-label bug,Ready"), capsys)
+        assert code == issue_guard.BLOCK
+        assert "adds the ready label" in out.err
+        assert "Ask the owner to add `ready`." in out.err
+        code, _ = run_main(event_in(cwd, "gh issue edit 1 --add-label approved"), capsys)
+        assert code == issue_guard.ALLOW
+
+    def it_blocks_approved_when_the_project_does_not_give_a_label(self, tmp_path, capsys):
+        bare = tmp_path / "bare"
+        bare.mkdir()
+        roots = (
+            project(tmp_path / "one"),
+            project(tmp_path / "two", json.dumps({"roles": {}})),
+            bare,
+        )
+        for cwd in roots:
+            code, _ = run_main(event_in(cwd, "gh issue edit 1 --add-label approved"), capsys)
+            assert code == issue_guard.BLOCK
+
+    @pytest.mark.parametrize(
+        "labels", ["not json", json.dumps([]), json.dumps({"roles": {"approval": ""}})]
+    )
+    def it_blocks_every_added_label_when_it_cannot_read_the_file(self, tmp_path, capsys, labels):
+        cwd = project(tmp_path, labels)
+        code, out = run_main(event_in(cwd, "gh issue edit 1 --add-label bug"), capsys)
+        assert code == issue_guard.BLOCK
+        assert "Fix %s" % issue_guard.LABELS_FILE in out.err
+        code, _ = run_main(event_in(cwd, "gh issue list --label bug"), capsys)
+        assert code == issue_guard.ALLOW
+
+    @pytest.mark.parametrize(
+        "command",
+        [
+            "gh issue create -t x -b y -l bug",
+            "gh label edit bug --name urgent",
+            "gh api repos/o/r/issues/1/labels -f labels[]=bug",
+            "gh issue edit 1 --add-label bug 'unclosed",
+        ],
+    )
+    def it_blocks_each_way_of_adding_a_label_when_any_label_counts(self, command):
+        assert issue_guard.check(command, None), command

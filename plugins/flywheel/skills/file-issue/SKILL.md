@@ -42,7 +42,10 @@ Split the work into issues, one problem each. Give each issue:
 - a `body` that opens with `**Claude:**`, then the headings `## What's
   wrong`, `## Evidence`, `## Done when` and `## Requirements`.
 - `labels`: exactly one of `bug`, `enhancement` or `docs`, and exactly one
-  area, `plugin:<name>` or `repo`. Never `approved` or `tracking`.
+  area, `plugin:<name>` or the whole-repository area. Never the approval
+  label or the plan label. `.flywheel/labels.json` gives those three under
+  `roles`, as `repo-area`, `approval` and `plan`, and they are `repo`,
+  `approved` and `tracking` where it does not.
 - `blocked_by`, when it waits on anything: the keys of the issues in the plan
   it waits on, and the numbers of open issues outside it.
 

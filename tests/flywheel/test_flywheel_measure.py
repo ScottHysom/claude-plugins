@@ -208,6 +208,19 @@ class DescribeMeasure:
         assert pull["issues"] == [14]
         assert pull["lead_time_hours"] == 12.0
 
+    @pytest.mark.spec("labelsfile-maps-roles")
+    def it_measures_lead_time_from_the_mapped_approval_label(self, project, github):
+        project.write(flywheel.LABELS_FILE, json.dumps({"roles": {"approval": "ready"}}))
+        events = approved_at("2026-10-11T00:00:00Z") + approved_at(
+            "2026-10-11T21:00:00Z", label="Ready"
+        )
+        github(
+            merged=[merged_pull(42, "issue/14", "2026-10-12T09:00:00Z")],
+            details={42: detail(issues=[(14, events)])},
+        )
+        pull = pulls_of(project.run("measure", "--since", SINCE)[1])[42]
+        assert pull["lead_time_hours"] == 12.0
+
     def it_measures_lead_time_from_the_earliest_of_its_issues_approvals(self, project, github):
         github(
             merged=[merged_pull(42, "issue/14", "2026-10-12T09:00:00Z")],

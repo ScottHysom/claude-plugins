@@ -4,32 +4,46 @@ name: issue-closed
 # plugins/flywheel/templates/issue-closed.yml, with the spec line below
 # added. Change the template, then copy it here again.
 #
-# `flywheel.py claim` labels an issue in-progress, and `release` takes the
-# label off when a claim is given up. Most claims end another way: the pull
+# `flywheel.py claim` adds the claim label to an issue, and `release` takes
+# the label off when a claim is given up. Most claims end another way: the pull
 # request merges and GitHub closes the issue, and nothing in the script runs.
 # Without this, every issue that was ever claimed keeps the label after it
 # closes, and the label stops meaning someone is working on it. Closing
 # through a merge counts as the person who merged, so this runs however the
 # issue was closed. `flywheel.py stale` reports a closed issue that still has
 # the label, in case a run fails or the issue closed before this workflow
-# existed. The flywheel plugin's README.md, under "Claiming an issue",
-# describes the claim.
+# existed. The claim label is `in-progress` unless .flywheel/labels.json
+# gives another under `roles`, as `{"roles": {"claim": "flywheel-claim"}}`, so
+# this reads the file from the closed issue's repository. The flywheel
+# plugin's README.md, under "Claiming an issue", describes the claim.
 
 on:
   issues:
     types: [closed]
 
 permissions:
+  contents: read
   issues: write
 
 jobs:
-  clear-in-progress:
-    if: contains(github.event.issue.labels.*.name, 'in-progress')
+  clear-claim-label:
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .flywheel
       # spec: issueclosed-clears-in-progress-label
-      - name: Remove the in-progress label
+      - name: Remove the claim label
         env:
           GH_TOKEN: ${{ github.token }}
           NUMBER: ${{ github.event.issue.number }}
-        run: gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" --remove-label in-progress
+          LABELS: ${{ toJSON(github.event.issue.labels.*.name) }}
+        run: |
+          claim=in-progress
+          if [ -f .flywheel/labels.json ]; then
+            claim=$(jq -r '.roles.claim // "in-progress"' .flywheel/labels.json)
+          fi
+          if printf '%s' "$LABELS" | jq -e --arg claim "$claim" \
+            'map(ascii_downcase) | index($claim | ascii_downcase) != null' > /dev/null; then
+            gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" --remove-label "$claim"
+          fi

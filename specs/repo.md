@@ -224,7 +224,9 @@ Source: README.md, under "Claiming an issue", and #33. specs/flywheel.md
 holds the requirements the flywheel plugin meets under this need.
 
 - `issueclosed-clears-in-progress-label` (check): When an issue carrying
-  `in-progress` closes, issue-closed.yml removes the label.
+  the claim label closes, issue-closed.yml removes the label. It reads the
+  claim label from `.flywheel/labels.json`, and `in-progress` when the file
+  does not give one.
 
 ## need owner-prevents-stale-branches: Keep finished branches from piling up
 

@@ -82,7 +82,7 @@ an issue that names it.
 
 ## The issue-closed workflow
 
-`templates/issue-closed.yml` takes `in-progress` off an issue that closes,
+`templates/issue-closed.yml` takes the claim label off an issue that closes,
 since a claim usually ends with a merge, where no command of the script
 runs. A project copies it into `.github/workflows/`. This repository's copy
 adds the `# spec:` line that ties its step to `specs/repo.md`.
@@ -101,7 +101,7 @@ ignored by git and so is not in the checkout. This repository's copy adds the
 
 `brief` reads the issue through GitHub's GraphQL API, since only that reports
 when the body was last edited and when each label was added. It refuses an
-issue edited after `approved` was last added, as `check-specs.py changes`
+issue edited after the approval label was last added, as `check-specs.py changes`
 does for the issues a pull request closes. Agents post under the owner's
 account, so `brief` tells the owner's comments from an agent's by the
 `**Claude:**` opening that CLAUDE.md asks an agent's comment to carry.
