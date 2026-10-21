@@ -13,8 +13,11 @@ on a summary here; this file holds what the README does not.
   and archive-on-close with the session's `set_monitor` tool, without asking
   the owner first.
 - A pull request description stands without the issue, for an owner who has
-  not read it. It uses these headings, in this order, in place of
-  `## Summary`:
+  not read it. The owner knows each of this repository's plugins by name
+  and what it is for. The owner does not know the terms that a plugin, a
+  spec or a script gives its own meaning, or the vocabulary the work
+  introduced. The description uses these headings, in this order, in place
+  of `## Summary`:
   1. `## Scenario` opens with who, by role, does what. Then it gives:
      - what happened before the change, under `### Before`.
      - what happens after it, under `### After`.

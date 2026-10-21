@@ -25,8 +25,18 @@ Follow them with `Closes #N` for the issue the branch works, and end with the
 attribution line the session gives for pull requests. Write each paragraph
 and each list item on one line, as CLAUDE.md says there.
 
-Define on first use each term the plugin, a spec or a skill gives its own
-meaning, as `standing-define-terms` in `.claude/rules/prose-style.md` asks.
+Explain on first use each term the owner does not know, as
+`standing-define-terms` in `.claude/rules/prose-style.md` asks. CLAUDE.md,
+under "Workflow", says which terms those are. A plugin's name is not one of
+them. Explain a term by the first of these ways that works:
+
+1. Reword the sentence to point back to an earlier sentence that already
+   explains the term.
+2. Add a qualifier that names the term's kind, where two of a kind meet,
+   such as "the Claude Code hook" beside a git hook, or "the implementer
+   agent" beside the agent that runs a skill.
+3. Define what the term is, in one clause. Say what it does only where the
+   Scenario or the Change relies on that.
 
 Make a file for the draft:
 
@@ -76,15 +86,17 @@ will read it.
 
 Start a subagent with the Agent tool, `subagent_type` `general-purpose`.
 Give it this prompt and nothing else: no summary of the work, no issue, no
-file paths. Put the draft in place of `<the draft>`, exactly as the file
-holds it.
+file paths. Put the title in place of `<the title>`, and the draft in place
+of `<the draft>`, exactly as the file holds it.
 
 ```text
 You are reviewing a pull request description for an owner who reads it
 without having seen the work. Treat the owner as an engineer who knows git,
-GitHub, Python, pytest, shell, CI, JSON and Claude Code skills, and does not
-know this repository's plugins, specs or scripts. Do not read any file or run
-any tool. Use only the text below.
+GitHub, Python, pytest, shell, CI, JSON and Claude Code skills. The owner
+knows each of this repository's plugins by name and what it is for. The
+owner does not know the terms that a plugin, a spec or a script gives its
+own meaning, or the vocabulary the change introduced. Do not read any file
+or run any tool. Use only the text below.
 
 Reply in exactly this form:
 
@@ -103,6 +115,10 @@ it. Put it under BLOCKING when the owner could not follow the scenario or the
 change without it, and under BORDERLINE when the owner could guess it from
 the text around it. Write "none" under a heading that lists nothing.
 
+The title:
+
+<the title>
+
 The description:
 
 <the draft>
@@ -110,10 +126,11 @@ The description:
 
 Compare the reply with the change:
 
-- Each term under BLOCKING gets a definition at its first use, in one
-  clause, or gives way to a plain word.
-- A term under BORDERLINE gets the same when one clause does it. Otherwise
-  leave it, since each new definition can bring terms of its own.
+- Each term under BLOCKING is explained at its first use by the first of
+  step 1's ways that works, or gives way to a plain word.
+- A term under BORDERLINE that the text around it already explains stays as
+  it is. Any other gets the same as a blocking term when one clause does it.
+  Otherwise leave it, since each new explanation can bring terms of its own.
 - When the subagent's scenario misstates who meets the change, or what
   happens before or after it, the Scenario section is rewritten until a
   reader without the work would state it correctly.
