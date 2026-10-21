@@ -108,6 +108,11 @@ plan posted there.
   `kinds`, the kinds are GitHub's `bug`, `enhancement` and `documentation`.
   Without `areas`, a draft needs no area label, and may carry the
   `repo-area` label.
+- `adopt-asks-issue-rules` (step): When adopt runs, it asks the owner for
+  the kind labels, the area labels and the issue headings, offering the
+  defaults first. It sets each label answer that differs with `labels
+  --kind` and `labels --area`, and writes headings that differ to
+  `.flywheel/issue-template.md`, before it names the missing labels.
 - `issuetemplate-sets-headings` (test): When `.flywheel/issue-template.md`
   exists, each `##` heading in it is a heading every draft's body holds, and
   the text under a heading is the guidance for that section. Without the

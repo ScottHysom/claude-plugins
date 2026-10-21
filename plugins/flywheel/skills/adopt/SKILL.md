@@ -131,9 +131,9 @@ level and, under each level, each control's state. `data.gaps` lists each
 level up to the target that has a control missing, with the `controls`
 still missing and their evidence.
 
-## Step 6: set the role labels and create the missing labels
-<!-- spec: adopt-asks-role-labels, labels-cmd-sets-role, labels-cmd-flags-taken-claim-label, adopt-creates-missing-labels, labels-cmd-names-missing-labels -->
-<!-- seam: judgment: the owner names each role's label, then agrees to create the missing ones -->
+## Step 6: set the issue rules and create the missing labels
+<!-- spec: adopt-asks-role-labels, labels-cmd-sets-role, labels-cmd-flags-taken-claim-label, adopt-creates-missing-labels, labels-cmd-names-missing-labels, adopt-asks-issue-rules, labels-cmd-sets-kinds-areas, issuetemplate-sets-headings -->
+<!-- seam: judgment: the owner names each role's label and the issue rules, then agrees to create the missing labels -->
 
 The loop acts on four labels by their role. Ask the owner, with one
 `AskUserQuestion`, which label the repository already uses for each role,
@@ -143,24 +143,46 @@ offering the default first:
 - `plan`, the label of a tracking issue, which groups a plan's issues:
   `tracking`.
 - `repo-area`, the area label of an issue about the whole repository:
-  `repo`. Each issue that file-issue files takes exactly one area label,
-  and the issues step 7 files for missing controls carry this one, since a
+  `repo`. The issues step 7 files for missing controls carry it, since a
   control concerns the whole repository.
 - `claim`, the label a session adds to the issue it has claimed:
   `in-progress`. Ask for a label that nothing else in the repository uses,
   since the loop adds it and takes it off.
 
-Set each answer that differs from the default and name the labels the
-repository lacks. The command below sets `ready` as the approval label. Give
-`--set` once for each answer that differs, with the role and the owner's
-label, and leave it out when every answer is the default:
+Then ask the owner, with one more `AskUserQuestion`, for the rules each issue
+that file-issue files follows, offering the default first:
+
+- the kind labels, one of which each issue carries: GitHub's `bug`,
+  `enhancement` and `documentation`, each with its description.
+- the area labels, one of which each issue carries when there are any: none
+  by default. An area that ends in `*` stands for each label it prefixes,
+  as `plugin:*` stands for `plugin:flywheel`.
+- the headings an issue's body holds, and what to write under each:
+  `What's wrong` (what happens, and a command that shows it), `Evidence`
+  (file and line, commit, pull request, output), `Done when` (what a fix
+  has to make true) and `Requirements` (the ids in specs/ the issue adds,
+  changes or removes).
+
+When the owner gives headings other than the default, write them to
+`.flywheel/issue-template.md`, each as `## <heading>` with what to write
+under it on the lines below. Leave the file out when the answer is the
+default.
+
+Set each label answer that differs from the default and name the labels the
+repository lacks. The command below sets `ready` as the approval label, the
+kinds `bug`, `feature` and `docs`, and the areas `api` and `web`. Give
+`--set` once for each role whose answer differs, with the role and the
+owner's label. Give `--kind` once for each kind, and `--area` once for each
+area, each with its description, when that answer differs from the default.
+Leave out an option whose answer is the default:
 
 ```sh
-FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" labels --set approval=ready --json
+FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" labels --set approval=ready --kind "bug=Something isn't working" --kind "feature=New behavior" --kind "docs=Documentation only" --area "api=The API server" --area "web=The web app" --json
 ```
 
-`labels` writes each `--set` into `.flywheel/labels.json`, and `data.roles`
-gives the label for every role. Exit 0 means the repository has every label,
+`labels` writes each `--set`, `--kind` and `--area` into
+`.flywheel/labels.json`. `data.roles` gives the label for every role, and
+`data.kinds` and `data.areas` give the kinds and areas. Exit 0 means the repository has every label,
 so go on to step 7. Exit 1 means at least one of these:
 
 - `data.taken` names the claim label, which the repository already has with
@@ -194,9 +216,11 @@ Each issue:
 - carries the `repo-area` label that `data.roles` gave in step 6 as its
   area.
 - gives the control, the level that introduces it and its principle ids
-  under "What's wrong",
-  and the evidence `record` reported under "Evidence".
-- says under "Done when" that `flywheel.py assess` reports the control held.
+  under the heading that says what is wrong ("What's wrong" by default).
+- gives the evidence `record` reported under the heading for evidence
+  ("Evidence" by default).
+- says under the heading for when the issue is done ("Done when" by
+  default) that `flywheel.py assess` reports the control held.
 - for a missing spec, says the owner supplies each need and constraint, and
   that the agent drafts none of them.
 
@@ -209,6 +233,8 @@ Then tell the owner:
 - the level the repository holds now and the level recorded.
 - the files this run wrote, to review and commit: `.flywheel/adoption.json`,
   the roles file, the policies, `.flywheel/gates.json`,
-  `.flywheel/labels.json` when step 6 set a role, and the rules for agents.
+  `.flywheel/labels.json` when step 6 set a label,
+  `.flywheel/issue-template.md` when step 6 wrote it, and the rules for
+  agents.
 - each field left unset, and each pair of contradicting rules from step 4.
 - the plan file-issue filed, or that there was nothing to file.
