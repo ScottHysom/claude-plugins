@@ -21,7 +21,7 @@ request the merge policy lets through, and asks you about the rest.
 
 ```mermaid
 flowchart TD
-  O[You<br/>file, approve, decide] -- "run 3 issues" --> D[Dispatcher]
+  O[You<br/>file, approve, decide] -- "fix the next 3 issues" --> D[Dispatcher]
   D -- starts one per issue --> I[Implementer]
   D -- starts one per pull request --> R[Reviewer]
   I -- opens --> P[Pull request]
@@ -57,73 +57,46 @@ The marketplace does not update on its own. To pick up a new version:
 
 ## Setting up a repository
 
-The setup runs once per repository, in this order:
-
-1. Install the plugin, as "What you need" says.
-2. Ask Claude to adopt flywheel in your project. Claude follows the plugin's
-   adopt skill, which first lists each of the method's controls with what it
-   found in the project, or what is missing. A **control** is a rule, file or
-   check the method asks a repository to hold, such as a rules file for
-   agents or a written review policy. The method sorts them into three
-   levels, each built on the one below:
-   - Level 1 has agents build only what someone asked for.
-   - Level 2 backs that with checks.
-   - Level 3 has the loop measure itself.
-
-   [docs/adoption.md](docs/adoption.md) lists each level's controls. The
-   list comes from `flywheel.py assess`, as in this run, trimmed:
+1. Install the plugin, as the "What you need" section says.
+2. Ask Claude to adopt flywheel in your project, and follow the adopt skill's
+   instructions as Claude runs it. Adopt compares your repository with the
+   **controls** flywheel asks a repository to hold (rules, files and checks,
+   such as a rules file for agents or a written review policy), and shows
+   you what it found, as in this run, trimmed:
 
    ```text
    level 1 (Core): held
-     [x] agent-rules (trace-behavior-to-need, humans-decide-agents-record): the files read (CLAUDE.md, .claude/rules/prose-style.md) cite `trace-behavior-to-need`, `humans-decide-agents-record` as the method's
      [x] core-gates (one-command-per-gate): .flywheel/gates.json names `build`, `test`, `check`
    level 2 (Enforced): held
      [x] verify-gate (one-command-per-gate): .github/workflows/validate.yml runs `python3 .github/scripts/gate.py verify`
-     [x] review-policy (review-against-written-policy, separate-generation-from-verification): .flywheel/review-policy.md sets every setting
    level 3 (Measured): missing
-     [ ] role-tiers (match-capability-to-task): .flywheel/roles.json leaves `dispatcher.model`, `dispatcher.effort`, `implementer.model`, `implementer.effort`, `reviewer.model`, `reviewer.effort` unset
      [ ] merge-policy (autonomy-scales-with-risk): .flywheel/merge-policy.md leaves `areas` unset
 
    the project holds level 2
    ```
 
-3. Choose the level to adopt when Claude asks. Claude never chooses one for
-   you.
-4. Answer Claude's questions for the files it writes in `.flywheel/`. Claude
-   asks for each setting a file leaves for you, and offers the command it
-   finds in your project for each gate. The files it asks about depend on
-   the level:
-   - at every level, the gate commands in `gates.json` and each role's model
-     and effort in `roles.json`, since every round of issues starts its
-     sessions from them.
-   - from level 2, the review policy and the commands that list and run your
-     tests.
-   - at level 3, the merge policy.
-
-   "Files in `.flywheel/`" describes each file. Claude also adds the
-   method's rules for agents, up to your level, to your project's
-   `CLAUDE.md`, beside the rules you already have, and records the plugin
-   version, your level and the controls your project holds in
-   `.flywheel/adoption.json`.
-5. Agree when Claude offers to create the labels the loop needs that your
-   repository lacks. "Labels" lists them.
-6. Approve the plan of issues Claude drafts, one issue for each missing
-   control, as "Filing an issue or a plan" describes.
-7. Commit what adopt wrote.
-8. Have GitHub enforce the checks the merge policy asks for. On your `main`
+   Adopt then asks which level of controls to adopt and each setting it
+   cannot find in your project, writes the files in `.flywheel/`, creates the
+   labels the loop needs, and files an issue for each control your
+   repository is missing. [docs/adoption.md](docs/adoption.md) lists each
+   level's controls. The "Labels" section and the "Filing an issue or a
+   plan" section say more about the labels and the issues.
+3. Commit the files adopt wrote. The "Files in `.flywheel/`" section says
+   which of them you edit by hand later, and which a skill writes.
+4. Have GitHub enforce the checks the merge policy asks for. On your `main`
    branch, under the repository's Settings, then Rules, set all of these:
    1. Require the status check that runs your `verify` gate to pass before
       merging.
    2. Require a branch to be up to date with `main` before merging.
    3. Allow nobody to bypass the rule (including administrators).
-9. Copy the plugin's two workflow templates into your project's
-   `.github/workflows/`, as "Workflow templates" describes.
-10. Approve the first issues, and ask for your first round, such as "run 3
-    issues", from a session on a model and effort at least as strong as the
-    implementer's and the reviewer's.
+5. Copy the plugin's two workflow templates into your project's
+   `.github/workflows/`, as the "Workflow templates" section says.
+6. Approve the first issues, and ask for your first round, such as "fix the
+   next 3 issues", from a session on a model and effort at least as strong as
+   the implementer's and the reviewer's.
 
-When you ask Claude to adopt again after updating the plugin, it shows only
-what changed since the record, such as a control the method added.
+After you update the plugin, ask Claude to adopt flywheel again. It shows
+only what changed since the last adoption, such as a control flywheel added.
 
 ## Everyday use
 
@@ -133,22 +106,22 @@ run.
 
 | You say | What happens |
 | --- | --- |
-| "fix #12", "run #12 #14", "take the next issue" | A round of those issues: an implementer for each, a reviewer for each pull request, and a merge check. |
-| "fix #12 here", "take the next issue in this session" | The session you are talking to works the issue. You review and merge the pull request yourself. |
-| "run 3 issues", "run #653 three at a time" | A round that keeps that many issues in flight, from the queue or from a plan. |
-| "file an issue for …", "file this as a plan" | Claude drafts the issues, shows you a report, and files them once you approve. |
+| "fix #12", "fix issue 12", "fix #12 and #14", "fix the next issue" | A round of those issues: an implementer for each, a reviewer for each pull request, and a merge check. |
+| "fix #12 here", "fix the next issue in this session" | The session you are talking to works the issue. You review and merge the pull request yourself. |
+| "fix the next 3 issues", "fix the issues in #653 three at a time" | A round that keeps that many issues in flight, from the queue or from a plan, until none is left. |
+| "file an issue for …", "open an issue for …", "file this as a plan" | Claude drafts the issues, shows you a report, and files them once you approve. |
 | `! gh issue edit 12 --add-label approved` | You approve issue 12, so a session may work it. |
 | "review #671" | A reviewer reads the pull request against your review policy and posts its findings. |
 | "measure the loop since 2026-10-01" | Spend, first-pass CI, findings and lead time for each pull request merged since then. |
 
 ### Fixing an issue
 
-Ask Claude to fix an issue, such as "fix #12", or the next issue, such as
-"take the next issue" or "take the next issue in #653". The session you ask
-becomes the dispatcher and runs a round of that one issue, as "Running a
-round of issues" describes, with a reviewer and a merge check. To send
-several issues you picked through the loop at once, name them, as in "run
-#12 #14".
+Ask Claude to fix an issue, such as "fix #12" or "fix issue 12", or the next
+issue, such as "fix the next issue" or "fix the next issue in #653". The
+session you ask becomes the dispatcher and works a round of that one issue,
+as the "Fixing several issues at once" section says, with a reviewer and a
+merge check. To send several issues you picked through the loop at once,
+name them, as in "fix #12 and #14".
 
 The dispatcher tells you why any issue you named cannot start:
 
@@ -170,8 +143,8 @@ the reviewer has not reviewed it
 ### Working an issue in this session
 
 Ask Claude to work an issue in the session you are talking to, such as "fix
-#12 here" or "take the next issue in this session". A request that does not
-say "here" or "in this session" runs a round instead. Claude follows the
+#12 here" or "fix the next issue in this session". A request that does not
+say "here" or "in this session" starts a round instead. Claude follows the
 plugin's work-issue skill, and you review and merge the pull request
 yourself. The skill:
 
@@ -206,15 +179,15 @@ commands. A **gate command** is the command that says a piece of work is
 done, such as running the tests. Claude refuses the brief for an issue
 edited after you approved it, until you approve it again.
 
-### Running a round of issues
+### Fixing several issues at once
 
 Ask Claude for a round in any of these ways:
 
-- a number of issues, such as "run 3 issues".
-- a plan, such as "run #653 three at a time".
-- the issues you pick, such as "run #12 #14".
-- one issue to work, such as "fix #12", or the next issue, such as "take the
-  next issue" or "take the next issue in #653". The round is that one issue.
+- a number of issues, such as "fix the next 3 issues".
+- a plan, such as "fix the issues in #653 three at a time".
+- the issues you pick, such as "fix #12 and #14".
+- one issue, such as "fix #12", or the next issue, such as "fix the next
+  issue" or "fix the next issue in #653". The round is that one issue.
 
 The session you ask becomes the dispatcher and follows the plugin's run
 skill. It:
@@ -227,8 +200,8 @@ skill. It:
    them cannot start, such as a missing approval or an open blocker.
 3. starts one session per issue, each in its own worktree, with the issue's
    brief as its first message and the implementer's model and effort. Each
-   of those sessions works its issue as "Working an issue in this session"
-   describes.
+   of those sessions works its issue as the "Working an issue in this session"
+   section says.
 4. tells you each pull request as it opens, and starts a reviewer session on
    it. It starts the reviewer again once the implementer has answered the
    review.
@@ -247,7 +220,7 @@ that starts it. So run the dispatcher on a model and effort at least as
 strong as the implementer's and the reviewer's.
 
 The queue offers the oldest approved issues that are free of a claim and of
-an open blocker, as in this run of `flywheel.py queue --count 3`:
+an open blocker, as in this run:
 
 ```text
 #234 check-skills.py drops the last line of a fence that is never closed
@@ -256,13 +229,12 @@ an open blocker, as in this run of `flywheel.py queue --count 3`:
 ```
 
 Each time it is woken, the dispatcher looks at the round's pull requests, as
-in this run of `flywheel.py events`, trimmed:
+in this run, trimmed:
 
 ```text
 merged #698 issue/665 at 2026-10-20T01:45:38Z
 merged #699 issue/688 at 2026-10-20T02:09:25Z
 merged #700 issue/689 at 2026-10-20T05:51:23Z
-Next look: flywheel.py events --since 2026-10-20T05:51:23Z
 ```
 
 ### Reviewing a pull request
@@ -360,8 +332,8 @@ round itself.
 ### Measuring the loop
 
 Ask Claude to measure the loop since a date, such as "measure the loop since
-2026-10-01". Claude runs `measure`, which reports, for each pull request
-merged since then and as a summary:
+2026-10-01". Claude reports, for each pull request merged since then and as
+a summary:
 
 - **spend**: the tokens Claude Code used on the pull request's branch, read
   from the session records on your machine.
@@ -390,8 +362,8 @@ Summary:
 Read these before and after changing a role's model or effort in
 `.flywheel/roles.json`, so you can tell whether the change paid off. Each
 measure is there because it informs a decision like that one. A measure that
-does not inform a decision is dropped. `measure` says which measure it could not
-compute for a pull request, and why.
+does not inform a decision is dropped. Claude says which measure it could
+not compute for a pull request, and why.
 
 ## How the loop runs
 
@@ -456,19 +428,21 @@ Every skill copies the plugin's script into a `.flywheel/` folder in the
 project when it starts. Git ignores that copy, so it never reaches a commit.
 The files you commit sit beside it:
 
-| File | Holds | Commit it |
-| --- | --- | --- |
-| `roles.json` | each role's tier, model and effort | yes |
-| `gates.json` | your gate commands, and how to list and run your tests | yes |
-| `review-policy.md` | what the reviewer works from | yes |
-| `merge-policy.md` | which pull requests the dispatcher merges without you | yes |
-| `adoption.json` | the plugin version, your level and the controls your project holds | yes |
-| `passes-on-base.json` | each new test that passes before its change on purpose, with the reason | yes, when you write it |
-| `plan/` | the filing report and Claude's record of what it filed | no, git ignores it |
+| File | Holds | Change it | Commit it |
+| --- | --- | --- | --- |
+| `roles.json` | each role's tier, model and effort | by hand | yes |
+| `gates.json` | your gate commands, and how to list and run your tests | by hand | yes |
+| `review-policy.md` | what the reviewer works from | by hand | yes |
+| `merge-policy.md` | which pull requests the dispatcher merges without you | by hand | yes |
+| `adoption.json` | the plugin version, your level and the controls your project holds | by asking Claude to adopt flywheel again | yes |
+| `passes-on-base.json` | each new test that passes before its change on purpose, with the reason | by hand, when you need it | yes |
+| `plan/` | the filing report and Claude's record of what it filed | by asking Claude to file an issue | no, git ignores it |
 
-`config init` writes `roles.json`, `gates.json` and the two policies, and
-never overwrites a file that already exists. Commit each file once it is
-filled in, so every session reads the same choices.
+The adopt skill writes `roles.json`, `gates.json` and the two policies, and
+never overwrites a file that already exists. Once a file exists, change a
+setting in it by hand. Ask Claude to adopt flywheel again to write a file
+that is missing, such as one a later version of flywheel adds. Commit each
+file once it is filled in, so every session reads the same choices.
 
 #### `roles.json`
 
@@ -491,8 +465,8 @@ The file has one entry per role:
 
 #### `gates.json`
 
-`config init` writes `build`, `test`, `check` and `verify` under `gates` for
-you to fill in, and keeps any gate the file already gives:
+Adopt writes `build`, `test`, `check` and `verify` under `gates` for you to
+fill in, and keeps any gate the file already gives:
 
 ```json
 {
@@ -554,7 +528,8 @@ at the end. Claude lists each setting you need to fill in.
   `{"plugin:todos": ["plugins/todos/", "tests/todos/"]}`.
 
 The merge policy is a request the dispatcher follows. The GitHub rules in
-step 8 of "Setting up a repository" make GitHub enforce the checks too.
+step 4 of the "Setting up a repository" section make GitHub enforce the
+checks too.
 
 ### Labels
 
@@ -578,8 +553,8 @@ names the missing labels and creates them once you agree.
 The plugin ships two GitHub Actions workflows. Copy each into your project's
 `.github/workflows/`:
 
-- `templates/loop-report.yml` runs `stale` and `measure` on a schedule and
-  records the results in one open issue titled "Loop report", which it
+- `templates/loop-report.yml` measures the loop on a schedule, finds labels
+  and branches that disagree, and records the results in one open issue titled "Loop report", which it
   updates on each run. Each run measures the pull requests merged since the
   last run. Set its `cron` line to the schedule you want. It runs on Mondays
   until you do. GitHub does not have your session records, so that report
@@ -588,26 +563,51 @@ The plugin ships two GitHub Actions workflows. Copy each into your project's
   when it closes, to keep the label meaning that someone is working on the
   issue.
 
-### The method
+### Levels
 
-The loop follows a method for building software with agents: every behavior
+Flywheel sorts its controls into three levels, each built on the one below:
+
+- Level 1 has agents build only what someone asked for.
+- Level 2 backs that with checks.
+- Level 3 has the loop measure itself.
+
+[docs/adoption.md](docs/adoption.md) lists each level's controls. When
+Claude adopts flywheel, it asks which level to adopt and never chooses one
+for you. It asks for the settings each level needs:
+
+- at every level, the gate commands in `gates.json` and each role's model
+  and effort in `roles.json`, since every round of issues starts its
+  sessions from them.
+- from level 2, the review policy and the commands that list and run your
+  tests.
+- at level 3, the merge policy.
+
+For each gate, Claude offers the command it finds in your project. Claude
+also adds flywheel's rules for agents, up to your level, to your project's
+`CLAUDE.md`, beside the rules you already have, and records the plugin
+version, your level and the controls your project holds in
+`.flywheel/adoption.json`.
+
+### Flywheel's docs
+
+Flywheel is built on a way of building software with agents: every behavior
 traces to a need someone stated, and each task gets an agent matched to it.
-The plugin's `docs/` folder is the method's home. Start with
+The plugin's `docs/` folder holds it. Start with
 [docs/README.md](docs/README.md).
 
-The method's principles and stage rules each have an id, such as
+Flywheel's principles and stage rules each have an id, such as
 `one-home-per-artifact`. A spec, a template or a skill that cites one points
 to the document in `docs/` that defines it. The docs carry the plugin's
 version, so a repo that records which flywheel version it adopted has
-recorded which version of the method it follows.
+recorded which version of the docs it follows.
 
 ### What this version does
 
 This version of the plugin:
 
 - installs the plugin's script.
-- ships the docs that define the method the loop follows.
-- assesses which of the method's controls a project holds.
+- ships the docs that define how the loop works and why.
+- assesses which of flywheel's controls a project holds.
 - writes the file that says which model each role runs on, and the review
   and merge policies.
 - files an issue or a plan of issues.

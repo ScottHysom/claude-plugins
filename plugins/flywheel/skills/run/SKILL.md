@@ -1,6 +1,6 @@
 ---
 name: run
-description: Run a round of approved GitHub issues as the dispatcher, starting one implementer session per issue, a reviewer session on each pull request, and a new implementer each time a pull request merges. Checks each role's model and effort with flywheel.py role, takes the issues from flywheel.py queue, starts each session in its own worktree with flywheel.py brief as its first message, watches the claim pull requests with flywheel.py events, merges what the merge policy lets flow with flywheel.py merge-check, asks the owner about what it holds, clears each merged claim and closes a finished plan. Claude Code desktop app only. Use when asked to run, start or work a round of issues, a number of issues at once, particular issues named by number, or the issues of a plan or tracking issue, and when asked to fix, work or take an issue, the next issue, or the next issue in a plan, unless the request says to do it here or in this session. Never use it in a session whose first message is a brief, which the work-issue skill takes.
+description: Run a round of approved GitHub issues as the dispatcher, starting one implementer session per issue, a reviewer session on each pull request, and a new implementer each time a pull request merges. Checks each role's model and effort with flywheel.py role, takes the issues from flywheel.py queue, starts each session in its own worktree with flywheel.py brief as its first message, watches the claim pull requests with flywheel.py events, merges what the merge policy lets flow with flywheel.py merge-check, asks the owner about what it holds, clears each merged claim and closes a finished plan. Claude Code desktop app only. Use when asked to fix, work, run or start a round of issues, a number of issues at once such as the next 3 issues, particular issues named by number, or the issues of a plan or tracking issue, and when asked to fix, work or take an issue, the next issue, or the next issue in a plan, unless the request says to do it here or in this session. Never use it in a session whose first message is a brief, which the work-issue skill takes.
 ---
 
 # Run a round of issues
@@ -15,12 +15,13 @@ message `flywheel.py brief N` prints for the session that works issue N.
 
 The owner names the round in one of these ways:
 
-- a count, as in "run 3 issues".
-- a tracking issue's plan, as in "run #653", with or without a count.
-- issues, as in "run #12" or "run #12 #14".
-- one issue to fix, work or take, as in "fix #12", which is a round of that
-  issue.
-- the next issue, as in "take the next issue" or "the next issue in #653",
+- a count, as in "fix the next 3 issues".
+- a tracking issue's plan, as in "fix the issues in #653", with or without a
+  count, as in "three at a time".
+- issues, as in "fix #12 and #14".
+- one issue to fix, work or take, as in "fix #12" or "fix issue 12", which is
+  a round of that issue.
+- the next issue, as in "fix the next issue" or "the next issue in #653",
   which is a round of the one issue the queue offers.
 
 A request to work an issue here, or in this session, is not a round. The
