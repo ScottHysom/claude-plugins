@@ -143,7 +143,9 @@ offering the default first:
 - `plan`, the label of a tracking issue, which groups a plan's issues:
   `tracking`.
 - `repo-area`, the area label of an issue about the whole repository:
-  `repo`.
+  `repo`. Each issue that file-issue files takes exactly one area label,
+  and the issues step 7 files for missing controls carry this one, since a
+  control concerns the whole repository.
 - `claim`, the label a session adds to the issue it has claimed:
   `in-progress`. Ask for a label that nothing else in the repository uses,
   since the loop adds it and takes it off.

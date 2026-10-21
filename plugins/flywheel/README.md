@@ -561,6 +561,8 @@ and flywheel then uses your labels:
 - the label that approves an issue, `approved` by default.
 - the label of a plan's tracking issue, `tracking` by default.
 - the area label of an issue about the whole repository, `repo` by default.
+  The issues Claude files when you adopt flywheel, one for each control
+  your repository lacks, carry it, since each issue needs one area label.
 - the label of a claimed issue, `in-progress` by default.
 
 Claude records your answers in `.flywheel/labels.json`, which you commit.

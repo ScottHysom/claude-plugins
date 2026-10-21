@@ -62,8 +62,8 @@ decisions on it.
     `tracking`.
   - `claim`, the **claim label**, which `claim` adds to the issue it holds:
     `in-progress`.
-  - `repo-area`, the area label of an issue about the whole repository:
-    `repo`.
+  - `repo-area`, the area label of an issue about the whole repository,
+    which the issues adopt files for missing controls carry: `repo`.
 - `labelsfile-refuses-bad-map` (test): When `.flywheel/labels.json` gives
   any of these, a command that reads it exits 2 and names the fault:
   - a role outside the four.
