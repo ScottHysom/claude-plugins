@@ -1290,6 +1290,17 @@ class DescribeIssueRules:
             " `plugin:*`, `web` or `repo`",
         ]
 
+    @pytest.mark.spec("labelsfile-sets-kinds-areas", "planreport-cmd-checks-each-draft")
+    def it_names_the_repo_area_once_when_the_areas_list_it(self, capsys, tmp_path, repo, hub):
+        hub()
+        ruled(repo, {"areas": {"plugin:*": "One plugin", "Repo": "Everything else"}})
+        plan = write_plan(tmp_path, issue("A", labels=("bug",)), issue("B", labels=("bug", "repo")))
+        code, data = report(capsys, repo, plan)
+        assert code == flywheel.PROBLEMS
+        assert data["errors"] == [
+            "`A` carries 0 area labels; it takes exactly one, from `plugin:*` or `Repo`"
+        ]
+
     @pytest.mark.spec("issuetemplate-sets-headings", "planreport-cmd-checks-each-draft")
     def it_checks_each_draft_against_the_templates_headings(self, capsys, tmp_path, repo, hub):
         hub()
