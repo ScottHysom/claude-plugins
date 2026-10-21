@@ -1,6 +1,6 @@
 ---
 name: open-pr
-description: Open a pull request in this repo once its work is committed, with a description the owner can review without the session's context. Uses .github/scripts/check-pr.py description to check the drafted description opens with its scenario, gives the draft to a subagent that has none of the session's context to find each term it leaves undefined, and opens the pull request with check-pr.py open from the checked file. Use when opening, creating or raising a pull request, or when asked to put the work up for review.
+description: Open a pull request in this repo once its work is committed, with a description the owner can review without the session's context. Uses .github/scripts/check-pr.py description to check the drafted description opens with its scenario, gives the draft to a subagent that has none of the session's context to find each term it leaves undefined, gives it to a second subagent to find each breach of the prose rules, and opens the pull request with check-pr.py open from the checked file. Use when opening, creating or raising a pull request, or when asked to put the work up for review.
 ---
 
 # Open a pull request
@@ -8,8 +8,9 @@ description: Open a pull request in this repo once its work is committed, with a
 The owner reviews a pull request from its description, and is its first
 reader. The agent that writes the description has the change's vocabulary in
 context, so a term it leaves undefined still reads as plain to it. This
-skill checks the draft, has a reader without that context read it, and opens
-the pull request from the file that reader saw.
+skill checks the draft, has a reader without that context read it, has a
+second reader hold it to the prose rules, and opens the pull request from the
+file those readers saw.
 
 Run every command from the root of the clone, on the branch to open, with the
 work committed. Never open a pull request with `gh pr create` directly.
@@ -23,7 +24,20 @@ Write the description with the headings CLAUDE.md gives under "Workflow", in
 its order: `## Scenario`, `## Change`, `## Requirements` and `## Test plan`.
 Follow them with `Closes #N` for the issue the branch works, and end with the
 attribution line the session gives for pull requests. Write each paragraph
-and each list item on one line, as CLAUDE.md says there.
+and each list item on one line, as CLAUDE.md says there. Where a Before or
+an After covers more than one behavior, give each behavior as a bullet, with
+the After's bullets in the Before's order.
+
+Write the draft to the rules in `.claude/rules/prose-style.md`. The rules a
+description most often breaks are judgment rules, which do not have a
+pattern a script can match:
+
+- `standing-bullet-over-run`: a run of three or more phrases becomes
+  bullets.
+- `standing-list-says-any-or-all`: a list of conditions says in its lead-in
+  whether any or all must hold.
+- `sentences-say-it-once`: a command, a fact or a reason appears in one
+  section, such as the After or the Change, and not both.
 
 Explain on first use each term the owner does not know, as
 `standing-define-terms` in `.claude/rules/prose-style.md` asks. CLAUDE.md,
@@ -139,7 +153,47 @@ After any revision, go back to step 2, and give the revised draft to a new
 subagent. Go on to step 4 only when a subagent lists "none" under BLOCKING and its
 scenario matches the change.
 
-## Step 4: open the pull request
+## Step 4: have the draft read against the prose rules
+<!-- spec: openpr-gives-draft-to-style-reader -->
+<!-- no-command: platform. The model starts a subagent with the Agent tool, which a script cannot do. -->
+
+Start a new subagent with the Agent tool, `subagent_type` `general-purpose`.
+Give it this prompt and nothing else. Put the title and the draft in place of
+`<the title>` and `<the draft>`, exactly as the file holds it.
+
+```text
+You are checking a pull request description against this repository's
+prose rules. Read `.claude/rules/prose-style.md`, and the section
+"Workflow" of `CLAUDE.md`, which gives the description's headings and the
+shape of its Before and After. Do not read any other file or run any
+other tool.
+
+Read the title and the description against every rule in both. Reply in
+exactly this form:
+
+BREACHES:
+- <rule id, or "CLAUDE.md Workflow">: "<the sentence, quoted>": <what breaks the rule>
+
+Write "none" under BREACHES when you find no breach.
+
+The title:
+
+<the title>
+
+The description:
+
+<the draft>
+```
+
+Rewrite each sentence the reply quotes so that it follows the rule. Leave a
+sentence as it is only when the rule's own text shows that the sentence
+follows it.
+
+After any revision, go back to step 2: the revised draft is checked, read
+cold by a new subagent in step 3, and read here by a new subagent. Go on to
+step 5 only when a read here leaves no sentence to rewrite.
+
+## Step 5: open the pull request
 <!-- spec: openpr-opens-through-script, open-cmd-refuses-failing-draft, open-cmd-opens-from-file -->
 
 ```sh
@@ -147,7 +201,7 @@ python3 .github/scripts/check-pr.py open --title "<the title>" --body-file /var/
 ```
 
 It checks the file again, pushes the branch and opens the pull request
-against `main`. When it exits 1, the draft changed after step 3 and fails the
+against `main`. When it exits 1, the draft changed after step 4 and fails the
 check. Go back to step 2. When it exits 2, its message names what to do.
 
 On exit 0, tell the owner `data.url`, and the issue the pull request closes.
