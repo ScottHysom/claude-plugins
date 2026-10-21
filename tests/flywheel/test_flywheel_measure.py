@@ -133,6 +133,19 @@ class DescribeMeasure:
             (42, "issue/14", "2026-10-12T09:00:00Z"),
         ]
 
+    def it_reports_each_pull_request_merged_at_or_after_a_time(self, project, github):
+        github(
+            merged=[
+                merged_pull(42, "issue/14", "2026-10-12T06:03:00Z"),
+                merged_pull(40, "issue/12", "2026-10-12T03:00:00Z"),
+                merged_pull(41, "docs/readme", "2026-10-12T06:02:59Z"),
+            ]
+        )
+        code, env = project.run("measure", "--since", "2026-10-12T06:03:00Z")
+        assert code == flywheel.OK
+        assert env["data"]["since"] == "2026-10-12T06:03:00Z"
+        assert [p["number"] for p in env["data"]["pulls"]] == [42]
+
     @pytest.mark.parametrize(
         ("rollups", "green"),
         [
@@ -399,9 +412,15 @@ class DescribeMeasure:
         assert "spend: not computed for any pull request" in out
         assert "lead time: not computed for any pull request" in out
 
-    def it_refuses_a_since_that_is_not_a_date(self, project, github, capsys):
+    @pytest.mark.parametrize("since", ["last week", "2026-10-12T06:03", "2026-10-12 06:03:00"])
+    def it_refuses_a_since_that_is_neither_a_date_nor_a_utc_time(
+        self, project, github, capsys, since
+    ):
         github()
         with pytest.raises(SystemExit) as exc:
-            flywheel.main(["measure", "--since", "last week", "-C", str(project.root)])
+            flywheel.main(["measure", "--since", since, "-C", str(project.root)])
         assert exc.value.code == flywheel.CANNOT_RUN
-        assert "is not a date such as 2026-10-15" in capsys.readouterr().err
+        assert (
+            "is not a date such as 2026-10-15 or a UTC time such as 2026-10-15T09:00:00Z"
+            in capsys.readouterr().err
+        )
