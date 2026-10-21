@@ -395,7 +395,7 @@ stateDiagram-v2
 The dispatcher works in a loop. It checks each role's model and effort,
 reads the queue, and starts an implementer per issue. Then it waits. Each
 time one of its sessions finishes a turn, or you send it a message, it looks
-at the round's pull requests. It merges, starts a reviewer, waits for the
+at the round's pull requests. It merges, starts a reviewer, wakes an idle
 implementer, or asks you, as the merge check says, and clears each merged
 claim. It reads the queue again for each free place, and stops once the queue offers
 nothing more and every pull request in the round has closed.
@@ -412,7 +412,8 @@ flowchart TD
   E --> M{Merge check}
   M -- flows --> G[Merge]
   M -- review --> R[Start a reviewer]
-  M -- wait --> W
+  M -- wait --> I[Wake an idle implementer, or tell you it waits]
+  I --> W
   M -- ask --> O[Tell you why it holds]
   R --> W
   O --> W

@@ -335,7 +335,7 @@ merge and reported on, so the loop runs without the owner typing each start.
 They want to run more than one round at once, each on its own plan, count or
 issues, without one round acting on another's pull requests.
 
-Source: #649, #665, #688, #689, and the method's `decompose-into-parallel-units`
+Source: #649, #665, #688, #689, #701, and the method's `decompose-into-parallel-units`
 and `match-capability-to-task`.
 
 - `events-cmd-lists-claim-prs` (test): When `flywheel.py events` runs, it
@@ -376,6 +376,11 @@ and `match-capability-to-task`.
   `run` reports the pull request to the owner.
 - `run-restarts-after-merge` (step): When `events` reports a merge from its
   round, `run` clears the claim and starts a worker on the next free issue.
+- `run-acts-on-stalled-wait` (step): When `merge-check` names `wait` for a
+  pull request from the round and its implementer is not working, `run`
+  messages the implementer once for each head and set of reasons, and tells
+  the owner which pull request waits and why when the implementer has
+  already been messaged or has stopped.
 - `run-closes-finished-plan` (step): When `queue --tracking N` says #N's plan
   is finished, `run` closes it with `plan close N`.
 - `run-stops-on-empty-queue` (step): When `queue` offers nothing and no pull
