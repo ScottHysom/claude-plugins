@@ -69,6 +69,10 @@ decisions on it.
   - a role outside the four.
   - a label that is empty.
   - one label for two roles.
+  - a `kinds` that is not an object holding at least one label, or an
+    `areas` that is not an object.
+  - a kind or an area whose description is not text.
+  - one label given as both a kind and an area.
 - `labels-cmd-sets-role` (test): When `flywheel.py labels --set ROLE=NAME`
   runs, it writes NAME as ROLE's label into `.flywheel/labels.json` and
   leaves the file's other roles as they are, before it names the missing
@@ -85,6 +89,36 @@ decisions on it.
   label the repository uses for each role, and for the claim a label that
   nothing else in the repository uses, and sets each answer with
   `labels --set` before it names the missing labels.
+
+## need owner-sets-issue-rules: File issues under the project's own labels and headings
+
+When the owner adopts the loop, they want file-issue to file under the
+project's own kind labels, area labels and issue headings, so the loop fits
+the repository rather than the repository fitting the loop. Where the project
+sets none, they want GitHub's defaults, such as its `documentation` label.
+
+Source: #692 and the owner's comment on it, with the owner's decisions on the
+plan posted there.
+
+- `labelsfile-sets-kinds-areas` (test): When `.flywheel/labels.json` gives
+  `kinds` or `areas`, each an object that maps a label to its description,
+  `plan report` takes a draft's kind label from `kinds` and its area label
+  from `areas` or the `repo-area` role. An area that ends in `*` matches each
+  label it prefixes, as `plugin:*` matches `plugin:flywheel`. Without
+  `kinds`, the kinds are GitHub's `bug`, `enhancement` and `documentation`.
+  Without `areas`, a draft needs no area label, and may carry the
+  `repo-area` label.
+- `adopt-asks-issue-rules` (step): When adopt runs, it asks the owner for
+  the kind labels, the area labels and the issue headings, offering the
+  defaults first. It sets each label answer that differs with `labels
+  --kind` and `labels --area`, and writes headings that differ to
+  `.flywheel/issue-template.md`, before it names the missing labels.
+- `issuetemplate-sets-headings` (test): When `.flywheel/issue-template.md`
+  exists, each `##` heading in it is a heading every draft's body holds, and
+  the text under a heading is the guidance for that section. Without the
+  file, the headings are `What's wrong`, `Evidence`, `Done when` and
+  `Requirements`. A template without a `##` heading stops a command that
+  reads it with exit 2.
 
 ## need contributor-reads-method-beside-plugin: Read the method beside the plugin
 
@@ -194,8 +228,10 @@ commands meet.
   --drafts <file>` reads a plan, it names every fault in one run, does not
   print a token, and refuses each issue that meets any of these:
   - has a body that does not open with `**Claude:**`.
-  - lacks a heading CLAUDE.md asks for.
-  - does not carry exactly one kind label and one area label.
+  - lacks a heading the project's issue template gives.
+  - does not carry exactly one kind label.
+  - does not carry exactly one area label, when the project sets `areas`.
+  - carries more than one area label, when it does not.
   - carries the approval label or the plan label.
   - carries a label the repository does not have.
 - `planreport-cmd-checks-plan-links` (test): When a key repeats, a `{KEY}` or a
@@ -237,6 +273,14 @@ commands meet.
 - `plandraft-cmd-makes-own-file` (test): When `flywheel.py plan draft` runs, it
   makes an empty file in the temporary directory, named so that no other run
   gets the same file, and prints its literal path.
+- `plandraft-cmd-gives-issue-rules` (test): When `flywheel.py plan draft
+  --json` runs, its `data` also gives the kinds and areas, each with its
+  description, the role labels, and each heading with its guidance, as
+  `plan report` checks them.
+- `fileissue-follows-issue-rules` (step): When the file-issue skill drafts
+  an issue, it takes the issue's headings and labels from what `plan draft`
+  gives, writes under each heading what its guidance asks for, and chooses
+  each label by its description.
 - `fileissue-drafts-in-own-file` (step): When the file-issue skill drafts a
   plan, it writes the plan to the file `plan draft` made for that run, and
   every later step of the run reads that file, so a plan another session
@@ -601,8 +645,17 @@ Source: #651, the method's adoption.md, and the method's
   rules as they are.
 - `labels-cmd-names-missing-labels` (test): When `flywheel.py labels` runs,
   it names each label the loop and file-issue need that the repository
-  lacks, the role labels as `.flywheel/labels.json` gives them, and exits 1
-  when one is missing. With `--create`, it creates each one.
+  lacks, and exits 1 when one is missing. Those labels are the role labels,
+  the kinds and the areas, as `.flywheel/labels.json` gives them, apart from
+  an area that ends in `*`. With `--create`, it creates each one, with the
+  description the file gives it.
+- `labels-cmd-sets-kinds-areas` (test): When `flywheel.py labels` runs with
+  `--kind NAME=TEXT` or `--area NAME=TEXT`, it writes the kinds or areas
+  given, each with its description, into `.flywheel/labels.json` in place
+  of the ones the file gives, and leaves the file's other keys as they are,
+  before it names the missing labels. It refuses an option without a NAME,
+  and writes nothing when the result breaks a rule that
+  `labelsfile-refuses-bad-map` lists.
 - `adopt-creates-missing-labels` (step): When adopt runs, it shows the owner
   the missing labels and creates them once the owner agrees, before it hands
   any gaps to file-issue.

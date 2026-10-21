@@ -33,19 +33,43 @@ fresh shell, so start every one with `data.prefix` and `&&`, as the steps
 below do.
 
 ## Step 1: draft the issues
-<!-- spec: planreport-cmd-checks-each-draft, planreport-cmd-checks-plan-links, planreport-cmd-accepts-one-issue, fileissue-drafts-in-own-file, plandraft-cmd-makes-own-file -->
+<!-- spec: planreport-cmd-checks-each-draft, planreport-cmd-checks-plan-links, planreport-cmd-accepts-one-issue, fileissue-drafts-in-own-file, plandraft-cmd-makes-own-file, plandraft-cmd-gives-issue-rules, fileissue-follows-issue-rules -->
+
+Make a file for the drafts, and read the project's issue rules:
+
+```sh
+FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" plan draft --json
+```
+
+`data.path` is a file that no other run is given. Write the drafts there, and
+name the file in every later step by the path exactly as `plan draft` printed
+it, never through `$TMPDIR` or another variable. The commands below show it
+as `/var/folders/k2/T/plan-x8q1zv.json`.
+
+The rest of `data` gives the rules each issue follows:
+
+- `headings`: each heading the body holds, in order, with the `guidance` for
+  what to write under it.
+- `kinds`: each kind label, mapped to its description.
+- `areas`: each area label, mapped to its description. An area that ends in
+  `*` stands for each label it prefixes, as `plugin:*` stands for
+  `plugin:flywheel`.
+- `roles`: the label for each role. `repo-area` is the area of an issue
+  about the whole repository, and `approval` and `plan` are labels a draft
+  never carries.
 
 Split the work into issues, one problem each. Give each issue:
 
 - a `key` of your own, such as `A`, which names it inside the plan.
 - a `title` that names the problem, not the fix.
-- a `body` that opens with `**Claude:**`, then the headings `## What's
-  wrong`, `## Evidence`, `## Done when` and `## Requirements`.
-- `labels`: exactly one of `bug`, `enhancement` or `docs`, and exactly one
-  area, `plugin:<name>` or the whole-repository area. Never the approval
-  label or the plan label. `.flywheel/labels.json` gives those three under
-  `roles`, as `repo-area`, `approval` and `plan`, and they are `repo`,
-  `approved` and `tracking` where it does not.
+- a `body` that opens with `**Claude:**`, then each of `data.headings` as
+  `## <heading>`, in its order. Under each heading, write what its
+  `guidance` asks for.
+- `labels`: exactly one kind from `data.kinds`, chosen by its description.
+  When `data.areas` is not empty, also exactly one area: a label from
+  `data.areas`, chosen by its description, or `data.roles.repo-area`. When it
+  is empty, the issue takes an area label only for work on the whole
+  repository, and that label is `data.roles.repo-area`.
 - `blocked_by`, when it waits on anything: the keys of the issues in the plan
   it waits on, and the numbers of open issues outside it.
 
@@ -73,18 +97,7 @@ One issue alone takes no `tracking`. A plan of several issues takes a
 `plan report` adds the opening `**Claude:**` and an Order section written
 from the links, so write neither.
 
-Make a file for the drafts:
-
-```sh
-FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" plan draft --json
-```
-
-`data.path` is a file that no other run is given. Write the drafts there, and
-name the file in every later step by the path exactly as `plan draft` printed
-it, never through `$TMPDIR` or another variable. The commands below show it
-as `/var/folders/k2/T/plan-x8q1zv.json`.
-
-One issue:
+One issue, in a project whose rules are the defaults:
 
 ```sh
 cat > /var/folders/k2/T/plan-x8q1zv.json <<'END'

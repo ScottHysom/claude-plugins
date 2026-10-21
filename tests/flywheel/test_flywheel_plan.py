@@ -13,7 +13,16 @@ import pytest
 
 import flywheel
 
-LABELS = ("bug", "enhancement", "docs", "repo", "plugin:todos", "approved", "tracking")
+LABELS = (
+    "bug",
+    "enhancement",
+    "documentation",
+    "docs",
+    "repo",
+    "plugin:todos",
+    "approved",
+    "tracking",
+)
 BODY = (
     "**Claude:**\n\n## What's wrong\n\nIt breaks.\n\n## Evidence\n\nflywheel.py:1\n\n"
     "## Done when\n\nIt works.\n\n## Requirements\n\nNone.\n"
@@ -199,6 +208,35 @@ class DescribePlanDraft:
         assert len(paths) == 5
         assert all(Path(p).is_file() for p in paths)
 
+    @pytest.mark.spec("plandraft-cmd-gives-issue-rules")
+    def it_gives_the_rules_the_drafts_follow(self, capsys, repo, monkeypatch, tmp_path):
+        monkeypatch.setattr(flywheel.tempfile, "tempdir", str(tmp_path))
+        ruled(
+            repo,
+            {"roles": {"repo-area": "general"}, "kinds": {"docs": "Words"}, "areas": AREAS},
+            "## Problem\n\nWhat breaks.\n\n## Fix\n",
+        )
+        code, data = run_json(capsys, repo, "plan", "draft")
+        assert code == flywheel.OK
+        assert data["data"]["kinds"] == {"docs": "Words"}
+        assert data["data"]["areas"] == AREAS
+        assert data["data"]["roles"] == dict(flywheel.ROLE_LABELS, **{"repo-area": "general"})
+        assert data["data"]["headings"] == [
+            {"heading": "Problem", "guidance": "What breaks."},
+            {"heading": "Fix", "guidance": ""},
+        ]
+
+    @pytest.mark.spec("plandraft-cmd-gives-issue-rules")
+    def it_gives_the_defaults_without_the_files(self, capsys, repo, monkeypatch, tmp_path):
+        monkeypatch.setattr(flywheel.tempfile, "tempdir", str(tmp_path))
+        code, data = run_json(capsys, repo, "plan", "draft")
+        assert code == flywheel.OK
+        assert data["data"]["kinds"] == flywheel.DEFAULT_KINDS
+        assert data["data"]["areas"] == {}
+        assert [h["heading"] for h in data["data"]["headings"]] == [
+            h for h, _ in flywheel.DEFAULT_HEADINGS
+        ]
+
     @pytest.mark.spec("repo:script-exits-2-when-unrunnable", "repo:script-names-remedy-on-stop")
     def it_stops_when_the_temporary_directory_cannot_take_a_file(
         self, capsys, repo, monkeypatch, tmp_path
@@ -223,8 +261,10 @@ class DescribePlanReportDrafts:
                 issue("A", body=BODY.replace("## Evidence", "## Proof")),
                 "lacks the heading `## Evidence`",
             ),
-            (issue("A", labels=("bug", "docs", "repo")), "carries 2 kind labels (bug, docs)"),
-            (issue("A", labels=("bug",)), "carries 0 area labels"),
+            (
+                issue("A", labels=("bug", "documentation", "repo")),
+                "carries 2 kind labels (bug, documentation)",
+            ),
             (
                 issue("A", labels=("bug", "repo", "approved")),
                 "`approved`, which only the owner adds",
@@ -240,7 +280,6 @@ class DescribePlanReportDrafts:
             "opening",
             "heading",
             "two-kinds",
-            "no-area",
             "approved",
             "tracking",
             "unknown",
@@ -467,14 +506,14 @@ class DescribePlanReportFile:
     )
     def it_writes_a_refused_report_with_its_faults_and_no_token(self, capsys, tmp_path, repo, hub):
         hub()
-        plan = write_plan(tmp_path, issue("A", labels=("bug",)))
+        plan = write_plan(tmp_path, issue("A", labels=("repo",)))
         code, out = run(capsys, repo, "plan", "report", "--drafts", str(plan))
         assert code == flywheel.PROBLEMS
         written = (repo / flywheel.PLAN_REPORT).read_text()
         assert written == out.out
         assert "## Refused" in written
         assert "token" not in written.lower()
-        assert "carries 0 area labels" in out.err
+        assert "carries 0 kind labels" in out.err
 
 
 def filed_plan(tmp_path):
@@ -482,7 +521,7 @@ def filed_plan(tmp_path):
         tmp_path,
         issue("B", "A", 8, body=BODY + "\nAfter #{A}, not `{A}`."),
         issue("A"),
-        issue("C", labels=("docs", "plugin:todos")),
+        issue("C", labels=("documentation", "plugin:todos")),
         plan="Start with {A}.",
     )
 
@@ -504,7 +543,7 @@ class DescribePlanFile:
             ("C", c),
         ]
         assert gh.issues[b]["body"] == BODY + "\nAfter #100, not `{A}`."
-        assert gh.issues[c]["labels"] == ["docs", "plugin:todos"]
+        assert gh.issues[c]["labels"] == ["documentation", "plugin:todos"]
         assert gh.blocked == {b: [8, a]}
         assert gh.issues[t]["labels"] == ["tracking"]
         assert gh.issues[t]["body"].startswith("**Claude:**\n\nStart with 100.\n\n## Order\n")
@@ -1150,7 +1189,9 @@ def mapped(repo):
     """The clone at repo, whose own labels play the loop's roles."""
     (repo / ".flywheel").mkdir(exist_ok=True)
     roles = {"approval": "ready", "plan": "epic", "claim": "flywheel-claim", "repo-area": "general"}
-    (repo / ".flywheel" / "labels.json").write_text(json.dumps({"roles": roles}))
+    (repo / ".flywheel" / "labels.json").write_text(
+        json.dumps({"roles": roles, "areas": {"plugin:*": "One plugin"}})
+    )
     return repo
 
 
@@ -1171,7 +1212,7 @@ class DescribeMappedPlanLabels:
         assert data["errors"] == [
             "`A` carries `ready`, which only the owner adds",
             "`B` carries `epic`, which only the tracking issue carries",
-            "`C` carries 0 area labels; it takes exactly one, from `plugin:<name>` or `general`",
+            "`C` carries 0 area labels; it takes exactly one, from `plugin:*` or `general`",
         ]
 
     @pytest.mark.spec("labelsfile-maps-roles", "planfile-cmd-files-in-order")
@@ -1179,7 +1220,9 @@ class DescribeMappedPlanLabels:
         gh = hub(labels=(*LABELS, "ready", "epic", "general"))
         repo = mapped(repo)
         plan = write_plan(
-            tmp_path, issue("A", labels=("bug", "general")), issue("B", labels=("docs", "general"))
+            tmp_path,
+            issue("A", labels=("bug", "general")),
+            issue("B", labels=("documentation", "general")),
         )
         code, data = report(capsys, repo, plan)
         assert code == flywheel.OK, data["errors"]
@@ -1188,3 +1231,108 @@ class DescribeMappedPlanLabels:
         code, data = file_plan(capsys, repo, plan, data["data"]["token"])
         assert code == flywheel.OK, data["errors"]
         assert gh.issues[102]["labels"] == ["epic"]
+
+
+def ruled(repo, labels=None, template=None):
+    """The clone at repo, with labels as its .flywheel/labels.json and template
+    as its .flywheel/issue-template.md."""
+    (repo / ".flywheel").mkdir(exist_ok=True)
+    if labels is not None:
+        (repo / flywheel.LABELS_FILE).write_text(json.dumps(labels))
+    if template is not None:
+        (repo / flywheel.TEMPLATE_FILE).write_text(template)
+    return repo
+
+
+AREAS = {"plugin:*": "One plugin", "web": "The web app"}
+
+
+class DescribeIssueRules:
+    @pytest.mark.spec("labelsfile-sets-kinds-areas", "planreport-cmd-checks-each-draft")
+    def it_takes_githubs_kinds_and_needs_no_area_without_the_labels_file(
+        self, capsys, tmp_path, repo, hub
+    ):
+        hub()
+        plan = write_plan(
+            tmp_path,
+            issue("A", labels=("documentation",)),
+            issue("B", labels=("bug", "repo")),
+            issue("C", labels=("docs",)),
+        )
+        code, data = report(capsys, repo, plan)
+        assert code == flywheel.PROBLEMS
+        assert data["errors"] == [
+            "`C` carries 0 kind labels; it takes exactly one, from bug, enhancement or"
+            " documentation"
+        ]
+
+    @pytest.mark.spec("labelsfile-sets-kinds-areas", "planreport-cmd-checks-each-draft")
+    def it_checks_each_draft_against_the_kinds_and_areas_the_file_gives(
+        self, capsys, tmp_path, repo, hub
+    ):
+        hub(labels=(*LABELS, "web"))
+        ruled(repo, {"kinds": {"bug": "", "docs": ""}, "areas": AREAS})
+        plan = write_plan(
+            tmp_path,
+            issue("A", labels=("docs", "Plugin:Todos")),
+            issue("B", labels=("bug", "web")),
+            issue("C", labels=("bug", "repo")),
+            issue("D", labels=("enhancement", "web")),
+            issue("E", labels=("bug",)),
+            issue("F", labels=("bug", "web", "plugin:todos")),
+        )
+        code, data = report(capsys, repo, plan)
+        assert code == flywheel.PROBLEMS
+        assert data["errors"] == [
+            "`D` carries 0 kind labels; it takes exactly one, from bug or docs",
+            "`E` carries 0 area labels; it takes exactly one, from `plugin:*`, `web` or `repo`",
+            "`F` carries 2 area labels (web, plugin:todos); it takes exactly one, from"
+            " `plugin:*`, `web` or `repo`",
+        ]
+
+    @pytest.mark.spec("labelsfile-sets-kinds-areas", "planreport-cmd-checks-each-draft")
+    def it_names_the_repo_area_once_when_the_areas_list_it(self, capsys, tmp_path, repo, hub):
+        hub()
+        ruled(repo, {"areas": {"plugin:*": "One plugin", "Repo": "Everything else"}})
+        plan = write_plan(tmp_path, issue("A", labels=("bug",)), issue("B", labels=("bug", "repo")))
+        code, data = report(capsys, repo, plan)
+        assert code == flywheel.PROBLEMS
+        assert data["errors"] == [
+            "`A` carries 0 area labels; it takes exactly one, from `plugin:*` or `Repo`"
+        ]
+
+    @pytest.mark.spec("issuetemplate-sets-headings", "planreport-cmd-checks-each-draft")
+    def it_checks_each_draft_against_the_templates_headings(self, capsys, tmp_path, repo, hub):
+        hub()
+        ruled(repo, template="Filed by the loop.\n\n## Problem\n\nWhat breaks.\n\n## Fix\n")
+        plan = write_plan(
+            tmp_path,
+            issue("A", body="**Claude:**\n\n## Problem\n\nIt breaks.\n\n## Fix\n\nMend it.\n"),
+            issue("B"),
+        )
+        code, data = report(capsys, repo, plan)
+        assert code == flywheel.PROBLEMS
+        assert data["errors"] == ["`B`'s body lacks the headings `## Problem`, `## Fix`"]
+
+    @pytest.mark.spec("issuetemplate-sets-headings")
+    def it_reads_each_heading_with_the_guidance_under_it(self, repo):
+        ruled(repo, template="Filed by the loop.\n\n## Problem\n\nWhat breaks.\n\n## Fix\n")
+        assert flywheel.issue_headings(str(repo)) == (("Problem", "What breaks."), ("Fix", ""))
+
+    @pytest.mark.spec("issuetemplate-sets-headings")
+    def it_gives_the_house_headings_without_a_template(self, repo):
+        assert [h for h, _ in flywheel.issue_headings(str(repo))] == [
+            "What's wrong",
+            "Evidence",
+            "Done when",
+            "Requirements",
+        ]
+
+    @pytest.mark.spec("issuetemplate-sets-headings", "repo:script-exits-2-when-unrunnable")
+    def it_stops_on_a_template_without_a_heading(self, capsys, tmp_path, repo, hub):
+        hub()
+        ruled(repo, template="Say what is wrong.\n### Not a section\n")
+        code, out = run(capsys, repo, "plan", "report", "--drafts", str(write_plan(tmp_path)))
+        assert code == flywheel.CANNOT_RUN
+        assert out.out == ""
+        assert "%s holds no `##` heading" % flywheel.TEMPLATE_FILE in out.err

@@ -543,15 +543,23 @@ checks too.
 ### Labels
 
 The loop sorts issues by label. Each issue Claude files carries one kind
-label and one area label:
+label, and one area label when your repository has areas:
 
 | Label | Means |
 | --- | --- |
-| `bug`, `enhancement`, `docs` | the kind of issue |
-| `repo`, or `plugin:` and a plugin's name | the area of the repository it touches |
+| `bug`, `enhancement`, `documentation` | the kind of issue |
+| none by default | the area of the repository it touches |
+| `repo` | an issue about the whole repository |
 | `tracking` | an issue that groups a plan's issues |
 | `approved` | you agree a session may work the issue |
 | `in-progress` | a session has claimed the issue |
+
+When you adopt flywheel, Claude asks for your repository's kind and area
+labels, offering GitHub's own kinds first. An area such as `plugin:*` stands
+for every label that starts `plugin:`. Claude also asks which headings an
+issue holds, and what goes under each. By default they are "What's wrong",
+"Evidence", "Done when" and "Requirements". Claude records headings of your
+own in `.flywheel/issue-template.md`, which you commit.
 
 Your repository may already have labels that do some of these jobs, such as
 `ready` for approving an issue or `epic` for a plan. When you adopt
@@ -565,7 +573,8 @@ and flywheel then uses your labels:
   your repository lacks, carry it, since each issue needs one area label.
 - the label of a claimed issue, `in-progress` by default.
 
-Claude records your answers in `.flywheel/labels.json`, which you commit.
+Claude records your label answers in `.flywheel/labels.json`, which you
+commit.
 Flywheel adds and removes the claim label itself, so give it a label that
 nothing else in your repository uses. If your repository already uses
 `in-progress` for something else, Claude says so and asks for another name.
