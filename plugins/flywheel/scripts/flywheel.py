@@ -239,6 +239,10 @@ when the file is missing. Under "tests", it gives the commands
   first blank line, which is where pytest's `--collect-only -q` ends it.
 - run, a command that runs one test, holding {id} where the test's id goes,
   shell-quoted. Only its exit code is read: 0 is a pass.
+- report, optional, a command that runs the tests in the files {files} names
+  in one run and writes a JUnit XML report to the path {report} names. A
+  test's file is its id up to the first `::`. When it is set, `run` is not
+  read and need not be given.
 - paths, the files and directories that hold the tests and the runner's
   config.
 
@@ -252,6 +256,18 @@ them, and runs each new test there. A run that errors fails, as a test that
 imports a name the base lacks does. A test that is renamed or moved has a new
 id, so it counts as new. .flywheel/passes-on-base.json maps, under "tests",
 each id excused to the reason it passes before the change.
+
+The report. With a `report` command, each tree gets one run of it in place of
+a run per test, over the files that hold the new tests, and so it also runs
+the other tests in those files, whose outcomes are not read. The command is
+given files rather than ids because pytest given several ids runs none of
+them when the file of one fails to import, which is the usual case on the
+base. Its `--continue-on-collection-errors` keeps that one file from stopping
+the rest. A test case maps to an id as pytest's junitxml derives it: the
+classname is the id's file, dotted, without `.py`, then its classes, and the
+name is the last part with any parameters. A test the report does not name,
+or names more than once, fails that run, so a report from another runner,
+which names its tests in another form, stops the run at the branch.
 
 The lock. The claim on an approved issue is a branch named `issue/<N>` on
 origin. `claim` creates it with a push that the server refuses when the
@@ -497,6 +513,7 @@ import sys
 import tarfile
 import tempfile
 import time
+from xml.etree import ElementTree
 
 ENVELOPE_VERSION = 2
 
@@ -547,7 +564,12 @@ TESTS_KEY = "tests"
 LIST_FIELD = "list"
 RUN_FIELD = "run"
 PATHS_FIELD = "paths"
+REPORT_FIELD = "report"
 ID_PLACE = "{id}"
+FILES_PLACE = "{files}"
+REPORT_PLACE = "{report}"
+REPORT_PLACES = re.compile(re.escape(FILES_PLACE) + "|" + re.escape(REPORT_PLACE))
+REPORT_NAME = "report.xml"
 EXCUSES_FILE = COPY_DIR + "/passes-on-base.json"
 EXCUSES_KEY = "tests"
 PASSED = "passed"
@@ -560,6 +582,8 @@ TEST_FIELD_HELP = {
     % ID_PLACE,
     TESTS_KEY + "." + PATHS_FIELD: "a list of the files and directories that hold the tests"
     " and the runner's config",
+    TESTS_KEY + "." + REPORT_FIELD: "a command that runs the tests in the files %s names and"
+    " writes a JUnit XML report to %s" % (FILES_PLACE, REPORT_PLACE),
 }
 # How much of a command's output an error shows.
 OUTPUT_TAIL = 2000
@@ -567,6 +591,12 @@ OUTPUT_TAIL = 2000
 # recognizes pytest by, in the order pytest itself looks for them.
 PYTEST_LIST = "python3 -m pytest --collect-only -q -p no:cacheprovider"
 PYTEST_RUN = "python3 -m pytest -q -p no:cacheprovider " + ID_PLACE
+# pytest given a file that fails to import runs none of the others without
+# --continue-on-collection-errors.
+PYTEST_REPORT = (
+    "python3 -m pytest -q -p no:cacheprovider --continue-on-collection-errors"
+    " --junitxml=%s %s" % (REPORT_PLACE, FILES_PLACE)
+)
 PYTEST_INI = "pytest.ini"
 PYPROJECT = "pyproject.toml"
 SETUP_CFG = "setup.cfg"
@@ -1243,6 +1273,7 @@ def gates_text(root):
     tests = {LIST_FIELD: None, RUN_FIELD: None, PATHS_FIELD: None}
     if config:
         tests[LIST_FIELD], tests[RUN_FIELD] = PYTEST_LIST, PYTEST_RUN
+        tests[REPORT_FIELD] = PYTEST_REPORT
         tests[PATHS_FIELD] = [*paths, config] if paths else None
     found[TESTS_KEY] = tests
     fields += ["%s.%s" % (TESTS_KEY, key) for key, value in tests.items() if value is None]
@@ -1316,9 +1347,13 @@ def missing_tests(tests):
     missing = []
     if not is_text(tests.get(LIST_FIELD)):
         missing.append(LIST_FIELD)
-    run_command = tests.get(RUN_FIELD)
-    if not (is_text(run_command) and ID_PLACE in run_command):
-        missing.append(RUN_FIELD)
+    report = tests.get(REPORT_FIELD)
+    if report is None:
+        run_command = tests.get(RUN_FIELD)
+        if not (is_text(run_command) and ID_PLACE in run_command):
+            missing.append(RUN_FIELD)
+    elif not (is_text(report) and FILES_PLACE in report and REPORT_PLACE in report):
+        missing.append(REPORT_FIELD)
     paths = tests.get(PATHS_FIELD)
     if not (isinstance(paths, list) and paths and all(is_text(p) for p in paths)):
         missing.append(PATHS_FIELD)
@@ -1352,6 +1387,59 @@ def listed_tests(cwd, command, where):
 
 def test_passes(cwd, command, test_id):
     return shell(cwd, command.replace(ID_PLACE, shlex.quote(test_id))).returncode == 0
+
+
+def report_case(test_id):
+    """The classname and name a JUnit XML report gives `test_id`, as pytest's
+    mangle_test_address derives them from its id."""
+    address, bracket, params = test_id.partition("[")
+    names = address.split("::")
+    names[0] = re.sub(r"\.py$", "", names[0].replace("/", "."))
+    return ".".join(names[:-1]), names[-1] + bracket + params
+
+
+def report_outcomes(cwd, command, test_ids, where):
+    """Each of `test_ids` mapped to whether it passed in one run of the report
+    `command` in `cwd`. A test the report does not name exactly once fails."""
+    files = sorted({test_id.partition("::")[0] for test_id in test_ids})
+    with tempfile.TemporaryDirectory() as out:
+        path = os.path.join(out, REPORT_NAME)
+        places = {
+            FILES_PLACE: " ".join(shlex.quote(f) for f in files),
+            REPORT_PLACE: shlex.quote(path),
+        }
+        # One pass, so a file whose name holds a place is not filled in again.
+        proc = shell(cwd, REPORT_PLACES.sub(lambda m: places[m.group()], command))
+        try:
+            cases = list(ElementTree.parse(path).iter("testcase"))
+        except (OSError, ElementTree.ParseError) as exc:
+            raise Fatal(
+                "`%s` exited %d at %s without a JUnit XML report that can be read (%s). Make it"
+                " write one to the path given in place of %s, then run again:\n%s"
+                % (command, proc.returncode, where, exc, REPORT_PLACE, tail(proc))
+            ) from exc
+    counts, failed = {}, set()
+    for case in cases:
+        key = (case.get("classname", ""), case.get("name", ""))
+        counts[key] = counts.get(key, 0) + 1
+        if case.find("failure") is not None or case.find("error") is not None:
+            failed.add(key)
+    return {
+        test_id: PASSED
+        if counts.get(report_case(test_id)) == 1 and report_case(test_id) not in failed
+        else FAILED
+        for test_id in test_ids
+    }
+
+
+def run_outcomes(cwd, tests, test_ids, where):
+    """Each of `test_ids` mapped to whether it passed in `cwd`: in one run of
+    the report command when the gates file gives one, else each alone."""
+    if not test_ids:
+        return {}
+    if tests.get(REPORT_FIELD) is not None:
+        return report_outcomes(cwd, tests[REPORT_FIELD], test_ids, where)
+    return {t: PASSED if test_passes(cwd, tests[RUN_FIELD], t) else FAILED for t in test_ids}
 
 
 def merge_base(root, ref):
@@ -1420,16 +1508,26 @@ def cmd_fails_on_base(args):
         branch_ids = listed_tests(root, tests[LIST_FIELD], "the branch")
         before = set(listed_tests(scratch, tests[LIST_FIELD], "the merge base %s" % short(base)))
         new = sorted(set(branch_ids) - before)
-        failing = [t for t in new if not test_passes(root, tests[RUN_FIELD], t)]
+        at_branch = run_outcomes(root, tests, new, "the branch")
+        failing = [t for t in new if at_branch[t] != PASSED]
         if failing:
+            report = tests.get(REPORT_FIELD) is not None
             raise Fatal(
                 "these new tests fail at the branch under `%s`, so a run on the base would show"
-                " nothing about them: %s. Make them pass, or fix the command, then run again."
-                % (tests[RUN_FIELD], ", ".join(failing))
+                " nothing about them: %s. Make them pass, or fix the command, then run again.%s"
+                % (
+                    tests[REPORT_FIELD if report else RUN_FIELD],
+                    ", ".join(failing),
+                    " A test the report does not name exactly once, by pytest's classname and"
+                    " name, counts as failing. For another runner, remove `%s.%s` to run each"
+                    " test alone with `%s.%s`." % (TESTS_KEY, REPORT_FIELD, TESTS_KEY, RUN_FIELD)
+                    if report
+                    else "",
+                )
             )
         if new:
             overlay(root, scratch, tests[PATHS_FIELD])
-        outcomes = {t: PASSED if test_passes(scratch, tests[RUN_FIELD], t) else FAILED for t in new}
+        outcomes = run_outcomes(scratch, tests, new, "the merge base %s" % short(base))
 
     errors, warnings, excused = [], [], {}
     for test_id in new:

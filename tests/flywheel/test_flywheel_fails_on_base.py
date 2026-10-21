@@ -24,6 +24,7 @@ PYTHON = shlex.quote(sys.executable)
 RUNNER = """\
 import pathlib
 import sys
+from xml.sax.saxutils import quoteattr
 
 
 def tests():
@@ -41,6 +42,28 @@ if sys.argv[1] == "list":
     # A summary that differs between the branch and the base, as pytest's does.
     print()
     print("%d listed" % len(ids))
+elif sys.argv[1] == "report":
+    # Writes a JUnit XML report for the tests in the files it is given, with
+    # pytest's classname: a test named hidden... is left out of it, one named
+    # twice... is in it twice, and one named skip... is skipped.
+    report, files, cases = sys.argv[2], sys.argv[3:], []
+    for test_id, target, text in tests():
+        path, _, name = test_id.partition("::")
+        if path not in files or name.startswith("hidden"):
+            continue
+        if name.startswith("skip"):
+            outcome = "<skipped/>"
+        elif not pathlib.Path(target).exists():
+            outcome = '<error message="missing"/>'
+        else:
+            outcome = "" if text in pathlib.Path(target).read_text() else "<failure/>"
+        case = '<testcase classname=%s name=%s>%s</testcase>' % (
+            quoteattr(path.replace("/", ".")), quoteattr(name), outcome
+        )
+        cases += [case, case] if name.startswith("twice") else [case]
+    pathlib.Path(report).write_text(
+        "<testsuites><testsuite>%s</testsuite></testsuites>" % "".join(cases)
+    )
 elif pathlib.Path("tests/pass-all").exists():
     # Stands in for a conftest.py that changes how every test runs.
     sys.exit(0)
@@ -50,6 +73,11 @@ else:
             sys.exit(0 if text in pathlib.Path(target).read_text() else 1)
     sys.exit(4)
 """
+
+REPORT = "%s runner.py report {report} {files}" % PYTHON
+# A run command that would fail every test, so a test that passes was read
+# from the report.
+UNUSED_RUN = "exit 9 {id}"
 
 TESTS = {
     "list": "%s runner.py list" % PYTHON,
@@ -273,3 +301,154 @@ class DescribeAnExcusedTest:
         code, env = work.run("fails-on-base", "--base", "main")
         assert code == flywheel.OK
         assert env["warnings"] == []
+
+
+def report_gates(project, report=REPORT, **tests):
+    gates(project, run=UNUSED_RUN, report=report, **tests)
+
+
+def runs_log(project):
+    return project.root.parent / "report-runs.log"
+
+
+def logged(project, report=REPORT):
+    """A report command that also writes the files it is given to a log."""
+    return "echo {files} >> %s && %s" % (shlex.quote(str(runs_log(project))), report)
+
+
+@pytest.mark.spec("failsonbase-cmd-runs-report-command-once")
+class DescribeAReportCommand:
+    def it_runs_once_in_each_tree_and_reads_the_outcomes_from_the_report(self, work):
+        report_gates(work, report=logged(work))
+        change_app(work, "old new")
+        add_tests(work, "b.t", "still: app.txt old", "changed: app.txt new")
+        add_tests(work, "c.t", "also: app.txt new")
+        code, env = work.run("fails-on-base", "--base", "main")
+        assert code == flywheel.PROBLEMS
+        assert env["data"]["outcomes"] == {
+            "tests/b.t::changed": "failed",
+            "tests/b.t::still": "passed",
+            "tests/c.t::also": "failed",
+        }
+        assert runs_log(work).read_text().splitlines() == ["tests/b.t tests/c.t"] * 2
+
+    def it_gives_only_the_files_that_hold_new_tests(self, work):
+        report_gates(work, report=logged(work))
+        change_app(work, "new")
+        add_tests(work, "a.t", "keeps: app.txt old", "again: app.txt new")
+        code, env = work.run("fails-on-base", "--base", "main")
+        assert code == flywheel.OK
+        assert runs_log(work).read_text().splitlines() == ["tests/a.t"] * 2
+
+    def it_counts_a_case_that_errors_on_the_base_as_failing(self, work):
+        report_gates(work)
+        work.write("added.txt", "here\n")
+        add_tests(work, "b.t", "reads: added.txt here")
+        code, env = work.run("fails-on-base", "--base", "main")
+        assert code == flywheel.OK
+        assert env["data"]["outcomes"] == {"tests/b.t::reads": "failed"}
+
+    def it_does_not_ask_for_the_run_command(self, work):
+        tests = dict(TESTS, report=REPORT)
+        del tests["run"]
+        work.write(GATES, json.dumps({"gates": {}, "tests": tests}))
+        add_tests(work, "b.t", "still: app.txt old")
+        code, env = work.run("fails-on-base", "--base", "main")
+        assert code == flywheel.PROBLEMS
+        assert env["data"]["outcomes"] == {"tests/b.t::still": "passed"}
+
+    @pytest.mark.parametrize("report", ["%s runner.py report {files}" % PYTHON, "true {report}"])
+    def it_stops_when_the_report_command_lacks_a_place(self, work, report):
+        report_gates(work, report=report)
+        code, env = work.run("fails-on-base", "--base", "main")
+        assert code == flywheel.CANNOT_RUN
+        assert "`tests.report`" in work.err
+
+    def it_stops_when_the_report_is_missing(self, work):
+        report_gates(work, report="true {files} {report}")
+        add_tests(work, "b.t", "still: app.txt old")
+        code, env = work.run("fails-on-base", "--base", "main")
+        assert code == flywheel.CANNOT_RUN
+        assert "true {files} {report}" in work.err
+
+    def it_stops_when_the_report_cannot_be_parsed(self, work):
+        report_gates(work, report="echo {files} > {report}")
+        add_tests(work, "b.t", "still: app.txt old")
+        code, env = work.run("fails-on-base", "--base", "main")
+        assert code == flywheel.CANNOT_RUN
+        assert "echo {files} > {report}" in work.err
+
+
+PYTEST_PROJECT = {
+    "pytest.ini": "[pytest]\ntestpaths = tests\npythonpath = .\n",
+    "app.py": "OLD = 1\n",
+    "tests/test_old.py": "from app import OLD\n\n\ndef test_old():\n    assert OLD == 1\n",
+}
+
+PYTEST_BRANCH = {
+    "app.py": "OLD = 1\nNEW = 2\n",
+    # Fails to import on the base, so pytest reports the file and not the test.
+    "tests/test_new.py": (
+        "from app import NEW\n\n\nclass TestNew:\n    def test_new(self):\n"
+        "        assert NEW == 2\n"
+    ),
+    "tests/sub/test_more.py": (
+        "import pytest\n\nimport app\n\n\nclass TestMore:\n    class TestInner:\n"
+        "        @pytest.mark.parametrize('x', ['a b', 'c::d'])\n"
+        "        def test_keeps(self, x):\n            assert app.OLD == 1\n\n"
+        "    def test_changed(self):\n        assert getattr(app, 'NEW', 0) == 2\n"
+    ),
+}
+
+
+def pytest_project(root):
+    subprocess.run(["git", "init", "-q", "-b", "main", str(root)], check=True)
+    for rel, text in PYTEST_PROJECT.items():
+        (root / rel).parent.mkdir(parents=True, exist_ok=True)
+        (root / rel).write_text(text)
+    commit(root, "base")
+    git(root, "switch", "--quiet", "-c", "work")
+
+
+def with_this_python(command):
+    return command.replace("python3 ", PYTHON + " ", 1)
+
+
+@pytest.mark.spec("failsonbase-cmd-maps-report-cases-to-ids")
+class DescribeTheReportCases:
+    def it_maps_pytest_cases_to_the_ids_pytest_lists(self, project, repo_copy, tmp_path):
+        project.root = repo_copy(pytest_project, tmp_path / "pytest")
+        for rel, text in PYTEST_BRANCH.items():
+            project.write(rel, text)
+        tests = {
+            "list": with_this_python(flywheel.PYTEST_LIST),
+            "run": UNUSED_RUN,
+            "report": with_this_python(flywheel.PYTEST_REPORT),
+            "paths": ["tests", "pytest.ini"],
+        }
+        project.write(GATES, json.dumps({"gates": {}, "tests": tests}))
+        code, env = project.run("fails-on-base", "--base", "main")
+        assert code == flywheel.PROBLEMS, project.err
+        inner = "tests/sub/test_more.py::TestMore::TestInner::test_keeps"
+        assert env["data"]["outcomes"] == {
+            "tests/sub/test_more.py::TestMore::test_changed": "failed",
+            inner + "[a b]": "passed",
+            inner + "[c::d]": "passed",
+            "tests/test_new.py::TestNew::test_new": "failed",
+        }
+
+    def it_passes_a_skipped_case(self, work):
+        report_gates(work)
+        add_tests(work, "b.t", "skipped: app.txt old")
+        code, env = work.run("fails-on-base", "--base", "main")
+        assert code == flywheel.PROBLEMS
+        assert env["data"]["outcomes"] == {"tests/b.t::skipped": "passed"}
+
+    @pytest.mark.parametrize("name", ["hidden", "twice"])
+    def it_stops_when_the_branch_report_does_not_name_a_new_test_once(self, work, name):
+        report_gates(work)
+        add_tests(work, "b.t", "%s: app.txt old" % name)
+        code, env = work.run("fails-on-base", "--base", "main")
+        assert code == flywheel.CANNOT_RUN
+        assert "tests/b.t::%s" % name in work.err
+        assert REPORT in work.err
