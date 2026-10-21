@@ -105,11 +105,11 @@ Commands:
     stale        labels, branches and issue states that disagree, including a
                  closed issue that still has the label and a held issue that
                  lacks it.
-    measure      for each pull request merged on or after --since, and as a
-                 summary: its spend in tokens, whether CI was green on its
-                 first run, the reviewer's findings by level, and its lead
-                 time from approval to merge, with why any of them could not
-                 be computed.
+    measure      for each pull request merged at or after --since, a date or a
+                 UTC time, and as a summary: its spend in tokens, whether CI
+                 was green on its first run, the reviewer's findings by
+                 level, and its lead time from approval to merge, with why
+                 any of them could not be computed.
     clear N      once issue N is closed, delete the local issue/N if a merged
                  pull request or main has everything on it, first moving any
                  worktree on it to a detached origin/main.
@@ -2670,13 +2670,22 @@ def cmd_events(args):
 # --------------------------------------------------------------------------
 
 
-def day(text):
-    """argparse type: a date such as 2026-10-15."""
-    try:
-        time.strptime(text, DATE_FORMAT)
-    except ValueError:
-        raise argparse.ArgumentTypeError("%r is not a date such as 2026-10-15" % text) from None
-    return text
+def day_or_time(text):
+    """argparse type: a date such as 2026-10-15, or a UTC time such as 2026-10-15T09:00:00Z."""
+    for form in (DATE_FORMAT, TIME_FORMAT):
+        try:
+            time.strptime(text, form)
+        except ValueError:
+            continue
+        return text
+    raise argparse.ArgumentTypeError(
+        "%r is not a date such as 2026-10-15 or a UTC time such as 2026-10-15T09:00:00Z" % text
+    )
+
+
+def start_of(since):
+    """The UTC time that --since opens at. A date opens at its midnight."""
+    return since if "T" in since else since + "T00:00:00Z"
 
 
 def epoch(stamp):
@@ -2913,7 +2922,7 @@ def cmd_measure(args):
         "--json",
         MERGED_PULL_FIELDS,
     )
-    start = args.since + "T00:00:00Z"
+    start = start_of(args.since)
     spent = usage_by_branch(root)
     pulls = [
         measured_pull(root, pull, spent)
@@ -4955,10 +4964,11 @@ def build_parser():
     )
     p.add_argument(
         "--since",
-        type=day,
+        type=day_or_time,
         required=True,
-        metavar="DATE",
-        help="measure each pull request merged on or after DATE, such as 2026-10-01",
+        metavar="WHEN",
+        help="measure each pull request merged at or after WHEN, a date such as 2026-10-01"
+        " or a UTC time such as 2026-10-01T06:03:00Z",
     )
     p.set_defaults(func=cmd_measure)
 
