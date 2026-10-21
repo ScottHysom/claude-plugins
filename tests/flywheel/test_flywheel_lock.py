@@ -1448,6 +1448,26 @@ def configure(root, roles=True, gates=True):
         )
 
 
+class DescribeBriefMappedApproval:
+    @pytest.mark.spec("labelsfile-maps-roles", "brief-cmd-prints-issue-as-approved")
+    def it_reads_the_approval_from_the_mapped_approval_label(self, capsys, clone, github):
+        a = mapped(clone("a"))
+        configure(a)
+        github(
+            graphql=answer(
+                ("2026-10-15T08:00:00Z", "ready"), (APPROVED_AT, "approved"), labels=("ready",)
+            )
+        )
+        code, env = run_json(capsys, a, "brief", "12")
+        assert code == flywheel.OK, env["errors"]
+        assert env["data"]["approved_at"] == "2026-10-15T08:00:00Z"
+
+        github(graphql=answer((APPROVED_AT, "approved")))
+        code, out = run(capsys, a, "brief", "12")
+        assert code == flywheel.PROBLEMS
+        assert "#12 is not labeled ready" in out.err
+
+
 @pytest.mark.spec("brief-cmd-prints-issue-as-approved")
 class DescribeBrief:
     def it_prints_the_issue_the_owners_comments_the_role_and_the_gates(self, capsys, clone, github):
@@ -1672,3 +1692,96 @@ class DescribeTheGitHubCli:
         code, out = run(capsys, a, "queue")
         assert code == flywheel.CANNOT_RUN
         assert out.err.startswith("flywheel.py: gh issue did not return JSON: ")
+
+
+# A repository whose own labels play the loop's roles.
+MAPPED = {"approval": "ready", "plan": "epic", "claim": "flywheel-claim", "repo-area": "general"}
+
+
+def mapped(path):
+    """The clone at path, with .flywheel/labels.json giving MAPPED."""
+    (path / ".flywheel").mkdir(exist_ok=True)
+    (path / ".flywheel" / "labels.json").write_text(json.dumps({"roles": MAPPED}))
+    return path
+
+
+class DescribeMappedLabels:
+    @pytest.mark.spec("labelsfile-maps-roles", "next-cmd-offers-free-issue")
+    def it_offers_only_an_issue_carrying_the_mapped_approval_label(self, capsys, clone, github):
+        github(make_issue(12, "approved"), make_issue(13, "ready"))
+        code, data = run_json(capsys, mapped(clone("a")), "queue")
+        assert code == flywheel.OK
+        assert data["data"]["issues"] == [{"number": 13}]
+
+    @pytest.mark.spec("labelsfile-maps-roles", "next-cmd-names-tracking-issue")
+    def it_names_a_plan_by_the_mapped_plan_label(self, capsys, clone, github):
+        github(
+            make_issue(20, "ready", "epic"),
+            make_issue(21, "ready", "tracking"),
+            make_issue(10, "ready"),
+            subs={20: [10], 21: []},
+        )
+        code, data = run_json(capsys, mapped(clone("a")), "queue", "--count", "2")
+        assert code == flywheel.OK
+        assert data["data"]["tracking"] == {"number": 20}
+
+    @pytest.mark.spec("labelsfile-maps-roles", "next-cmd-follows-tracking-issue")
+    def it_follows_a_plan_that_carries_the_mapped_labels(self, capsys, clone, github):
+        github(make_issue(20, "ready", "epic"), make_issue(11, "ready"), subs={20: [11]})
+        code, data = run_json(capsys, mapped(clone("a")), "queue", "--tracking", "20")
+        assert code == flywheel.OK, data["errors"]
+        assert data["data"]["issues"] == [{"number": 11}]
+
+        github(make_issue(20, "approved", "tracking"), make_issue(11, "ready"), subs={20: [11]})
+        code, data = run_json(capsys, mapped(clone("b")), "queue", "--tracking", "20")
+        assert code == flywheel.PROBLEMS
+        assert "#20 is not labeled epic" in data["errors"][0]
+        assert "#20 is not labeled ready" in data["errors"][1]
+
+    @pytest.mark.spec("labelsfile-maps-roles", "claim-cmd-adds-in-progress-label")
+    def it_claims_by_the_mapped_approval_label_and_adds_the_mapped_claim_label(
+        self, capsys, remote, clone, github
+    ):
+        a = mapped(clone("a"))
+        gh = github(make_issue(12, "approved"))
+        code, out = run(capsys, a, "claim", "12")
+        assert code == flywheel.PROBLEMS
+        assert "#12 is not labeled ready" in out.err
+
+        gh = github(make_issue(12, "ready"))
+        code, out = run(capsys, a, "claim", "12")
+        assert code == flywheel.OK, out.err
+        assert ("issue", "edit", "12", "--add-label", "flywheel-claim") in gh.calls
+
+    @pytest.mark.spec("labelsfile-maps-roles", "release-cmd-frees-unused-claim")
+    def it_releases_by_removing_the_mapped_claim_label(self, capsys, remote, clone, github):
+        a = mapped(clone("a"))
+        gh = github(make_issue(12, "ready", "flywheel-claim"))
+        code, out = run(capsys, a, "release", "12")
+        assert code == flywheel.OK, out.err
+        assert ("issue", "edit", "12", "--remove-label", "flywheel-claim") in gh.calls
+
+        gh = github(make_issue(12, "ready", "in-progress"))
+        code, out = run(capsys, a, "release", "12")
+        assert code == flywheel.PROBLEMS
+        assert gh.writes() == []
+
+    @pytest.mark.spec("labelsfile-maps-roles", "stale-cmd-reports-claims-left-behind")
+    def it_reports_the_mapped_claim_label_left_without_a_branch(self, capsys, clone, github):
+        github(make_issue(12, "ready", "flywheel-claim"), make_issue(13, "in-progress"))
+        code, out = run(capsys, mapped(clone("a")), "stale")
+        assert code == flywheel.PROBLEMS
+        assert out.err == (
+            "#12 is labeled flywheel-claim but issue/12 does not exist; run release 12\n"
+        )
+
+    @pytest.mark.spec("labelsfile-maps-roles", "planclose-cmd-closes-finished-plan")
+    def it_closes_only_a_plan_carrying_the_mapped_labels(self, capsys, clone, github):
+        gh = github(make_issue(20, "approved", "tracking"), subs={20: []})
+        code, data = run_json(capsys, mapped(clone("a")), "plan", "close", "20")
+        assert code == flywheel.PROBLEMS
+        assert data["errors"] == [
+            "#20 is not labeled epic; plan close closes only a plan",
+            "#20 is not labeled ready; ask the owner to approve the plan or close it",
+        ]
+        assert gh.writes() == []

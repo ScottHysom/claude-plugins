@@ -1,4 +1,4 @@
-"""Stop Claude Code from adding the `approved` label to an issue or pull request.
+"""Stop Claude Code from adding the approval label to an issue or pull request.
 
 Runs as a PreToolUse hook on Bash. The flywheel plugin's hooks/hooks.json
 registers it wherever the plugin is installed, and a project may also run it
@@ -13,7 +13,15 @@ it. Cowork does not run project hooks at all. The owner adds the label in the
 browser, or with `! gh issue edit N --add-label approved`, which runs in the
 owner's own shell where no hook fires.
 
-Blocked, where the label value names `approved`, alone or in a comma list:
+The approval label is `approved` unless the project's .flywheel/labels.json
+gives another under `roles`, as `{"roles": {"approval": "ready"}}`. The
+project is the git working tree that holds the session's directory, which
+Claude Code passes as `cwd` in the hook's input. When that file is there and
+cannot be read, the hook does not know which label approves, so it blocks
+every command below that adds any label, and says to fix the file.
+
+Blocked, where the label value names the approval label, alone or in a comma
+list:
     gh issue|pr create|edit  --label/-l/--add-label
     gh label edit             renaming a label to approved
     gh api                    a request whose path mentions labels
@@ -30,11 +38,15 @@ plain text match instead, which errs toward blocking.
 """
 
 import json
+import os
 import re
 import shlex
 import sys
 
 LABEL = "approved"
+# The project's file that names its approval label, and where it keeps it.
+LABELS_FILE = os.path.join(".flywheel", "labels.json")
+ROLES_KEY, APPROVAL = "roles", "approval"
 ALLOW, BLOCK = 0, 2
 
 ADD_LABEL_FLAGS = ("--label", "-l", "--add-label")
@@ -46,12 +58,50 @@ SHELLS = {"sh", "bash"}
 WRAPPERS = {"env", "xargs"}
 ASSIGNMENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 
-# Used when the command cannot be split into words.
-FALLBACK_RE = re.compile(r"\bgh\b.*\blabel.*\b%s\b" % LABEL, re.I | re.S)
+
+class Unreadable(Exception):
+    """The project's labels file is there and cannot be read."""
 
 
-def names_label(value):
-    return any(part.strip().lower() == LABEL for part in value.split(","))
+def project_label(cwd):
+    """The approval label the project holding cwd gives, else LABEL.
+
+    Raises Unreadable when the project's labels file cannot be read.
+    """
+    here = os.path.abspath(cwd or os.getcwd())
+    while True:
+        if os.path.exists(os.path.join(here, ".git")):
+            break
+        up = os.path.dirname(here)
+        if up == here:
+            return LABEL
+        here = up
+    path = os.path.join(here, LABELS_FILE)
+    if not os.path.isfile(path):
+        return LABEL
+    try:
+        with open(path, encoding="utf-8") as fh:
+            roles = json.load(fh).get(ROLES_KEY, {})
+        name = roles.get(APPROVAL, LABEL)
+    except (OSError, ValueError, AttributeError) as exc:
+        raise Unreadable("%s: %s" % (path, exc)) from exc
+    if not isinstance(name, str) or not name.strip():
+        raise Unreadable("%s gives the approval role an empty label" % path)
+    return name.strip()
+
+
+def fallback_re(label):
+    """The plain text match, used when the command cannot be split into words."""
+    return re.compile(
+        r"\bgh\b.*\blabel.*%s" % (r"\b%s\b" % re.escape(label) if label else ""), re.I | re.S
+    )
+
+
+def names_label(value, label):
+    """Whether a label flag's value names the label, or any label when label is None."""
+    if label is None:
+        return bool(value.strip())
+    return any(part.strip().lower() == label.lower() for part in value.split(","))
 
 
 def flag_values(args, flags):
@@ -88,20 +138,28 @@ def flag_values(args, flags):
     return out
 
 
-def gh_blocks(args):
-    """The reason to block one `gh` invocation (its arguments after `gh`), or None."""
+def gh_blocks(args, label):
+    """The reason to block one `gh` invocation (its arguments after `gh`), or None.
+
+    A label of None stands for any label.
+    """
+    what = label or "a"
     if len(args) >= 2 and (args[0], args[1]) in LABEL_VERBS:
-        if any(names_label(v) for v in flag_values(args[2:], ADD_LABEL_FLAGS)):
-            return "gh %s %s adds the %s label" % (args[0], args[1], LABEL)
+        if any(names_label(v, label) for v in flag_values(args[2:], ADD_LABEL_FLAGS)):
+            return "gh %s %s adds %s label" % (
+                args[0],
+                args[1],
+                "the %s" % label if label else what,
+            )
     if len(args) >= 2 and args[0] == "label" and args[1] == "edit":
         # edit names an existing label, and only --name renames it.
-        if any(v.strip().lower() == LABEL for v in flag_values(args[2:], ("--name", "-n"))):
-            return "gh label edit would rename a label to %s" % LABEL
+        if any(names_label(v, label) for v in flag_values(args[2:], ("--name", "-n"))):
+            return "gh label edit would rename a label to %s" % (label or "another name")
     if args and args[0] == "api":
-        if any("label" in a.lower() for a in args[1:]) and any(
-            re.search(r"\b%s\b" % LABEL, a, re.I) for a in args[1:]
+        if any("label" in a.lower() for a in args[1:]) and (
+            label is None or any(re.search(r"\b%s\b" % re.escape(label), a, re.I) for a in args[1:])
         ):
-            return "gh api touches labels and names %s" % LABEL
+            return "gh api touches labels%s" % (" and names %s" % label if label else "")
     return None
 
 
@@ -151,8 +209,11 @@ def simple_commands(words):
     return out
 
 
-def check(command):
-    """The reason to block this shell command, or None."""
+def check(command, label=LABEL):
+    """The reason to block this shell command, or None.
+
+    A label of None blocks any label the command adds.
+    """
     try:
         # A newline ends a command just as ; does, so it is punctuation here
         # rather than whitespace.
@@ -161,8 +222,10 @@ def check(command):
         lexer.whitespace_split = True
         words = list(lexer)
     except ValueError:
-        if FALLBACK_RE.search(command):
-            return "could not parse the command, and it looks like it adds the %s label" % LABEL
+        if fallback_re(label).search(command):
+            return "could not parse the command, and it looks like it adds %s label" % (
+                "the %s" % label if label else "a"
+            )
         return None
 
     simple = simple_commands(words)
@@ -170,7 +233,7 @@ def check(command):
     for cmd in simple:
         args = command_args(cmd)
         if args is not None:
-            reason = gh_blocks(args)
+            reason = gh_blocks(args, label)
             if reason:
                 return reason
         # A shell run with -c takes its command as one quoted argument. That
@@ -179,26 +242,39 @@ def check(command):
         if cmd and cmd[0].split("/")[-1] in SHELLS:
             for flag, script in zip(cmd, cmd[1:]):
                 if flag == "-c":
-                    reason = check(script)
+                    reason = check(script, label)
                     if reason:
                         return reason
     return None
 
 
+def approval_label(cwd):
+    """The approval label to block, None for any label, and the remedy to name."""
+    try:
+        label = project_label(cwd)
+    except Unreadable as exc:
+        return None, "Fix %s (%s), then run again." % (LABELS_FILE, exc)
+    return label, "Ask the owner to add `%s`." % label
+
+
 def main(stdin=None):
     raw = (stdin or sys.stdin).read()
     try:
-        command = (json.loads(raw).get("tool_input") or {}).get("command") or ""
-        reason = check(command)
+        payload = json.loads(raw)
+        command = (payload.get("tool_input") or {}).get("command") or ""
+        label, remedy = approval_label(payload.get("cwd"))
+        reason = check(command, label)
     except (ValueError, AttributeError):
+        label, remedy = approval_label(None)
         reason = (
-            FALLBACK_RE.search(raw) and "could not read the hook input, and it mentions the label"
+            fallback_re(label).search(raw)
+            and "could not read the hook input, and it mentions the label"
         )
-    if reason is None:
+    if not reason:
         return ALLOW
     sys.stderr.write(
-        "Blocked: %s. Only the owner adds `%s`, since agents post under the owner's "
-        "account and GitHub cannot tell them apart. Ask the owner to add it.\n" % (reason, LABEL)
+        "Blocked: %s. Only the owner approves an issue, since agents post under the owner's"
+        " account and GitHub cannot tell them apart. %s\n" % (reason, remedy)
     )
     return BLOCK
 

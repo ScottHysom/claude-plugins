@@ -131,23 +131,43 @@ level and, under each level, each control's state. `data.gaps` lists each
 level up to the target that has a control missing, with the `controls`
 still missing and their evidence.
 
-## Step 6: create the missing labels
-<!-- spec: adopt-creates-missing-labels, labels-cmd-names-missing-labels -->
-<!-- seam: judgment: the owner agrees to create the labels before the second command runs -->
+## Step 6: set the role labels and create the missing labels
+<!-- spec: adopt-asks-role-labels, labels-cmd-sets-role, labels-cmd-flags-taken-claim-label, adopt-creates-missing-labels, labels-cmd-names-missing-labels -->
+<!-- seam: judgment: the owner names each role's label, then agrees to create the missing ones -->
 
-When `data.gaps` is empty, skip to the report in step 7.
+The loop acts on four labels by their role. Ask the owner, with one
+`AskUserQuestion`, which label the repository already uses for each role,
+offering the default first:
 
-Otherwise name the labels the plan of gaps and the loop need that the
-repository lacks:
+- `approval`, the label the owner adds to approve an issue: `approved`.
+- `plan`, the label of a tracking issue, which groups a plan's issues:
+  `tracking`.
+- `repo-area`, the area label of an issue about the whole repository:
+  `repo`.
+- `claim`, the label a session adds to the issue it has claimed:
+  `in-progress`. Ask for a label that nothing else in the repository uses,
+  since the loop adds it and takes it off.
+
+Set each answer that differs from the default and name the labels the
+repository lacks. The command below sets `ready` as the approval label. Give
+`--set` once for each answer that differs, with the role and the owner's
+label, and leave it out when every answer is the default:
 
 ```sh
-FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" labels --json
+FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" labels --set approval=ready --json
 ```
 
-Exit 0 means the repository has every label, so go on to step 7. Exit 1
-means `data.missing` names each label it lacks. Show the owner those labels,
-and ask with one `AskUserQuestion` whether to create them. Once the owner
-agrees, create them:
+`labels` writes each `--set` into `.flywheel/labels.json`, and `data.roles`
+gives the label for every role. Exit 0 means the repository has every label,
+so go on to step 7. Exit 1 means at least one of these:
+
+- `data.taken` names the claim label, which the repository already has with
+  a description of its own. Ask the owner for another label, and run `labels`
+  again with `--set claim=NAME`. The error names the other remedy, for a
+  label that marks only flywheel's claims.
+- `data.missing` names each label the repository lacks. Show the owner those
+  labels, and ask with one `AskUserQuestion` whether to create them. Once the
+  owner agrees, create them:
 
 ```sh
 FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" labels --create --json
@@ -169,6 +189,8 @@ Each issue:
 
 - is titled for the control the repository lacks, such as "Nothing runs the
   verify gate in CI".
+- carries the `repo-area` label that `data.roles` gave in step 6 as its
+  area.
 - gives the control, the level that introduces it and its principle ids
   under "What's wrong",
   and the evidence `record` reported under "Evidence".
@@ -184,7 +206,7 @@ Then tell the owner:
 
 - the level the repository holds now and the level recorded.
 - the files this run wrote, to review and commit: `.flywheel/adoption.json`,
-  the roles file, the policies, `.flywheel/gates.json` and the rules for
-  agents.
+  the roles file, the policies, `.flywheel/gates.json`,
+  `.flywheel/labels.json` when step 6 set a role, and the rules for agents.
 - each field left unset, and each pair of contradicting rules from step 4.
 - the plan file-issue filed, or that there was nothing to file.

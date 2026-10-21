@@ -64,7 +64,10 @@ Commands:
                  owner's target level from --level and, under each level,
                  each control's state.
     labels       each label the loop and file-issue need that the repository
-                 lacks, such as `repo` and `tracking`. With --create, create
+                 lacks, such as `repo` and `tracking`, and the claim label
+                 when the repository describes it otherwise. With --set
+                 ROLE=NAME, first write NAME as ROLE's label into
+                 .flywheel/labels.json. With --create, create
                  each one.
     queue        up to --count of the oldest open approved issues nobody
                  holds and no open issue blocks, or an approved tracking
@@ -137,13 +140,24 @@ approved, or still open, the branch holds work, a label and a branch
 disagree, the issue changed after approval, the roles file exists already,
 `claim --next` found nothing free to claim, an issue named to `queue`
 cannot start, the repository lacks a label
-the loop needs and --create was not given, the roles file leaves a role's
-model or effort unset, a plan is refused or not filed
+the loop needs and --create was not given, the claim label is taken, the
+roles file leaves a role's model or effort unset, a plan is refused or not filed
 as it says, a tracking issue is not an open approved plan or has open
 sub-issues, the reviewer's findings are refused, a pull request holds or is
 not open for review, a control at or below the recorded level is missing,
 a new test passes on the base unexcused), 2 could not run (including a new
-test that fails at the branch).
+test that fails at the branch, and a malformed .flywheel/labels.json).
+
+The labels. The loop acts on four labels by their role: the approval label,
+which the owner adds to approve an issue, the plan label of a tracking
+issue, the claim label that `claim` adds, and the area label of an issue
+about the whole repository. A repository may already have labels for these,
+so .flywheel/labels.json can give each role's label under `roles`, and
+ROLE_LABELS holds the label of each role it leaves out. Labels match without
+case, as GitHub matches them. The claim label stays the loop's alone:
+`stale` reads every issue carrying it as a claim, and `release` takes it
+off, so `labels` reports it taken when the repository has it with a
+description other than the one `labels --create` gives.
 
 The copy. Each shell call in Claude Code starts without the last one's
 variables, and the plugin's own path is too long to repeat in every command,
@@ -272,7 +286,7 @@ which names its tests in another form, stops the run at the branch.
 The lock. The claim on an approved issue is a branch named `issue/<N>` on
 origin. `claim` creates it with a push that the server refuses when the
 branch already exists, so of two agents claiming at once exactly one wins. The
-`in-progress` label and a comment then say so where people look. The branch
+claim label and a comment then say so where people look. The branch
 is the lock and the label is the signal: when they disagree the branch is
 right, and `stale` reports the disagreement. `release` takes the label off a
 claim given up; a workflow in the project may take it off an issue that
@@ -303,8 +317,8 @@ changing a role's model or effort, so the change is a trial:
   under the change.
 - lead time, the hours from the earliest approval of the issues the pull
   request closes to its merge, each issue's approval being the last time
-  `approved` was added before the merge. It informs estimating, and whether a
-  change slows the loop. A re-approval after an edit restarts it.
+  the approval label was added before the merge. It informs estimating, and
+  whether a change slows the loop. A re-approval after an edit restarts it.
 
 Control bands and their triggers wait for the history the method says they
 need.
@@ -312,7 +326,8 @@ need.
 The brief. `brief` reads the issue through GitHub's GraphQL API, since only
 that reports when the body was last edited and when each label was added. The
 issue as approved is its body as it stands, and `brief` refuses one edited
-after `approved` was last added, since the edit has not been approved.
+after the approval label was last added, since the edit has not been
+approved.
 Removing the label and adding it again is how the owner re-approves. Agents
 post under the owner's account, so the owner's comments are those by the
 repository's owner that open with neither `**Claude:**` nor the text this
@@ -333,9 +348,9 @@ each under a key of its own, and names another issue of the plan in a body as
 may leave it out, and is then filed as that issue alone. `plan report` checks
 each draft's opening, headings and labels against OPENING, HEADINGS,
 KIND_LABELS and AREA_LABEL_RE, the issue rules of the repository this plugin
-comes from, and checks the plan's keys and links. It refuses a draft's
-body or the tracking issue's plan that continues a paragraph or a list item
-onto a second line, outside a fence or an HTML comment, and names the line.
+comes from, with the whole-repository area from the role labels, and
+checks the plan's keys and links. It refuses a draft's body or the tracking
+issue's plan that continues a paragraph or a list item onto a second line, outside a fence or an HTML comment, and names the line.
 GitHub renders that newline in an issue body as a line break, so the
 paragraph reads as a ragged column. It then orders the issues so each comes
 after the issues that block it, with ties in the order the plan lists them.
@@ -798,18 +813,26 @@ OPENING = AGENT_MARK
 HEADINGS = ("What's wrong", "Evidence", "Done when", "Requirements")
 HEADING_RE = re.compile(r"^##[ \t]+(.*?)[ \t]*$", re.M)
 KIND_LABELS = ("bug", "enhancement", "docs")
-AREA_LABEL_RE = re.compile(r"^(?:repo|plugin:.+)$")
+AREA_LABEL_RE = re.compile(r"^plugin:.+$")
+# `.flywheel/labels.json`: the label the repository uses for each role the
+# loop acts on. A role the file leaves out takes its default here. `repo-area`
+# is the area of an issue about the whole repository, which the gaps adopt
+# files carry.
+LABELS_FILE = COPY_DIR + "/labels.json"
+APPROVAL, PLAN, CLAIM, REPO_AREA = "approval", "plan", "claim", "repo-area"
+ROLE_LABELS = {APPROVAL: APPROVED, PLAN: TRACKING, CLAIM: IN_PROGRESS, REPO_AREA: "repo"}
 # `labels`: each label the loop and file-issue need, with its description.
-# `repo` is the area the controls adopt files carry.
-REPO_AREA = "repo"
-LOOP_LABELS = (
+# A role's label is named by its role, and the kinds by their own names.
+ROLE_TEXTS = {
+    REPO_AREA: "The repository as a whole",
+    PLAN: "Groups a plan's issues as sub-issues",
+    APPROVAL: "The owner approved this issue to be worked",
+    CLAIM: "A session has claimed this issue",
+}
+KIND_TEXTS = (
     ("bug", "Something is broken"),
     ("enhancement", "New behavior"),
     ("docs", "Documentation only"),
-    (REPO_AREA, "The repository as a whole"),
-    (TRACKING, "Groups a plan's issues as sub-issues"),
-    (APPROVED, "The owner approved this issue to be worked"),
-    (IN_PROGRESS, "A session has claimed this issue"),
 )
 PLAN_KEYS = ("issues", "tracking")
 ISSUE_KEYS = ("key", "title", "labels", "body", "blocked_by")
@@ -993,6 +1016,42 @@ def read_project_json(root, rel, key):
     if not isinstance(inner, dict):
         raise Fatal('%s does not hold a "%s" object. Fix it, then run again.' % (rel, key))
     return inner
+
+
+def checked_roles(given):
+    """The label for each role, from `given` over the defaults, or Fatal
+    naming the fault."""
+    names = dict(ROLE_LABELS)
+    for role, name in given.items():
+        if role not in ROLE_LABELS:
+            raise Fatal(
+                '%s names the role "%s", which is not one of %s. Fix it, then run again.'
+                % (LABELS_FILE, role, ", ".join(ROLE_LABELS))
+            )
+        if not is_text(name):
+            raise Fatal(
+                '%s gives the role "%s" an empty label. Name a label, then run again.'
+                % (LABELS_FILE, role)
+            )
+        names[role] = name.strip()
+    seen = {}
+    for role, name in names.items():
+        other = seen.setdefault(name.lower(), role)
+        if other != role:
+            raise Fatal(
+                '%s gives the roles "%s" and "%s" one label, `%s`. Give each its own label,'
+                " then run again." % (LABELS_FILE, other, role, name)
+            )
+    return names
+
+
+def role_labels(root):
+    """The label for each role: what LABELS_FILE gives, else its default."""
+    return checked_roles(read_project_json(root, LABELS_FILE, ROLES_KEY) or {})
+
+
+def has_label(item, name):
+    return name.lower() in labels(item)
 
 
 def write_bytes(root, rel, content):
@@ -2049,12 +2108,45 @@ def cmd_record(args):
 # --------------------------------------------------------------------------
 
 
+def set_roles(root, pairs):
+    """Write each (role, label) pair into LABELS_FILE, keeping its other roles
+    and keys."""
+    found = project_json(root, LABELS_FILE)
+    if found is None:
+        found = {}
+    given = found.get(ROLES_KEY, {}) if isinstance(found, dict) else None
+    if not isinstance(given, dict):
+        raise Fatal(
+            '%s does not hold a "%s" object. Fix it, then run again.' % (LABELS_FILE, ROLES_KEY)
+        )
+    given = dict(given, **dict(pairs))
+    checked_roles(given)
+    found[ROLES_KEY] = given
+    write_bytes(root, LABELS_FILE, (json.dumps(found, indent=2) + "\n").encode("utf-8"))
+
+
+def taken_claim(names, have):
+    """The claim label as the repository has it, when its description says it
+    is not flywheel's, else None."""
+    found = have.get(names[CLAIM].lower())
+    if found is None or (found.get("description") or "") == ROLE_TEXTS[CLAIM]:
+        return None
+    return found
+
+
 def cmd_labels(args):
     """Name each label the loop and file-issue need that the repository lacks,
     and create each one with --create."""
     root = project_root(args.repo)
-    have = {name.lower() for name in repo_labels(root)}
-    missing = [(name, text) for name, text in LOOP_LABELS if name.lower() not in have]
+    if args.set:
+        set_roles(root, args.set)
+    names = role_labels(root)
+    listed = gh_json(
+        root, "label", "list", "--limit", str(LIST_LIMIT), "--json", "name,description"
+    )
+    have = {lbl["name"].lower(): lbl for lbl in listed}
+    needed = [*KIND_TEXTS, *((names[role], text) for role, text in ROLE_TEXTS.items())]
+    missing = [(name, text) for name, text in needed if name.lower() not in have]
     created = []
     if args.create:
         for name, text in missing:
@@ -2067,7 +2159,20 @@ def cmd_labels(args):
             "the repository lacks %d label%s the loop needs; run labels --create to create them"
             % (len(missing), "" if len(missing) == 1 else "s")
         )
-    data = {"missing": [name for name, _ in missing], "created": created}
+    taken = taken_claim(names, have)
+    if taken:
+        errors.append(
+            "the claim label `%s` is taken: the repository describes it as %r, so it may mean"
+            " something else here. Give the claim a label of its own with labels --set"
+            " claim=NAME. If `%s` marks only flywheel's claims, give it the description %r"
+            % (taken["name"], taken.get("description") or "", taken["name"], ROLE_TEXTS[CLAIM])
+        )
+    data = {
+        "missing": [name for name, _ in missing],
+        "created": created,
+        "roles": names,
+        "taken": taken["name"] if taken else None,
+    }
 
     def human():
         for name, text in missing:
@@ -2152,6 +2257,7 @@ def offer_of(found=None, blocked=None, plan=None, finished=False, errors=None, w
 
 def free_issues(root, count):
     """Up to `count` of the oldest free approved issues, or the plan that comes first."""
+    names = role_labels(root)
     approved = gh_json(
         root,
         "issue",
@@ -2159,7 +2265,7 @@ def free_issues(root, count):
         "--state",
         "open",
         "--label",
-        APPROVED,
+        names[APPROVAL],
         "--limit",
         str(LIST_LIMIT),
         "--json",
@@ -2171,7 +2277,7 @@ def free_issues(root, count):
     # its sub-issues, and wins a tie, so it is named before one is offered.
     queue = []
     for item in approved:
-        if TRACKING in labels(item):
+        if has_label(item, names[PLAN]):
             subs = [s["number"] for s in sub_issues(root, item["number"]) if is_open(s)]
             queue.append((min([item["number"], *subs]), item, True))
         elif item["number"] not in held:
@@ -2222,7 +2328,8 @@ def queue_named(args, root, numbers):
     """`queue N...`: each issue the owner named that can start, and why each other cannot."""
     numbers = list(dict.fromkeys(numbers))
     items = [issue(root, n) for n in numbers]
-    plans = [item for item in items if TRACKING in labels(item)]
+    names = role_labels(root)
+    plans = [item for item in items if has_label(item, names[PLAN])]
     if len(items) == 1 and plans:
         plan = summary(plans[0])
 
@@ -2237,13 +2344,15 @@ def queue_named(args, root, numbers):
     for item in items:
         n = item["number"]
         reasons = []
-        if TRACKING in labels(item):
+        if has_label(item, names[PLAN]):
             reasons.append("it is a tracking issue; to run its plan, name it on its own")
         elif not is_open(item):
             reasons.append("it is closed")
         else:
-            if APPROVED not in labels(item):
-                reasons.append("it is not labeled %s; ask the owner to approve it" % APPROVED)
+            if not has_label(item, names[APPROVAL]):
+                reasons.append(
+                    "it is not labeled %s; ask the owner to approve it" % names[APPROVAL]
+                )
             if n in held:
                 reasons.append("another session holds its claim on %s" % branch(n))
             open_blockers = blockers(root, n)
@@ -2263,16 +2372,17 @@ def plan_issues(root, number, count):
     """Up to `count` of tracking issue #number's free sub-issues, in #number's order."""
     item = issue(root, number)
     plan = summary(item)
+    names = role_labels(root)
     problems = []
     if not is_open(item):
         problems.append("#%d is closed; its plan is finished" % number)
-    if TRACKING not in labels(item):
+    if not has_label(item, names[PLAN]):
         problems.append(
-            "#%d is not labeled %s; run %s queue without --tracking" % (number, TRACKING, PROG)
+            "#%d is not labeled %s; run %s queue without --tracking" % (number, names[PLAN], PROG)
         )
-    if APPROVED not in labels(item):
+    if not has_label(item, names[APPROVAL]):
         problems.append(
-            "#%d is not labeled %s; ask the owner to approve the plan" % (number, APPROVED)
+            "#%d is not labeled %s; ask the owner to approve the plan" % (number, names[APPROVAL])
         )
     if problems:
         return offer_of(plan=plan, errors=problems)
@@ -2291,10 +2401,10 @@ def plan_issues(root, number, count):
         if open_blockers:
             blocked.append(dict(summary(sub), blocked_by=open_blockers))
             continue
-        if APPROVED not in labels(sub):
+        if not has_label(sub, names[APPROVAL]):
             stopped.append(
                 "#%d %s is next in #%d's order and is not labeled %s; "
-                "ask the owner to approve it" % (n, sub["title"], number, APPROVED)
+                "ask the owner to approve it" % (n, sub["title"], number, names[APPROVAL])
             )
             if not found:
                 return offer_of(blocked=blocked, plan=plan, errors=stopped)
@@ -2392,11 +2502,12 @@ def take(args, root, n):
     item = issue(root, n)
     if item.get("state") != "OPEN":
         return ["#%d is closed" % n], [], False
-    if APPROVED not in labels(item):
+    names = role_labels(root)
+    if not has_label(item, names[APPROVAL]):
         return (
             [
                 "#%d is not labeled %s. The owner approves an issue before it is worked on"
-                % (n, APPROVED)
+                % (n, names[APPROVAL])
             ],
             [],
             False,
@@ -2437,7 +2548,7 @@ def take(args, root, n):
         )
     body = "%s `%s`. `%s release %d` gives it up." % (CLAIM_MARK, branch(n), PROG, n)
     for step, cmd in (
-        ("add the %s label" % IN_PROGRESS, ["edit", str(n), "--add-label", IN_PROGRESS]),
+        ("add the %s label" % names[CLAIM], ["edit", str(n), "--add-label", names[CLAIM]]),
         ("comment", ["comment", str(n), "--body", body]),
     ):
         try:
@@ -2531,10 +2642,11 @@ def cmd_brief(args):
     if not item:
         raise Fatal("#%d is not an issue in this repository. Name an issue's number." % n)
     owner = repository["owner"]["login"]
+    approval = role_labels(root)[APPROVAL]
     approvals = [
         e["createdAt"]
         for e in item["timelineItems"]["nodes"]
-        if e and ((e.get("label") or {}).get("name") or "").lower() == APPROVED
+        if e and ((e.get("label") or {}).get("name") or "").lower() == approval.lower()
     ]
     approved_at = max(approvals) if approvals else None
     edited_at = item.get("lastEditedAt")
@@ -2573,16 +2685,16 @@ def cmd_brief(args):
         "prompt": None,
     }
     errors = []
-    if APPROVED not in {lbl["name"].lower() for lbl in item["labels"]["nodes"]}:
+    if approval.lower() not in {lbl["name"].lower() for lbl in item["labels"]["nodes"]}:
         errors.append(
             "#%d is not labeled %s. The owner approves an issue before a session works it"
-            % (n, APPROVED)
+            % (n, approval)
         )
     elif approved_at and edited_at and edited_at > approved_at:
         errors.append(
             "#%d was edited at %s, after `%s` was added at %s. The owner reads the edit and"
             " re-approves it by removing the label and adding it again."
-            % (n, edited_at, APPROVED, approved_at)
+            % (n, edited_at, approval, approved_at)
         )
     if not errors:
         data["prompt"] = brief_text(data)
@@ -2882,10 +2994,10 @@ def finding_counts(threads):
     return counts
 
 
-def lead_time(number, merged_at, issues):
+def lead_time(number, merged_at, issues, approval):
     """Hours from the approval of the issues the pull request closes to its merge.
 
-    Each issue's approval is the last time `approved` was added before the
+    Each issue's approval is the last time the approval label was added before the
     merge, and the lead time runs from the earliest of those.
     """
     if not issues:
@@ -2898,7 +3010,7 @@ def lead_time(number, merged_at, issues):
             e["createdAt"]
             for e in item["timelineItems"]["nodes"]
             if e
-            and ((e.get("label") or {}).get("name") or "").lower() == APPROVED
+            and ((e.get("label") or {}).get("name") or "").lower() == approval.lower()
             and e["createdAt"] <= merged_at
         ]
         if times:
@@ -2909,7 +3021,7 @@ def lead_time(number, merged_at, issues):
         return None, "%s %s not labeled %s before #%d merged" % (
             " and ".join(unapproved),
             "was" if len(unapproved) == 1 else "were",
-            APPROVED,
+            approval,
             number,
         )
     return round((epoch(merged_at) - epoch(min(approvals))) / 3600.0, 1), None
@@ -2949,7 +3061,7 @@ def measured_pull(root, pull, spent):
     green, why = first_pass(n, detail["commits"]["nodes"])
     if why:
         missing["first_pass_ci"] = why
-    hours, why = lead_time(n, pull["mergedAt"], issues)
+    hours, why = lead_time(n, pull["mergedAt"], issues, role_labels(root)[APPROVAL])
     if why:
         missing["lead_time_hours"] = why
     return {
@@ -3274,8 +3386,9 @@ def assess(root, number):
         owner.append("it does not close #%d, the issue its branch claims" % claimed)
     else:
         found = labels(issue(root, claimed))
-        if APPROVED not in found:
-            owner.append("#%d is not labeled %s" % (claimed, APPROVED))
+        approval = role_labels(root)[APPROVAL]
+        if approval.lower() not in found:
+            owner.append("#%d is not labeled %s" % (claimed, approval))
         area_labels = sorted(label for label in found if areas and label in areas)
 
     present, ids = requirement_ids(pull.get("body") or "")
@@ -3617,7 +3730,8 @@ def cmd_release(args):
     data = {"number": n, "branch": branch(n)}
     item = issue(root, n)
     sha = claims(root).get(n)
-    labeled = IN_PROGRESS in labels(item)
+    claim = role_labels(root)[CLAIM]
+    labeled = has_label(item, claim)
     if sha is None and not labeled:
         return emit(args, "release", data, ["#%d is not claimed" % n])
     if sha is not None:
@@ -3654,7 +3768,7 @@ def cmd_release(args):
                 ["%s changed while releasing; run release again" % branch(n)],
             )
     if labeled:
-        gh(root, "issue", "edit", str(n), "--remove-label", IN_PROGRESS)
+        gh(root, "issue", "edit", str(n), "--remove-label", claim)
     gh(root, "issue", "comment", str(n), "--body", "%s%s." % (RELEASE_MARK, branch(n)))
     return emit(args, "release", data, human=human)
 
@@ -3662,6 +3776,7 @@ def cmd_release(args):
 def cmd_stale(args):
     root = project_root(args.repo)
     held = claims(root)
+    claim = role_labels(root)[CLAIM]
     labeled = gh_json(
         root,
         "issue",
@@ -3669,7 +3784,7 @@ def cmd_stale(args):
         "--state",
         "all",
         "--label",
-        IN_PROGRESS,
+        claim,
         "--limit",
         str(LIST_LIMIT),
         "--json",
@@ -3680,26 +3795,23 @@ def cmd_stale(args):
     for n in sorted(set(held) | {i["number"] for i in labeled}):
         rows.append({"number": n, "branch": branch(n)})
         if n not in held and n in closed:
-            errors.append(
-                "#%d is closed but still labeled %s; run release %d" % (n, IN_PROGRESS, n)
-            )
+            errors.append("#%d is closed but still labeled %s; run release %d" % (n, claim, n))
             continue
         if n not in held:
             errors.append(
-                "#%d is labeled %s but %s does not exist; run release %d"
-                % (n, IN_PROGRESS, branch(n), n)
+                "#%d is labeled %s but %s does not exist; run release %d" % (n, claim, branch(n), n)
             )
             continue
         item = issue(root, n)
         if item.get("state") != "OPEN":
             errors.append("#%d is closed but %s still exists; run release %d" % (n, branch(n), n))
             continue
-        if IN_PROGRESS not in labels(item):
+        if not has_label(item, claim):
             # claim warns and exits 0 when adding the label fails, so a held
             # issue can be left unlabeled.
             errors.append(
                 "#%d has %s but is not labeled %s; run gh issue edit %d --add-label %s"
-                % (n, branch(n), IN_PROGRESS, n, IN_PROGRESS)
+                % (n, branch(n), claim, n, claim)
             )
 
     def human():
@@ -4115,10 +4227,11 @@ def check_filed(name, key, item, faults):
     return row, faults
 
 
-def check_issue(index, item, known):
+def check_issue(index, item, known, names):
     """One issue of the plan as a row, or None, and the faults in it.
 
-    `known` maps each of the repository's labels, in lower case, to its name.
+    `known` maps each of the repository's labels, in lower case, to its name,
+    and `names` gives each role's label.
     A row for an issue filed already carries its number; a draft's is None.
     """
     if not isinstance(item, dict):
@@ -4153,10 +4266,14 @@ def check_issue(index, item, known):
         faults.append("%s's labels are not a list of names" % name)
         labels = []
     kinds = [lbl for lbl in labels if lbl.lower() in KIND_LABELS]
-    areas = [lbl for lbl in labels if AREA_LABEL_RE.match(lbl.lower())]
+    areas = [
+        lbl
+        for lbl in labels
+        if AREA_LABEL_RE.match(lbl.lower()) or lbl.lower() == names[REPO_AREA].lower()
+    ]
     for what, found, choices in (
         ("kind", kinds, ", ".join(KIND_LABELS)),
-        ("area", areas, "`plugin:<name>` or `repo`"),
+        ("area", areas, "`plugin:<name>` or `%s`" % names[REPO_AREA]),
     ):
         if len(found) != 1:
             faults.append(
@@ -4164,9 +4281,9 @@ def check_issue(index, item, known):
                 % (name, len(found), what, " (%s)" % ", ".join(found) if found else "", choices)
             )
     for lbl in labels:
-        if lbl.lower() == APPROVED:
+        if lbl.lower() == names[APPROVAL].lower():
             faults.append("%s carries `%s`, which only the owner adds" % (name, lbl))
-        elif lbl.lower() == TRACKING:
+        elif lbl.lower() == names[PLAN].lower():
             faults.append("%s carries `%s`, which only the tracking issue carries" % (name, lbl))
         elif lbl.lower() not in known:
             faults.append("%s carries `%s`, a label the repository does not have" % (name, lbl))
@@ -4270,9 +4387,10 @@ def check_plan(repo, plan, labels):
         tracking = {"title": tracking["title"], "plan": tracking["plan"]}
 
     known = {lbl.lower(): lbl for lbl in labels}
+    names = role_labels(repo)
     rows, seen = [], set()
     for index, item in enumerate(issues, 1):
-        row, found = check_issue(index, item, known)
+        row, found = check_issue(index, item, known, names)
         faults += found
         if row is None or row["key"] is None:
             continue
@@ -4476,7 +4594,7 @@ def report_markdown(data, faults, warnings):
         out += ["", quoted(render(row["body"], numbers))]
     if data["tracking"]:
         out += ["", "## Tracking issue: %s" % data["tracking"]["title"], ""]
-        out.append("- **Labels:** %s" % TRACKING)
+        out.append("- **Labels:** %s" % ", ".join(data["tracking"]["labels"]))
         if data["tracking"].get("number"):
             out.append(
                 "- **Filed already** as #%d, by an earlier run. plan file leaves it as it is."
@@ -4539,7 +4657,12 @@ def cmd_plan_report(args):
     numbers = plan_numbers(ledger, rows)
     shown = None
     if tracking:
-        shown = {"title": tracking["title"], "body": None, "number": None}
+        shown = {
+            "title": tracking["title"],
+            "labels": [role_labels(repo)[PLAN]],
+            "body": None,
+            "number": None,
+        }
         if ledger["tracking"]:
             shown["number"] = ledger["tracking"]["number"]
         if not faults:
@@ -4610,7 +4733,7 @@ def file_tracking(repo, ledger, tracking, rows, numbers):
     filed = t is None
     if filed:
         body = tracking_body(tracking, rows, numbers)
-        number, url = create_issue(repo, tracking["title"], body, [TRACKING])
+        number, url = create_issue(repo, tracking["title"], body, [role_labels(repo)[PLAN]])
         t = {"number": number, "title": tracking["title"], "url": url}
         ledger["tracking"] = t
         write_ledger(repo, ledger)
@@ -4786,13 +4909,15 @@ def cmd_plan_close(args):
     item = issue(repo, n)
     data = {"number": n, "sub_issues": [], "closed": False}
     problems = []
+    names = role_labels(repo)
     if not is_open(item):
         problems.append("#%d is closed already" % n)
-    if TRACKING not in labels(item):
-        problems.append("#%d is not labeled %s; plan close closes only a plan" % (n, TRACKING))
-    if APPROVED not in labels(item):
+    if not has_label(item, names[PLAN]):
+        problems.append("#%d is not labeled %s; plan close closes only a plan" % (n, names[PLAN]))
+    if not has_label(item, names[APPROVAL]):
         problems.append(
-            "#%d is not labeled %s; ask the owner to approve the plan or close it" % (n, APPROVED)
+            "#%d is not labeled %s; ask the owner to approve the plan or close it"
+            % (n, names[APPROVAL])
         )
     if problems:
         return emit(args, "plan close", data, problems)
@@ -4843,6 +4968,17 @@ def positive(text):
     if value < 1:
         raise argparse.ArgumentTypeError("%r is not a whole number of 1 or more" % text)
     return value
+
+
+def role_pair(text):
+    """argparse type for --set: ROLE=NAME, ROLE one of the roles."""
+    role, sep, name = text.partition("=")
+    if not sep or role not in ROLE_LABELS or not name.strip():
+        raise argparse.ArgumentTypeError(
+            "%r is not ROLE=NAME with ROLE one of %s and NAME a label"
+            % (text, ", ".join(ROLE_LABELS))
+        )
+    return role, name.strip()
 
 
 def adoption_level(text):
@@ -4929,6 +5065,14 @@ def build_parser():
         help="each label the loop and file-issue need that the repository lacks",
     )
     p.add_argument("--create", action="store_true", help="create each missing label")
+    p.add_argument(
+        "--set",
+        action="append",
+        type=role_pair,
+        metavar="ROLE=NAME",
+        help="write NAME as ROLE's label into %s first, ROLE being one of %s; give it once"
+        " for each role" % (LABELS_FILE, ", ".join(ROLE_LABELS)),
+    )
     p.set_defaults(func=cmd_labels)
 
     p = sub.add_parser(

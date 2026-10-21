@@ -298,15 +298,16 @@ tracking issue.
 
 ### Approving an issue
 
-A filed issue waits until you approve it by adding the `approved` label.
-Claude offers only approved issues for a session to work.
+A filed issue waits until you approve it by adding the `approved` label, or
+the label you chose for approving an issue under "Labels" below. Claude
+offers only approved issues for a session to work.
 
 Agents post under your GitHub account, so GitHub cannot tell an agent adding
 the `approved` label from you adding it. The plugin's hook stops any command
 Claude Code runs that would add it:
 
 ```text
-Blocked: gh issue edit adds the approved label. Only the owner adds `approved`, since agents post under the owner's account and GitHub cannot tell them apart. Ask the owner to add it.
+Blocked: gh issue edit adds the approved label. Only the owner approves an issue, since agents post under the owner's account and GitHub cannot tell them apart. Ask the owner to add `approved`.
 ```
 
 To approve an issue with Claude's help, run
@@ -319,7 +320,8 @@ stops a mistake rather than a determined workaround.
 Before a session works an issue, it **claims** it: it creates a branch named
 `issue/` and the issue's number on GitHub. Only one session can create that
 branch, so two sessions never work the same issue. Claude then adds the
-`in-progress` label and a comment, so the claim shows in the issue list.
+claim label (`in-progress` unless you chose another) and a comment, so the
+claim shows in the issue list.
 When a plan groups several issues under one tracking issue, Claude offers
 them in the plan's order.
 
@@ -551,6 +553,21 @@ label and one area label:
 | `approved` | you agree a session may work the issue |
 | `in-progress` | a session has claimed the issue |
 
+Your repository may already have labels that do some of these jobs, such as
+`ready` for approving an issue or `epic` for a plan. When you adopt
+flywheel, Claude asks which label your repository uses for each of these,
+and flywheel then uses your labels:
+
+- the label that approves an issue, `approved` by default.
+- the label of a plan's tracking issue, `tracking` by default.
+- the area label of an issue about the whole repository, `repo` by default.
+- the label of a claimed issue, `in-progress` by default.
+
+Claude records your answers in `.flywheel/labels.json`, which you commit.
+Flywheel adds and removes the claim label itself, so give it a label that
+nothing else in your repository uses. If your repository already uses
+`in-progress` for something else, Claude says so and asks for another name.
+
 A repository GitHub has just created lacks most of these, and Claude refuses
 to file an issue whose labels the repository does not have. The adopt skill
 names the missing labels and creates them once you agree.
@@ -566,9 +583,9 @@ The plugin ships two GitHub Actions workflows. Copy each into your project's
   last run. Set its `cron` line to the schedule you want. It runs on Mondays
   until you do. GitHub does not have your session records, so that report
   leaves spend out.
-- `templates/issue-closed.yml` takes the `in-progress` label off an issue
-  when it closes, to keep the label meaning that someone is working on the
-  issue.
+- `templates/issue-closed.yml` takes the claim label (`in-progress`, or
+  the one `.flywheel/labels.json` names) off an issue when it closes, to keep
+  the label meaning that someone is working on the issue.
 
 ### Levels
 
@@ -618,8 +635,8 @@ This version of the plugin:
 - writes the file that says which model each role runs on, and the review
   and merge policies.
 - files an issue or a plan of issues.
-- guards the `approved` label.
+- guards the label that approves an issue.
 - takes and frees the claim on an issue.
 - carries the dispatcher's, the implementer's and the reviewer's skills.
 - measures the loop, and ships the workflows that report on it and clear
-  the `in-progress` label.
+  the claim label.
