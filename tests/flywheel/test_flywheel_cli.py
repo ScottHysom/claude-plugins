@@ -18,7 +18,7 @@ class DescribeTheEnvelope:
         code, env = project.run(*argv)
         assert code == flywheel.OK
         assert set(env) == {"version", "command", "ok", "errors", "warnings", "data"}
-        assert (env["version"], env["command"], env["ok"]) == (1, command, True)
+        assert (env["version"], env["command"], env["ok"]) == (2, command, True)
         assert project.err == ""
 
     def it_carries_a_refusal_with_nothing_on_stderr(self, project):
