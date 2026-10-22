@@ -561,6 +561,16 @@ issue holds, and what goes under each. By default they are "What's wrong",
 "Evidence", "Done when" and "Requirements". Claude records headings of your
 own in `.flywheel/issue-template.md`, which you commit.
 
+Claude asks the same of a pull request's description: its sections, and the
+one where the pull request names each requirement it adds, changes or
+removes. Before merging without you, flywheel reads that section, and holds
+a pull request that changes a requirement for you to decide. By default the
+sections are "Scenario", with "Before" and "After" under it, then "Change",
+"Requirements" and "Test plan". Claude records sections of your own in
+`.flywheel/pr-template.md`, which you commit. When your project has no skill
+of its own for opening a pull request, flywheel's open-pr skill writes the
+description in that shape.
+
 Your repository may already have labels that do some of these jobs, such as
 `ready` for approving an issue or `epic` for a plan. When you adopt
 flywheel, Claude asks which label your repository uses for each of these,

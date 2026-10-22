@@ -104,7 +104,7 @@ lacks its command. `record` in step 5 then lists its control among the gaps,
 and step 7 files it.
 
 ## Step 4: write the rules for agents
-<!-- spec: adopt-writes-agent-rules -->
+<!-- spec: adopt-writes-agent-rules, agentrules-names-requirements-section -->
 <!-- no-command: merging the rules into the project's own instructions is judgment -->
 
 Read `$ROOT/templates/agent-rules.md`. Write its sections up to the target
@@ -131,9 +131,9 @@ level and, under each level, each control's state. `data.gaps` lists each
 level up to the target that has a control missing, with the `controls`
 still missing and their evidence.
 
-## Step 6: set the issue rules and create the missing labels
-<!-- spec: adopt-asks-role-labels, labels-cmd-sets-role, labels-cmd-flags-taken-claim-label, adopt-creates-missing-labels, labels-cmd-names-missing-labels, adopt-asks-issue-rules, labels-cmd-sets-kinds-areas, issuetemplate-sets-headings -->
-<!-- seam: judgment: the owner names each role's label and the issue rules, then agrees to create the missing labels -->
+## Step 6: set the issue and pull request rules and create the missing labels
+<!-- spec: adopt-asks-role-labels, labels-cmd-sets-role, labels-cmd-flags-taken-claim-label, adopt-creates-missing-labels, labels-cmd-names-missing-labels, adopt-asks-issue-rules, labels-cmd-sets-kinds-areas, issuetemplate-sets-headings, adopt-asks-pr-shape, prtemplate-sets-shape -->
+<!-- seam: judgment: the owner names each role's label, the issue rules and the pull request shape, then agrees to create the missing labels -->
 
 The loop acts on four labels by their role. Ask the owner, with one
 `AskUserQuestion`, which label the repository already uses for each role,
@@ -150,7 +150,8 @@ offering the default first:
   since the loop adds it and takes it off.
 
 Then ask the owner, with one more `AskUserQuestion`, for the rules each issue
-that file-issue files follows, offering the default first:
+that file-issue files follows and the shape of each pull request, offering
+the default first:
 
 - the kind labels, one of which each issue carries: GitHub's `bug`,
   `enhancement` and `documentation`, each with its description.
@@ -162,10 +163,24 @@ that file-issue files follows, offering the default first:
   (file and line, commit, pull request, output), `Done when` (what a fix
   has to make true) and `Requirements` (the ids in specs/ the issue adds,
   changes or removes).
+- the shape of a pull request's description: its sections, in order, the
+  subsections under each, and the section that names the requirement ids
+  the pull request adds, changes or removes. The default is `Scenario` (who,
+  by role, does what), with the subsections `Before` (what happened before
+  the change) and `After` (what happens after it), then `Change` (what the
+  pull request changes), `Requirements` (the section that names the ids)
+  and `Test plan` (what ran).
 
 When the owner gives headings other than the default, write them to
 `.flywheel/issue-template.md`, each as `## <heading>` with what to write
 under it on the lines below. Leave the file out when the answer is the
+default.
+
+When the owner gives a pull request shape other than the default, write it
+to `.flywheel/pr-template.md`. Give each section as `## <heading>` and each
+subsection under it as `### <heading>`, with what to write under each on the
+lines below. Put `<!-- requirement-ids -->` on its own line under the heading
+of the section that names the ids. Leave the file out when the answer is the
 default.
 
 Set each label answer that differs from the default and name the labels the
@@ -234,7 +249,7 @@ Then tell the owner:
 - the files this run wrote, to review and commit: `.flywheel/adoption.json`,
   the roles file, the policies, `.flywheel/gates.json`,
   `.flywheel/labels.json` when step 6 set a label,
-  `.flywheel/issue-template.md` when step 6 wrote it, and the rules for
-  agents.
+  `.flywheel/issue-template.md` and `.flywheel/pr-template.md` when step 6
+  wrote them, and the rules for agents.
 - each field left unset, and each pair of contradicting rules from step 4.
 - the plan file-issue filed, or that there was nothing to file.

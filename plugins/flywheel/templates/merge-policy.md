@@ -15,7 +15,9 @@ A pull request flows when all of these hold:
 - Every check on its head passes.
 - The reviewer has posted a review of its head, and has resolved every
   finding thread. Every other unresolved thread has a reply.
-- Its `## Requirements` section does not name a requirement id.
+- The section of its description that names requirement ids does not name
+  one. `.flywheel/pr-template.md` marks that section, which is
+  `## Requirements` without the file.
 - Every file it changes lies under a path that `areas` gives the issue's area
   label.
 
@@ -23,8 +25,8 @@ A pull request flows when all of these hold:
 
 The dispatcher holds a pull request for the owner when any of these holds:
 
-- It adds, changes or removes a requirement: its `## Requirements` section
-  names one, or is missing.
+- It adds, changes or removes a requirement: the section of its description
+  that names requirement ids names one, or is missing.
 - It touches a path that `protected` names.
 - A P0, P1 or P2 finding is still open after the reviewer's look at its head.
 - A thread stays unresolved after the reviewer's look at the implementer's

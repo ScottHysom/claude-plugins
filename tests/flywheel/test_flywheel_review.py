@@ -25,6 +25,8 @@ CLEAN_BODY = (
     "## Test plan\n\n- `tests-demo` ran.\n"
 )
 
+OWN_TEMPLATE = "## Why\n\nThe reason.\n\n## Spec changes\n\n<!-- requirement-ids -->\n"
+
 
 def check_run(status="COMPLETED", conclusion="SUCCESS"):
     return {"__typename": "CheckRun", "status": status, "conclusion": conclusion}
@@ -258,6 +260,15 @@ class DescribeReviewBrief:
         github.pull["body"] = "## Requirements\n\nChanges `demo-cmd-works`.\n"
         _, out, _ = project.human("review-brief", "71")
         assert "Requirement ids it lists: demo-cmd-works\n" in out
+
+    @pytest.mark.spec("prtemplate-sets-shape")
+    def it_reads_the_ids_from_the_section_the_template_marks(self, project, github):
+        project.write(flywheel.PR_TEMPLATE_FILE, OWN_TEMPLATE)
+        github.pull["body"] = (
+            "## Requirements\n\n`not-this-one`\n\n## Spec changes\n\nAdds `demo-cmd-works`.\n"
+        )
+        _, env = project.run("review-brief", "71")
+        assert env["data"]["requirements"] == ["demo-cmd-works"]
 
     def it_marks_an_empty_description(self, project, github):
         github.pull["body"] = ""
@@ -547,6 +558,23 @@ class DescribeARequirementChange:
         github.pull["body"] = "## Requirements\n\n### Added\n\n- `demo-cmd-works`\n"
         _, data = check(policies)
         assert data["reasons"][0].endswith("names demo-cmd-works")
+
+    @pytest.mark.spec("prtemplate-sets-shape")
+    def it_holds_on_the_ids_of_the_section_the_template_marks(self, policies, github):
+        policies.write(flywheel.PR_TEMPLATE_FILE, OWN_TEMPLATE)
+        github.pull["body"] = CLEAN_BODY + "\n## Spec changes\n\nAdds `demo-cmd-works`.\n"
+        _, data = check(policies)
+        assert data["reasons"] == [
+            "it changes requirements: its ## Spec changes section names demo-cmd-works"
+        ]
+
+    @pytest.mark.spec("prtemplate-sets-shape")
+    def it_holds_without_the_section_the_template_marks(self, policies, github):
+        policies.write(flywheel.PR_TEMPLATE_FILE, OWN_TEMPLATE)
+        _, data = check(policies)
+        assert data["reasons"] == [
+            "its description has no ## Spec changes section, so it may change a requirement"
+        ]
 
 
 @pytest.mark.spec("mergecheck-cmd-holds-protected-paths")
