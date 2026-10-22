@@ -4,6 +4,7 @@
     "tests/flywheel/test_issue_guard.py::DescribeCheck::it_allows_a_command_that_does_not_add_the_label[gh pr create -dlbug]": "pins that the grouped-flag match from #471 still allows a grouped -l whose value is not approved",
     "tests/flywheel/test_issue_guard.py::DescribeCheck::it_allows_a_command_that_does_not_add_the_label[gh pr create -dl bug]": "pins that the grouped-flag match from #471 still allows a grouped -l whose value is not approved",
     "tests/flywheel/test_flywheel_config.py::DescribeTheReportCommand::it_leaves_the_report_command_unset_for_another_runner": "pins that config init still leaves the test commands unset for a runner other than pytest, now that it fills in report for pytest",
-    "tests/flywheel/test_issue_guard.py::DescribeTheProjectsApprovalLabel::it_blocks_approved_when_the_project_does_not_give_a_label": "pins that the guard keeps blocking the default approval label when the project's labels file is missing or leaves the role out, as it did before #695"
+    "tests/flywheel/test_issue_guard.py::DescribeTheProjectsApprovalLabel::it_blocks_approved_when_the_project_does_not_give_a_label": "pins that the guard keeps blocking the default approval label when the project's labels file is missing or leaves the role out, as it did before #695",
+    "tests/flywheel/test_flywheel_review.py::DescribeAProtectedPath::it_stops_when_the_merge_policy_is_missing": "pins that merge-check still stops without the merge policy, the test moved here from the area tests that #725 removed"
   }
 }
