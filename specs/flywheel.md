@@ -560,10 +560,6 @@ Source: #650, and the method's `autonomy-scales-with-risk` and
 - `mergecheck-cmd-holds-protected-paths` (test): When pull request N touches
   a path the merge policy protects, `merge-check` reports hold and names the
   path.
-- `mergecheck-cmd-holds-outside-area` (test): When pull request N changes a
-  file outside the paths the merge policy's `areas` gives its issue's area
-  label, `merge-check` reports hold and names the file. It also holds when
-  the issue has no area label that `areas` names, or `areas` is unset.
 - `mergecheck-cmd-holds-open-findings` (test): When any of these holds,
   `merge-check` reports hold and names the thread's file and line, or the
   review:

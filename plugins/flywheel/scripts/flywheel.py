@@ -3476,24 +3476,14 @@ def review_settings(settings):
 
 
 def merge_settings(settings):
-    """The merge policy's protected paths and areas, checked. areas is None when unset."""
+    """The merge policy's protected paths, checked."""
     protected = settings.get(PROTECTED_KEY)
     if not is_paths(protected):
         raise Fatal(
             '%s gives "%s" as %s. Make it a list of paths, then run again.'
             % (MERGE_POLICY, PROTECTED_KEY, json.dumps(protected))
         )
-    areas = settings.get(AREAS_KEY)
-    if areas is not None and not (
-        isinstance(areas, dict) and all(is_paths(v) for v in areas.values())
-    ):
-        raise Fatal(
-            '%s gives "%s" as %s. Make it an object that maps each area label to a list of'
-            " paths, then run again." % (MERGE_POLICY, AREAS_KEY, json.dumps(areas))
-        )
-    if areas is not None:
-        areas = {label.lower(): paths for label, paths in areas.items()}
-    return protected, areas
+    return protected
 
 
 def path_matches(path, pattern):
@@ -3602,7 +3592,7 @@ def assess(root, number):
     """merge-check's verdict on pull request `number`: flow or hold, each reason it
     holds, and what the dispatcher does next."""
     _, settings = project_policy(root, MERGE_POLICY)
-    protected, areas = merge_settings(settings)
+    protected = merge_settings(settings)
     pull = pull_request(root, number)
     threads = review_threads(root, number)
     head = pull["headRefOid"]
@@ -3614,7 +3604,6 @@ def assess(root, number):
         owner.append("#%d is %s, not open" % (number, (pull.get("state") or "").lower()))
     claimed = claim_number(pull["headRefName"])
     closes = [i.get("number") for i in pull.get("closingIssuesReferences") or []]
-    area_labels = None
     if claimed is None:
         owner.append(
             "its branch %s is not a claim branch, %sN" % (pull["headRefName"], BRANCH_PREFIX)
@@ -3626,7 +3615,6 @@ def assess(root, number):
         approval = role_labels(root)[APPROVAL]
         if approval.lower() not in found:
             owner.append("#%d is not labeled %s" % (claimed, approval))
-        area_labels = sorted(label for label in found if areas and label in areas)
 
     heading = ids_heading(root)
     present, ids = requirement_ids(pull.get("body") or "", heading)
@@ -3644,21 +3632,6 @@ def assess(root, number):
         hit = next((p for p in protected if path_matches(path, p)), None)
         if hit:
             owner.append("it touches %s, which the merge policy protects as %s" % (path, hit))
-    if areas is None:
-        owner.append(
-            '%s leaves "%s" unset, so no file lies inside an area. The owner fills it in'
-            % (MERGE_POLICY, AREAS_KEY)
-        )
-    elif area_labels is not None and not area_labels:
-        owner.append("#%d has no area label that the merge policy's areas name" % claimed)
-    elif area_labels:
-        allowed = [p for label in area_labels for p in areas[label]]
-        for path in paths:
-            if not any(path_matches(path, p) for p in allowed):
-                owner.append(
-                    "it changes %s, outside the paths areas gives %s"
-                    % (path, ", ".join(area_labels))
-                )
 
     ci = ci_state(pull.get("statusCheckRollup"))
     if ci == CI_NONE:

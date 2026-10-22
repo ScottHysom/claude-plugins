@@ -324,7 +324,7 @@ class DescribeAssess:
         project.run("config", "init")
         _, env = project.run("assess")
         assert states(env)["merge-policy"]["evidence"] == (
-            ".flywheel/merge-policy.md leaves `areas` unset"
+            ".flywheel/merge-policy.md sets every setting"
         )
         assert states(env)["review-policy"]["evidence"] == (
             ".flywheel/review-policy.md leaves `rules` unset"

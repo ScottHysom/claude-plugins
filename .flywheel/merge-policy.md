@@ -16,8 +16,6 @@ A pull request flows when all of these hold:
 - The reviewer has posted a review of its head, and has resolved every
   finding thread. Every other unresolved thread has a reply.
 - Its `## Requirements` section does not name a requirement id.
-- Every file it changes lies under a path that `areas` gives the issue's area
-  label.
 
 ## Hold
 
@@ -29,23 +27,16 @@ The dispatcher holds a pull request for the owner when any of these holds:
 - A P0, P1 or P2 finding is still open after the reviewer's look at its head.
 - A thread stays unresolved after the reviewer's look at the implementer's
   answer, so the reviewer and the implementer disagree.
-- It reaches a file outside the paths that `areas` gives the issue's area
-  label.
 - GitHub reports a conflict, or the merge fails.
 
 ## Settings
 
 ```json
 {
-  "protected": ["specs/", "CLAUDE.md", ".claude/", ".github/", "plugins/*/templates/"],
-  "areas": null
+  "protected": ["specs/", "CLAUDE.md", ".claude/", ".github/", "plugins/*/templates/"]
 }
 ```
 
 - `protected` lists the paths a pull request holds for the owner when it
   touches one. A path that ends in `/` covers everything under it, and `*`
   matches any run of characters.
-- `areas` maps each area label to the paths an issue with that label may
-  change, written as `protected`'s are, such as
-  `{"plugin:todos": ["plugins/todos/", "tests/todos/"]}`. The owner fills it
-  in.

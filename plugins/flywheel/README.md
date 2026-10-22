@@ -531,10 +531,8 @@ at the end. Claude lists each setting you need to fill in.
   `["CLAUDE.md"]`.
 - `merge-policy.md` says which pull requests the dispatcher merges without
   you. A pull request waits for you when any of these holds: it changes a
-  requirement, touches a path under `protected`, has a finding still open,
-  or reaches outside its issue's area. Fill in `areas` with the paths each
-  area label covers, such as
-  `{"plugin:todos": ["plugins/todos/", "tests/todos/"]}`.
+  requirement, touches a path under `protected`, or has a finding still
+  open.
 
 The merge policy is a request the dispatcher follows. The GitHub rules in
 step 4 of the "Setting up a repository" section make GitHub enforce the
