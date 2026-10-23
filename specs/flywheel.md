@@ -215,11 +215,14 @@ at adoption, to run the rules' patterns.
   `.flywheel/pr-template.md`.
 - `prskill-gives-draft-to-style-reader` (step): When the draft passes
   `pr check` and the template names prose rules files, open-pr gives the
-  draft to a subagent that reads those files and nothing else, which names
-  each breach by rule and quotes its sentence. open-pr rewrites each quoted
-  sentence that breaks its rule, and sends the revised draft back through
-  `pr check`, the cold reader and this read. When the template does not name
-  any prose rules file, open-pr skips this read.
+  draft to a subagent that reads those files and nothing else, at the same
+  time as it gives the draft to the cold reader. The subagent leaves to the
+  cold reader the rules about defining terms and about what the owner
+  already knows, and names each breach of every other rule by rule and
+  quotes its sentence. open-pr rewrites each quoted sentence that breaks its
+  rule, and takes a term to explain only from the cold reader. It sends the
+  revised draft back through `pr check` and both readers. When the template
+  does not name any prose rules file, open-pr skips this read.
 
 ## need contributor-reads-method-beside-plugin: Read the method beside the plugin
 

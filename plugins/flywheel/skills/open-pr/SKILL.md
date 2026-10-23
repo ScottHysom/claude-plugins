@@ -53,7 +53,7 @@ another variable. The commands below show it as
 `data.sections` lists the sections in order. Each has its `heading`, its
 `guidance`, its `subsections`, each with a `heading` and `guidance`, and
 `ids`, true for the section that names the requirement ids. `data.prose_rules`
-lists the files of the project's prose rules, which step 4 reads.
+lists the files of the project's prose rules, which step 3 reads.
 `data.prose_check` names the skill that step 2 hands the draft to, or is
 null. Write a `##`
 heading for each section and a `###` heading for each subsection, in that
@@ -103,16 +103,28 @@ is not a breach. After any rewrite, run this step again from `pr check`. Go
 on to step 3 when the skill reports no match left to rewrite.
 
 When the session's skills do not include the one `data.prose_check` names,
-go on to step 3 without the patterns, and tell the owner so in step 5.
+go on to step 3 without the patterns, and tell the owner so in step 4.
 
-## Step 3: have the draft read cold
-<!-- spec: prskill-gives-draft-to-cold-reader -->
-<!-- no-command: platform. The model starts a subagent with the Agent tool, which a script cannot do. -->
+## Step 3: have the draft read
+<!-- spec: prskill-gives-draft-to-cold-reader, prskill-gives-draft-to-style-reader -->
+<!-- no-command: platform. The model starts subagents with the Agent tool, which a script cannot do. -->
 
-Start a subagent with the Agent tool, `subagent_type` `flywheel:cold-reader`.
-Give it this prompt and nothing else: no summary of the work, no issue, no
-file paths. Put the title in place of `<the title>`, and the draft in place
-of `<the draft>`, exactly as the file holds it.
+Each read of the draft is a subagent started with the Agent tool. A
+**round** is one read by each of these:
+
+- the **cold reader**, which lists each term the draft leaves undefined.
+- the **prose reader**, which names each breach of the project's prose
+  rules. A round has no prose reader when step 1's `data.prose_rules` is
+  empty.
+
+Start both subagents in one message, so that they read the same draft at
+once. Give each its prompt below and nothing else: no summary of the work,
+no issue, no other file paths. Put the title in place of `<the title>`, and
+the draft in place of `<the draft>`, exactly as the file holds it.
+
+### The cold reader
+
+Start it with `subagent_type` `flywheel:cold-reader`, and this prompt:
 
 ```text
 You are reviewing a pull request description for an owner who reads it
@@ -148,31 +160,10 @@ The description:
 <the draft>
 ```
 
-Compare the reply with the change:
+### The prose reader
 
-- Each term under BLOCKING is explained at its first use by the first of
-  step 1's ways that works, or gives way to a plain word.
-- A term under BORDERLINE that the text around it already explains stays as
-  it is. Give any other the same as a blocking term when one clause does it.
-- When the subagent's summary misstates who meets the change or what it
-  changes, rewrite the description until a reader without the work would
-  state it correctly.
-
-After any revision, go back to step 2, and give the revised draft to a new
-subagent. Go on to step 4 only when a subagent lists "none" under BLOCKING
-and its summary matches the change.
-
-## Step 4: have the draft read against the prose rules
-<!-- spec: prskill-gives-draft-to-style-reader -->
-<!-- no-command: platform. The model starts a subagent with the Agent tool, which a script cannot do. -->
-
-When step 1's `data.prose_rules` is empty, skip to step 5.
-
-Otherwise start a new subagent with the Agent tool, `subagent_type`
-`flywheel:prose-reader`. Give it this prompt and nothing else. Put each path
-from `data.prose_rules` on its own line in place of `<the files>`, and the
-title and the draft in place of `<the title>` and `<the draft>`, exactly as
-the file holds it.
+Start it with `subagent_type` `flywheel:prose-reader`, and this prompt. Put
+each path from `data.prose_rules` on its own line in place of `<the files>`.
 
 ```text
 You are checking a pull request description against a project's prose
@@ -180,8 +171,10 @@ rules. Read each of these files, and do not read any other file:
 
 <the files>
 
-Read the title and the description against every rule in those files.
-Reply in exactly this form:
+Another reader checks the rules about defining a term, a piece of jargon or
+an acronym, and the rules about what the description's audience already
+knows. Leave those rules out. Read the title and the description against
+every other rule in those files. Reply in exactly this form:
 
 BREACHES:
 - <rule id>: "<the sentence, quoted>": <what breaks the rule>
@@ -197,16 +190,30 @@ The description:
 <the draft>
 ```
 
-Rewrite each sentence the reply quotes so that it follows the rule. Leave a
-sentence as it is only when the rule's own text shows that the sentence
-follows it.
+### The revision
 
-After any revision, go back to step 2: the revised draft is checked, its
-patterns run when the template names a skill for them, it is read cold by a
-new subagent in step 3, and read here by a new subagent. Go on to
-step 5 only when a read here leaves no sentence to rewrite.
+Compare the cold reader's reply with the change:
 
-## Step 5: open the pull request
+- Each term under BLOCKING is explained at its first use by the first of
+  step 1's ways that works, or gives way to a plain word.
+- A term under BORDERLINE that the text around it already explains stays as
+  it is. Give any other the same as a blocking term when one clause does it.
+- When the subagent's summary misstates who meets the change or what it
+  changes, rewrite the description until a reader without the work would
+  state it correctly.
+
+Rewrite each sentence the prose reader quotes so that it follows the rule.
+Leave a sentence as it is only when the rule's own text shows that the
+sentence follows it. A term reaches a revision only from the cold reader's
+lists, so leave as it is a breach that asks for a term to be defined or
+explained.
+
+After any revision, go back to step 2, and give the revised draft to new
+subagents. Go on to step 4 only when, in one round, the cold reader lists
+"none" under BLOCKING, its summary matches the change, and the prose read
+leaves every sentence as it is.
+
+## Step 4: open the pull request
 <!-- spec: prskill-opens-through-script, propen-cmd-refuses-failing-draft, propen-cmd-opens-from-file -->
 
 ```sh
@@ -215,7 +222,7 @@ FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" pr open --title "<the titl
 
 It checks the file again, pushes the branch and opens the pull request
 against the repository's default branch. When it exits 1, the draft changed
-after step 4 and fails the check, so go back to step 2. When it exits 2, its
+after step 3 and fails the check, so go back to step 2. When it exits 2, its
 message names what to do.
 
 On exit 0, tell the owner `data.url`, and the issue the pull request closes.
