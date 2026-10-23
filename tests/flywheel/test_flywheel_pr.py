@@ -113,6 +113,53 @@ class DescribeTheProseRulesMark:
         assert "`<!-- prose-rules: docs/style.md -->`" in project.err
 
 
+CHECK = "<!-- prose-check: style:check-file -->\n"
+
+
+def prose_check(project):
+    return flywheel.pr_template(str(project.root))[2]
+
+
+@pytest.mark.spec("prtemplate-names-prose-check")
+class DescribeTheProseCheckMark:
+    def it_names_no_skill_without_a_template(self, project):
+        assert prose_check(project) is None
+
+    def it_names_the_skill_the_mark_gives(self, project):
+        project.write("docs/style.md", "# Style\n")
+        project.write(TEMPLATE, PROSE + CHECK + CUSTOM)
+        assert prose_check(project) == "style:check-file"
+
+    def it_keeps_the_mark_out_of_the_guidance(self, project):
+        project.write("docs/style.md", "# Style\n")
+        project.write(TEMPLATE, PROSE + CUSTOM.replace("New ids.\n", "New ids.\n" + CHECK))
+        assert shape(project)[1].subsections == (("Added", "New ids."),)
+
+    def it_reads_a_mark_in_a_fence_as_guidance(self, project):
+        project.write(TEMPLATE, CUSTOM + "\n```markdown\n" + CHECK + "```\n")
+        assert prose_check(project) is None
+
+    @pytest.mark.spec("repo:script-exits-2-when-unrunnable")
+    @pytest.mark.parametrize(
+        ("marks", "says"),
+        [
+            (CHECK + "<!-- prose-check: other:skill -->\n", "`<!-- prose-check: other:skill -->`"),
+            (CHECK, "`<!-- prose-rules: PATH -->`"),
+            ("<!-- prose-check: -->\n", "`<!-- prose-check: -->`"),
+        ],
+    )
+    @pytest.mark.parametrize("command", [("pr", "draft"), ("pr", "check", "--body-file", "x.md")])
+    def it_stops_on_a_mark_it_cannot_use(self, project, command, marks, says):
+        project.write("x.md", GOOD)
+        project.write("docs/style.md", "# Style\n")
+        rules = "" if marks == CHECK else PROSE
+        project.write(TEMPLATE, rules + marks + CUSTOM)
+        code, out = project.run(*[str(project.root / a) if a == "x.md" else a for a in command])
+        assert code == flywheel.CANNOT_RUN
+        assert out is None
+        assert says in project.err
+
+
 @pytest.fixture
 def drafted(tmp_path):
     def write(text):
@@ -166,6 +213,18 @@ class DescribePrDraft:
         _, out = project.run("pr", "draft")
         os.remove(out["data"]["path"])
         assert out["data"]["prose_rules"] == []
+
+    def it_gives_the_skill_that_runs_the_patterns(self, project):
+        project.write("docs/style.md", "# Style\n")
+        project.write(TEMPLATE, PROSE + CHECK + CUSTOM)
+        _, out = project.run("pr", "draft")
+        os.remove(out["data"]["path"])
+        assert out["data"]["prose_check"] == "style:check-file"
+
+    def it_gives_no_skill_without_a_mark(self, project):
+        _, out = project.run("pr", "draft")
+        os.remove(out["data"]["path"])
+        assert out["data"]["prose_check"] is None
 
     def it_prints_only_the_path_in_text(self, project):
         code, out, err = project.human("pr", "draft")

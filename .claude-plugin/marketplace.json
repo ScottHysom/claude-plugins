@@ -11,7 +11,7 @@
       "source": "./plugins/flywheel",
       "displayName": "Flywheel",
       "description": "Claude Code only. Runs a repo's issue loop, from an approved issue to a merged pull request, through desktop sessions that each play one role. This version installs the script, the roles file and the review and merge policies, ships the docs that define the method the loop follows, carries the queue and claim lock that keep two sessions off one issue, files an issue or a plan of issues through its file-issue skill, assesses and records which of the method's controls a repo holds through its adopt skill, ships the hook that keeps the approved label for the owner, and has the dispatcher's run skill, the implementer's work-issue skill and the reviewer's review-pr skill. The dispatcher merges a pull request when the merge policy lets it flow, and asks the owner about the rest. It measures each merged pull request's spend, first-pass CI, review findings and lead time, and ships a scheduled workflow that reports them in an issue.",
-      "version": "0.12.0",
+      "version": "0.13.0",
       "category": "productivity",
       "tags": [
         "issues",
