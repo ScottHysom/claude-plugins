@@ -86,7 +86,7 @@ it again. Go on to step 3 when it exits 0.
 <!-- spec: prskill-gives-draft-to-cold-reader -->
 <!-- no-command: platform. The model starts a subagent with the Agent tool, which a script cannot do. -->
 
-Start a subagent with the Agent tool, `subagent_type` `general-purpose`.
+Start a subagent with the Agent tool, `subagent_type` `flywheel:cold-reader`.
 Give it this prompt and nothing else: no summary of the work, no issue, no
 file paths. Put the title in place of `<the title>`, and the draft in place
 of `<the draft>`, exactly as the file holds it.
