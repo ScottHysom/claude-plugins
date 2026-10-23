@@ -654,7 +654,6 @@ SETTINGS_RE = re.compile(r"^```json[ \t]*\n(.*?)^```[ \t]*$", re.M | re.S)
 P3_CAP_KEY = "p3_cap"
 RULES_KEY = "rules"
 PROTECTED_KEY = "protected"
-AREAS_KEY = "areas"
 # The role a session started from `brief` plays, and the skill it plays it with.
 BRIEF_ROLE = "implementer"
 BRIEF_SKILL = "work-issue"
@@ -884,8 +883,7 @@ PR_DRAFT_PREFIX, PR_DRAFT_SUFFIX = "pr-", ".md"
 # `.flywheel/labels.json`: the label the repository uses for each role the
 # loop acts on. A role the file leaves out takes its default here. Under
 # KINDS_KEY the file maps each kind label to its description. Without kinds,
-# they are GitHub's DEFAULT_KINDS. The file may not give AREAS_KEY, which
-# flywheel does not read.
+# they are GitHub's DEFAULT_KINDS.
 LABELS_FILE = COPY_DIR + "/labels.json"
 KINDS_KEY = "kinds"
 DEFAULT_KINDS = {
@@ -1155,11 +1153,6 @@ def label_rules(root):
 def checked_labels(found):
     """The role labels and the kinds in `found`, LABELS_FILE as JSON, or
     Fatal naming the fault."""
-    if isinstance(found, dict) and AREAS_KEY in found:
-        raise Fatal(
-            '%s gives "%s", which flywheel does not read. Remove it, then run again.'
-            % (LABELS_FILE, AREAS_KEY)
-        )
     names = checked_roles(labels_section(found, ROLES_KEY) or {})
     kinds = labels_section(found, KINDS_KEY)
     if kinds is not None and not kinds:

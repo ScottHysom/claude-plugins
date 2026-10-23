@@ -233,16 +233,6 @@ class DescribeLabelsKinds:
         assert "NAME=TEXT" in capsys.readouterr().err
         assert not (project.root / flywheel.LABELS_FILE).exists()
 
-    @pytest.mark.spec("labels-cmd-sets-kinds", "labelsfile-refuses-bad-map")
-    def it_writes_nothing_when_the_file_still_gives_areas(self, project, fake):
-        hub = fake()
-        project.write(flywheel.LABELS_FILE, json.dumps({"areas": {"web": "The web app"}}))
-        code, _ = project.run("labels", "--kind", "docs=Words only", "--create")
-        assert code == flywheel.CANNOT_RUN
-        assert 'gives "areas", which flywheel does not read. Remove it' in project.err
-        assert labels_file(project) == {"areas": {"web": "The web app"}}
-        assert hub.created == []
-
 
 class DescribeLabelsFile:
     @pytest.mark.parametrize(
@@ -273,14 +263,11 @@ class DescribeLabelsFile:
             ({"kinds": {}}, 'gives no label under "kinds"'),
             ({"kinds": {" ": "x"}}, 'gives an empty label under "kinds"'),
             ({"kinds": {"bug": 3}}, 'gives `bug` under "kinds" a description that is not text'),
-            ({"areas": {"web": ""}}, 'gives "areas", which flywheel does not read. Remove it'),
         ],
-        ids=["kinds-not-object", "no-kinds", "blank", "not-text", "areas"],
+        ids=["kinds-not-object", "no-kinds", "blank", "not-text"],
     )
     @pytest.mark.spec("labelsfile-refuses-bad-map")
-    def it_stops_a_command_on_a_bad_kind_or_an_areas_key(
-        self, project, fake, tmp_path, given, says
-    ):
+    def it_stops_a_command_on_a_bad_kind(self, project, fake, tmp_path, given, says):
         fake()
         project.write(flywheel.LABELS_FILE, json.dumps(given))
         plan = tmp_path / "plan.json"

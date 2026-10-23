@@ -69,8 +69,6 @@ decisions on it.
   - one label for two roles.
   - a `kinds` that is not an object holding at least one label.
   - a kind whose description is not text.
-  - an `areas` key, which flywheel does not read. The message says to
-    remove it.
 - `labels-cmd-sets-role` (test): When `flywheel.py labels --set ROLE=NAME`
   runs, it writes NAME as ROLE's label into `.flywheel/labels.json` and
   leaves the file's other roles as they are, before it names the missing
