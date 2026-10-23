@@ -208,8 +208,21 @@ sentence follows it. A term reaches a revision only from the cold reader's
 lists, so leave as it is a breach that asks for a term to be defined or
 explained.
 
-After any revision, go back to step 2, and give the revised draft to new
-subagents. Go on to step 4 only when, in one round, the cold reader lists
+When step 1's `data.prose_rules` names files, read each rewritten sentence
+against every rule in them before the draft goes back, with the sentences on
+either side of it. A rewrite most often brings one of these breaches:
+
+- a subject or a verb borrowed from the sentence before.
+- a count that opens a sentence.
+- a sentence grown past one claim.
+- a word given a second meaning in the description.
+- a new definition without the marking that the project's rules ask for,
+  such as bold on the defined term.
+
+Fix each breach, and read the fix the same way.
+
+After any revision, go back to step 2, so that `pr check` and the patterns
+run over the revised draft, and give it to new subagents. Go on to step 4 only when, in one round, the cold reader lists
 "none" under BLOCKING, its summary matches the change, and the prose read
 leaves every sentence as it is.
 

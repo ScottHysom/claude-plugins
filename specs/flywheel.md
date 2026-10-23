@@ -220,8 +220,10 @@ at adoption, to run the rules' patterns.
   cold reader the rules about defining terms and about what the owner
   already knows, and names each breach of every other rule by rule and
   quotes its sentence. open-pr rewrites each quoted sentence that breaks its
-  rule, and takes a term to explain only from the cold reader. It sends the
-  revised draft back through `pr check` and both readers. When the template
+  rule, and reads each rewrite against the prose rules before any reader
+  sees it again. It takes a term to explain only from the cold reader. It
+  sends the revised draft back through `pr check`, the patterns and both
+  readers. When the template
   does not name any prose rules file, open-pr skips this read.
 
 ## need contributor-reads-method-beside-plugin: Read the method beside the plugin
