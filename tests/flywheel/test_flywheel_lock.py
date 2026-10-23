@@ -1695,7 +1695,7 @@ class DescribeTheGitHubCli:
 
 
 # A repository whose own labels play the loop's roles.
-MAPPED = {"approval": "ready", "plan": "epic", "claim": "flywheel-claim", "repo-area": "general"}
+MAPPED = {"approval": "ready", "plan": "epic", "claim": "flywheel-claim"}
 
 
 def mapped(path):

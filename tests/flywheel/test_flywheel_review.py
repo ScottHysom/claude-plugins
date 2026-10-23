@@ -1,9 +1,9 @@
 """What the reviewer and the merge policy read and write: `review-policy`,
 `review-brief`, `review-post` and `merge-check`.
 
-The policies are the ones `config init` writes, with `areas` filled in. gh is
-faked here with one pull request, its review threads and its issue, which a
-test changes to break one condition at a time.
+The policies are the ones `config init` writes. gh is faked here with one pull
+request, its review threads and its issue, which a test changes to break one
+condition at a time.
 """
 
 import io
@@ -18,7 +18,6 @@ OLD = "b" * 40
 REVIEWED_AT = "2026-10-16T10:00:00Z"
 BEFORE = "2026-10-16T09:00:00Z"
 AFTER = "2026-10-16T11:00:00Z"
-AREAS = {"plugin:demo": ["plugins/demo/", "tests/demo/"]}
 CLEAN_BODY = (
     "## Scenario\n\nAn owner runs it.\n\n### Before\n\nIt broke.\n\n"
     "## Requirements\n\nDoes not change any requirement.\n\n"
@@ -142,9 +141,8 @@ def set_setting(project, rel, key, value):
 
 @pytest.fixture
 def policies(project):
-    """The policies config init writes, with areas filled in."""
+    """The policies config init writes."""
     project.run("config", "init")
-    set_setting(project, flywheel.MERGE_POLICY, "areas", AREAS)
     return project
 
 
@@ -589,7 +587,6 @@ class DescribeAProtectedPath:
         ],
     )
     def it_holds_and_names_the_path(self, policies, github, path, pattern):
-        set_setting(policies, flywheel.MERGE_POLICY, "areas", {"plugin:demo": ["*"]})
         github.pull["files"].append({"path": path})
         code, data = check(policies)
         assert code == flywheel.PROBLEMS
@@ -598,7 +595,6 @@ class DescribeAProtectedPath:
         ]
 
     def it_leaves_a_file_that_only_shares_a_name_with_a_protected_one(self, policies, github):
-        set_setting(policies, flywheel.MERGE_POLICY, "areas", {"plugin:demo": ["*"]})
         github.pull["files"] = [{"path": "plugins/demo/CLAUDE.md"}, {"path": "specs.txt"}]
         code, data = check(policies)
         assert (code, data["reasons"]) == (flywheel.OK, [])
@@ -609,47 +605,6 @@ class DescribeAProtectedPath:
         code, _ = check(policies)
         assert code == flywheel.CANNOT_RUN
         assert 'gives "protected" as' in policies.err
-
-
-@pytest.mark.spec("mergecheck-cmd-holds-outside-area")
-class DescribeTheIssuesArea:
-    def it_holds_a_file_outside_the_area(self, policies, github):
-        github.pull["files"].append({"path": "plugins/other/app.py"})
-        _, data = check(policies)
-        assert data["reasons"] == [
-            "it changes plugins/other/app.py, outside the paths areas gives plugin:demo"
-        ]
-
-    def it_takes_the_paths_of_every_area_label_the_issue_has(self, policies, github):
-        set_setting(
-            policies,
-            flywheel.MERGE_POLICY,
-            "areas",
-            {"Plugin:Demo": ["plugins/demo/"], "repo": ["tests/"]},
-        )
-        github.labels.append("repo")
-        code, data = check(policies)
-        assert (code, data["reasons"]) == (flywheel.OK, [])
-
-    def it_holds_an_issue_without_an_area_the_policy_names(self, policies, github):
-        github.labels = ["approved"]
-        _, data = check(policies)
-        assert data["reasons"] == ["#12 has no area label that the merge policy's areas name"]
-
-    def it_holds_everything_while_areas_is_unset(self, project, github):
-        project.run("config", "init")
-        _, data = check(project)
-        assert data["reasons"] == [
-            '.flywheel/merge-policy.md leaves "areas" unset, so no file lies inside an area.'
-            " The owner fills it in"
-        ]
-
-    @pytest.mark.parametrize("areas", [[], {"plugin:demo": "plugins/demo/"}])
-    def it_stops_on_areas_it_cannot_read(self, policies, github, areas):
-        set_setting(policies, flywheel.MERGE_POLICY, "areas", areas)
-        code, _ = check(policies)
-        assert code == flywheel.CANNOT_RUN
-        assert 'gives "areas" as' in policies.err
 
     def it_stops_when_the_merge_policy_is_missing(self, project, github):
         code, _ = check(project)

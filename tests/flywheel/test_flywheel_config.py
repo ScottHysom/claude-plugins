@@ -158,12 +158,12 @@ class DescribeTheOwnersFields:
     def it_names_each_policy_setting_left_for_the_owner(self, project):
         _, env = project.run("config", "init")
         assert fields(env, REVIEW) == ["rules"]
-        assert fields(env, MERGE) == ["areas"]
+        assert fields(env, MERGE) == []
 
     def it_lists_them_in_text(self, project):
         _, out, _ = project.human("config", "init")
         named = ["%s: %s" % (ROLES, f) for f in OWNER_FIELDS]
-        named += ["%s: rules" % REVIEW, "%s: areas" % MERGE]
+        named += ["%s: rules" % REVIEW]
         named += ["%s: %s" % (GATES, f) for f in GATE_FIELDS]
         named += ["%s: tests.%s" % (GATES, f) for f in ("list", "run", "paths")]
         assert out == "%s\nthe owner fills in each of these:\n%s" % (

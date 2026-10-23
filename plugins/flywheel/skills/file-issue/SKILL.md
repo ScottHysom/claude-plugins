@@ -51,12 +51,8 @@ The rest of `data` gives the rules each issue follows:
 - `headings`: each heading the body holds, in order, with the `guidance` for
   what to write under it.
 - `kinds`: each kind label, mapped to its description.
-- `areas`: each area label, mapped to its description. An area that ends in
-  `*` stands for each label it prefixes, as `plugin:*` stands for
-  `plugin:flywheel`.
-- `roles`: the label for each role. `repo-area` is the area of an issue
-  about the whole repository, and `approval` and `plan` are labels a draft
-  never carries.
+- `roles`: the label for each role. `approval` and `plan` are labels a
+  draft never carries.
 
 Split the work into issues, one problem each. Give each issue:
 
@@ -65,11 +61,9 @@ Split the work into issues, one problem each. Give each issue:
 - a `body` that opens with `**Claude:**`, then each of `data.headings` as
   `## <heading>`, in its order. Under each heading, write what its
   `guidance` asks for.
-- `labels`: exactly one kind from `data.kinds`, chosen by its description.
-  When `data.areas` is not empty, also exactly one area: a label from
-  `data.areas`, chosen by its description, or `data.roles.repo-area`. When it
-  is empty, the issue takes an area label only for work on the whole
-  repository, and that label is `data.roles.repo-area`.
+- `labels`: exactly one kind from `data.kinds`, chosen by its description,
+  and any other label the project's own instructions ask for, such as an
+  area label that its `CLAUDE.md` asks each issue to carry.
 - `blocked_by`, when it waits on anything: the keys of the issues in the plan
   it waits on, and the numbers of open issues outside it.
 

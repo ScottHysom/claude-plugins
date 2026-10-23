@@ -68,13 +68,12 @@ Commands:
                  owner's target level from --level and, under each level,
                  each control's state.
     labels       each label the loop and file-issue need that the repository
-                 lacks, such as `repo` and `tracking`, and the claim label
-                 when the repository describes it otherwise. With --set
-                 ROLE=NAME, first write NAME as ROLE's label into
-                 .flywheel/labels.json. With --kind NAME=TEXT or --area
-                 NAME=TEXT, first write the project's kinds or areas there,
-                 in place of the ones it gives. With --create, create
-                 each one, except an area pattern such as `plugin:*`.
+                 lacks, such as `tracking`, and the claim label when the
+                 repository describes it otherwise. With --set ROLE=NAME,
+                 first write NAME as ROLE's label into
+                 .flywheel/labels.json. With --kind NAME=TEXT, first write
+                 the project's kinds there, in place of the ones it gives.
+                 With --create, create each one.
     queue        up to --count of the oldest open approved issues nobody
                  holds and no open issue blocks, or an approved tracking
                  issue that comes first. With --tracking N, up to --count of
@@ -139,7 +138,7 @@ Commands:
                  pull request with --title and the draft as its description.
     plan draft   make an empty file in the temporary directory for a plan's
                  drafts, named so that no other run gets it, and print its path.
-                 With --json, also the kinds, areas, role labels and headings
+                 With --json, also the kinds, role labels and headings
                  the drafts follow, with each heading's guidance.
     plan report  check a plan's drafts, print the plan as it will be filed,
                  ending with an approval token, and write the same report to
@@ -169,14 +168,15 @@ test that fails at the branch, a malformed .flywheel/labels.json, an
 issue template without a heading, and a pull request template without a
 heading or without exactly one section marked for requirement ids).
 
-The labels. The loop acts on four labels by their role: the approval label,
+The labels. The loop acts on three labels by their role: the approval label,
 which the owner adds to approve an issue, the plan label of a tracking
-issue, the claim label that `claim` adds, and the area label of an issue
-about the whole repository. A repository may already have labels for these,
-so .flywheel/labels.json can give each role's label under `roles`, and
-ROLE_LABELS holds the label of each role it leaves out. The same file gives
-the project's kind and area labels, which file-issue's issues carry. Labels match without
-case, as GitHub matches them. The claim label stays the loop's alone:
+issue, and the claim label that `claim` adds. A repository may already have
+labels for these, so .flywheel/labels.json can give each role's label under
+`roles`, and ROLE_LABELS holds the label of each role it leaves out. The same
+file gives the project's kind labels, one of which each of file-issue's
+issues carries. flywheel does not read an area label: a project that asks
+each issue for one says so in its own instructions, and file-issue adds the
+labels those ask for. Labels match without case, as GitHub matches them. The claim label stays the loop's alone:
 `stale` reads every issue carrying it as a claim, and `release` takes it
 off, so `labels` reports it taken when the repository has it with a
 description other than the one `labels --create` gives.
@@ -369,7 +369,7 @@ each under a key of its own, and names another issue of the plan in a body as
 {KEY}. A plan of several issues takes a tracking issue. A plan of one issue
 may leave it out, and is then filed as that issue alone. `plan report` checks
 each draft's opening against OPENING, its headings against
-.flywheel/issue-template.md, and its labels against the kinds, areas and
+.flywheel/issue-template.md, and its labels against the kinds and
 roles .flywheel/labels.json gives, with the defaults beside LABELS_FILE for
 what the project leaves out. It also checks the plan's keys and links. It refuses a draft's body or the tracking
 issue's plan that continues a paragraph or a list item onto a second line, outside a fence or an HTML comment, and names the line.
@@ -654,7 +654,6 @@ SETTINGS_RE = re.compile(r"^```json[ \t]*\n(.*?)^```[ \t]*$", re.M | re.S)
 P3_CAP_KEY = "p3_cap"
 RULES_KEY = "rules"
 PROTECTED_KEY = "protected"
-AREAS_KEY = "areas"
 # The role a session started from `brief` plays, and the skill it plays it with.
 BRIEF_ROLE = "implementer"
 BRIEF_SKILL = "work-issue"
@@ -882,12 +881,9 @@ CLOSES_RE = re.compile(r"^\s*(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#\d+\b"
 # `pr draft`: the name of the file a run of the open-pr skill writes its draft to.
 PR_DRAFT_PREFIX, PR_DRAFT_SUFFIX = "pr-", ".md"
 # `.flywheel/labels.json`: the label the repository uses for each role the
-# loop acts on. A role the file leaves out takes its default here. `repo-area`
-# is the area of an issue about the whole repository, which the gaps adopt
-# files carry. Under KINDS_KEY and AREAS_KEY the file maps each kind and area
-# label to its description. Without kinds, they are GitHub's DEFAULT_KINDS;
-# without areas, an issue needs no area label. An area ending in AREA_PATTERN
-# matches each label it prefixes.
+# loop acts on. A role the file leaves out takes its default here. Under
+# KINDS_KEY the file maps each kind label to its description. Without kinds,
+# they are GitHub's DEFAULT_KINDS.
 LABELS_FILE = COPY_DIR + "/labels.json"
 KINDS_KEY = "kinds"
 DEFAULT_KINDS = {
@@ -895,13 +891,11 @@ DEFAULT_KINDS = {
     "enhancement": "New feature or request",
     "documentation": "Improvements or additions to documentation",
 }
-AREA_PATTERN = "*"
-APPROVAL, PLAN, CLAIM, REPO_AREA = "approval", "plan", "claim", "repo-area"
-ROLE_LABELS = {APPROVAL: APPROVED, PLAN: TRACKING, CLAIM: IN_PROGRESS, REPO_AREA: "repo"}
+APPROVAL, PLAN, CLAIM = "approval", "plan", "claim"
+ROLE_LABELS = {APPROVAL: APPROVED, PLAN: TRACKING, CLAIM: IN_PROGRESS}
 # `labels`: each label the loop and file-issue need, with its description.
 # A role's label is named by its role.
 ROLE_TEXTS = {
-    REPO_AREA: "The repository as a whole",
     PLAN: "Groups a plan's issues as sub-issues",
     APPROVAL: "The owner approved this issue to be worked",
     CLAIM: "A session has claimed this issue",
@@ -1151,14 +1145,14 @@ def checked_texts(key, given):
 
 
 def label_rules(root):
-    """The role labels, the kinds and the areas LABELS_FILE gives, each
-    checked, with the defaults for what it leaves out."""
+    """The role labels and the kinds LABELS_FILE gives, each checked, with
+    the defaults for what it leaves out."""
     return checked_labels(project_json(root, LABELS_FILE))
 
 
 def checked_labels(found):
-    """The role labels, the kinds and the areas in `found`, LABELS_FILE as
-    JSON, or Fatal naming the fault."""
+    """The role labels and the kinds in `found`, LABELS_FILE as JSON, or
+    Fatal naming the fault."""
     names = checked_roles(labels_section(found, ROLES_KEY) or {})
     kinds = labels_section(found, KINDS_KEY)
     if kinds is not None and not kinds:
@@ -1167,14 +1161,7 @@ def checked_labels(found):
             % (LABELS_FILE, KINDS_KEY, KINDS_KEY)
         )
     kinds = checked_texts(KINDS_KEY, DEFAULT_KINDS if kinds is None else kinds)
-    areas = checked_texts(AREAS_KEY, labels_section(found, AREAS_KEY) or {})
-    both = sorted({k.lower() for k in kinds} & {a.lower() for a in areas})
-    if both:
-        raise Fatal(
-            '%s gives `%s` as both a kind and an area. Keep it under one of "%s" and "%s",'
-            " then run again." % (LABELS_FILE, both[0], KINDS_KEY, AREAS_KEY)
-        )
-    return names, kinds, areas
+    return names, kinds
 
 
 def issue_headings(root):
@@ -1262,20 +1249,6 @@ def ids_heading(root):
 def either(items):
     """`items` as one phrase, the last joined by "or"."""
     return " or ".join(filter(None, [", ".join(items[:-1]), items[-1]]))
-
-
-def is_area(label, areas, names):
-    """Whether `label` is one of `areas` or the repo-area role's label."""
-    low = label.lower()
-    if low == names[REPO_AREA].lower():
-        return True
-    for area in areas:
-        area = area.lower()
-        if area.endswith(AREA_PATTERN) and low.startswith(area[: -len(AREA_PATTERN)]):
-            return True
-        if low == area:
-            return True
-    return False
 
 
 def has_label(item, name):
@@ -2336,20 +2309,19 @@ def cmd_record(args):
 # --------------------------------------------------------------------------
 
 
-def set_labels(root, roles, kinds, areas):
+def set_labels(root, roles, kinds):
     """Write each (role, label) pair of `roles` into LABELS_FILE, keeping its
-    other roles, and `kinds` and `areas`, (label, description) pairs, in place
-    of the file's kinds and areas when given. Keeps the file's other keys, and
-    writes nothing when the result breaks a rule."""
+    other roles, and `kinds`, (label, description) pairs, in place of the
+    file's kinds when given. Keeps the file's other keys, and writes nothing
+    when the result breaks a rule."""
     found = project_json(root, LABELS_FILE)
     if found is None:
         found = {}
     if roles:
         found[ROLES_KEY] = dict(labels_section(found, ROLES_KEY) or {}, **dict(roles))
-    for key, pairs in ((KINDS_KEY, kinds), (AREAS_KEY, areas)):
-        if pairs:
-            labels_section(found, key)
-            found[key] = dict(pairs)
+    if kinds:
+        labels_section(found, KINDS_KEY)
+        found[KINDS_KEY] = dict(kinds)
     checked_labels(found)
     write_bytes(root, LABELS_FILE, (json.dumps(found, indent=2) + "\n").encode("utf-8"))
 
@@ -2367,19 +2339,17 @@ def cmd_labels(args):
     """Name each label the loop and file-issue need that the repository lacks,
     and create each one with --create."""
     root = project_root(args.repo)
-    if args.set or args.kind or args.area:
-        set_labels(root, args.set, args.kind, args.area)
-    names, kinds, areas = label_rules(root)
+    if args.set or args.kind:
+        set_labels(root, args.set, args.kind)
+    names, kinds = label_rules(root)
     listed = gh_json(
         root, "label", "list", "--limit", str(LIST_LIMIT), "--json", "name,description"
     )
     have = {lbl["name"].lower(): lbl for lbl in listed}
-    # An area pattern names no one label, so there is none to create.
-    exact = [(name, text) for name, text in areas.items() if not name.endswith(AREA_PATTERN)]
-    needed = [*kinds.items(), *exact, *((names[role], text) for role, text in ROLE_TEXTS.items())]
+    needed = [*kinds.items(), *((names[role], text) for role, text in ROLE_TEXTS.items())]
     missing = []
     for name, text in needed:
-        # An area may also be the repo-area role's label.
+        # A kind may also be a role's label.
         if name.lower() not in have and name.lower() not in {m.lower() for m, _ in missing}:
             missing.append((name, text))
     created = []
@@ -2407,7 +2377,6 @@ def cmd_labels(args):
         "created": created,
         "roles": names,
         "kinds": kinds,
-        "areas": areas,
         "taken": taken["name"] if taken else None,
     }
 
@@ -3476,24 +3445,14 @@ def review_settings(settings):
 
 
 def merge_settings(settings):
-    """The merge policy's protected paths and areas, checked. areas is None when unset."""
+    """The merge policy's protected paths, checked."""
     protected = settings.get(PROTECTED_KEY)
     if not is_paths(protected):
         raise Fatal(
             '%s gives "%s" as %s. Make it a list of paths, then run again.'
             % (MERGE_POLICY, PROTECTED_KEY, json.dumps(protected))
         )
-    areas = settings.get(AREAS_KEY)
-    if areas is not None and not (
-        isinstance(areas, dict) and all(is_paths(v) for v in areas.values())
-    ):
-        raise Fatal(
-            '%s gives "%s" as %s. Make it an object that maps each area label to a list of'
-            " paths, then run again." % (MERGE_POLICY, AREAS_KEY, json.dumps(areas))
-        )
-    if areas is not None:
-        areas = {label.lower(): paths for label, paths in areas.items()}
-    return protected, areas
+    return protected
 
 
 def path_matches(path, pattern):
@@ -3602,7 +3561,7 @@ def assess(root, number):
     """merge-check's verdict on pull request `number`: flow or hold, each reason it
     holds, and what the dispatcher does next."""
     _, settings = project_policy(root, MERGE_POLICY)
-    protected, areas = merge_settings(settings)
+    protected = merge_settings(settings)
     pull = pull_request(root, number)
     threads = review_threads(root, number)
     head = pull["headRefOid"]
@@ -3614,7 +3573,6 @@ def assess(root, number):
         owner.append("#%d is %s, not open" % (number, (pull.get("state") or "").lower()))
     claimed = claim_number(pull["headRefName"])
     closes = [i.get("number") for i in pull.get("closingIssuesReferences") or []]
-    area_labels = None
     if claimed is None:
         owner.append(
             "its branch %s is not a claim branch, %sN" % (pull["headRefName"], BRANCH_PREFIX)
@@ -3626,7 +3584,6 @@ def assess(root, number):
         approval = role_labels(root)[APPROVAL]
         if approval.lower() not in found:
             owner.append("#%d is not labeled %s" % (claimed, approval))
-        area_labels = sorted(label for label in found if areas and label in areas)
 
     heading = ids_heading(root)
     present, ids = requirement_ids(pull.get("body") or "", heading)
@@ -3644,21 +3601,6 @@ def assess(root, number):
         hit = next((p for p in protected if path_matches(path, p)), None)
         if hit:
             owner.append("it touches %s, which the merge policy protects as %s" % (path, hit))
-    if areas is None:
-        owner.append(
-            '%s leaves "%s" unset, so no file lies inside an area. The owner fills it in'
-            % (MERGE_POLICY, AREAS_KEY)
-        )
-    elif area_labels is not None and not area_labels:
-        owner.append("#%d has no area label that the merge policy's areas name" % claimed)
-    elif area_labels:
-        allowed = [p for label in area_labels for p in areas[label]]
-        for path in paths:
-            if not any(path_matches(path, p) for p in allowed):
-                owner.append(
-                    "it changes %s, outside the paths areas gives %s"
-                    % (path, ", ".join(area_labels))
-                )
 
     ci = ci_state(pull.get("statusCheckRollup"))
     if ci == CI_NONE:
@@ -4669,7 +4611,7 @@ def check_issue(index, item, known, rules):
     """One issue of the plan as a row, or None, and the faults in it.
 
     `known` maps each of the repository's labels, in lower case, to its name,
-    and `rules` gives each role's label, the kinds, the areas and the headings.
+    and `rules` gives each role's label, the kinds and the headings.
     A row for an issue filed already carries its number; a draft's is None.
     """
     if not isinstance(item, dict):
@@ -4694,7 +4636,7 @@ def check_issue(index, item, known, rules):
         body = ""
     elif not body.startswith(OPENING):
         faults.append("%s's body does not open with %s" % (name, OPENING))
-    names, kinds, areas = rules["roles"], rules["kinds"], rules["areas"]
+    names, kinds = rules["roles"], rules["kinds"]
     held = HEADING_RE.findall(body)
     missing = [h for h, _ in rules["headings"] if h not in held]
     if missing:
@@ -4706,24 +4648,12 @@ def check_issue(index, item, known, rules):
         faults.append("%s's labels are not a list of names" % name)
         labels = []
     lowered = {k.lower() for k in kinds}
-    checks = [("kind", [lbl for lbl in labels if lbl.lower() in lowered], either(list(kinds)))]
-    if areas:
-        choices = list(areas)
-        if names[REPO_AREA].lower() not in {a.lower() for a in areas}:
-            choices.append(names[REPO_AREA])
-        checks.append(
-            (
-                "area",
-                [lbl for lbl in labels if is_area(lbl, areas, names)],
-                either(["`%s`" % a for a in choices]),
-            )
+    found = [lbl for lbl in labels if lbl.lower() in lowered]
+    if len(found) != 1:
+        faults.append(
+            "%s carries %d kind labels%s; it takes exactly one, from %s"
+            % (name, len(found), " (%s)" % ", ".join(found) if found else "", either(list(kinds)))
         )
-    for what, found, choices in checks:
-        if len(found) != 1:
-            faults.append(
-                "%s carries %d %s labels%s; it takes exactly one, from %s"
-                % (name, len(found), what, " (%s)" % ", ".join(found) if found else "", choices)
-            )
     for lbl in labels:
         if lbl.lower() == names[APPROVAL].lower():
             faults.append("%s carries `%s`, which only the owner adds" % (name, lbl))
@@ -4831,8 +4761,8 @@ def check_plan(repo, plan, labels):
         tracking = {"title": tracking["title"], "plan": tracking["plan"]}
 
     known = {lbl.lower(): lbl for lbl in labels}
-    names, kinds, areas = label_rules(repo)
-    rules = {"roles": names, "kinds": kinds, "areas": areas, "headings": issue_headings(repo)}
+    names, kinds = label_rules(repo)
+    rules = {"roles": names, "kinds": kinds, "headings": issue_headings(repo)}
     rows, seen = [], set()
     for index, item in enumerate(issues, 1):
         row, found = check_issue(index, item, known, rules)
@@ -5081,7 +5011,7 @@ def checked_plan(args, repo):
 
 def cmd_plan_draft(args):
     root = project_root(args.repo)
-    names, kinds, areas = label_rules(root)
+    names, kinds = label_rules(root)
     headings = [{"heading": h, "guidance": g} for h, g in issue_headings(root)]
     try:
         fd, path = tempfile.mkstemp(prefix=DRAFT_PREFIX, suffix=DRAFT_SUFFIX)
@@ -5095,7 +5025,7 @@ def cmd_plan_draft(args):
     def human():
         print(path)
 
-    data = {"path": path, "roles": names, "kinds": kinds, "areas": areas, "headings": headings}
+    data = {"path": path, "roles": names, "kinds": kinds, "headings": headings}
     return emit(args, "plan draft", data, human=human)
 
 
@@ -5430,7 +5360,7 @@ def role_pair(text):
 
 
 def label_pair(text):
-    """argparse type for --kind and --area: NAME=TEXT, NAME a label."""
+    """argparse type for --kind: NAME=TEXT, NAME a label."""
     name, sep, description = text.partition("=")
     if not sep or not name.strip():
         raise argparse.ArgumentTypeError(
@@ -5538,15 +5468,6 @@ def build_parser():
         metavar="NAME=TEXT",
         help="write the kind labels into %s first, in place of the kinds it gives, each"
         " with its description TEXT; give it once for each kind" % LABELS_FILE,
-    )
-    p.add_argument(
-        "--area",
-        action="append",
-        type=label_pair,
-        metavar="NAME=TEXT",
-        help="write the area labels into %s first, in place of the areas it gives, each"
-        " with its description TEXT; a NAME ending in %s stands for each label it"
-        " prefixes; give it once for each area" % (LABELS_FILE, AREA_PATTERN),
     )
     p.set_defaults(func=cmd_labels)
 
