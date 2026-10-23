@@ -1,6 +1,6 @@
 ---
 name: open-pr
-description: Open a pull request once its work is committed, with a description in the project's own shape that the owner can review without the session's context. Uses scripts/flywheel.py pr draft for the shape and a file to draft in, pr check to check the draft's sections, lines and Closes line, gives the draft to a subagent that has none of the session's context to find each term it leaves undefined, gives it to a second subagent to find each breach of the project's prose rules when the pull request template names them, and opens the pull request with pr open from the checked file. Claude Code only. Use when opening, creating or raising a pull request, or when asked to put the work up for review, in a project that has no skill of its own for opening one.
+description: Open a pull request once its work is committed, with a description in the project's own shape that the owner can review without the session's context. Uses scripts/flywheel.py pr draft for the shape and a file to draft in, pr check to check the draft's sections, lines and Closes line, hands the draft to the skill the pull request template names to run the prose rules' patterns, gives the draft to a subagent that has none of the session's context to find each term it leaves undefined, gives it to a second subagent to find each breach of the project's prose rules when the pull request template names them, and opens the pull request with pr open from the checked file. Claude Code only. Use when opening, creating or raising a pull request, or when asked to put the work up for review, in a project that has no skill of its own for opening one.
 ---
 
 # Open a pull request
@@ -53,7 +53,9 @@ another variable. The commands below show it as
 `data.sections` lists the sections in order. Each has its `heading`, its
 `guidance`, its `subsections`, each with a `heading` and `guidance`, and
 `ids`, true for the section that names the requirement ids. `data.prose_rules`
-lists the files of the project's prose rules, which step 4 reads. Write a `##`
+lists the files of the project's prose rules, which step 4 reads.
+`data.prose_check` names the skill that step 2 hands the draft to, or is
+null. Write a `##`
 heading for each section and a `###` heading for each subsection, in that
 order, with what the guidance asks under each. In the section whose `ids` is
 true, name in backticks each requirement id the pull request adds, changes
@@ -75,14 +77,33 @@ meaning. Explain it by the first of these ways that works:
 3. Define what the term is, in one clause.
 
 ## Step 2: check the draft
-<!-- spec: prskill-checks-draft, prcheck-cmd-requires-shape, prcheck-cmd-refuses-split-lines, prcheck-cmd-requires-closes -->
+<!-- spec: prskill-checks-draft, prcheck-cmd-requires-shape, prcheck-cmd-refuses-split-lines, prcheck-cmd-requires-closes, prskill-runs-prose-patterns -->
 
 ```sh
 FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" pr check --body-file /var/folders/k2/T/pr-x8q1zv.md --json
 ```
 
 When it exits 1, its `errors` name each fault. Fix them in the draft and run
-it again. Go on to step 3 when it exits 0.
+it again.
+
+When it exits 0 and step 1's `data.prose_check` is null, go on to step 3.
+
+When `data.prose_check` names a skill, a **pattern** of a prose rule is a
+regular expression that finds a likely breach of the rule without a reader.
+Hand the draft to that skill with the Skill tool, so that it runs the
+patterns. Pass these in its arguments:
+
+- the draft's path, exactly as step 1 printed it.
+- each path from `data.prose_rules`.
+- the checkout's root and branch.
+
+Rewrite each sentence that a match falls in, so that it follows the rule.
+Leave a sentence as it is only when the rule's own text shows that the match
+is not a breach. After any rewrite, run this step again from `pr check`. Go
+on to step 3 when the skill reports no match left to rewrite.
+
+When the session's skills do not include the one `data.prose_check` names,
+go on to step 3 without the patterns, and tell the owner so in step 5.
 
 ## Step 3: have the draft read cold
 <!-- spec: prskill-gives-draft-to-cold-reader -->
@@ -180,8 +201,9 @@ Rewrite each sentence the reply quotes so that it follows the rule. Leave a
 sentence as it is only when the rule's own text shows that the sentence
 follows it.
 
-After any revision, go back to step 2: the revised draft is checked, read
-cold by a new subagent in step 3, and read here by a new subagent. Go on to
+After any revision, go back to step 2: the revised draft is checked, its
+patterns run when the template names a skill for them, it is read cold by a
+new subagent in step 3, and read here by a new subagent. Go on to
 step 5 only when a read here leaves no sentence to rewrite.
 
 ## Step 5: open the pull request
@@ -197,3 +219,5 @@ after step 4 and fails the check, so go back to step 2. When it exits 2, its
 message names what to do.
 
 On exit 0, tell the owner `data.url`, and the issue the pull request closes.
+When step 2 skipped the patterns, also tell the owner that they did not run,
+and name the skill that `data.prose_check` gives.

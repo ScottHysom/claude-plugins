@@ -131,7 +131,8 @@ Commands:
                  and print its path. With --json, also the shape the
                  description takes: .flywheel/pr-template.md's sections,
                  subsections and guidance, or the plugin's default shape,
-                 and each prose rules file the template names.
+                 each prose rules file the template names, and the skill
+                 it names to run their patterns.
     pr check     check a drafted description against that shape, for a
                  paragraph or list item split across lines, and for a line
                  that closes an issue.
@@ -853,6 +854,9 @@ IDS_MARK = "<!-- requirement-ids -->"
 # A line outside a code fence in PR_TEMPLATE_FILE that names a file of the
 # project's prose rules, from the project root, for open-pr's prose read.
 PROSE_RULES_RE = re.compile(r"^[ \t]*<!--[ \t]*prose-rules:[ \t]*(.*?)[ \t]*-->[ \t]*$")
+# A line outside a code fence in PR_TEMPLATE_FILE that names the skill open-pr
+# hands a draft to, to run the prose rules' patterns over it.
+PROSE_CHECK_RE = re.compile(r"^[ \t]*<!--[ \t]*prose-check:[ \t]*(.*?)[ \t]*-->[ \t]*$")
 PrSection = collections.namedtuple("PrSection", "heading guidance subsections ids")
 DEFAULT_PR_SHAPE = (
     PrSection(
@@ -1197,16 +1201,17 @@ def pr_prose_rules(root):
 
 
 def pr_template(root):
-    """PR_TEMPLATE_FILE's shape and the prose rules files it names."""
+    """PR_TEMPLATE_FILE's shape, the prose rules files it names, and the skill
+    that runs their patterns, or None."""
     path = os.path.join(root, *PR_TEMPLATE_FILE.split("/"))
     if not os.path.isfile(path):
-        return DEFAULT_PR_SHAPE, ()
+        return DEFAULT_PR_SHAPE, (), None
     # Each section is [heading, guidance lines, subsections, marked], and each
     # subsection [heading, guidance lines].
-    sections, rules, fence = [], [], None
+    sections, rules, checks, fence = [], [], [], None
     for line in read_text(path).splitlines():
         m = FENCE_RE.match(line)
-        top = sub = prose = None
+        top = sub = prose = check = None
         if fence is not None:
             if m and m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence):
                 fence = None
@@ -1214,8 +1219,16 @@ def pr_template(root):
             fence = m.group(1)
         else:
             top, sub = HEADING_RE.match(line), SUBHEADING_RE.match(line)
-            prose = PROSE_RULES_RE.match(line)
-        if prose:
+            prose, check = PROSE_RULES_RE.match(line), PROSE_CHECK_RE.match(line)
+        if check:
+            if not check.group(1) or checks:
+                raise Fatal(
+                    "%s has `%s`. Keep one `<!-- prose-check: SKILL -->` line, naming the"
+                    " skill that runs the prose rules' patterns, then run again."
+                    % (PR_TEMPLATE_FILE, line.strip())
+                )
+            checks.append(check.group(1))
+        elif prose:
             if not os.path.isfile(os.path.join(root, prose.group(1))):
                 raise Fatal(
                     "%s has `%s`, and the project does not have that file. Name the file"
@@ -1253,6 +1266,12 @@ def pr_template(root):
             "%s marks %s and %s with `%s`. Keep the mark under one of them, then run again."
             % (PR_TEMPLATE_FILE, ", ".join(marked[:-1]), marked[-1], IDS_MARK)
         )
+    if checks and not rules:
+        raise Fatal(
+            "%s names a skill with `<!-- prose-check: %s -->`, and no file of prose rules."
+            " Add a `<!-- prose-rules: PATH -->` line for each file of the rules, then run"
+            " again." % (PR_TEMPLATE_FILE, checks[0])
+        )
     shape = tuple(
         PrSection(
             heading,
@@ -1262,7 +1281,7 @@ def pr_template(root):
         )
         for heading, lines, subsections, ids in sections
     )
-    return shape, tuple(rules)
+    return shape, tuple(rules), (checks[0] if checks else None)
 
 
 def ids_heading(root):
@@ -4424,7 +4443,7 @@ def read_description(path):
 
 def cmd_pr_draft(args):
     root = project_root(args.repo)
-    shape, rules = pr_template(root)
+    shape, rules, check = pr_template(root)
     sections = [
         {
             "heading": s.heading,
@@ -4446,7 +4465,7 @@ def cmd_pr_draft(args):
     def human():
         print(path)
 
-    data = {"path": path, "sections": sections, "prose_rules": list(rules)}
+    data = {"path": path, "sections": sections, "prose_rules": list(rules), "prose_check": check}
     return emit(args, "pr draft", data, human=human)
 
 

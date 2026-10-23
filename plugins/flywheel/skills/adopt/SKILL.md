@@ -132,8 +132,8 @@ level up to the target that has a control missing, with the `controls`
 still missing and their evidence.
 
 ## Step 6: set the issue and pull request rules and create the missing labels
-<!-- spec: adopt-asks-role-labels, labels-cmd-sets-role, labels-cmd-flags-taken-claim-label, adopt-creates-missing-labels, labels-cmd-names-missing-labels, adopt-asks-issue-rules, labels-cmd-sets-kinds, issuetemplate-sets-headings, adopt-asks-pr-shape, prtemplate-sets-shape -->
-<!-- seam: judgment: the owner names each role's label, the issue rules and the pull request shape, then agrees to create the missing labels -->
+<!-- spec: adopt-asks-role-labels, labels-cmd-sets-role, labels-cmd-flags-taken-claim-label, adopt-creates-missing-labels, labels-cmd-names-missing-labels, adopt-asks-issue-rules, labels-cmd-sets-kinds, issuetemplate-sets-headings, adopt-asks-pr-shape, prtemplate-sets-shape, adopt-asks-prose-rules, prtemplate-names-prose-rules, prtemplate-names-prose-check -->
+<!-- seam: judgment: the owner names each role's label, the issue rules, the pull request shape and the prose rules, then agrees to create the missing labels -->
 
 The loop acts on three labels by their role. Ask the owner, with one
 `AskUserQuestion`, which label the repository already uses for each role,
@@ -176,6 +176,22 @@ subsection under it as `### <heading>`, with what to write under each on the
 lines below. Put `<!-- requirement-ids -->` on its own line under the heading
 of the section that names the ids. Leave the file out when the answer is the
 default.
+
+Then ask the owner, with one more `AskUserQuestion`, for both of these:
+
+- the files that hold the project's prose rules, if it keeps any, such as
+  `.claude/rules/prose-style.md`. Offer each such file the repository has.
+- the installed skill that runs the patterns of those rules over a file it
+  is handed, if there is one. A **pattern** is a regular expression in a rule
+  that finds a likely breach without a reader. Offer each skill of the
+  session whose description says it checks a file against prose rules.
+
+For each file, put a line `<!-- prose-rules: PATH -->` at the top of
+`.flywheel/pr-template.md`, with the path from the project root. For the
+skill, put a line `<!-- prose-check: SKILL -->` under them. When the template
+does not exist yet, write the default shape under the lines: each section and
+subsection above, with `<!-- requirement-ids -->` under `## Requirements`.
+When the owner names no file, write neither line, and name no skill.
 
 Set each label answer that differs from the default and name the labels the
 repository lacks. The command below sets `ready` as the approval label, and
