@@ -3,5 +3,10 @@
     "bug": "Something does not work as documented",
     "enhancement": "New behaviour, or a better way to do an existing thing",
     "docs": "Documentation only: READMEs, SKILL.md prose, CLAUDE.md"
+  },
+  "roles": {
+    "approval": "approved",
+    "plan": "tracking",
+    "claim": "in-progress"
   }
 }
