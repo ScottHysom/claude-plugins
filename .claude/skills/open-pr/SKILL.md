@@ -98,10 +98,9 @@ will read it.
 <!-- spec: openpr-gives-draft-to-cold-reader -->
 <!-- no-command: platform. The model starts a subagent with the Agent tool, which a script cannot do. -->
 
-Start a subagent with the Agent tool, `subagent_type` `cold-reader`. That
-agent, defined in `.claude/agents/cold-reader.md`, starts without any
-CLAUDE.md, rules file or tool. Give it this prompt and nothing else: no
-summary of the work, no issue, no file paths. Put the title in place of `<the title>`, and the draft in place
+Start a subagent with the Agent tool, `subagent_type` `cold-reader`.
+Give it this prompt and nothing else: no summary of the work, no issue, no
+file paths. Put the title in place of `<the title>`, and the draft in place
 of `<the draft>`, exactly as the file holds it.
 
 ```text
