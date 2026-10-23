@@ -134,7 +134,8 @@ Source: #716, with the owner's approval of the plan posted there.
   stops a command that reads it with exit 2.
 - `prdraft-cmd-makes-own-file` (test): When `flywheel.py pr draft` runs, it
   makes an empty file that no other run is given, and prints its path with
-  each section, subsection and guidance of the shape to draft from.
+  each section, subsection and guidance of the shape to draft from, and each
+  prose rules file the pull request template names.
 - `prcheck-cmd-requires-shape` (test): When
   `flywheel.py pr check --body-file FILE` reads a description that does any
   of these, it names each fault and exits 1:
@@ -168,7 +169,8 @@ Source: #716, with the owner's approval of the plan posted there.
   context, which names each term the draft leaves undefined, and revises
   the draft until a subagent names none that blocks the reading.
 - `prskill-opens-through-script` (step): When the cold reader names no
-  blocking term, open-pr opens the pull request with `pr open`.
+  blocking term, and the prose read leaves no sentence to rewrite or is
+  skipped, open-pr opens the pull request with `pr open`.
 - `adopt-asks-pr-shape` (step): When adopt asks the owner for the issue
   rules, it asks in the same question for the shape of a pull request's
   description, offering the default first, and writes an answer that
@@ -177,6 +179,29 @@ Source: #716, with the owner's approval of the plan posted there.
   rules for agents, they tell the agent to name each requirement id the
   pull request adds, changes or removes in the section the pull request
   template marks, and to open the pull request through the open-pr skill.
+
+## need owner-reads-description-in-project-style: Read each description in the project's prose style
+
+When the owner adopts the loop in a project that keeps prose rules, they want
+open-pr to hold each description to those rules before the owner reads it, as
+this repository's own open-pr does.
+
+Source: commit db742c2, and the owner's decision of 2026-10-22 to make
+open-pr's reading fixes in flywheel's skill, so that they survive #717. The
+owner chose in chat on #739 that the pull request template names the files.
+
+- `prtemplate-names-prose-rules` (test): When `.flywheel/pr-template.md`
+  holds a line `<!-- prose-rules: PATH -->` outside a code fence, PATH names
+  a file of the project's prose rules, from the project root. A template
+  names several files with one mark each. A mark that names a file that does
+  not exist stops a command that reads the template with exit 2.
+- `prskill-gives-draft-to-style-reader` (step): When the draft passes
+  `pr check` and the template names prose rules files, open-pr gives the
+  draft to a subagent that reads those files and nothing else, which names
+  each breach by rule and quotes its sentence. open-pr rewrites each quoted
+  sentence that breaks its rule, and sends the revised draft back through
+  `pr check`, the cold reader and this read. When the template does not name
+  any prose rules file, open-pr skips this read.
 
 ## need contributor-reads-method-beside-plugin: Read the method beside the plugin
 

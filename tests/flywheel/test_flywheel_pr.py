@@ -79,6 +79,40 @@ class DescribeThePullRequestTemplate:
         assert says in project.err
 
 
+PROSE = "<!-- prose-rules: docs/style.md -->\n"
+
+
+@pytest.mark.spec("prtemplate-names-prose-rules")
+class DescribeTheProseRulesMark:
+    def it_names_no_file_without_a_template(self, project):
+        assert flywheel.pr_prose_rules(str(project.root)) == ()
+
+    def it_names_each_marked_file_in_the_order_of_its_marks(self, project):
+        project.write("docs/style.md", "# Style\n")
+        project.write("rules.md", "# Rules\n")
+        project.write(TEMPLATE, PROSE + CUSTOM + "\n<!-- prose-rules: rules.md -->\n")
+        assert flywheel.pr_prose_rules(str(project.root)) == ("docs/style.md", "rules.md")
+
+    def it_keeps_the_mark_out_of_the_guidance(self, project):
+        project.write("docs/style.md", "# Style\n")
+        project.write(TEMPLATE, CUSTOM.replace("New ids.\n", "New ids.\n" + PROSE))
+        assert shape(project)[1].subsections == (("Added", "New ids."),)
+
+    def it_reads_a_mark_in_a_fence_as_guidance(self, project):
+        project.write(TEMPLATE, CUSTOM + "\n```markdown\n" + PROSE + "```\n")
+        assert flywheel.pr_prose_rules(str(project.root)) == ()
+
+    @pytest.mark.spec("repo:script-exits-2-when-unrunnable")
+    @pytest.mark.parametrize("command", [("pr", "draft"), ("pr", "check", "--body-file", "x.md")])
+    def it_stops_on_a_mark_that_names_a_missing_file(self, project, command):
+        project.write("x.md", GOOD)
+        project.write(TEMPLATE, PROSE + CUSTOM)
+        code, out = project.run(*[str(project.root / a) if a == "x.md" else a for a in command])
+        assert code == flywheel.CANNOT_RUN
+        assert out is None
+        assert "`<!-- prose-rules: docs/style.md -->`" in project.err
+
+
 @pytest.fixture
 def drafted(tmp_path):
     def write(text):
@@ -120,6 +154,18 @@ class DescribePrDraft:
                 "ids": True,
             },
         ]
+
+    def it_gives_the_prose_rules_files_the_template_names(self, project):
+        project.write("docs/style.md", "# Style\n")
+        project.write(TEMPLATE, PROSE + CUSTOM)
+        _, out = project.run("pr", "draft")
+        os.remove(out["data"]["path"])
+        assert out["data"]["prose_rules"] == ["docs/style.md"]
+
+    def it_gives_no_prose_rules_file_without_a_mark(self, project):
+        _, out = project.run("pr", "draft")
+        os.remove(out["data"]["path"])
+        assert out["data"]["prose_rules"] == []
 
     def it_prints_only_the_path_in_text(self, project):
         code, out, err = project.human("pr", "draft")

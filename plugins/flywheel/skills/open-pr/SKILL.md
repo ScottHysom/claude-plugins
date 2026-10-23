@@ -1,6 +1,6 @@
 ---
 name: open-pr
-description: Open a pull request once its work is committed, with a description in the project's own shape that the owner can review without the session's context. Uses scripts/flywheel.py pr draft for the shape and a file to draft in, pr check to check the draft's sections, lines and Closes line, gives the draft to a subagent that has none of the session's context to find each term it leaves undefined, and opens the pull request with pr open from the checked file. Claude Code only. Use when opening, creating or raising a pull request, or when asked to put the work up for review, in a project that has no skill of its own for opening one.
+description: Open a pull request once its work is committed, with a description in the project's own shape that the owner can review without the session's context. Uses scripts/flywheel.py pr draft for the shape and a file to draft in, pr check to check the draft's sections, lines and Closes line, gives the draft to a subagent that has none of the session's context to find each term it leaves undefined, gives it to a second subagent to find each breach of the project's prose rules when the pull request template names them, and opens the pull request with pr open from the checked file. Claude Code only. Use when opening, creating or raising a pull request, or when asked to put the work up for review, in a project that has no skill of its own for opening one.
 ---
 
 # Open a pull request
@@ -13,8 +13,9 @@ so a description in another shape is held for the owner.
 
 The agent that writes the description has the change's vocabulary in
 context, so a term it leaves undefined still reads as plain to it. This skill
-checks the draft, has a reader without that context read it, and opens the
-pull request from the file that reader saw.
+checks the draft, has a reader without that context read it, has a second
+reader hold it to the project's prose rules when the project names them, and
+opens the pull request from the file those readers saw.
 
 Run every command from the root of the clone, on the branch to open, with the
 work committed. Never open a pull request with `gh pr create` directly.
@@ -51,7 +52,8 @@ another variable. The commands below show it as
 
 `data.sections` lists the sections in order. Each has its `heading`, its
 `guidance`, its `subsections`, each with a `heading` and `guidance`, and
-`ids`, true for the section that names the requirement ids. Write a `##`
+`ids`, true for the section that names the requirement ids. `data.prose_rules`
+lists the files of the project's prose rules, which step 4 reads. Write a `##`
 heading for each section and a `###` heading for each subsection, in that
 order, with what the guidance asks under each. In the section whose `ids` is
 true, name in backticks each requirement id the pull request adds, changes
@@ -139,7 +141,50 @@ After any revision, go back to step 2, and give the revised draft to a new
 subagent. Go on to step 4 only when a subagent lists "none" under BLOCKING
 and its summary matches the change.
 
-## Step 4: open the pull request
+## Step 4: have the draft read against the prose rules
+<!-- spec: prskill-gives-draft-to-style-reader -->
+<!-- no-command: platform. The model starts a subagent with the Agent tool, which a script cannot do. -->
+
+When step 1's `data.prose_rules` is empty, skip to step 5.
+
+Otherwise start a new subagent with the Agent tool, `subagent_type`
+`flywheel:prose-reader`. Give it this prompt and nothing else. Put each path
+from `data.prose_rules` on its own line in place of `<the files>`, and the
+title and the draft in place of `<the title>` and `<the draft>`, exactly as
+the file holds it.
+
+```text
+You are checking a pull request description against a project's prose
+rules. Read each of these files, and do not read any other file:
+
+<the files>
+
+Read the title and the description against every rule in those files.
+Reply in exactly this form:
+
+BREACHES:
+- <rule id>: "<the sentence, quoted>": <what breaks the rule>
+
+Write "none" under BREACHES when you find no breach.
+
+The title:
+
+<the title>
+
+The description:
+
+<the draft>
+```
+
+Rewrite each sentence the reply quotes so that it follows the rule. Leave a
+sentence as it is only when the rule's own text shows that the sentence
+follows it.
+
+After any revision, go back to step 2: the revised draft is checked, read
+cold by a new subagent in step 3, and read here by a new subagent. Go on to
+step 5 only when a read here leaves no sentence to rewrite.
+
+## Step 5: open the pull request
 <!-- spec: prskill-opens-through-script, propen-cmd-refuses-failing-draft, propen-cmd-opens-from-file -->
 
 ```sh
@@ -148,7 +193,7 @@ FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" pr open --title "<the titl
 
 It checks the file again, pushes the branch and opens the pull request
 against the repository's default branch. When it exits 1, the draft changed
-after step 3 and fails the check, so go back to step 2. When it exits 2, its
+after step 4 and fails the check, so go back to step 2. When it exits 2, its
 message names what to do.
 
 On exit 0, tell the owner `data.url`, and the issue the pull request closes.
