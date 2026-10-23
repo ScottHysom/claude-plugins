@@ -172,9 +172,9 @@ rules. Read each of these files, and do not read any other file:
 <the files>
 
 Another reader checks the rules about defining a term, a piece of jargon or
-an acronym, and the rules about what the reader already knows. Leave those
-rules out. Read the title and the description against every other rule in
-those files. Reply in exactly this form:
+an acronym, and the rules about what the description's audience already
+knows. Leave those rules out. Read the title and the description against
+every other rule in those files. Reply in exactly this form:
 
 BREACHES:
 - <rule id>: "<the sentence, quoted>": <what breaks the rule>
