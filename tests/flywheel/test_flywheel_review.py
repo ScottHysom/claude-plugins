@@ -1,9 +1,9 @@
 """What the reviewer and the merge policy read and write: `review-policy`,
 `review-brief`, `review-post` and `merge-check`.
 
-The policies are the ones `config init` writes, with `areas` filled in. gh is
-faked here with one pull request, its review threads and its issue, which a
-test changes to break one condition at a time.
+The policies are the ones `config init` writes. gh is faked here with one pull
+request, its review threads and its issue, which a test changes to break one
+condition at a time.
 """
 
 import io

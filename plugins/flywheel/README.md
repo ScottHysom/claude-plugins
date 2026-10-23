@@ -70,7 +70,7 @@ The marketplace does not update on its own. To pick up a new version:
    level 2 (Enforced): held
      [x] verify-gate (one-command-per-gate): .github/workflows/validate.yml runs `python3 .github/scripts/gate.py verify`
    level 3 (Measured): missing
-     [ ] merge-policy (autonomy-scales-with-risk): .flywheel/merge-policy.md leaves `areas` unset
+     [ ] merge-policy (autonomy-scales-with-risk): .flywheel/merge-policy.md is missing
 
    the project holds level 2
    ```
@@ -541,20 +541,19 @@ checks too.
 ### Labels
 
 The loop sorts issues by label. Each issue Claude files carries one kind
-label, and one area label when your repository has areas:
+label, and any other label your project's own instructions ask for:
 
 | Label | Means |
 | --- | --- |
 | `bug`, `enhancement`, `documentation` | the kind of issue |
-| none by default | the area of the repository it touches |
-| `repo` | an issue about the whole repository |
 | `tracking` | an issue that groups a plan's issues |
 | `approved` | you agree a session may work the issue |
 | `in-progress` | a session has claimed the issue |
 
-When you adopt flywheel, Claude asks for your repository's kind and area
-labels, offering GitHub's own kinds first. An area such as `plugin:*` stands
-for every label that starts `plugin:`. Claude also asks which headings an
+When you adopt flywheel, Claude asks for your repository's kind labels,
+offering GitHub's own kinds first. To have each issue carry another label,
+such as one for the area of the repository it touches, say so in your
+project's `CLAUDE.md`. Claude also asks which headings an
 issue holds, and what goes under each. By default they are "What's wrong",
 "Evidence", "Done when" and "Requirements". Claude records headings of your
 own in `.flywheel/issue-template.md`, which you commit.
@@ -576,9 +575,6 @@ and flywheel then uses your labels:
 
 - the label that approves an issue, `approved` by default.
 - the label of a plan's tracking issue, `tracking` by default.
-- the area label of an issue about the whole repository, `repo` by default.
-  The issues Claude files when you adopt flywheel, one for each control
-  your repository lacks, carry it, since each issue needs one area label.
 - the label of a claimed issue, `in-progress` by default.
 
 Claude records your label answers in `.flywheel/labels.json`, which you

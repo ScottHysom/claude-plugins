@@ -213,14 +213,13 @@ class DescribePlanDraft:
         monkeypatch.setattr(flywheel.tempfile, "tempdir", str(tmp_path))
         ruled(
             repo,
-            {"roles": {"repo-area": "general"}, "kinds": {"docs": "Words"}, "areas": AREAS},
+            {"roles": {"plan": "epic"}, "kinds": {"docs": "Words"}},
             "## Problem\n\nWhat breaks.\n\n## Fix\n",
         )
         code, data = run_json(capsys, repo, "plan", "draft")
         assert code == flywheel.OK
         assert data["data"]["kinds"] == {"docs": "Words"}
-        assert data["data"]["areas"] == AREAS
-        assert data["data"]["roles"] == dict(flywheel.ROLE_LABELS, **{"repo-area": "general"})
+        assert data["data"]["roles"] == dict(flywheel.ROLE_LABELS, plan="epic")
         assert data["data"]["headings"] == [
             {"heading": "Problem", "guidance": "What breaks."},
             {"heading": "Fix", "guidance": ""},
@@ -232,7 +231,6 @@ class DescribePlanDraft:
         code, data = run_json(capsys, repo, "plan", "draft")
         assert code == flywheel.OK
         assert data["data"]["kinds"] == flywheel.DEFAULT_KINDS
-        assert data["data"]["areas"] == {}
         assert [h["heading"] for h in data["data"]["headings"]] == [
             h for h, _ in flywheel.DEFAULT_HEADINGS
         ]
@@ -1188,10 +1186,8 @@ class DescribePlanRecord:
 def mapped(repo):
     """The clone at repo, whose own labels play the loop's roles."""
     (repo / ".flywheel").mkdir(exist_ok=True)
-    roles = {"approval": "ready", "plan": "epic", "claim": "flywheel-claim", "repo-area": "general"}
-    (repo / ".flywheel" / "labels.json").write_text(
-        json.dumps({"roles": roles, "areas": {"plugin:*": "One plugin"}})
-    )
+    roles = {"approval": "ready", "plan": "epic", "claim": "flywheel-claim"}
+    (repo / ".flywheel" / "labels.json").write_text(json.dumps({"roles": roles}))
     return repo
 
 
@@ -1203,7 +1199,6 @@ class DescribeMappedPlanLabels:
             tmp_path,
             issue("A", labels=("bug", "general", "ready")),
             issue("B", labels=("bug", "general", "epic")),
-            issue("C", labels=("bug", "repo")),
             issue("D", labels=("bug", "general", "approved", "tracking")),
         )
         code, data = report(capsys, mapped(repo), plan)
@@ -1212,7 +1207,6 @@ class DescribeMappedPlanLabels:
         assert data["errors"] == [
             "`A` carries `ready`, which only the owner adds",
             "`B` carries `epic`, which only the tracking issue carries",
-            "`C` carries 0 area labels; it takes exactly one, from `plugin:*` or `general`",
         ]
 
     @pytest.mark.spec("labelsfile-maps-roles", "planfile-cmd-files-in-order")
@@ -1244,14 +1238,9 @@ def ruled(repo, labels=None, template=None):
     return repo
 
 
-AREAS = {"plugin:*": "One plugin", "web": "The web app"}
-
-
 class DescribeIssueRules:
-    @pytest.mark.spec("labelsfile-sets-kinds-areas", "planreport-cmd-checks-each-draft")
-    def it_takes_githubs_kinds_and_needs_no_area_without_the_labels_file(
-        self, capsys, tmp_path, repo, hub
-    ):
+    @pytest.mark.spec("labelsfile-sets-kinds", "planreport-cmd-checks-each-draft")
+    def it_takes_githubs_kinds_without_the_labels_file(self, capsys, tmp_path, repo, hub):
         hub()
         plan = write_plan(
             tmp_path,
@@ -1266,12 +1255,10 @@ class DescribeIssueRules:
             " documentation"
         ]
 
-    @pytest.mark.spec("labelsfile-sets-kinds-areas", "planreport-cmd-checks-each-draft")
-    def it_checks_each_draft_against_the_kinds_and_areas_the_file_gives(
-        self, capsys, tmp_path, repo, hub
-    ):
+    @pytest.mark.spec("labelsfile-sets-kinds", "planreport-cmd-checks-each-draft")
+    def it_checks_each_draft_against_the_kinds_the_file_gives(self, capsys, tmp_path, repo, hub):
         hub(labels=(*LABELS, "web"))
-        ruled(repo, {"kinds": {"bug": "", "docs": ""}, "areas": AREAS})
+        ruled(repo, {"kinds": {"bug": "", "docs": ""}})
         plan = write_plan(
             tmp_path,
             issue("A", labels=("docs", "Plugin:Todos")),
@@ -1285,20 +1272,6 @@ class DescribeIssueRules:
         assert code == flywheel.PROBLEMS
         assert data["errors"] == [
             "`D` carries 0 kind labels; it takes exactly one, from bug or docs",
-            "`E` carries 0 area labels; it takes exactly one, from `plugin:*`, `web` or `repo`",
-            "`F` carries 2 area labels (web, plugin:todos); it takes exactly one, from"
-            " `plugin:*`, `web` or `repo`",
-        ]
-
-    @pytest.mark.spec("labelsfile-sets-kinds-areas", "planreport-cmd-checks-each-draft")
-    def it_names_the_repo_area_once_when_the_areas_list_it(self, capsys, tmp_path, repo, hub):
-        hub()
-        ruled(repo, {"areas": {"plugin:*": "One plugin", "Repo": "Everything else"}})
-        plan = write_plan(tmp_path, issue("A", labels=("bug",)), issue("B", labels=("bug", "repo")))
-        code, data = report(capsys, repo, plan)
-        assert code == flywheel.PROBLEMS
-        assert data["errors"] == [
-            "`A` carries 0 area labels; it takes exactly one, from `plugin:*` or `Repo`"
         ]
 
     @pytest.mark.spec("issuetemplate-sets-headings", "planreport-cmd-checks-each-draft")

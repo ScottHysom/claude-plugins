@@ -3,9 +3,5 @@
     "bug": "Something does not work as documented",
     "enhancement": "New behaviour, or a better way to do an existing thing",
     "docs": "Documentation only: READMEs, SKILL.md prose, CLAUDE.md"
-  },
-  "areas": {
-    "plugin:*": "About one plugin",
-    "repo": "CI, tooling, marketplace catalog or root docs"
   }
 }
