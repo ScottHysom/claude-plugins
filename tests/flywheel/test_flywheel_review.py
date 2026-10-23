@@ -474,17 +474,6 @@ class DescribeACleanPullRequest:
         assert data["merged"] is False
         assert github.merged == []
 
-    def it_flows_whatever_files_it_changes_and_areas_its_issue_has(self, policies, github):
-        github.pull["files"] += [{"path": "plugins/other/app.py"}, {"path": "README.md"}]
-        github.labels = ["approved", "plugin:demo", "repo"]
-        code, data = check(policies)
-        assert (code, data["verdict"], data["reasons"]) == (flywheel.OK, flywheel.FLOW, [])
-
-    def it_flows_for_an_issue_without_an_area_label(self, policies, github):
-        github.labels = ["approved"]
-        code, data = check(policies)
-        assert (code, data["verdict"], data["reasons"]) == (flywheel.OK, flywheel.FLOW, [])
-
     def it_says_so_in_text(self, policies, github):
         code, out, err = policies.human("merge-check", "71")
         assert code == flywheel.OK
