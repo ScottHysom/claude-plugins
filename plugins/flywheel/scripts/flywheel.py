@@ -130,7 +130,8 @@ Commands:
                  request's description, named so that no other run gets it,
                  and print its path. With --json, also the shape the
                  description takes: .flywheel/pr-template.md's sections,
-                 subsections and guidance, or the plugin's default shape.
+                 subsections and guidance, or the plugin's default shape,
+                 and each prose rules file the template names.
     pr check     check a drafted description against that shape, for a
                  paragraph or list item split across lines, and for a line
                  that closes an issue.
@@ -849,6 +850,9 @@ DEFAULT_HEADINGS = (
 # file, the shape is DEFAULT_PR_SHAPE.
 PR_TEMPLATE_FILE = COPY_DIR + "/pr-template.md"
 IDS_MARK = "<!-- requirement-ids -->"
+# A line outside a code fence in PR_TEMPLATE_FILE that names a file of the
+# project's prose rules, from the project root, for open-pr's prose read.
+PROSE_RULES_RE = re.compile(r"^[ \t]*<!--[ \t]*prose-rules:[ \t]*(.*?)[ \t]*-->[ \t]*$")
 PrSection = collections.namedtuple("PrSection", "heading guidance subsections ids")
 DEFAULT_PR_SHAPE = (
     PrSection(
@@ -1184,15 +1188,25 @@ def issue_headings(root):
 def pr_shape(root):
     """Each PrSection PR_TEMPLATE_FILE gives, in its order, or DEFAULT_PR_SHAPE
     without the file. A heading inside a code fence is guidance."""
+    return pr_template(root)[0]
+
+
+def pr_prose_rules(root):
+    """Each prose rules file PR_TEMPLATE_FILE names, in the order of its marks."""
+    return pr_template(root)[1]
+
+
+def pr_template(root):
+    """PR_TEMPLATE_FILE's shape and the prose rules files it names."""
     path = os.path.join(root, *PR_TEMPLATE_FILE.split("/"))
     if not os.path.isfile(path):
-        return DEFAULT_PR_SHAPE
+        return DEFAULT_PR_SHAPE, ()
     # Each section is [heading, guidance lines, subsections, marked], and each
     # subsection [heading, guidance lines].
-    sections, fence = [], None
+    sections, rules, fence = [], [], None
     for line in read_text(path).splitlines():
         m = FENCE_RE.match(line)
-        top = sub = None
+        top = sub = prose = None
         if fence is not None:
             if m and m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence):
                 fence = None
@@ -1200,7 +1214,16 @@ def pr_shape(root):
             fence = m.group(1)
         else:
             top, sub = HEADING_RE.match(line), SUBHEADING_RE.match(line)
-        if top:
+            prose = PROSE_RULES_RE.match(line)
+        if prose:
+            if not os.path.isfile(os.path.join(root, prose.group(1))):
+                raise Fatal(
+                    "%s has `%s`, and the project does not have that file. Name the file"
+                    " that holds the prose rules by its path from the project root, then"
+                    " run again." % (PR_TEMPLATE_FILE, line.strip())
+                )
+            rules.append(prose.group(1))
+        elif top:
             sections.append([top.group(1), [], [], False])
         elif sub and not sections:
             raise Fatal(
@@ -1230,7 +1253,7 @@ def pr_shape(root):
             "%s marks %s and %s with `%s`. Keep the mark under one of them, then run again."
             % (PR_TEMPLATE_FILE, ", ".join(marked[:-1]), marked[-1], IDS_MARK)
         )
-    return tuple(
+    shape = tuple(
         PrSection(
             heading,
             "\n".join(lines).strip(),
@@ -1239,6 +1262,7 @@ def pr_shape(root):
         )
         for heading, lines, subsections, ids in sections
     )
+    return shape, tuple(rules)
 
 
 def ids_heading(root):
@@ -4400,6 +4424,7 @@ def read_description(path):
 
 def cmd_pr_draft(args):
     root = project_root(args.repo)
+    shape, rules = pr_template(root)
     sections = [
         {
             "heading": s.heading,
@@ -4407,7 +4432,7 @@ def cmd_pr_draft(args):
             "subsections": [{"heading": h, "guidance": g} for h, g in s.subsections],
             "ids": s.ids,
         }
-        for s in pr_shape(root)
+        for s in shape
     ]
     try:
         fd, path = tempfile.mkstemp(prefix=PR_DRAFT_PREFIX, suffix=PR_DRAFT_SUFFIX)
@@ -4421,7 +4446,8 @@ def cmd_pr_draft(args):
     def human():
         print(path)
 
-    return emit(args, "pr draft", {"path": path, "sections": sections}, human=human)
+    data = {"path": path, "sections": sections, "prose_rules": list(rules)}
+    return emit(args, "pr draft", data, human=human)
 
 
 def cmd_pr_check(args):

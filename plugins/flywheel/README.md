@@ -568,6 +568,12 @@ sections are "Scenario", with "Before" and "After" under it, then "Change",
 of its own for opening a pull request, flywheel's open-pr skill writes the
 description in that shape.
 
+If your project keeps rules for how its prose reads, such as
+`.claude/rules/prose-style.md`, name each file in `.flywheel/pr-template.md`
+on a line of its own, as `<!-- prose-rules: .claude/rules/prose-style.md -->`.
+open-pr then has a second Claude session read each description against
+those files, and rewrites what breaks them before you see it.
+
 Your repository may already have labels that do some of these jobs, such as
 `ready` for approving an issue or `epic` for a plan. When you adopt
 flywheel, Claude asks which label your repository uses for each of these,
