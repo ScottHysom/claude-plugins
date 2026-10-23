@@ -5,6 +5,16 @@
     "tests/flywheel/test_issue_guard.py::DescribeCheck::it_allows_a_command_that_does_not_add_the_label[gh pr create -dl bug]": "pins that the grouped-flag match from #471 still allows a grouped -l whose value is not approved",
     "tests/flywheel/test_flywheel_config.py::DescribeTheReportCommand::it_leaves_the_report_command_unset_for_another_runner": "pins that config init still leaves the test commands unset for a runner other than pytest, now that it fills in report for pytest",
     "tests/flywheel/test_issue_guard.py::DescribeTheProjectsApprovalLabel::it_blocks_approved_when_the_project_does_not_give_a_label": "pins that the guard keeps blocking the default approval label when the project's labels file is missing or leaves the role out, as it did before #695",
-    "tests/flywheel/test_flywheel_review.py::DescribeAProtectedPath::it_stops_when_the_merge_policy_is_missing": "pins that merge-check still stops without the merge policy, the test moved here from the area tests that #725 removed"
+    "tests/flywheel/test_flywheel_review.py::DescribeAProtectedPath::it_stops_when_the_merge_policy_is_missing": "pins that merge-check still stops without the merge policy, the test moved here from the area tests that #725 removed",
+    "tests/flywheel/test_flywheel_labels.py::DescribeLabelsFile::it_stops_a_command_on_a_bad_kind_or_an_areas_key[blank]": "pins the kind-label behavior that #725 keeps, in a test renamed when #725 dropped area labels from it",
+    "tests/flywheel/test_flywheel_labels.py::DescribeLabelsFile::it_stops_a_command_on_a_bad_kind_or_an_areas_key[kinds-not-object]": "pins the kind-label behavior that #725 keeps, in a test renamed when #725 dropped area labels from it",
+    "tests/flywheel/test_flywheel_labels.py::DescribeLabelsFile::it_stops_a_command_on_a_bad_kind_or_an_areas_key[no-kinds]": "pins the kind-label behavior that #725 keeps, in a test renamed when #725 dropped area labels from it",
+    "tests/flywheel/test_flywheel_labels.py::DescribeLabelsFile::it_stops_a_command_on_a_bad_kind_or_an_areas_key[not-text]": "pins the kind-label behavior that #725 keeps, in a test renamed when #725 dropped area labels from it",
+    "tests/flywheel/test_flywheel_labels.py::DescribeLabelsKinds::it_names_githubs_kinds_without_the_file": "pins the kind-label behavior that #725 keeps, in a test renamed when #725 dropped area labels from it",
+    "tests/flywheel/test_flywheel_labels.py::DescribeLabelsKinds::it_refuses_an_option_without_a_name[=Words]": "pins the kind-label behavior that #725 keeps, in a test renamed when #725 dropped area labels from it",
+    "tests/flywheel/test_flywheel_labels.py::DescribeLabelsKinds::it_refuses_an_option_without_a_name[docs]": "pins the kind-label behavior that #725 keeps, in a test renamed when #725 dropped area labels from it",
+    "tests/flywheel/test_flywheel_labels.py::DescribeLabelsKinds::it_writes_the_kinds_and_creates_each": "pins the kind-label behavior that #725 keeps, in a test renamed when #725 dropped area labels from it",
+    "tests/flywheel/test_flywheel_plan.py::DescribeIssueRules::it_checks_each_draft_against_the_kinds_the_file_gives": "pins the kind-label behavior that #725 keeps, in a test renamed when #725 dropped area labels from it",
+    "tests/flywheel/test_flywheel_plan.py::DescribeIssueRules::it_takes_githubs_kinds_without_the_labels_file": "pins the kind-label behavior that #725 keeps, in a test renamed when #725 dropped area labels from it"
   }
 }
