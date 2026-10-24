@@ -866,6 +866,43 @@ of #527.
   hands off, it names the id of each rule it wrote, and tells the author to
   commit the edits and then run apply-prose with those ids.
 
+## need model-checks-handed-file: Have a file checked against the prose rules from another skill
+
+When the model, following another plugin's skill, has a file to check
+against the project's prose rules, such as a drafted pull request
+description, it wants back each pattern match and each breach, without the
+file changed and without an approval round.
+
+Source: #755, and the plan on #740, under which flywheel's open-pr hands its
+draft to the skill that the project's pull request template names.
+
+- `check-cmd-reports-match-sentences` (test): When `check` is given a file,
+  it reports each pattern match as its rule id, its line and the sentence the
+  match falls in, and lists the file's parts.
+- `check-cmd-reads-named-rules` (test): When `check` is given `--rules`, once
+  per rules file, it checks the file against each one, and names the rules
+  file of each match and each part. Given none, it reads the project's
+  `prose-style.md`.
+- `check-cmd-prints-part` (test): When `check` is given `--part` with one
+  `--rules`, it prints that part's rules and the lines they cover.
+- `check-cmd-ignores-scope-and-git` (test): When `check` is given a file
+  outside the project, or a file while governed documents are uncommitted, it
+  checks the file and does not refuse.
+- `check-cmd-refuses-without-rules` (test): When a rules file is missing, or
+  `config lint` refuses it, `check` exits 2 and names the file and the remedy.
+- `checkprose-takes-handed-file` (step): When check-prose is handed a file's
+  path, its rules files, and the checkout's root and branch, it runs `check`
+  on the file from that root, with a `--rules` for each rules file.
+- `checkprose-reads-every-rule` (step): check-prose reads the file against
+  every rule, part by part, and reports each breach as the rule id and the
+  sentence quoted.
+- `checkprose-changes-nothing` (step): check-prose replies with each match and
+  each breach, and leaves the file as it was, without asking the author to
+  approve anything.
+- `checkprose-names-trigger` (step): check-prose's description
+  names the trigger, checking a file another skill hands it against the prose
+  rules, and does not name another plugin.
+
 ## constraint shell-starts-fresh: Each shell call starts without the last one's variables
 
 Each Bash call in Claude Code, and each `device_bash` call on Cowork, starts a

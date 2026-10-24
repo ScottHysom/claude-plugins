@@ -76,6 +76,7 @@ from another project's rules, or from an empty file.
 | `update-prose-config` | Learns rules from your uncommitted edits and writes them into `.claude/rules/prose-style.md` | "update the prose config" |
 | `apply-prose` | Reports where your documents break the rules, and rewrites the passages you approve | "apply the house style" |
 | `copy-prose` | Copies rules from another project's `prose-style.md` into this one | "copy the prose rules from ..." |
+| `check-prose` | Checks a file that another skill wrote against the rules, and hands back what breaks them | Another skill calls it for you |
 
 ## Teaching it your style
 
@@ -171,6 +172,17 @@ This suits rules Claude has just learned. Once it has written them, Claude
 names their ids for you. Commit first, then ask. The list and the approval are
 the same as for every rule. A proposed rewrite is still checked against every
 rule that carries a pattern, so a fix for a new rule cannot break an older one.
+
+## Checking a file for another skill
+
+Another plugin's skill can have a file it wrote checked against your rules
+before it uses the file, such as a pull request description it drafted. That
+skill calls `check-prose` itself, with the file and the rules files to check
+it against. Each of those rules files follows the format of
+`prose-style.md`, so you can keep rules for one kind of document in a file of
+their own, beside the rules for the whole project. `check-prose` hands back
+each passage that breaks a rule, and leaves the file for the other skill to
+rewrite. It does not change your documents or ask you anything.
 
 ## Sharing rules between projects
 
