@@ -96,6 +96,8 @@ patterns. Pass these in its arguments:
 - the draft's path, exactly as step 1 printed it.
 - each path from `data.prose_rules`.
 - the checkout's root and branch.
+- after a revision in step 3, the line numbers and text of each line that
+  the revision changed, so that the skill checks the rewrites.
 
 Rewrite each sentence that a match falls in, so that it follows the rule.
 Leave a sentence as it is only when the rule's own text shows that the match
@@ -208,21 +210,9 @@ sentence follows it. A term reaches a revision only from the cold reader's
 lists, so leave as it is a breach that asks for a term to be defined or
 explained.
 
-When step 1's `data.prose_rules` names files, read each rewritten sentence
-against every rule in them before the draft goes back, with the sentences on
-either side of it. A rewrite most often brings one of these breaches:
-
-- a subject or a verb borrowed from the sentence before.
-- a count that opens a sentence.
-- a sentence grown past one claim.
-- a word given a second meaning in the description.
-- a new definition without the marking that the project's rules ask for,
-  such as bold on the defined term.
-
-Fix each breach, and read the fix the same way.
-
-After any revision, go back to step 2, so that `pr check` and the patterns
-run over the revised draft, and give it to new subagents. Go on to step 4 only when, in one round, the cold reader lists
+After any revision, go back to step 2, so that `pr check` and the skill
+that `data.prose_check` names check the revised draft, and give it to new
+subagents. Go on to step 4 only when, in one round, the cold reader lists
 "none" under BLOCKING, its summary matches the change, and the prose read
 leaves every sentence as it is.
 
