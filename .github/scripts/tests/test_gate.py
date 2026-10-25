@@ -126,6 +126,22 @@ def run(capsys):
     return go
 
 
+@pytest.fixture
+def pull_request_event(tmp_path):
+    """The environment of a pull_request run, with an event holding `body`."""
+
+    def build(body="## Scenario\n"):
+        event = tmp_path / "event.json"
+        event.write_text(json.dumps({"pull_request": {"body": body}}), encoding="utf-8")
+        return {
+            "PATH": os.environ["PATH"],
+            gate.EVENT_NAME_ENV: gate.PULL_REQUEST_EVENT,
+            gate.EVENT_PATH_ENV: str(event),
+        }
+
+    return build
+
+
 def steps_of(out):
     return [step["name"] for step in json.loads(out)["data"]["steps"]]
 
@@ -305,14 +321,52 @@ class DescribeVerify:
         assert floors[2:] == ["floors", "--base", "origin/trunk"]
 
     @pytest.mark.spec("verify-cmd-runs-check-first")
-    def it_runs_the_pull_request_checks_on_a_pull_request_event(self, make_repo, recorder, run):
+    def it_runs_the_pull_request_checks_on_a_pull_request_event(
+        self, make_repo, recorder, run, pull_request_event
+    ):
         root = make_repo()
-        environ = {"PATH": os.environ["PATH"], gate.EVENT_NAME_ENV: gate.PULL_REQUEST_EVENT}
-        code, out, _ = run("verify", "-C", str(root), "--json", environ=environ)
+        code, out, _ = run("verify", "-C", str(root), "--json", environ=pull_request_event())
         assert code == gate.OK
         assert steps_of(out) == [*CHECK, "diff", "fails-on-base", *PULL_REQUEST_CHECKS]
         (changes,) = recorder.ran("changes")
         assert changes[2:] == ["changes", "--base", gate.DEFAULT_BASE]
+
+    @pytest.mark.spec("verify-cmd-checks-description-with-flywheel")
+    def it_checks_the_description_with_flywheels_pr_check(
+        self, make_repo, recorder, run, pull_request_event
+    ):
+        root = make_repo()
+        body = "## Scenario\n\nThe owner reviews.\n\nCloses #717\n"
+        code, _, _ = run("verify", "-C", str(root), environ=pull_request_event(body))
+        assert code == gate.OK
+        (check,) = [c for c in recorder.ran("flywheel.py") if c[2] == "pr"]
+        assert check[1] == gate.FLYWHEEL
+        assert check[2:5] == ["pr", "check", "--body-file"]
+        assert Path(check[5]).read_text(encoding="utf-8") == body
+
+    @pytest.mark.spec("verify-cmd-checks-description-with-flywheel")
+    def it_checks_an_empty_description_when_the_pull_request_has_none(
+        self, make_repo, recorder, run, pull_request_event
+    ):
+        root = make_repo()
+        run("verify", "-C", str(root), environ=pull_request_event(None))
+        (check,) = [c for c in recorder.ran("flywheel.py") if c[2] == "pr"]
+        assert Path(check[5]).read_text(encoding="utf-8") == ""
+
+    @pytest.mark.spec("verify-cmd-checks-description-with-flywheel", "script-names-remedy-on-stop")
+    def it_stops_and_names_the_variable_when_the_event_cannot_be_read(
+        self, make_repo, recorder, run, tmp_path
+    ):
+        root = make_repo()
+        environ = {
+            "PATH": os.environ["PATH"],
+            gate.EVENT_NAME_ENV: gate.PULL_REQUEST_EVENT,
+            gate.EVENT_PATH_ENV: str(tmp_path / "missing.json"),
+        }
+        code, _, err = run("verify", "-C", str(root), environ=environ)
+        assert code == gate.CANNOT_RUN
+        assert gate.EVENT_PATH_ENV in err
+        assert recorder.calls == []
 
     @pytest.mark.spec("verify-cmd-runs-check-first")
     def it_prints_its_chain_first(self, make_repo, recorder, run):

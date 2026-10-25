@@ -230,11 +230,11 @@ step that fails. The script's docstring has the rest.
 
 A local run differs from CI's in these ways:
 
-- `check-linked-issues.py`, `check-specs.py changes` and
-  `check-pr.py description` read the pull request's title and description,
-  so `verify` runs them only in CI, once the pull request exists, and names
-  each one it skips. `check-pr.py description --body-file <file>` checks a
-  drafted description before then.
+- `check-linked-issues.py`, `check-specs.py changes` and the `description`
+  step read the pull request's title and description, so `verify` runs them
+  only in CI, once the pull request exists, and names each one it skips. The
+  `description` step is flywheel's `pr check`. flywheel's open-pr skill runs
+  `pr check --body-file <file>` on a drafted description before then.
 - `check-specs.py trace` asks GitHub whether the issues in
   `.github/untraced.json` are still open only when `GITHUB_TOKEN` and
   `GITHUB_REPOSITORY` are set. Without them, it warns that it did not look.

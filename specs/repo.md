@@ -695,77 +695,23 @@ When the owner reviews a pull request, the owner wants its description to
 set up the scenario it changes, in terms the owner can read without the
 plugin's code, so the review starts from what changes for whom.
 
-Source: #566, #567, and CLAUDE.md, under "Workflow".
+Source: #566, #567, #717, and CLAUDE.md, under "Workflow".
 
-- `description-cmd-requires-scenario-first` (test): When a pull request
-  description fails either of these, `check-pr.py description` fails it, and
-  says what the description lacks and that CLAUDE.md, under "Workflow", says
-  what a description covers:
-  - its first heading, outside a code fence or an HTML comment, is
-    `## Scenario`.
-  - its Scenario section, up to the next heading of level 1 or 2, holds more
-    than blank lines and HTML comments.
-- `description-cmd-requires-before-after` (test): When a description's
-  Scenario section lacks a `### Before` or a `### After` subsection with text
-  under it, or puts `### After` first, `description` fails it and says which.
 - `ci-runs-description` (check): When a pull request is opened, edited or
-  updated, CI runs `description`.
-- `description-cmd-reads-body-file` (test): When `description` is given
-  `--body-file <file>`, it checks the description in that file, in place of
-  the pull request event, and fails it as it would fail the same description
-  in CI.
-- `open-cmd-refuses-failing-draft` (test): When
-  `check-pr.py open --title <title> --body-file <file>` reads a description
-  that `description` would fail, it exits 1 naming each fault, and pushes and
-  opens nothing.
-- `open-cmd-opens-from-file` (test): When `open` reads a description that
-  passes, it pushes the current branch, opens a pull request against `main`
-  with that title and the file as its description, and prints its address.
-  `-C/--repo` names the clone it pushes from.
-- `openpr-drafts-description` (step): When the open-pr skill drafts a pull
-  request description, it writes the title and the file with the headings
-  CLAUDE.md, under "Workflow", names, and `Closes #N` after them. It follows
-  the rules in `.claude/rules/prose-style.md` as it writes the draft, and
-  gives a Before or an After that covers more than one behavior as bullets, with the
-  After's in the Before's order. It explains each term that CLAUDE.md, under "Workflow", says the owner does
-  not know, by the first of these ways that works:
-  1. a pointer back to an earlier sentence that explains it.
-  2. a qualifier naming its kind, where two of a kind meet.
-  3. a one-clause definition of what it is, which says what it does only
-     where the Scenario or the Change relies on that.
-- `openpr-checks-draft` (step): When the open-pr skill has a draft, it runs
-  `description --body-file` on it, and fixes each fault before anyone reads
-  the draft.
-- `openpr-gives-draft-to-cold-reader` (step): When the draft passes, the
-  open-pr skill gives it and its title to a subagent (a second Claude
-  session that starts with only the prompt it is given) with nothing else
-  from the session. The prompt describes the owner as CLAUDE.md, under
-  "Workflow", does. The subagent states the scenario in its own words and
-  lists each term the draft uses without defining it, as blocking when the
-  owner could not follow the scenario or the change without it, and
-  otherwise as borderline.
-  The skill explains each listed term as `openpr-drafts-description` says,
-  leaves a borderline term that the text around it already explains, and
-  checks the draft again until the blocking list is empty and the
-  subagent's scenario matches the change.
-- `openpr-gives-draft-to-style-reader` (step): When the cold reader's
-  blocking list is empty, the open-pr skill gives the draft and its title to
-  a new subagent that reads `.claude/rules/prose-style.md` and CLAUDE.md,
-  under "Workflow", and nothing else. The subagent names each breach of
-  either by rule id and quotes its sentence. The skill rewrites each quoted
-  sentence that breaks its rule, and sends any revised draft back through
-  `openpr-checks-draft`, the cold reader and this read.
-- `openpr-opens-through-script` (step): When the cold read and the read
-  against the prose rules find nothing to revise, the open-pr skill opens
-  the pull request with `open`, from the file it checked, rather than with
-  `gh pr create`.
-- `draft-cmd-makes-own-file` (test): When `check-pr.py draft` runs, it makes
-  an empty file in the temporary directory, named so that no other run gets
-  the same file, and prints its literal path.
-- `openpr-drafts-in-own-file` (step): When the open-pr skill drafts a
-  description, it writes the draft to the file `draft` made for that run, and
-  every later step of the run reads that file, so the pull request does not
-  open with a description another session drafted.
+  updated, CI runs `gate.py verify`, whose `description` step checks the
+  description with the flywheel plugin's `pr check`, against the shape
+  `.flywheel/pr-template.md` gives.
+- `verify-cmd-checks-description-with-flywheel` (test): When `gate.py verify`
+  runs on a pull_request event, it writes the pull request's description from
+  `$GITHUB_EVENT_PATH` to a file of its own, and runs
+  `flywheel.py pr check --body-file <file>` on it as its `description` step.
+  When it cannot read the description from the event, it stops before any
+  step and names the variable.
+- `settings-enables-flywheel` (test): When a Claude Code session opens in this
+  repository, `.claude/settings.json` names the repository as a directory
+  marketplace and enables flywheel from it, so the session has flywheel's
+  open-pr skill and its cold reader, the agent that reads a draft without the
+  session's context.
 
 ## constraint marketplace-serves-repo-as-is: The marketplace is this repository as it stands
 
@@ -892,9 +838,6 @@ the lines into one paragraph.
 Source: #589, and the rendered body of #587, which holds a `<br>` for each
 line its paragraphs were broken at.
 
-- `description-cmd-refuses-split-lines` (test): When a description continues
-  a paragraph or a list item onto a second line, outside a code fence or an
-  HTML comment, `check-pr.py description` fails it and names each line.
 - `planreport-cmd-refuses-split-lines` (test): When a plan's draft (an
   issue's body or the plan issue's body) continues a paragraph or a list
   item onto a second line, outside a code fence or an HTML comment,

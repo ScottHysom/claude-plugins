@@ -53,15 +53,19 @@ Things that look like bugs and are not:
   - `floors` off the Python version its floors were measured on, which
     check-coverage.py's FLOORS_PYTHON names. It would exit 2 there.
   - the checks that read the pull request, outside a pull_request event:
-    check-linked-issues.py, `check-pr.py description` and
-    `check-specs.py changes`. `check-pr.py description --body-file` checks a
-    drafted description before the pull request exists.
+    check-linked-issues.py, `description` and `check-specs.py changes`.
+    `description` is the flywheel plugin's `pr check`, which reads a file, so
+    on a pull_request event gate.py writes the description from
+    $GITHUB_EVENT_PATH to a file of its own in the temporary directory first.
+    The open-pr skill runs the same `pr check` on a draft before the pull
+    request exists.
 - The tools run from the venv of the Python running this script. Its
   directory goes first on the steps' PATH, so `python3 .venv/bin/...` and an
   activated venv find the same ruff and shellcheck. A tool it cannot find
   stops the run before any step, and names the install.
-- It writes only what its steps write: coverage.json and .coverage, which git
-  ignores.
+- It writes only what its steps write (coverage.json and .coverage, which git
+  ignores) and, on a pull_request event, the description's file, which it
+  leaves in the temporary directory.
 """
 
 import argparse
@@ -71,6 +75,7 @@ import os
 import shutil
 import subprocess
 import sys
+import tempfile
 
 import closed_pipe
 
@@ -89,7 +94,11 @@ DEFAULT_BASE = "origin/main"
 PLUGINS = "plugins"
 PLUGIN_MANIFEST = os.path.join(".claude-plugin", "plugin.json")
 EVENT_NAME_ENV = "GITHUB_EVENT_NAME"
+EVENT_PATH_ENV = "GITHUB_EVENT_PATH"
 PULL_REQUEST_EVENT = "pull_request"
+# `description`: the name of the file the pull request's description is
+# written to, for flywheel's `pr check` to read.
+DESCRIPTION_PREFIX, DESCRIPTION_SUFFIX = "pr-description-", ".md"
 
 # The tools the steps run. A module runs as `python -m <module>`, so it comes
 # from the same Python as this script, and so does coverage.json's version.
@@ -334,18 +343,37 @@ def check_steps(machine, base=None):
     }
 
 
+def description_file(machine):
+    """Write the event's pull request description to a file of its own."""
+    path = machine.environ.get(EVENT_PATH_ENV, "")
+    try:
+        with open(path, encoding="utf-8") as f:
+            body = json.load(f)["pull_request"]["body"] or ""
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        raise Fatal(
+            "cannot read the pull request's description from $%s (%r): %s. Run verify on a "
+            "%s event, which sets it." % (EVENT_PATH_ENV, path, exc, PULL_REQUEST_EVENT)
+        ) from exc
+    fd, out = tempfile.mkstemp(prefix=DESCRIPTION_PREFIX, suffix=DESCRIPTION_SUFFIX)
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write(body)
+    return out
+
+
 def pull_request_steps(machine, base):
-    steps = [
+    names = ("linked-issues", "description", "changes")
+    if not machine.pull_request():
+        reason = (
+            "it reads the pull request, which only a %s event gives. CI runs it."
+            % PULL_REQUEST_EVENT
+        )
+        return [Step(name, skipped=reason) for name in names]
+    body = description_file(machine)
+    return [
         Step("linked-issues", [script("check-linked-issues.py")]),
-        Step("description", [script("check-pr.py", "description")]),
+        Step("description", [[sys.executable, FLYWHEEL, "pr", "check", "--body-file", body]]),
         Step("changes", [script("check-specs.py", "changes", "--base", base)]),
     ]
-    if machine.pull_request():
-        return steps
-    reason = (
-        "it reads the pull request, which only a %s event gives. CI runs it." % PULL_REQUEST_EVENT
-    )
-    return [Step(s.name, skipped=reason) for s in steps]
 
 
 def chain_line(command, groups, then=None):
