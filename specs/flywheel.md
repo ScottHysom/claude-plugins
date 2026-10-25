@@ -208,7 +208,8 @@ flywheel ships.
 - `adopt-asks-prose-rules` (step): When adopt sets the pull request shape,
   it asks the owner for the project's prose rules files and the skill that
   checks a file against the prose rules, and writes a mark for each answer
-  into `.flywheel/pr-template.md`. When adopt has written the template, it runs
+  into `.flywheel/pr-template.md`. It tells the owner that each rules file
+  has to follow the format of the skill named beside it. When adopt has written the template, it runs
   `pr draft` before it finishes, and fixes the template with the owner
   until `pr draft` reads it.
 - `prskill-gives-draft-to-style-reader` (step): When the draft passes

@@ -580,6 +580,10 @@ description to that skill, and rewrites what breaks the rules before you see
 it. When the template names no such skill, or the skill is not installed,
 open-pr opens the pull request without the check and tells you so.
 
+Each file on a `prose-rules` line has to follow the format that the skill on
+the `prose-check` line reads. The skill refuses a file in another format,
+and open-pr then gets a refusal in place of a check.
+
 Your repository may already have labels that do some of these jobs, such as
 `ready` for approving an issue or `epic` for a plan. When you adopt
 flywheel, Claude asks which label your repository uses for each of these,

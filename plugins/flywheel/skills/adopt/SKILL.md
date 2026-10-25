@@ -185,6 +185,10 @@ Then ask the owner, with one more `AskUserQuestion`, for both of these:
   if there is one. Offer each skill of the session whose description says it
   checks a file against prose rules.
 
+In the question, tell the owner that each rules file has to follow the
+format that the skill reads. The skill refuses a file in another format, and
+open-pr then gets a refusal in place of a check on every draft.
+
 For each file, put a line `<!-- prose-rules: PATH -->` at the top of
 `.flywheel/pr-template.md`, with the path from the project root. For the
 skill, put a line `<!-- prose-check: SKILL -->` under them. When the template
