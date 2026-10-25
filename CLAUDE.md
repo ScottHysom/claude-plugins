@@ -28,9 +28,11 @@ on a summary here; this file holds what the README does not.
 
      A change that nobody meets in use, such as a refactor or a CI fix, names
      who would notice it and why it is made.
-  2. `## Change` says what the pull request changes. When the fix departs from
-     what the issue proposed, it says what the issue proposed and why the fix
-     differs.
+  2. `## Change` says what the pull request changes. Where it departs from
+     the issue, it says how and why in a sentence or two, in terms the
+     description has already defined. For what the issue proposed and the
+     pull request leaves as it is, it points to the issue rather than giving
+     an account of it.
   3. `## Requirements` names each requirement id the pull request adds,
      changes or removes, or says that it does not change any.
   4. `## Test plan` says what ran.
