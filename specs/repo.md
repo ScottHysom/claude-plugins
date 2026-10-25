@@ -896,7 +896,7 @@ line its paragraphs were broken at.
   a paragraph or a list item onto a second line, outside a code fence or an
   HTML comment, `check-pr.py description` fails it and names each line.
 - `planreport-cmd-refuses-split-lines` (test): When a plan's draft (an
-  issue's body or the tracking issue's plan) continues a paragraph or a list
+  issue's body or the plan issue's body) continues a paragraph or a list
   item onto a second line, outside a code fence or an HTML comment,
   `flywheel.py plan report` refuses the draft and names each line.
 

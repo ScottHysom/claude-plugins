@@ -115,16 +115,16 @@ back them. What agents do:
   - A plan of one problem is one issue, filed under the rules above.
   - A plan of several issues is filed with the flywheel plugin's
     file-issue skill, never one `gh` call at a time. The skill adds a
-    tracking issue, which groups the plan's issues as sub-issues and
+    plan issue, which groups the plan's issues as sub-issues and
     carries the `tracking` label alone.
-  - A tracking issue's body gives the plan instead of the four headings. The
+  - A plan issue's body gives the plan instead of the four headings. The
     plan says:
     - what problem it fixes.
     - how its issues together fix it.
     - why they come in their order.
 
-  Never claim or work a tracking issue. Issues filed in passing do not get
-  a tracking issue. README.md, under "Tracking issues", has the convention.
+  Never claim or work a plan issue. Issues filed in passing do not get
+  a plan issue. README.md, under "Plan issues", has the convention.
 - **Work only on issues labeled `approved`.** The owner may also ask for work
   directly, without an issue; that does not need a label.
 - **Work an issue in the session that is asked.** This repository runs
@@ -145,17 +145,17 @@ back them. What agents do:
   `claim N` or `claim --next` is a message in chat. On a win it names #N and the `issue/N`
   branch, and any issue that another agent won first. On exit 1 it relays
   why the claim stopped.
-- **Take a plan's issues through its tracking issue.** Asked for "the next
+- **Take a plan's issues through its plan issue.** Asked for "the next
   issue tracked by #N", run
-  `python3 plugins/flywheel/scripts/flywheel.py claim --next --tracking N`.
-  When plain `claim --next` names a tracking issue instead of claiming, ask
+  `python3 plugins/flywheel/scripts/flywheel.py claim --next --plan N`.
+  When plain `claim --next` names a plan issue instead of claiming, ask
   the owner whether to start on that plan, and on a yes do the same. If
-  `claim --next --tracking N` exits 1, relay its message and do not pick
+  `claim --next --plan N` exits 1, relay its message and do not pick
   another sub-issue yourself.
-- **Close a finished plan.** When `claim --next --tracking N` says every
+- **Close a finished plan.** When `claim --next --plan N` says every
   sub-issue of #N is closed, run
   `python3 plugins/flywheel/scripts/flywheel.py plan close N`, and
-  tell the owner #N is closed. Close a tracking issue only this way, never
+  tell the owner #N is closed. Close a plan issue only this way, never
   with `gh issue close`.
 - **Clear the claim once its pull request merges.** When the owner says a
   pull request from `issue/N` has merged, run
