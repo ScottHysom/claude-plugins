@@ -1,4 +1,5 @@
 <!-- prose-rules: .claude/rules/prose-style.md -->
+<!-- prose-check: prose-tuning:check-prose -->
 
 ## Scenario
 

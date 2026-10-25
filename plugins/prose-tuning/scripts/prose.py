@@ -19,6 +19,8 @@ Commands:
     patterns    where each rule's pattern matches those spans
     pass        the parts of an apply-prose pass, and with --part one part's
                 rules, segments and pattern matches, and its read record
+    check       one file, wherever it sits, against each rules file named:
+                each match with its sentence, and the parts to read
     evidence    explicit tags + inferred edits, and the edits whose new text
                 a rule's pattern matches
     reproduce   whether the rules' patterns reproduce the edits since HEAD
@@ -169,6 +171,13 @@ DIGEST_KEY = "digest"
 READ_DOMAIN = b"read"
 
 OK, PROBLEMS, CANNOT_RUN = 0, 1, 2
+
+# Where a sentence ends, for the sentence check reports around a match: a
+# full stop, question or exclamation mark, any quote, bracket or emphasis
+# closing after it, then the end of the passage or a space before what can
+# open a sentence. A full stop before a lower-case word, as in "e.g. this",
+# does not end one.
+SENTENCE_END_RE = re.compile(r"[.!?][\"')\]*_`]*(?=\s+[A-Z0-9`*\"'(\[]|\s*$)")
 
 # How many hex digits of the token report prints for apply, and config
 # write --dry-run for config write.
@@ -2227,7 +2236,21 @@ def prose_runs(text, blocks):
     return runs
 
 
-def pattern_matches(text, blocks, rules):
+def sentence_around(s, a, b):
+    """The sentence of passage s that holds s[a:b], or the sentences, when the
+    span crosses where one ends. SENTENCE_END_RE says where that is.
+    """
+    start, end = 0, len(s)
+    for e in SENTENCE_END_RE.finditer(s):
+        if e.end() <= a:
+            start = e.end()
+        elif e.start() >= b - 1:
+            end = e.end()
+            break
+    return s[start:end].strip()
+
+
+def pattern_matches(text, blocks, rules, sentences=False):
     """Every place a rule's pattern matches the file's eligible prose.
 
     Returns dicts of rule, line, col_start, end_line, col_end and text, where
@@ -2237,7 +2260,8 @@ def pattern_matches(text, blocks, rules):
     code, which a prose rule has nothing to say about. A match whose two ends
     lie in prose is kept, even with a code span between them, since the breach
     is in the prose around it. An empty match is left out too, and so is a
-    second pattern of the same rule matching the same text.
+    second pattern of the same rule matching the same text. With sentences,
+    each also holds the sentence it falls in, with each line break as a space.
     """
     spans = blocks.code_span_offsets(blocks.protected_offsets())
     compiled = [(r.id, re.compile(source)) for r in rules for _line, source in r.patterns]
@@ -2254,16 +2278,17 @@ def pattern_matches(text, blocks, rules):
                     continue
                 seen.add((rid, a, b))
                 line, end_line = text.line_of(a), text.line_of(b)
-                out.append(
-                    {
-                        "rule": rid,
-                        "line": line,
-                        "col_start": a - text.offset(line),
-                        "end_line": end_line,
-                        "col_end": b - text.offset(end_line),
-                        "text": text.s[a:b],
-                    }
-                )
+                found = {
+                    "rule": rid,
+                    "line": line,
+                    "col_start": a - text.offset(line),
+                    "end_line": end_line,
+                    "col_end": b - text.offset(end_line),
+                    "text": text.s[a:b],
+                }
+                if sentences:
+                    found["sentence"] = sentence_around(s, m.start(), m.end())
+                out.append(found)
     out.sort(key=lambda x: (x["line"], x["col_start"], x["rule"]))
     return out
 
@@ -3086,6 +3111,108 @@ def cmd_pass(args):
         print("\n%d part(s) in %d file(s)." % (len(parts), len(targets)))
 
     return emit(args, "pass", repo.root, data, errors=errors, human=human)
+
+
+def check_rules(repo, paths):
+    """A Config for each rules file check names, or the project's prose-style.md.
+
+    A path is read from the project root, as the file checked is. A rules
+    file that is missing, or that lint refuses, stops the run: a rules file
+    that cannot be read would look like one whose rules found nothing.
+    """
+    configs = []
+    for given in paths or [None]:
+        path = config_path(repo)
+        if given is not None:
+            path = os.path.normpath(os.path.join(repo.root, given))
+        inside = path.startswith(repo.root + os.sep)
+        config = Config(path, os.path.relpath(path, repo.root) if inside else path)
+        if not config.exists:
+            if given is None:
+                raise Fatal(
+                    "%s: no rules file; run: prose.py config init, or name one with --rules"
+                    % config.rel()
+                )
+            raise Fatal("%s: no such rules file; name one that exists" % config.rel())
+        if config.errors:
+            raise Fatal(
+                "%s: not a rules file this script can read (%s); fix it, "
+                "and see: prose.py config lint --file %s"
+                % (config.rel(), config.errors[0], config.rel())
+            )
+        configs.append(config)
+    return configs
+
+
+def cmd_check(args):
+    """One file against each rules file, for a skill another plugin hands it to.
+
+    The file is read wherever it sits, and scope:, git and the copy's
+    .gitignore are never consulted, since the file is a draft another skill
+    has written, such as a pull request description in $TMPDIR. For each
+    rules file, the matches of its patterns, each with the sentence it falls
+    in, and the parts of the file to read. With --part, one of those parts,
+    as pass --part prints it, less the read record: check feeds a reply to
+    the skill that called, not findings for report.
+    """
+    repo = Repo(args.repo)
+    configs = check_rules(repo, args.rules)
+    rel = args.path
+    if not os.path.isfile(repo.abspath(rel)):
+        raise Fatal("%s: no such file" % rel)
+    text = Text.read(repo.abspath(rel))
+    if args.part:
+        if len(configs) != 1:
+            raise Fatal(
+                "--part: give exactly one --rules, the rules file the part was listed under"
+            )
+        found = [p for p in file_parts(rel, text, configs[0].rules) if p.id == args.part]
+        if not found:
+            raise Fatal(
+                "--part %s: %s does not have that part with these rules, or its lines changed; "
+                "run check with no --part, with the same --rules, to list its parts"
+                % (args.part, rel)
+            )
+        part = found[0]
+        data = dict(
+            part.as_dict(),
+            rules_file=configs[0].rel(),
+            segments=part.segments,
+            matches=part.matches,
+        )
+        return emit(args, "check", repo.root, data, human=lambda: sys.stdout.write(part.body()))
+
+    blocks = Blocks(text)
+    checked = []
+    for config in configs:
+        matches = [
+            dict(m, file=rel) for m in pattern_matches(text, blocks, config.patterned(), True)
+        ]
+        parts = file_parts(rel, text, config.rules)
+        checked.append(
+            {
+                "path": config.rel(),
+                "rules": [r.id for r in config.rules],
+                "matches": matches,
+                "parts": [p.as_dict() for p in parts],
+            }
+        )
+    data = {"file": rel, "rules": checked}
+
+    def human():
+        for entry in checked:
+            print(PASS_HEADING % entry["path"])
+            for m in entry["matches"]:
+                where = "%s:%d:%d" % (rel, m["line"], m["col_start"])
+                print(
+                    "%s  %s  %s" % (where, m["rule"], json.dumps(m["sentence"], ensure_ascii=False))
+                )
+            print("%d match(es). Parts to read:" % len(entry["matches"]))
+            for p in entry["parts"]:
+                print("%s  %d rule(s)" % (p["id"], len(p["rules"])))
+            print()
+
+    return emit(args, "check", repo.root, data, human=human)
 
 
 def pending_files(repo):
@@ -6094,6 +6221,30 @@ def build_parser():
     )
     p.add_argument("paths", nargs="*", help="files to read (default: every file in scope)")
     p.set_defaults(func=cmd_pass)
+
+    p = sub.add_parser(
+        "check",
+        parents=[common],
+        help="one file against each rules file, for a skill that hands it over",
+        description="Check one file, wherever it sits, against each rules file --rules names, "
+        "or the project's prose-style.md. For each rules file, print every pattern match "
+        "as FILE:LINE:COL  RULE  SENTENCE, with the sentence as a JSON string, then the parts "
+        "of the file to read. With --part, print that part's rules and segments.",
+    )
+    p.add_argument("path", help="the file to check, from the project root")
+    p.add_argument(
+        "--rules",
+        action="append",
+        metavar="PATH",
+        help="a rules file in prose-style.md's format; repeat for more "
+        "(default: the project's prose-style.md)",
+    )
+    p.add_argument(
+        "--part",
+        metavar="ID",
+        help="print this part, by the id the list gives; give the one --rules it was listed under",
+    )
+    p.set_defaults(func=cmd_check)
 
     p = sub.add_parser(
         "evidence", parents=[common, source], help="explicit tags and inferred edits"
