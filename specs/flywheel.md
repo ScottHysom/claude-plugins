@@ -191,7 +191,9 @@ Source: commit db742c2, and the owner's decision of 2026-10-22 to make
 open-pr's reading fixes in flywheel's skill, so that they survive #717. The
 owner chose in chat on #739 that the pull request template names the files,
 and on #740 that open-pr hands the draft to a skill the template names, set
-at adoption, to run the rules' patterns.
+at adoption, to run the rules' patterns. The owner chose in chat on #756 that
+the same skill reads the draft against every rule, in place of a reader that
+flywheel ships.
 
 - `prtemplate-names-prose-rules` (test): When `.flywheel/pr-template.md`
   holds a line `<!-- prose-rules: PATH -->` outside a code fence, PATH names
@@ -200,33 +202,27 @@ at adoption, to run the rules' patterns.
   not exist stops a command that reads the template with exit 2.
 - `prtemplate-names-prose-check` (test): When `.flywheel/pr-template.md`
   holds a line `<!-- prose-check: SKILL -->` outside a code fence, SKILL
-  names the skill that runs the prose rules' patterns over a draft. A second
+  names the skill that checks a draft against the prose rules. A second
   such mark, an empty one, or one in a template without a `prose-rules` mark
   stops a command that reads the template with exit 2.
-- `prskill-runs-prose-patterns` (step): When open-pr has a draft, and again
-  after each revision, it hands the draft to the skill that
-  `.flywheel/pr-template.md` names to run every pattern the project's prose
-  rules carry, and fixes or dismisses each match before a reader sees the
-  draft. After a revision, open-pr also passes that skill each line the
-  revision changed, so that the skill checks the rewrites. When that skill
-  is not installed, open-pr skips the patterns and tells the owner so.
 - `adopt-asks-prose-rules` (step): When adopt sets the pull request shape,
   it asks the owner for the project's prose rules files and the skill that
-  runs their patterns, and writes a mark for each answer into
-  `.flywheel/pr-template.md`. When adopt has written the template, it runs
+  checks a file against the prose rules, and writes a mark for each answer
+  into `.flywheel/pr-template.md`. When adopt has written the template, it runs
   `pr draft` before it finishes, and fixes the template with the owner
   until `pr draft` reads it.
 - `prskill-gives-draft-to-style-reader` (step): When the draft passes
-  `pr check` and the template names prose rules files, open-pr gives the
-  draft to a subagent that reads those files and nothing else, at the same
-  time as it gives the draft to the cold reader. The subagent leaves to the
-  cold reader the rules about defining terms and about what the owner
-  already knows, and names each breach of every other rule by rule and
-  quotes its sentence. open-pr rewrites each quoted sentence that breaks its
-  rule, and takes a term to explain only from the cold reader. It sends the
-  revised draft back through `pr check`, the skill that runs the patterns
-  and both readers. When the template does not name any prose rules file,
-  open-pr skips this read.
+  `pr check`, and again after each revision, open-pr hands the draft to the
+  skill that `.flywheel/pr-template.md` names, with the Skill tool, at the
+  same time as it gives the draft to the cold reader. The skill runs every
+  pattern the project's prose rules carry and reads the draft against every
+  rule. The hand-off tells the skill that the cold reader checks undefined
+  terms. open-pr rewrites each sentence that a match or a breach falls in,
+  and takes a term to explain only from the cold reader. After a revision,
+  open-pr also passes the skill each line the revision changed. When the
+  template does not name a skill, or names one that is not installed,
+  open-pr skips the prose check, and tells the owner when the template
+  names prose rules files.
 
 ## need contributor-reads-method-beside-plugin: Read the method beside the plugin
 

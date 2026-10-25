@@ -1205,7 +1205,7 @@ def pr_prose_rules(root):
 
 def pr_template(root):
     """PR_TEMPLATE_FILE's shape, the prose rules files it names, and the skill
-    that runs their patterns, or None."""
+    that checks a draft against them, or None."""
     path = os.path.join(root, *PR_TEMPLATE_FILE.split("/"))
     if not os.path.isfile(path):
         return DEFAULT_PR_SHAPE, (), None
@@ -1227,7 +1227,7 @@ def pr_template(root):
             if not check.group(1) or checks:
                 raise Fatal(
                     "%s has `%s`. Keep one `<!-- prose-check: SKILL -->` line, naming the"
-                    " skill that runs the prose rules' patterns, then run again."
+                    " skill that checks a draft against the prose rules, then run again."
                     % (PR_TEMPLATE_FILE, line.strip())
                 )
             checks.append(check.group(1))
