@@ -193,6 +193,19 @@ does not exist yet, write the default shape under the lines: each section and
 subsection above, with `<!-- requirement-ids -->` under `## Requirements`.
 When the owner names no file, write neither line, and name no skill.
 
+When step 6 wrote `.flywheel/pr-template.md`, check that every command that
+reads it can:
+
+```sh
+FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" pr draft
+```
+
+Exit 0 means the template reads, and the path it prints is an empty file
+that stays unused. Exit 2 means the template breaks a rule, such as a
+`prose-rules` line that names a file the project does not have. The error
+names the line and the remedy. Ask the owner for the right path, fix the
+template, and run the command again.
+
 Set each label answer that differs from the default and name the labels the
 repository lacks. The command below sets `ready` as the approval label, and
 the kinds `bug`, `feature` and `docs`. Give `--set` once for each role whose

@@ -213,7 +213,9 @@ at adoption, to run the rules' patterns.
 - `adopt-asks-prose-rules` (step): When adopt sets the pull request shape,
   it asks the owner for the project's prose rules files and the skill that
   runs their patterns, and writes a mark for each answer into
-  `.flywheel/pr-template.md`.
+  `.flywheel/pr-template.md`. When adopt has written the template, it runs
+  `pr draft` before it finishes, and fixes the template with the owner
+  until `pr draft` reads it.
 - `prskill-gives-draft-to-style-reader` (step): When the draft passes
   `pr check` and the template names prose rules files, open-pr gives the
   draft to a subagent that reads those files and nothing else, at the same
