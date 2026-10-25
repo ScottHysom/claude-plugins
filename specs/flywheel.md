@@ -58,10 +58,10 @@ decisions on it.
   with the label used when the file leaves it out or is missing:
   - `approval`, the **approval label**, which the owner adds to approve an
     issue: `approved`.
-  - `plan`, the **plan label**, which marks a plan's tracking issue:
-    `tracking`.
+  - `plan`, the **plan label**, which marks the issue that groups a plan's
+    issues: `plan`.
   - `claim`, the **claim label**, which `claim` adds to the issue it holds:
-    `in-progress`.
+    `claimed`.
 - `labelsfile-refuses-bad-map` (test): When `.flywheel/labels.json` gives
   any of these, a command that reads it exits 2 and names the fault:
   - a role outside the three.

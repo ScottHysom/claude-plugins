@@ -68,7 +68,7 @@ Commands:
                  owner's target level from --level and, under each level,
                  each control's state.
     labels       each label the loop and file-issue need that the repository
-                 lacks, such as `tracking`, and the claim label when the
+                 lacks, such as `plan`, and the claim label when the
                  repository describes it otherwise. With --set ROLE=NAME,
                  first write NAME as ROLE's label into
                  .flywheel/labels.json. With --kind NAME=TEXT, first write
@@ -686,8 +686,8 @@ GUARD_EVENT = "PreToolUse"
 GUARD_MATCHER = "Bash"
 
 APPROVED = "approved"
-IN_PROGRESS = "in-progress"
-TRACKING = "tracking"
+PLAN_LABEL = "plan"
+CLAIMED = "claimed"
 REMOTE = "origin"
 BASE = "main"
 BRANCH_PREFIX = "issue/"
@@ -903,7 +903,7 @@ DEFAULT_KINDS = {
     "documentation": "Improvements or additions to documentation",
 }
 APPROVAL, PLAN, CLAIM = "approval", "plan", "claim"
-ROLE_LABELS = {APPROVAL: APPROVED, PLAN: TRACKING, CLAIM: IN_PROGRESS}
+ROLE_LABELS = {APPROVAL: APPROVED, PLAN: PLAN_LABEL, CLAIM: CLAIMED}
 # `labels`: each label the loop and file-issue need, with its description.
 # A role's label is named by its role.
 ROLE_TEXTS = {

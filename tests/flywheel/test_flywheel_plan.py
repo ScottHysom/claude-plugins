@@ -21,7 +21,7 @@ LABELS = (
     "repo",
     "plugin:todos",
     "approved",
-    "tracking",
+    "plan",
 )
 BODY = (
     "**Claude:**\n\n## What's wrong\n\nIt breaks.\n\n## Evidence\n\nflywheel.py:1\n\n"
@@ -268,7 +268,7 @@ class DescribePlanReportDrafts:
                 "`approved`, which only the owner adds",
             ),
             (
-                issue("A", labels=("bug", "repo", "tracking")),
+                issue("A", labels=("bug", "repo", "plan")),
                 "which only the tracking issue carries",
             ),
             (issue("A", labels=("bug", "repo", "wontfix")), "a label the repository does not have"),
@@ -543,7 +543,7 @@ class DescribePlanFile:
         assert gh.issues[b]["body"] == BODY + "\nAfter #100, not `{A}`."
         assert gh.issues[c]["labels"] == ["documentation", "plugin:todos"]
         assert gh.blocked == {b: [8, a]}
-        assert gh.issues[t]["labels"] == ["tracking"]
+        assert gh.issues[t]["labels"] == ["plan"]
         assert gh.issues[t]["body"].startswith("**Claude:**\n\nStart with 100.\n\n## Order\n")
         assert "2. #101 issue B, blocked by #100, #8\n" in gh.issues[t]["body"]
         assert gh.subs == {t: [a, b, c]}
@@ -931,7 +931,7 @@ class DescribePlanClose:
     @pytest.mark.spec("planclose-cmd-closes-finished-plan")
     def it_closes_a_plan_whose_sub_issues_are_all_closed(self, capsys, repo, hub):
         gh = hub()
-        tracking_issue(gh, 20, "approved", "tracking", subs=[(12, "CLOSED"), (11, "CLOSED")])
+        tracking_issue(gh, 20, "approved", "plan", subs=[(12, "CLOSED"), (11, "CLOSED")])
         code, out = run(capsys, repo, "plan", "close", "20")
         assert code == flywheel.OK
         assert (out.out, out.err) == ("Closed #20. Every sub-issue is closed: #12, #11.\n", "")
@@ -951,7 +951,7 @@ class DescribePlanClose:
     def it_refuses_while_any_sub_issue_is_open(self, capsys, repo, hub):
         gh = hub()
         tracking_issue(
-            gh, 20, "approved", "tracking", subs=[(11, "CLOSED"), (12, "OPEN"), (13, "OPEN")]
+            gh, 20, "approved", "plan", subs=[(11, "CLOSED"), (12, "OPEN"), (13, "OPEN")]
         )
         code, data = run_json(capsys, repo, "plan", "close", "20")
         assert code == flywheel.PROBLEMS
@@ -964,9 +964,9 @@ class DescribePlanClose:
     @pytest.mark.parametrize(
         ("labels", "state", "says"),
         [
-            (("tracking",), "OPEN", "not labeled approved"),
-            (("approved",), "OPEN", "not labeled tracking"),
-            (("approved", "tracking"), "CLOSED", "is closed already"),
+            (("plan",), "OPEN", "not labeled approved"),
+            (("approved",), "OPEN", "not labeled plan"),
+            (("approved", "plan"), "CLOSED", "is closed already"),
         ],
     )
     def it_refuses_an_issue_that_is_not_an_open_approved_plan(
@@ -983,7 +983,7 @@ class DescribePlanClose:
     @pytest.mark.spec("planclose-cmd-closes-finished-plan")
     def it_refuses_a_plan_without_sub_issues(self, capsys, repo, hub):
         gh = hub()
-        tracking_issue(gh, 20, "approved", "tracking")
+        tracking_issue(gh, 20, "approved", "plan")
         code, out = run(capsys, repo, "plan", "close", "20")
         assert code == flywheel.PROBLEMS
         assert "#20 has no sub-issues" in out.err
@@ -1199,7 +1199,7 @@ class DescribeMappedPlanLabels:
             tmp_path,
             issue("A", labels=("bug", "general", "ready")),
             issue("B", labels=("bug", "general", "epic")),
-            issue("D", labels=("bug", "general", "approved", "tracking")),
+            issue("D", labels=("bug", "general", "approved", "plan")),
         )
         code, data = report(capsys, mapped(repo), plan)
         assert code == flywheel.PROBLEMS

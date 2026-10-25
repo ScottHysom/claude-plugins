@@ -12,7 +12,7 @@ name: issue-closed
 # through a merge counts as the person who merged, so this runs however the
 # issue was closed. `flywheel.py stale` reports a closed issue that still has
 # the label, in case a run fails or the issue closed before this workflow
-# existed. The claim label is `in-progress` unless .flywheel/labels.json
+# existed. The claim label is `claimed` unless .flywheel/labels.json
 # gives another under `roles`, as `{"roles": {"claim": "flywheel-claim"}}`, so
 # this reads the file from the closed issue's repository. The flywheel
 # plugin's README.md, under "Claiming an issue", describes the claim.
@@ -32,16 +32,16 @@ jobs:
       - uses: actions/checkout@v4
         with:
           sparse-checkout: .flywheel
-      # spec: issueclosed-clears-in-progress-label
+      # spec: issueclosed-clears-claim-label
       - name: Remove the claim label
         env:
           GH_TOKEN: ${{ github.token }}
           NUMBER: ${{ github.event.issue.number }}
           LABELS: ${{ toJSON(github.event.issue.labels.*.name) }}
         run: |
-          claim=in-progress
+          claim=claimed
           if [ -f .flywheel/labels.json ]; then
-            claim=$(jq -r '.roles.claim // "in-progress"' .flywheel/labels.json)
+            claim=$(jq -r '.roles.claim // "claimed"' .flywheel/labels.json)
           fi
           if printf '%s' "$LABELS" | jq -e --arg claim "$claim" \
             'map(ascii_downcase) | index($claim | ascii_downcase) != null' > /dev/null; then
