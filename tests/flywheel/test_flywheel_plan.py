@@ -1,4 +1,4 @@
-"""flywheel.py plan turns one approved plan into issues, links and a tracking
+"""flywheel.py plan turns one approved plan into issues, links and a plan
 issue. A filed issue cannot be counted on to come back, so the plan is checked
 whole before the first call, filed only with the token of the report the owner
 read, and read back once filed. gh is faked by a small GitHub that keeps the
@@ -21,7 +21,7 @@ LABELS = (
     "repo",
     "plugin:todos",
     "approved",
-    "tracking",
+    "plan",
 )
 BODY = (
     "**Claude:**\n\n## What's wrong\n\nIt breaks.\n\n## Evidence\n\nflywheel.py:1\n\n"
@@ -155,7 +155,7 @@ def issue(key, *blocked_by, labels=("enhancement", "repo"), body=BODY, title=Non
 
 def write_plan(tmp_path, *issues, plan="Do the plan.", **extra):
     path = tmp_path / "plan.json"
-    data = {"issues": list(issues), "tracking": {"title": "The plan", "plan": plan}}
+    data = {"issues": list(issues), "plan": {"title": "The plan", "body": plan}}
     data.update(extra)
     path.write_text(json.dumps(data))
     return path
@@ -268,8 +268,8 @@ class DescribePlanReportDrafts:
                 "`approved`, which only the owner adds",
             ),
             (
-                issue("A", labels=("bug", "repo", "tracking")),
-                "which only the tracking issue carries",
+                issue("A", labels=("bug", "repo", "plan")),
+                "which only the plan issue carries",
             ),
             (issue("A", labels=("bug", "repo", "wontfix")), "a label the repository does not have"),
             (issue("A", labels=("bug", "plugin:nope")), "`plugin:nope`, a label the repository"),
@@ -279,7 +279,7 @@ class DescribePlanReportDrafts:
             "heading",
             "two-kinds",
             "approved",
-            "tracking",
+            "plan-label",
             "unknown",
             "area",
         ],
@@ -351,7 +351,7 @@ class DescribePlanReportSplitLines:
         code, data = report(capsys, repo, write_plan(tmp_path, issue("A"), plan=plan))
         assert code == flywheel.PROBLEMS
         assert data["errors"] == [
-            "the tracking issue's plan: line 4 continues the paragraph or list item above it. "
+            "the plan issue's body: line 4 continues the paragraph or list item above it. "
             "GitHub renders the newline as a line break, so join the line to the one above"
         ]
 
@@ -430,11 +430,11 @@ class DescribePlanReportLinks:
         assert gh.writes() == []
 
     @pytest.mark.spec("planreport-cmd-checks-plan-links")
-    def it_refuses_a_reference_in_the_tracking_plan_to_nothing(self, capsys, tmp_path, repo, hub):
+    def it_refuses_a_reference_in_the_plan_issue_body_to_nothing(self, capsys, tmp_path, repo, hub):
         hub()
         code, data = report(capsys, repo, write_plan(tmp_path, issue("A"), plan="Start at {X}."))
         assert code == flywheel.PROBLEMS
-        assert "the tracking issue's plan names {X}" in data["errors"][0]
+        assert "the plan issue's body names {X}" in data["errors"][0]
 
     @pytest.mark.spec("planreport-cmd-checks-plan-links")
     def it_leaves_a_key_in_code_alone(self, capsys, tmp_path, repo, hub):
@@ -467,7 +467,7 @@ class DescribePlanReportOrder:
         code, data = report(capsys, repo, plan)
         assert code == flywheel.OK, data["errors"]
         assert data["data"]["order"] == ["A", "C", "B", "D", "E"]
-        body = data["data"]["tracking"]["body"]
+        body = data["data"]["plan"]["body"]
         assert body.startswith("**Claude:**\n\nDo the plan.\n\n## Order\n\n")
         assert body.endswith(
             "1. #{A} issue A\n"
@@ -543,11 +543,11 @@ class DescribePlanFile:
         assert gh.issues[b]["body"] == BODY + "\nAfter #100, not `{A}`."
         assert gh.issues[c]["labels"] == ["documentation", "plugin:todos"]
         assert gh.blocked == {b: [8, a]}
-        assert gh.issues[t]["labels"] == ["tracking"]
+        assert gh.issues[t]["labels"] == ["plan"]
         assert gh.issues[t]["body"].startswith("**Claude:**\n\nStart with 100.\n\n## Order\n")
         assert "2. #101 issue B, blocked by #100, #8\n" in gh.issues[t]["body"]
         assert gh.subs == {t: [a, b, c]}
-        assert data["data"]["tracking"]["url"] == "https://github.com/o/r/issues/103"
+        assert data["data"]["plan"]["url"] == "https://github.com/o/r/issues/103"
 
     @pytest.mark.spec(
         "planfile-cmd-files-in-order", "repo:command-splits-output-streams-without-json"
@@ -561,7 +561,7 @@ class DescribePlanFile:
         assert out.err == ""
         assert out.out.splitlines() == [
             "filed #100 issue A  https://github.com/o/r/issues/100",
-            "filed tracking issue #101 The plan  https://github.com/o/r/issues/101",
+            "filed plan issue #101 The plan  https://github.com/o/r/issues/101",
             "added #100 to #101",
         ]
 
@@ -579,7 +579,7 @@ class DescribePlanFiledIssue:
         assert shown["labels"] == ["bug", "repo"]
         assert shown["body"] == OLD_BODY
         assert data["data"]["numbers"] == {"B": 40}
-        assert "2. #40 old #40, blocked by #{A}\n" in data["data"]["tracking"]["body"]
+        assert "2. #40 old #40, blocked by #{A}\n" in data["data"]["plan"]["body"]
         written = (repo / flywheel.PLAN_REPORT).read_text()
         assert "## 2. `B`: old #40" in written
         assert "- **Filed already** as #40, before this plan." in written
@@ -664,7 +664,7 @@ class DescribePlanFiledIssue:
         assert code == flywheel.OK
         assert out.out.splitlines() == [
             "already filed #40 old #40",
-            "filed tracking issue #100 The plan  https://github.com/o/r/issues/100",
+            "filed plan issue #100 The plan  https://github.com/o/r/issues/100",
             "added #40 to #100",
         ]
 
@@ -733,7 +733,7 @@ class DescribePlanFileToken:
         assert code == flywheel.OK
         assert out.out.splitlines() == [
             "would file issue A",
-            "would file tracking issue The plan",
+            "would file plan issue The plan",
         ]
         assert gh.writes() == []
         assert not (repo / flywheel.PLAN_LEDGER).exists()
@@ -841,7 +841,7 @@ class DescribePlanFileResume:
         code, data = file_plan(capsys, repo, plan, token)
         assert code == flywheel.OK, data["errors"]
         assert data["data"]["links"] == []
-        assert data["data"]["sub_issues"] == [{"issue": 101, "tracking": 102}]
+        assert data["data"]["sub_issues"] == [{"issue": 101, "plan": 102}]
         assert gh.blocked == {101: [100]}
         assert gh.subs == {102: [100, 101]}
 
@@ -854,7 +854,7 @@ class DescribePlanFileResume:
         before = len(gh.writes())
         code, data = file_plan(capsys, repo, plan, token)
         assert code == flywheel.PROBLEMS
-        assert "this plan was filed already, under tracking issue #101" in data["errors"][0]
+        assert "this plan was filed already, under plan issue #101" in data["errors"][0]
         assert len(gh.writes()) == before
 
     @pytest.mark.spec("repo:planfile-cmd-resumes-after-failed-call")
@@ -869,7 +869,7 @@ class DescribePlanFileResume:
         assert code == flywheel.OK
         assert data["warnings"] == [
             "`A` was filed as #100 by an earlier run of plan file and is not in this plan; "
-            "it stays as it is, outside the tracking issue"
+            "it stays as it is, outside the plan issue"
         ]
 
     @pytest.mark.spec("repo:planfile-cmd-resumes-after-failed-call")
@@ -913,8 +913,8 @@ class DescribePlanMain:
         assert out.err.startswith("flywheel.py: %s is not JSON" % plan)
 
 
-def tracking_issue(hub_, number, *labels, state="OPEN", subs=()):
-    """Put tracking issue #number, and each sub-issue as (number, state), in hub_."""
+def plan_issue(hub_, number, *labels, state="OPEN", subs=()):
+    """Put plan issue #number, and each sub-issue as (number, state), in hub_."""
     hub_.issues[number] = {
         "number": number,
         "title": "plan %d" % number,
@@ -931,7 +931,7 @@ class DescribePlanClose:
     @pytest.mark.spec("planclose-cmd-closes-finished-plan")
     def it_closes_a_plan_whose_sub_issues_are_all_closed(self, capsys, repo, hub):
         gh = hub()
-        tracking_issue(gh, 20, "approved", "tracking", subs=[(12, "CLOSED"), (11, "CLOSED")])
+        plan_issue(gh, 20, "approved", "plan", subs=[(12, "CLOSED"), (11, "CLOSED")])
         code, out = run(capsys, repo, "plan", "close", "20")
         assert code == flywheel.OK
         assert (out.out, out.err) == ("Closed #20. Every sub-issue is closed: #12, #11.\n", "")
@@ -950,13 +950,11 @@ class DescribePlanClose:
     @pytest.mark.spec("planclose-cmd-closes-finished-plan")
     def it_refuses_while_any_sub_issue_is_open(self, capsys, repo, hub):
         gh = hub()
-        tracking_issue(
-            gh, 20, "approved", "tracking", subs=[(11, "CLOSED"), (12, "OPEN"), (13, "OPEN")]
-        )
+        plan_issue(gh, 20, "approved", "plan", subs=[(11, "CLOSED"), (12, "OPEN"), (13, "OPEN")])
         code, data = run_json(capsys, repo, "plan", "close", "20")
         assert code == flywheel.PROBLEMS
         assert "#20 still has open sub-issues: #12, #13" in data["errors"][0]
-        assert "flywheel.py claim --next --tracking 20" in data["errors"][0]
+        assert "flywheel.py claim --next --plan 20" in data["errors"][0]
         assert data["data"]["closed"] is False
         assert gh.writes() == []
 
@@ -964,16 +962,16 @@ class DescribePlanClose:
     @pytest.mark.parametrize(
         ("labels", "state", "says"),
         [
-            (("tracking",), "OPEN", "not labeled approved"),
-            (("approved",), "OPEN", "not labeled tracking"),
-            (("approved", "tracking"), "CLOSED", "is closed already"),
+            (("plan",), "OPEN", "not labeled approved"),
+            (("approved",), "OPEN", "not labeled plan"),
+            (("approved", "plan"), "CLOSED", "is closed already"),
         ],
     )
     def it_refuses_an_issue_that_is_not_an_open_approved_plan(
         self, capsys, repo, hub, labels, state, says
     ):
         gh = hub()
-        tracking_issue(gh, 20, *labels, state=state)
+        plan_issue(gh, 20, *labels, state=state)
         code, out = run(capsys, repo, "plan", "close", "20")
         assert code == flywheel.PROBLEMS
         assert says in out.err
@@ -983,7 +981,7 @@ class DescribePlanClose:
     @pytest.mark.spec("planclose-cmd-closes-finished-plan")
     def it_refuses_a_plan_without_sub_issues(self, capsys, repo, hub):
         gh = hub()
-        tracking_issue(gh, 20, "approved", "tracking")
+        plan_issue(gh, 20, "approved", "plan")
         code, out = run(capsys, repo, "plan", "close", "20")
         assert code == flywheel.PROBLEMS
         assert "#20 has no sub-issues" in out.err
@@ -1003,14 +1001,14 @@ class DescribeOneIssuePlan:
         code, data = report(capsys, repo, one_issue_plan(tmp_path, issue("A")))
         assert code == flywheel.OK, data["errors"]
         assert data["data"]["order"] == ["A"]
-        assert data["data"]["tracking"] is None
+        assert data["data"]["plan"] is None
         written = (repo / flywheel.PLAN_REPORT).read_text()
         assert "## 1. `A`: issue A" in written
-        assert "Tracking issue" not in written
-        assert "1 issue(s), without a tracking issue." in written
+        assert "Plan issue" not in written
+        assert "1 issue(s), without a plan issue." in written
         assert gh.writes() == []
 
-    def it_files_the_issue_without_a_tracking_issue(self, capsys, tmp_path, repo, hub):
+    def it_files_the_issue_without_a_plan_issue(self, capsys, tmp_path, repo, hub):
         gh = hub(outside=[(8, "OPEN")])
         plan = one_issue_plan(tmp_path, issue("A", 8))
         token = token_for(capsys, repo, plan)
@@ -1024,15 +1022,15 @@ class DescribeOneIssuePlan:
         assert gh.blocked == {100: [8]}
         assert gh.subs == {}
         ledger = json.loads((repo / flywheel.PLAN_LEDGER).read_text())
-        assert (ledger["tracking"], ledger["complete"]) == (None, True)
+        assert (ledger["plan_issue"], ledger["complete"]) == (None, True)
 
-    def it_says_on_a_dry_run_that_it_files_no_tracking_issue(self, capsys, tmp_path, repo, hub):
+    def it_says_on_a_dry_run_that_it_files_no_plan_issue(self, capsys, tmp_path, repo, hub):
         gh = hub()
         plan = one_issue_plan(tmp_path, issue("A"))
         token = token_for(capsys, repo, plan)
         code, data = file_plan(capsys, repo, plan, token, "--dry-run")
         assert code == flywheel.OK, data["errors"]
-        assert data["data"]["tracking"] is None
+        assert data["data"]["plan"] is None
         assert [i["key"] for i in data["data"]["issues"]] == ["A"]
         assert gh.writes() == []
 
@@ -1046,16 +1044,11 @@ class DescribeOneIssuePlan:
         assert data["errors"][0].startswith("this plan was filed already; nothing is left")
         assert list(gh.filed()) == [100]
 
-    def it_refuses_a_plan_of_several_issues_without_a_tracking_issue(
-        self, capsys, tmp_path, repo, hub
-    ):
+    def it_refuses_a_plan_of_several_issues_without_a_plan_issue(self, capsys, tmp_path, repo, hub):
         hub()
         code, data = report(capsys, repo, one_issue_plan(tmp_path, issue("A"), issue("B")))
         assert code == flywheel.PROBLEMS
-        assert (
-            'the plan\'s "tracking" is not an object with a "title" and a "plan"'
-            in (data["errors"])
-        )
+        assert 'the plan\'s "plan" is not an object with a "title" and a "body"' in (data["errors"])
         assert data["data"]["token"] is None
 
 
@@ -1082,12 +1075,12 @@ class DescribePlanReportShape:
             (["not", "an", "object"], "the plan is not a JSON object"),
             (
                 {"issues": [issue("A")], "extra": 1},
-                "the plan has 'extra', which is not one of issues, tracking",
+                "the plan has 'extra', which is not one of issues, plan",
             ),
             ({"issues": []}, 'the plan\'s "issues" is not a list holding at least one issue'),
             (
-                {"issues": [issue("A")], "tracking": {"title": "T", "plan": "P", "x": 1}},
-                "the tracking issue has 'x', which is not one of title, plan",
+                {"issues": [issue("A")], "plan": {"title": "T", "body": "P", "x": 1}},
+                "the plan issue has 'x', which is not one of title, body",
             ),
             (
                 {"issues": [{"title": "t", "body": BODY, "labels": ["bug", "repo"]}]},
@@ -1106,7 +1099,7 @@ class DescribePlanReportShape:
             "not-object",
             "extra-key",
             "no-issues",
-            "tracking-field",
+            "plan-field",
             "no-key",
             "no-body",
             "labels",
@@ -1140,7 +1133,7 @@ class DescribePlanReportShape:
 
 class DescribePlanRecord:
     @pytest.mark.spec("repo:planfile-cmd-resumes-after-failed-call")
-    def it_shows_a_tracking_issue_an_earlier_run_filed(self, capsys, tmp_path, repo, hub):
+    def it_shows_a_plan_issue_an_earlier_run_filed(self, capsys, tmp_path, repo, hub):
         gh = hub()
         plan = write_plan(tmp_path, issue("A"))
         token = token_for(capsys, repo, plan)
@@ -1155,7 +1148,7 @@ class DescribePlanRecord:
         assert file_plan(capsys, repo, plan, token)[0] == flywheel.PROBLEMS
         code, data = report(capsys, repo, plan)
         assert code == flywheel.OK, data["errors"]
-        assert data["data"]["tracking"]["number"] == 101
+        assert data["data"]["plan"]["number"] == 101
         written = (repo / flywheel.PLAN_REPORT).read_text()
         assert "- **Filed already** as #101, by an earlier run." in written
 
@@ -1199,18 +1192,18 @@ class DescribeMappedPlanLabels:
             tmp_path,
             issue("A", labels=("bug", "general", "ready")),
             issue("B", labels=("bug", "general", "epic")),
-            issue("D", labels=("bug", "general", "approved", "tracking")),
+            issue("D", labels=("bug", "general", "approved", "plan")),
         )
         code, data = report(capsys, mapped(repo), plan)
         assert code == flywheel.PROBLEMS
         assert data["data"]["token"] is None
         assert data["errors"] == [
             "`A` carries `ready`, which only the owner adds",
-            "`B` carries `epic`, which only the tracking issue carries",
+            "`B` carries `epic`, which only the plan issue carries",
         ]
 
     @pytest.mark.spec("labelsfile-maps-roles", "planfile-cmd-files-in-order")
-    def it_files_the_tracking_issue_with_the_mapped_plan_label(self, capsys, tmp_path, repo, hub):
+    def it_files_the_plan_issue_with_the_mapped_plan_label(self, capsys, tmp_path, repo, hub):
         gh = hub(labels=(*LABELS, "ready", "epic", "general"))
         repo = mapped(repo)
         plan = write_plan(
@@ -1220,7 +1213,7 @@ class DescribeMappedPlanLabels:
         )
         code, data = report(capsys, repo, plan)
         assert code == flywheel.OK, data["errors"]
-        assert data["data"]["tracking"]["labels"] == ["epic"]
+        assert data["data"]["plan"]["labels"] == ["epic"]
         assert "- **Labels:** epic\n" in (repo / flywheel.PLAN_REPORT).read_text()
         code, data = file_plan(capsys, repo, plan, data["data"]["token"])
         assert code == flywheel.OK, data["errors"]

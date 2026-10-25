@@ -470,11 +470,11 @@ A new plugin adds its `plugin:<name>` label when it is added. An issue that is a
 duplicate, or will not be done, is closed with a comment saying why rather than
 kept open under a label.
 
-### Tracking issues
+### Plan issues
 
-A **tracking issue** is a parent that groups the issues of one plan as GitHub
-sub-issues. For example, one tracking issue can group the issues for do-todos
-and for update-prose-config. A tracking issue:
+A **plan issue** is a parent that groups the issues of one plan as GitHub
+sub-issues. For example, one plan issue can group the issues for do-todos
+and for update-prose-config. A plan issue:
 
 - carries `tracking` and no kind or area label, since its sub-issues can span
   several plugins.
@@ -487,7 +487,7 @@ and for update-prose-config. A tracking issue:
 - is never claimed or closed by a pull request.
 
 An agent closes it once its last sub-issue closes. When every sub-issue of
-#N is closed, `flywheel.py queue --tracking N` says the plan is finished, and the agent
+#N is closed, `flywheel.py queue --plan N` says the plan is finished, and the agent
 runs `python3 plugins/flywheel/scripts/flywheel.py plan close N`. `plan close` refuses
 while any sub-issue of #N is open.
 
@@ -510,7 +510,7 @@ that report, and `plan file` takes its token. Then `plan file`:
 
 1. files the issues in that order.
 2. links them.
-3. files the tracking issue.
+3. files the plan issue.
 4. adds the sub-issues in order.
 5. reads all of it back.
 
@@ -527,10 +527,10 @@ what stops them picking the same one. The flywheel plugin's script,
 ```sh
 python3 plugins/flywheel/scripts/flywheel.py queue            # the oldest approved, unblocked issue nobody holds
 python3 plugins/flywheel/scripts/flywheel.py queue --count 3  # up to three of them
-python3 plugins/flywheel/scripts/flywheel.py queue --tracking 347  # the next issue in #347's plan
+python3 plugins/flywheel/scripts/flywheel.py queue --plan 347  # the next issue in #347's plan
 python3 plugins/flywheel/scripts/flywheel.py claim 12     # take it, and switch to branch issue/12
 python3 plugins/flywheel/scripts/flywheel.py claim --next # take the issue queue offers, or the next free one if another agent wins it
-python3 plugins/flywheel/scripts/flywheel.py claim --next --tracking 347  # the same, through #347's plan
+python3 plugins/flywheel/scripts/flywheel.py claim --next --plan 347  # the same, through #347's plan
 python3 plugins/flywheel/scripts/flywheel.py brief 12     # the first message of a session that works #12
 python3 plugins/flywheel/scripts/flywheel.py release 12   # give it up without a pull request
 python3 plugins/flywheel/scripts/flywheel.py stale        # labels, branches and issue states that disagree
@@ -542,10 +542,10 @@ python3 plugins/flywheel/scripts/flywheel.py sweep        # delete every local b
 when every free issue is blocked. `claim` does not check, so the owner can still
 name a blocked issue.
 
-`queue` never offers a tracking issue, or a sub-issue of an approved tracking
-issue. An approved tracking issue takes its place in the queue at the lowest
+`queue` never offers a plan issue, or a sub-issue of an approved plan
+issue. An approved plan issue takes its place in the queue at the lowest
 number among itself and its open sub-issues. When that place comes first,
-`queue` names the tracking issue instead of an issue to work. `queue --tracking N`
+`queue` names the plan issue instead of an issue to work. `queue --plan N`
 then walks #N's sub-issues in the order #N lists them. It passes over each one
 that is closed, held (already claimed) or blocked, and offers the first one left. When that one
 is not approved, it exits 1 and names it, rather than skip ahead in the plan.
@@ -565,8 +565,8 @@ shows in the issue list.
 issue, and one of them loses the claim. `claim --next` runs the queue and the
 claim together. When it loses, it runs the queue again and claims the next
 free issue, until it wins or none is free, when it exits 1 and says why. With
-`--tracking N` it takes #N's sub-issues in #N's order, and stops wherever
-`queue --tracking N` stops. `claim N` still stops on a held issue, since the
+`--plan N` it takes #N's sub-issues in #N's order, and stops wherever
+`queue --plan N` stops. `claim N` still stops on a held issue, since the
 owner named that one.
 
 The label comes off in two ways: `release`, when a claim

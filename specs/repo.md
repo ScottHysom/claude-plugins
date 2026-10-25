@@ -223,10 +223,10 @@ so a reader never takes a stale label for a claim.
 Source: README.md, under "Claiming an issue", and #33. specs/flywheel.md
 holds the requirements the flywheel plugin meets under this need.
 
-- `issueclosed-clears-in-progress-label` (check): When an issue carrying
-  the claim label closes, issue-closed.yml removes the label. It reads the
-  claim label from `.flywheel/labels.json`, and `in-progress` when the file
-  does not give one.
+- `issueclosed-clears-claim-label` (check): When an issue carrying the
+  claim label closes, issue-closed.yml removes the label. It reads the claim
+  label from `.flywheel/labels.json`, and `claimed` when the file does not
+  give one.
 
 ## need owner-prevents-stale-branches: Keep finished branches from piling up
 
@@ -896,7 +896,7 @@ line its paragraphs were broken at.
   a paragraph or a list item onto a second line, outside a code fence or an
   HTML comment, `check-pr.py description` fails it and names each line.
 - `planreport-cmd-refuses-split-lines` (test): When a plan's draft (an
-  issue's body or the tracking issue's plan) continues a paragraph or a list
+  issue's body or the plan issue's body) continues a paragraph or a list
   item onto a second line, outside a code fence or an HTML comment,
   `flywheel.py plan report` refuses the draft and names each line.
 

@@ -44,7 +44,7 @@ def merged_pull(number, head, merged_at):
 
 @pytest.fixture
 def pulls(monkeypatch):
-    """Answer gh pr list with the pull requests given, and each tracking issue's sub-issues."""
+    """Answer gh pr list with the pull requests given, and each plan issue's sub-issues."""
 
     def install(opened=(), merged=(), subs=None):
         calls = []
@@ -268,7 +268,7 @@ class DescribeEventsForOneRound:
         )
 
     def it_lists_only_the_pull_requests_from_a_plans_sub_issues(self, project, two_rounds):
-        code, env = project.run("events", "--tracking", "70", "--since", SINCE)
+        code, env = project.run("events", "--plan", "70", "--since", SINCE)
         assert code == flywheel.OK
         assert [p["number"] for p in env["data"]["open"]] == [31]
         assert [p["number"] for p in env["data"]["merged"]] == [41]
@@ -291,7 +291,7 @@ class DescribeEventsForOneRound:
     def it_takes_a_plan_or_issues_but_not_both(self, project, pulls, capsys):
         calls = pulls()
         with pytest.raises(SystemExit) as exc:
-            flywheel.main(["events", "--tracking", "70", "--issue", "20", "-C", str(project.root)])
+            flywheel.main(["events", "--plan", "70", "--issue", "20", "-C", str(project.root)])
         assert exc.value.code == flywheel.CANNOT_RUN
         assert "not allowed with argument" in capsys.readouterr().err
         assert calls == []

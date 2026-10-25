@@ -140,10 +140,9 @@ The loop acts on three labels by their role. Ask the owner, with one
 offering the default first:
 
 - `approval`, the label the owner adds to approve an issue: `approved`.
-- `plan`, the label of a tracking issue, which groups a plan's issues:
-  `tracking`.
+- `plan`, the label of a plan issue, which groups a plan's issues: `plan`.
 - `claim`, the label a session adds to the issue it has claimed:
-  `in-progress`. Ask for a label that nothing else in the repository uses,
+  `claimed`. Ask for a label that nothing else in the repository uses,
   since the loop adds it and takes it off.
 
 Then ask the owner, with one more `AskUserQuestion`, for the rules each issue
@@ -262,7 +261,7 @@ Each issue:
 - for a missing spec, says the owner supplies each need and constraint, and
   that the agent drafts none of them.
 
-The tracking issue's plan says the repository is adopting the method at the
+The plan issue's body says the repository is adopting the method at the
 target level, and that the issues come in the order of `docs/adoption.md`'s
 tables.
 

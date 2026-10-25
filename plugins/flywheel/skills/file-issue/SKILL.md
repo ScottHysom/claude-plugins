@@ -1,13 +1,13 @@
 ---
 name: file-issue
-description: File an issue, or a plan's issues with the "blocked by" links between them and a tracking issue that lists them in order, in the project's GitHub repository, once the owner has approved what will be filed. Claude Code only. Uses scripts/flywheel.py plan report to check every draft and show it exactly as it will be filed, and plan file to file it, link it, group it and read it back. Use when asked to file an issue, file a gap or a candidate need found while working, file a plan, file a tracking issue, or file issues that depend on each other.
+description: File an issue, or a plan's issues with the "blocked by" links between them and a plan issue that lists them in order, in the project's GitHub repository, once the owner has approved what will be filed. Claude Code only. Uses scripts/flywheel.py plan report to check every draft and show it exactly as it will be filed, and plan file to file it, link it, group it and read it back. Use when asked to file an issue, file a gap or a candidate need found while working, file a plan, file a plan issue, or file issues that depend on each other.
 ---
 
 # File an issue or a plan
 
 This skill files one issue, or a **plan**: a piece of work that splits into
 several issues, some waiting on others. A plan's issues are linked to the
-issues that block them, and grouped under a **tracking issue** that lists
+issues that block them, and grouped under a **plan issue** that lists
 them in the order to work them. The owner approves what will be filed once,
 from the report `plan report` writes, and `plan file` files exactly what that
 report showed.
@@ -70,19 +70,18 @@ Split the work into issues, one problem each. Give each issue:
 An issue that is open already, such as one filed while working another,
 joins a plan as a `key` and its `number`, with `blocked_by` when it waits on
 anything, and nothing else. Filing leaves it as it is, and adds it to the
-tracking issue in its place in the order.
+plan issue in its place in the order.
 
 In a body, name another issue of the plan as `#{KEY}`, never by a number you
 expect it to get. Filing puts the issue's number in place of `{KEY}`. A body
 can name only an issue filed before it, so name a blocker from the issue it
 blocks, not the other way round.
 
-Write each paragraph and each list item of a body, and of the tracking
-issue's plan, on one line. GitHub renders a newline inside one as a line
-break.
+Write each paragraph and each list item of a body, and of the plan issue's
+body, on one line. GitHub renders a newline inside one as a line break.
 
-One issue alone takes no `tracking`. A plan of several issues takes a
-`tracking` object with a `title` and a `plan`. The plan says:
+One issue alone takes no `plan`. A plan of several issues takes a `plan`
+object with a `title` and a `body`. The body says:
 
 - what problem the plan fixes.
 - how its issues together fix it.
@@ -111,7 +110,7 @@ cat > /var/folders/k2/T/plan-x8q1zv.json <<'END'
   {"key": "B", "title": "<the title>", "labels": ["enhancement", "repo"],
    "blocked_by": ["A"], "body": "**Claude:**\n\n## What's wrong\n\nOnce #{A} lands, <...>"},
   {"key": "C", "number": 416, "blocked_by": ["B"]}],
- "tracking": {"title": "<the plan's title>", "plan": "<the problem, how the issues fix it, and why this order>"}}
+ "plan": {"title": "<the plan's title>", "body": "<the problem, how the issues fix it, and why this order>"}}
 END
 ```
 
@@ -128,7 +127,7 @@ warning names an issue an earlier run filed that the drafts no longer hold.
 Tell the owner about it.
 
 When it exits 0, `data.report` is the path of the report: each issue whole,
-in the order it will be filed, and the tracking issue's body as it will be
+in the order it will be filed, and the plan issue's body as it will be
 filed, when there is one. The file ends with the approval token, which is
 `data.token`. An issue marked "Filed already" was filed before the plan, or
 by an earlier run of `plan file` that stopped part way, and step 4 leaves it
@@ -193,11 +192,11 @@ Tell the owner:
 
 - each issue in `data.issues`, with its `number` and `url`, and whether this
   run filed it.
-- the tracking issue in `data.tracking`, with its `number` and `url`, when
+- the plan issue in `data.plan`, with its `number` and `url`, when
   there is one.
 - each link in `data.links` and each sub-issue in `data.sub_issues` this run
   added.
 - each error, when `plan file` exited 1.
 
-The owner approves each issue, and the tracking issue when there is one.
+The owner approves each issue, and the plan issue when there is one.
 Never add `approved` yourself.

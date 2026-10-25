@@ -168,7 +168,7 @@ def run_json(capsys, repo, *argv):
 
 
 class DescribeClaim:
-    @pytest.mark.spec("claim-cmd-switches-to-issue-branch", "claim-cmd-adds-in-progress-label")
+    @pytest.mark.spec("claim-cmd-switches-to-issue-branch", "claim-cmd-adds-claim-label")
     def it_pushes_the_branch_switches_to_it_and_says_so(self, capsys, remote, clone, github):
         a = clone("a")
         gh = github(make_issue(12, "approved"))
@@ -178,7 +178,7 @@ class DescribeClaim:
         assert "issue/12" in remote_branches(remote)
         assert git(a, "branch", "--show-current") == "issue/12"
         assert git(a, "rev-parse", "HEAD") == git(remote, "rev-parse", flywheel.BASE)
-        assert ("issue", "edit", "12", "--add-label", flywheel.IN_PROGRESS) in gh.calls
+        assert ("issue", "edit", "12", "--add-label", "claimed") in gh.calls
         assert any(c[1] == "comment" and flywheel.CLAIM_MARK in c[-1] for c in gh.calls)
 
     @pytest.mark.parametrize("main_moved", [False, True], ids=["same-main", "main-moved"])
@@ -220,7 +220,7 @@ class DescribeClaim:
         a, b = clone("a"), clone("b")
         github(make_issue(12, "approved"))
         run(capsys, a, "claim", "12")
-        gh = github(make_issue(12, "approved", "in-progress"))
+        gh = github(make_issue(12, "approved", "claimed"))
         code, out = run(capsys, b, "claim", "12")
         assert code == flywheel.PROBLEMS
         assert "#12 is held: branch issue/12 already exists" in out.err
@@ -264,13 +264,13 @@ class DescribeClaim:
         assert gh.writes() == []
 
     @pytest.mark.spec(
-        "claim-cmd-adds-in-progress-label", "repo:command-splits-output-streams-without-json"
+        "claim-cmd-adds-claim-label", "repo:command-splits-output-streams-without-json"
     )
     def it_warns_when_the_label_fails_after_the_push(self, capsys, remote, clone, github):
         github(make_issue(12, "approved"), fail=("--add-label",))
         code, out = run(capsys, clone("a"), "claim", "12")
         assert code == flywheel.OK
-        assert "warning: claimed, but could not add the in-progress label" in out.err
+        assert "warning: claimed, but could not add the claimed label" in out.err
         assert "issue/12" in remote_branches(remote)
 
     @pytest.mark.spec("claim-cmd-stops-when-nobody-wins")
@@ -349,7 +349,7 @@ class DescribeClaimNext:
         github(make_issue(12, "approved"))
         run(capsys, a, "claim", "12")
         stale_views(monkeypatch, 1)
-        gh = github(make_issue(12, "approved", "in-progress"))
+        gh = github(make_issue(12, "approved", "claimed"))
         code, out = run(capsys, b, "claim", "--next")
         assert code == flywheel.PROBLEMS
         assert out.out == ""
@@ -377,7 +377,7 @@ class DescribeClaimNext:
     ):
         a, b = clone("a"), clone("b")
         issues = (
-            make_issue(20, "approved", "tracking"),
+            make_issue(20, "approved", "plan"),
             make_issue(11, "approved"),
             make_issue(12, "approved"),
             make_issue(13, "approved"),
@@ -385,7 +385,7 @@ class DescribeClaimNext:
         github(*issues, subs={20: [13, 11, 12]})
         run(capsys, a, "claim", "13")
         stale_views(monkeypatch, 1)
-        code, out = run(capsys, b, "claim", "--next", "--tracking", "20")
+        code, out = run(capsys, b, "claim", "--next", "--plan", "20")
         assert code == flywheel.OK, out.err
         assert out.out == "Claimed #11 on branch issue/11\n"
         assert "#13 is held by another agent" in out.err
@@ -398,45 +398,45 @@ class DescribeClaimNext:
         run(capsys, a, "claim", "12")
         stale_views(monkeypatch, 1)
         gh = github(
-            make_issue(20, "approved", "tracking"),
+            make_issue(20, "approved", "plan"),
             make_issue(12, "approved"),
             make_issue(13),
             make_issue(14, "approved"),
             subs={20: [12, 13, 14]},
         )
-        code, out = run(capsys, b, "claim", "--next", "--tracking", "20")
+        code, out = run(capsys, b, "claim", "--next", "--plan", "20")
         assert code == flywheel.PROBLEMS
         assert "#13 issue 13 is next in #20's order and is not labeled approved" in out.err
         assert gh.writes() == []
         assert remote_branches(remote) == {flywheel.BASE, "issue/12"}
 
     def it_stops_on_a_plan_that_may_not_be_worked(self, capsys, remote, clone, github):
-        github(make_issue(20, "tracking"), make_issue(12, "approved"), subs={20: [12]})
-        code, out = run(capsys, clone("a"), "claim", "--next", "--tracking", "20")
+        github(make_issue(20, "plan"), make_issue(12, "approved"), subs={20: [12]})
+        code, out = run(capsys, clone("a"), "claim", "--next", "--plan", "20")
         assert code == flywheel.PROBLEMS
         assert "#20 is not labeled approved" in out.err
         assert remote_branches(remote) == {flywheel.BASE}
 
     def it_names_the_plan_that_comes_first_and_how_to_start_it(self, capsys, remote, clone, github):
         github(
-            make_issue(20, "approved", "tracking"),
+            make_issue(20, "approved", "plan"),
             make_issue(11, "approved"),
             make_issue(30, "approved"),
             subs={20: [11]},
         )
         code, out = run(capsys, clone("a"), "claim", "--next")
         assert code == flywheel.PROBLEMS
-        assert "#20 issue 20 is an approved tracking issue" in out.err
-        assert "flywheel.py claim --next --tracking 20" in out.err
+        assert "#20 issue 20 is an approved plan issue" in out.err
+        assert "flywheel.py claim --next --plan 20" in out.err
         assert remote_branches(remote) == {flywheel.BASE}
 
     def it_says_a_plan_is_finished(self, capsys, remote, clone, github):
         github(
-            make_issue(20, "approved", "tracking"),
+            make_issue(20, "approved", "plan"),
             make_issue(11, "approved", state="CLOSED"),
             subs={20: [11]},
         )
-        code, out = run(capsys, clone("a"), "claim", "--next", "--tracking", "20")
+        code, out = run(capsys, clone("a"), "claim", "--next", "--plan", "20")
         assert code == flywheel.PROBLEMS
         assert "plan is finished. To close it, run: flywheel.py plan close 20" in out.err
 
@@ -444,7 +444,7 @@ class DescribeClaimNext:
         ("argv", "says"),
         [
             ((), "Every free approved issue is blocked by an open issue: #12 by #99"),
-            (("--tracking", "20"), "Every free sub-issue of #20 is blocked"),
+            (("--plan", "20"), "Every free sub-issue of #20 is blocked"),
         ],
         ids=["queue", "plan"],
     )
@@ -453,7 +453,7 @@ class DescribeClaimNext:
     ):
         if argv:
             github(
-                make_issue(20, "approved", "tracking"),
+                make_issue(20, "approved", "plan"),
                 make_issue(12, "approved"),
                 subs={20: [12]},
                 blockers={12: [(99, "open")]},
@@ -483,11 +483,11 @@ class DescribeClaimNext:
             flywheel.main([*argv, "-C", str(clone("a"))])
         assert exc.value.code == flywheel.CANNOT_RUN
 
-    def it_cannot_run_with_tracking_but_without_next(self, capsys, clone, github):
+    def it_cannot_run_with_plan_but_without_next(self, capsys, clone, github):
         github(make_issue(12, "approved"))
-        code, out = run(capsys, clone("a"), "claim", "12", "--tracking", "20")
+        code, out = run(capsys, clone("a"), "claim", "12", "--plan", "20")
         assert code == flywheel.CANNOT_RUN
-        assert "--tracking works only with --next" in out.err
+        assert "--plan works only with --next" in out.err
 
 
 class DescribeQueue:
@@ -499,7 +499,7 @@ class DescribeQueue:
         run(capsys, a, "claim", "11")
         github(
             make_issue(10, "approved"),  # held by branch, label not added yet
-            make_issue(11, "approved", "in-progress"),
+            make_issue(11, "approved", "claimed"),
             make_issue(12),
             make_issue(14, "approved"),
             make_issue(13, "approved"),
@@ -517,7 +517,7 @@ class DescribeQueue:
 
     @pytest.mark.spec("next-cmd-offers-free-issue")
     def it_offers_a_labeled_issue_that_no_branch_holds(self, capsys, clone, github):
-        github(make_issue(11, "approved", "in-progress"), make_issue(12, "approved"))
+        github(make_issue(11, "approved", "claimed"), make_issue(12, "approved"))
         code, data = run_json(capsys, clone("a"), "queue")
         assert code == flywheel.OK
         assert data["data"]["issues"] == [{"number": 11}]
@@ -530,7 +530,7 @@ class DescribeQueue:
     @pytest.mark.spec("next-cmd-offers-free-issue")
     def it_is_not_a_problem_when_nothing_is_free(self, capsys, remote, clone, github):
         a = clone("a")
-        github(make_issue(11, "approved", "in-progress"))
+        github(make_issue(11, "approved", "claimed"))
         run(capsys, a, "claim", "11")
         code, out = run(capsys, a, "queue")
         assert code == flywheel.OK
@@ -585,31 +585,29 @@ class DescribeQueueBlockers:
 
 
 class DescribeQueueTracking:
-    @pytest.mark.spec("next-cmd-follows-tracking-issue")
-    def it_offers_sub_issues_in_the_order_the_tracking_issue_lists_them(
-        self, capsys, clone, github
-    ):
+    @pytest.mark.spec("next-cmd-follows-plan-issue")
+    def it_offers_sub_issues_in_the_order_the_plan_issue_lists_them(self, capsys, clone, github):
         github(
-            make_issue(20, "approved", "tracking"),
+            make_issue(20, "approved", "plan"),
             make_issue(11, "approved"),
             make_issue(12, "approved"),
             subs={20: [12, 11]},
         )
-        code, data = run_json(capsys, clone("a"), "queue", "--tracking", "20")
+        code, data = run_json(capsys, clone("a"), "queue", "--plan", "20")
         assert code == flywheel.OK
         assert data["data"]["issues"] == [{"number": 12}]
-        assert data["data"]["tracking"] == {"number": 20}
+        assert data["data"]["plan"] == {"number": 20}
 
-    @pytest.mark.spec("next-cmd-follows-tracking-issue")
+    @pytest.mark.spec("next-cmd-follows-plan-issue")
     def it_passes_over_closed_held_and_blocked_sub_issues(self, capsys, remote, clone, github):
         a = clone("a")
         github(make_issue(11, "approved"), make_issue(13, "approved"))
         run(capsys, a, "claim", "11")
         run(capsys, a, "claim", "13")
         github(
-            make_issue(20, "approved", "tracking"),
+            make_issue(20, "approved", "plan"),
             make_issue(10, "approved", state="CLOSED"),
-            make_issue(11, "approved", "in-progress"),
+            make_issue(11, "approved", "claimed"),
             make_issue(13, "approved"),
             make_issue(14, "approved"),
             make_issue(15, "approved"),
@@ -617,66 +615,66 @@ class DescribeQueueTracking:
             subs={20: [10, 11, 13, 14, 16, 15]},
             blockers={14: [(99, "open")]},
         )
-        code, data = run_json(capsys, a, "queue", "--tracking", "20")
+        code, data = run_json(capsys, a, "queue", "--plan", "20")
         assert code == flywheel.OK
         assert data["data"]["issues"] == [{"number": 16}]
         assert data["data"]["blocked"] == [{"number": 14, "blocked_by": [99]}]
 
-    @pytest.mark.spec("next-cmd-follows-tracking-issue")
+    @pytest.mark.spec("next-cmd-follows-plan-issue")
     def it_offers_a_labeled_sub_issue_that_no_branch_holds(self, capsys, clone, github):
         github(
-            make_issue(20, "approved", "tracking"),
-            make_issue(11, "approved", "in-progress"),
+            make_issue(20, "approved", "plan"),
+            make_issue(11, "approved", "claimed"),
             make_issue(12, "approved"),
             subs={20: [11, 12]},
         )
-        code, data = run_json(capsys, clone("a"), "queue", "--tracking", "20")
+        code, data = run_json(capsys, clone("a"), "queue", "--plan", "20")
         assert code == flywheel.OK
         assert data["data"]["issues"] == [{"number": 11}]
 
     @pytest.mark.spec(
-        "next-cmd-follows-tracking-issue", "repo:command-splits-output-streams-without-json"
+        "next-cmd-follows-plan-issue", "repo:command-splits-output-streams-without-json"
     )
     def it_fails_on_an_unapproved_sub_issue_rather_than_skip_it(self, capsys, clone, github):
         github(
-            make_issue(20, "approved", "tracking"),
+            make_issue(20, "approved", "plan"),
             make_issue(11),
             make_issue(12, "approved"),
             subs={20: [11, 12]},
         )
-        code, out = run(capsys, clone("a"), "queue", "--tracking", "20")
+        code, out = run(capsys, clone("a"), "queue", "--plan", "20")
         assert code == flywheel.PROBLEMS
         assert out.out == ""
         assert "#11 issue 11 is next in #20's order" in out.err
 
-    @pytest.mark.spec("next-cmd-follows-tracking-issue")
+    @pytest.mark.spec("next-cmd-follows-plan-issue")
     @pytest.mark.parametrize(
         ("labels", "state", "says"),
         [
-            (("tracking",), "OPEN", "not labeled approved"),
-            (("approved",), "OPEN", "not labeled tracking"),
-            (("approved", "tracking"), "CLOSED", "is closed"),
+            (("plan",), "OPEN", "not labeled approved"),
+            (("approved",), "OPEN", "not labeled plan"),
+            (("approved", "plan"), "CLOSED", "is closed"),
         ],
     )
     def it_refuses_an_issue_that_is_not_an_open_approved_plan(
         self, capsys, clone, github, labels, state, says
     ):
         gh = github(make_issue(20, *labels, state=state), subs={20: []})
-        code, out = run(capsys, clone("a"), "queue", "--tracking", "20")
+        code, out = run(capsys, clone("a"), "queue", "--plan", "20")
         assert code == flywheel.PROBLEMS
         assert says in out.err
         assert not any(c[0] == "api" for c in gh.calls)
 
-    @pytest.mark.spec("next-cmd-follows-tracking-issue")
+    @pytest.mark.spec("next-cmd-follows-plan-issue")
     def it_names_each_blocked_sub_issue_when_all_are_blocked(self, capsys, clone, github):
         github(
-            make_issue(20, "approved", "tracking"),
+            make_issue(20, "approved", "plan"),
             make_issue(11, "approved"),
             make_issue(12),
             subs={20: [11, 12]},
             blockers={11: [(9, "open")], 12: [(11, "open")]},
         )
-        code, out = run(capsys, clone("a"), "queue", "--tracking", "20")
+        code, out = run(capsys, clone("a"), "queue", "--plan", "20")
         assert code == flywheel.OK
         assert out.out == (
             "Every free sub-issue of #20 is blocked by an open issue:\n"
@@ -687,18 +685,18 @@ class DescribeQueueTracking:
     @pytest.mark.spec("next-cmd-reports-finished-plan")
     def it_says_the_plan_is_finished_when_every_sub_issue_is_closed(self, capsys, clone, github):
         github(
-            make_issue(20, "approved", "tracking"),
+            make_issue(20, "approved", "plan"),
             make_issue(11, "approved", state="CLOSED"),
             make_issue(12, "approved", state="CLOSED"),
             subs={20: [11, 12]},
         )
-        code, out = run(capsys, clone("a"), "queue", "--tracking", "20")
+        code, out = run(capsys, clone("a"), "queue", "--plan", "20")
         assert code == flywheel.OK
         assert out.out == (
             "Every sub-issue of #20 is closed, so its plan is finished.\n"
             "To close #20, run: flywheel.py plan close 20\n"
         )
-        code, data = run_json(capsys, clone("b"), "queue", "--tracking", "20")
+        code, data = run_json(capsys, clone("b"), "queue", "--plan", "20")
         assert data["data"]["finished"] is True
         assert data["data"]["issues"] == []
 
@@ -710,31 +708,31 @@ class DescribeQueueTracking:
         github(make_issue(12, "approved"))
         run(capsys, a, "claim", "12")
         github(
-            make_issue(20, "approved", "tracking"),
+            make_issue(20, "approved", "plan"),
             make_issue(11, "approved", state="CLOSED"),
-            make_issue(12, "approved", "in-progress"),
+            make_issue(12, "approved", "claimed"),
             subs={20: [11, 12]},
         )
-        code, out = run(capsys, a, "queue", "--tracking", "20")
+        code, out = run(capsys, a, "queue", "--plan", "20")
         assert code == flywheel.OK
         assert out.out == "No sub-issue of #20 is free.\n"
-        assert run_json(capsys, a, "queue", "--tracking", "20")[1]["data"]["finished"] is False
+        assert run_json(capsys, a, "queue", "--plan", "20")[1]["data"]["finished"] is False
 
     @pytest.mark.spec("next-cmd-reports-finished-plan")
     def it_does_not_call_a_plan_without_sub_issues_finished(self, capsys, clone, github):
-        github(make_issue(20, "approved", "tracking"), subs={20: []})
-        code, data = run_json(capsys, clone("a"), "queue", "--tracking", "20")
+        github(make_issue(20, "approved", "plan"), subs={20: []})
+        code, data = run_json(capsys, clone("a"), "queue", "--plan", "20")
         assert code == flywheel.OK
         assert data["data"]["finished"] is False
 
 
 class DescribeQueuePlans:
     @pytest.mark.spec(
-        "next-cmd-names-tracking-issue", "repo:command-splits-output-streams-without-json"
+        "next-cmd-names-plan-issue", "repo:command-splits-output-streams-without-json"
     )
     def it_names_an_approved_plan_at_its_lowest_open_sub_issue(self, capsys, clone, github):
         github(
-            make_issue(20, "approved", "tracking"),
+            make_issue(20, "approved", "plan"),
             make_issue(9, "approved", state="CLOSED"),
             make_issue(11, "approved"),
             make_issue(12, "approved"),
@@ -745,7 +743,7 @@ class DescribeQueuePlans:
         assert (out.out, out.err) == ("#11 issue 11\n", "")
 
         github(
-            make_issue(20, "approved", "tracking"),
+            make_issue(20, "approved", "plan"),
             make_issue(10, "approved"),
             make_issue(11, "approved"),
             subs={20: [10]},
@@ -753,23 +751,23 @@ class DescribeQueuePlans:
         code, out = run(capsys, clone("b"), "queue")
         assert code == flywheel.OK
         assert out.out == (
-            "#20 issue 20 is an approved tracking issue.\n"
-            "To take its next sub-issue, run: flywheel.py queue --tracking 20\n"
+            "#20 issue 20 is an approved plan issue.\n"
+            "To take its next sub-issue, run: flywheel.py queue --plan 20\n"
         )
 
-    @pytest.mark.spec("next-cmd-names-tracking-issue")
+    @pytest.mark.spec("next-cmd-names-plan-issue")
     def it_names_the_plan_apart_from_the_issue_to_work(self, capsys, clone, github):
-        github(make_issue(20, "approved", "tracking"), make_issue(21, "approved"), subs={20: []})
+        github(make_issue(20, "approved", "plan"), make_issue(21, "approved"), subs={20: []})
         code, data = run_json(capsys, clone("a"), "queue")
         assert code == flywheel.OK
         assert data["data"]["issues"] == []
-        assert data["data"]["tracking"] == {"number": 20}
+        assert data["data"]["plan"] == {"number": 20}
 
     @pytest.mark.spec("next-cmd-offers-free-issue")
     def it_never_offers_a_plan_or_an_approved_plans_sub_issue_as_work(self, capsys, clone, github):
         github(
-            make_issue(20, "tracking"),
-            make_issue(30, "approved", "tracking"),
+            make_issue(20, "plan"),
+            make_issue(30, "approved", "plan"),
             make_issue(10, "approved"),
             make_issue(31, "approved"),
             make_issue(32, "approved"),
@@ -781,7 +779,7 @@ class DescribeQueuePlans:
         # 10 belongs to a plan nobody approved, so it is offered on its own,
         # and blocked; 30 takes its place before 32.
         assert data["data"]["issues"] == []
-        assert data["data"]["tracking"] == {"number": 30}
+        assert data["data"]["plan"] == {"number": 30}
         assert [b["number"] for b in data["data"]["blocked"]] == [10]
 
 
@@ -816,7 +814,7 @@ class DescribeQueueCount:
     def it_offers_no_issue_after_an_approved_plan(self, capsys, clone, github):
         github(
             make_issue(10, "approved"),
-            make_issue(20, "approved", "tracking"),
+            make_issue(20, "approved", "plan"),
             make_issue(11, "approved"),
             make_issue(12, "approved"),
             subs={20: [11]},
@@ -825,39 +823,39 @@ class DescribeQueueCount:
         assert code == flywheel.OK
         assert out.out == (
             "#10 issue 10\n"
-            "#20 issue 20 is an approved tracking issue.\n"
-            "To take its next sub-issue, run: flywheel.py queue --tracking 20\n"
+            "#20 issue 20 is an approved plan issue.\n"
+            "To take its next sub-issue, run: flywheel.py queue --plan 20\n"
         )
 
     def it_offers_up_to_count_of_a_plans_sub_issues_in_its_order(self, capsys, clone, github):
         github(
-            make_issue(20, "approved", "tracking"),
+            make_issue(20, "approved", "plan"),
             *(make_issue(n, "approved") for n in (11, 12, 13)),
             subs={20: [13, 11, 12]},
         )
-        code, out = run(capsys, clone("a"), "queue", "--tracking", "20", "--count", "2")
+        code, out = run(capsys, clone("a"), "queue", "--plan", "20", "--count", "2")
         assert code == flywheel.OK
         assert out.out == "#13 issue 13\n#11 issue 11\n"
 
     def it_says_when_fewer_of_a_plans_sub_issues_are_free(self, capsys, clone, github):
         github(
-            make_issue(20, "approved", "tracking"),
+            make_issue(20, "approved", "plan"),
             make_issue(11, "approved"),
             subs={20: [11]},
         )
-        code, out = run(capsys, clone("a"), "queue", "--tracking", "20", "--count", "2")
+        code, out = run(capsys, clone("a"), "queue", "--plan", "20", "--count", "2")
         assert code == flywheel.OK
         assert out.out == "#11 issue 11\nNo other sub-issue of #20 is free.\n"
 
     def it_stops_before_an_unapproved_sub_issue_and_warns(self, capsys, clone, github):
         github(
-            make_issue(20, "approved", "tracking"),
+            make_issue(20, "approved", "plan"),
             make_issue(11, "approved"),
             make_issue(12),
             make_issue(13, "approved"),
             subs={20: [11, 12, 13]},
         )
-        code, out = run(capsys, clone("a"), "queue", "--tracking", "20", "--count", "3")
+        code, out = run(capsys, clone("a"), "queue", "--plan", "20", "--count", "3")
         assert code == flywheel.OK
         assert out.out == "#11 issue 11\n"
         assert out.err == (
@@ -885,7 +883,7 @@ class DescribeQueueNamed:
 
     def it_offers_a_named_sub_issue_of_an_approved_plan(self, capsys, clone, github):
         github(
-            make_issue(20, "approved", "tracking"),
+            make_issue(20, "approved", "plan"),
             make_issue(11, "approved"),
             make_issue(12, "approved"),
             subs={20: [11, 12]},
@@ -902,7 +900,7 @@ class DescribeQueueNamed:
             make_issue(10, "approved"),
             make_issue(11, "approved", state="CLOSED"),
             make_issue(12),
-            make_issue(13, "approved", "in-progress"),
+            make_issue(13, "approved", "claimed"),
             make_issue(14, "approved"),
             make_issue(15),
             blockers={14: [(9, "open"), (8, "closed")], 15: [(9, "open")]},
@@ -925,32 +923,31 @@ class DescribeQueueNamed:
         assert data["data"]["blocked"] == [{"number": 14, "blocked_by": [9]}]
         assert data["errors"] == ["#14 issue 14 cannot start: it is blocked by #9"]
 
-    def it_names_a_tracking_issue_and_the_command_that_runs_its_plan(self, capsys, clone, github):
-        gh = github(make_issue(20, "approved", "tracking"), subs={20: [11]})
+    def it_names_a_plan_issue_and_the_command_that_runs_its_plan(self, capsys, clone, github):
+        gh = github(make_issue(20, "approved", "plan"), subs={20: [11]})
         code, out = run(capsys, clone("a"), "queue", "20")
         assert code == flywheel.OK
         assert out.out == (
-            "#20 issue 20 is a tracking issue.\n"
-            "To run its plan, run: flywheel.py queue --tracking 20\n"
+            "#20 issue 20 is a plan issue.\nTo run its plan, run: flywheel.py queue --plan 20\n"
         )
         code, data = run_json(capsys, clone("b"), "queue", "20")
         assert data["data"]["issues"] == []
-        assert data["data"]["tracking"] == {"number": 20}
+        assert data["data"]["plan"] == {"number": 20}
         assert not any(c[0] == "api" for c in gh.calls)
 
-    def it_refuses_a_tracking_issue_named_beside_other_issues(self, capsys, clone, github):
-        github(make_issue(20, "approved", "tracking"), make_issue(12, "approved"))
+    def it_refuses_a_plan_issue_named_beside_other_issues(self, capsys, clone, github):
+        github(make_issue(20, "approved", "plan"), make_issue(12, "approved"))
         code, data = run_json(capsys, clone("a"), "queue", "12", "20")
         assert code == flywheel.PROBLEMS
         assert data["data"]["issues"] == [{"number": 12}]
-        assert data["data"]["tracking"] is None
+        assert data["data"]["plan"] is None
         assert data["errors"] == [
-            "#20 issue 20 cannot start: it is a tracking issue; to run its plan, name it on its own"
+            "#20 issue 20 cannot start: it is a plan issue; to run its plan, name it on its own"
         ]
 
-    def it_cannot_run_with_tracking_too(self, capsys, clone):
+    def it_cannot_run_with_plan_too(self, capsys, clone):
         with pytest.raises(SystemExit) as exc:
-            flywheel.main(["queue", "12", "--tracking", "20", "-C", str(clone("a"))])
+            flywheel.main(["queue", "12", "--plan", "20", "-C", str(clone("a"))])
         assert exc.value.code == flywheel.CANNOT_RUN
         assert "not allowed with argument" in capsys.readouterr().err
 
@@ -961,11 +958,11 @@ class DescribeRelease:
         a = clone("a")
         github(make_issue(12, "approved"))
         run(capsys, a, "claim", "12")
-        gh = github(make_issue(12, "approved", "in-progress"))
+        gh = github(make_issue(12, "approved", "claimed"))
         code, out = run(capsys, a, "release", "12")
         assert code == flywheel.OK
         assert remote_branches(remote) == {flywheel.BASE}
-        assert ("issue", "edit", "12", "--remove-label", flywheel.IN_PROGRESS) in gh.calls
+        assert ("issue", "edit", "12", "--remove-label", "claimed") in gh.calls
         assert ("issue", "comment", "12", "--body", "Released issue/12.") in gh.calls
 
     @pytest.mark.spec("release-cmd-keeps-work")
@@ -977,7 +974,7 @@ class DescribeRelease:
         git(a, "add", "work")
         git(a, "commit", "--quiet", "-m", "work")
         git(a, "push", "--quiet")
-        gh = github(make_issue(12, "approved", "in-progress"))
+        gh = github(make_issue(12, "approved", "claimed"))
         code, out = run(capsys, clone("b"), "release", "12")
         assert code == flywheel.PROBLEMS
         assert "issue/12 has 1 commit(s) not on main" in out.err
@@ -996,7 +993,7 @@ class DescribeRelease:
         a = clone("a")
         github(make_issue(12, "approved"))
         run(capsys, a, "claim", "12")
-        gh = github(make_issue(12, "approved", "in-progress"))
+        gh = github(make_issue(12, "approved", "claimed"))
         code, out = run(capsys, a, "release", "12", "--dry-run")
         assert code == flywheel.OK
         assert out.out == "Would release #12\n"
@@ -1008,7 +1005,7 @@ class DescribeRelease:
         a = clone("a")
         github(make_issue(12, "approved"))
         run(capsys, a, "claim", "12")
-        github(make_issue(12, "approved", "in-progress"))
+        github(make_issue(12, "approved", "claimed"))
         run(capsys, a, "release", "12")
         github(make_issue(12, "approved"))
         assert run_json(capsys, a, "queue")[1]["data"]["issues"] == [{"number": 12}]
@@ -1020,7 +1017,7 @@ class DescribeRelease:
         a = clone("a")
         github(make_issue(12, "approved"))
         run(capsys, a, "claim", "12")
-        gh = github(make_issue(12, "approved", "in-progress"))
+        gh = github(make_issue(12, "approved", "claimed"))
         real = flywheel.git
 
         def pushed_meanwhile(repo, *args, **kwargs):
@@ -1038,10 +1035,10 @@ class DescribeRelease:
 
     @pytest.mark.spec("release-cmd-frees-unused-claim")
     def it_frees_an_issue_whose_label_outlived_its_branch(self, capsys, remote, clone, github):
-        gh = github(make_issue(12, "approved", "in-progress"))
+        gh = github(make_issue(12, "approved", "claimed"))
         code, out = run(capsys, clone("a"), "release", "12")
         assert code == flywheel.OK
-        assert ("issue", "edit", "12", "--remove-label", flywheel.IN_PROGRESS) in gh.calls
+        assert ("issue", "edit", "12", "--remove-label", "claimed") in gh.calls
         assert ("issue", "comment", "12", "--body", "Released issue/12.") in gh.calls
 
     @pytest.mark.spec("release-cmd-frees-unused-claim")
@@ -1074,17 +1071,17 @@ class DescribeStale:
 
     @pytest.mark.spec("stale-cmd-reports-claims-left-behind")
     def it_reports_a_label_without_a_branch(self, capsys, clone, github):
-        github(make_issue(12, "approved", "in-progress"))
+        github(make_issue(12, "approved", "claimed"))
         code, out = run(capsys, clone("a"), "stale")
         assert code == flywheel.PROBLEMS
-        assert "#12 is labeled in-progress but issue/12 does not exist" in out.err
+        assert "#12 is labeled claimed but issue/12 does not exist" in out.err
 
     @pytest.mark.spec("stale-cmd-reports-claims-left-behind")
     def it_reports_a_closed_issue_that_kept_the_label(self, capsys, clone, github):
-        github(make_issue(12, "approved", "in-progress", state="CLOSED"))
+        github(make_issue(12, "approved", "claimed", state="CLOSED"))
         code, out = run(capsys, clone("a"), "stale")
         assert code == flywheel.PROBLEMS
-        assert "#12 is closed but still labeled in-progress; run release 12" in out.err
+        assert "#12 is closed but still labeled claimed; run release 12" in out.err
 
     @pytest.mark.spec("stale-cmd-reports-claims-left-behind")
     def it_reports_a_claim_that_lacks_the_label(self, capsys, clone, github):
@@ -1093,14 +1090,14 @@ class DescribeStale:
         code, out = run(capsys, a, "stale")
         assert code == flywheel.PROBLEMS
         assert (
-            "#12 has issue/12 but is not labeled in-progress; "
-            "run gh issue edit 12 --add-label in-progress" in out.err
+            "#12 has issue/12 but is not labeled claimed; "
+            "run gh issue edit 12 --add-label claimed" in out.err
         )
 
     @pytest.mark.spec("stale-cmd-reports-claims-left-behind")
     def it_says_so_when_every_claim_agrees(self, capsys, clone, github):
         a = claimed(capsys, clone, github)
-        github(make_issue(12, "approved", "in-progress"))
+        github(make_issue(12, "approved", "claimed"))
         code, out = run(capsys, a, "stale")
         assert code == flywheel.OK
         assert (out.out, out.err) == ("No stale claims.\n", "")
@@ -1257,7 +1254,7 @@ class DescribeClear:
     @pytest.mark.spec("clear-cmd-keeps-unmerged-work")
     def it_keeps_the_branch_of_an_open_issue(self, capsys, remote, clone, github):
         a = squash_merged(capsys, clone, github, remote)
-        github(make_issue(12, "approved", "in-progress"))
+        github(make_issue(12, "approved", "claimed"))
         code, out = run(capsys, a, "clear", "12")
         assert code == flywheel.PROBLEMS
         assert "#12 is still open" in out.err
@@ -1373,7 +1370,7 @@ class DescribeMain:
         a = clone("a")
         github(make_issue(12, "approved"))
         claim = run_json(capsys, a, "claim", "12")[1]["data"]
-        github(make_issue(12, "approved", "in-progress"))
+        github(make_issue(12, "approved", "claimed"))
         stale = run_json(capsys, a, "stale")[1]["data"]
         release = run_json(capsys, a, "release", "12")[1]["data"]
         row = {"number": 12, "branch": "issue/12"}
@@ -1713,32 +1710,32 @@ class DescribeMappedLabels:
         assert code == flywheel.OK
         assert data["data"]["issues"] == [{"number": 13}]
 
-    @pytest.mark.spec("labelsfile-maps-roles", "next-cmd-names-tracking-issue")
+    @pytest.mark.spec("labelsfile-maps-roles", "next-cmd-names-plan-issue")
     def it_names_a_plan_by_the_mapped_plan_label(self, capsys, clone, github):
         github(
             make_issue(20, "ready", "epic"),
-            make_issue(21, "ready", "tracking"),
+            make_issue(21, "ready", "plan"),
             make_issue(10, "ready"),
             subs={20: [10], 21: []},
         )
         code, data = run_json(capsys, mapped(clone("a")), "queue", "--count", "2")
         assert code == flywheel.OK
-        assert data["data"]["tracking"] == {"number": 20}
+        assert data["data"]["plan"] == {"number": 20}
 
-    @pytest.mark.spec("labelsfile-maps-roles", "next-cmd-follows-tracking-issue")
+    @pytest.mark.spec("labelsfile-maps-roles", "next-cmd-follows-plan-issue")
     def it_follows_a_plan_that_carries_the_mapped_labels(self, capsys, clone, github):
         github(make_issue(20, "ready", "epic"), make_issue(11, "ready"), subs={20: [11]})
-        code, data = run_json(capsys, mapped(clone("a")), "queue", "--tracking", "20")
+        code, data = run_json(capsys, mapped(clone("a")), "queue", "--plan", "20")
         assert code == flywheel.OK, data["errors"]
         assert data["data"]["issues"] == [{"number": 11}]
 
-        github(make_issue(20, "approved", "tracking"), make_issue(11, "ready"), subs={20: [11]})
-        code, data = run_json(capsys, mapped(clone("b")), "queue", "--tracking", "20")
+        github(make_issue(20, "approved", "plan"), make_issue(11, "ready"), subs={20: [11]})
+        code, data = run_json(capsys, mapped(clone("b")), "queue", "--plan", "20")
         assert code == flywheel.PROBLEMS
         assert "#20 is not labeled epic" in data["errors"][0]
         assert "#20 is not labeled ready" in data["errors"][1]
 
-    @pytest.mark.spec("labelsfile-maps-roles", "claim-cmd-adds-in-progress-label")
+    @pytest.mark.spec("labelsfile-maps-roles", "claim-cmd-adds-claim-label")
     def it_claims_by_the_mapped_approval_label_and_adds_the_mapped_claim_label(
         self, capsys, remote, clone, github
     ):
@@ -1761,14 +1758,14 @@ class DescribeMappedLabels:
         assert code == flywheel.OK, out.err
         assert ("issue", "edit", "12", "--remove-label", "flywheel-claim") in gh.calls
 
-        gh = github(make_issue(12, "ready", "in-progress"))
+        gh = github(make_issue(12, "ready", "claimed"))
         code, out = run(capsys, a, "release", "12")
         assert code == flywheel.PROBLEMS
         assert gh.writes() == []
 
     @pytest.mark.spec("labelsfile-maps-roles", "stale-cmd-reports-claims-left-behind")
     def it_reports_the_mapped_claim_label_left_without_a_branch(self, capsys, clone, github):
-        github(make_issue(12, "ready", "flywheel-claim"), make_issue(13, "in-progress"))
+        github(make_issue(12, "ready", "flywheel-claim"), make_issue(13, "claimed"))
         code, out = run(capsys, mapped(clone("a")), "stale")
         assert code == flywheel.PROBLEMS
         assert out.err == (
@@ -1777,7 +1774,7 @@ class DescribeMappedLabels:
 
     @pytest.mark.spec("labelsfile-maps-roles", "planclose-cmd-closes-finished-plan")
     def it_closes_only_a_plan_carrying_the_mapped_labels(self, capsys, clone, github):
-        gh = github(make_issue(20, "approved", "tracking"), subs={20: []})
+        gh = github(make_issue(20, "approved", "plan"), subs={20: []})
         code, data = run_json(capsys, mapped(clone("a")), "plan", "close", "20")
         assert code == flywheel.PROBLEMS
         assert data["errors"] == [

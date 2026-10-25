@@ -68,7 +68,7 @@ class DescribeLabels:
         assert code == flywheel.PROBLEMS
         missing = env["data"]["missing"]
         assert set(missing) == set(needed()) - set(DEFAULTS)
-        assert {"tracking", "approved", "in-progress"} <= set(missing)
+        assert {"plan", "approved", "claimed"} <= set(missing)
         assert env["data"]["created"] == []
         assert hub.created == []
         assert "--create" in env["errors"][0]
@@ -121,7 +121,7 @@ class DescribeLabels:
         plan = tmp_path / "plan.json"
         plan.write_text(
             json.dumps(
-                {"issues": [draft, dict(draft, key="B")], "tracking": {"title": "t", "plan": "p"}}
+                {"issues": [draft, dict(draft, key="B")], "plan": {"title": "t", "body": "p"}}
             )
         )
         code, env = project.run("plan", "report", "--drafts", str(plan))
@@ -143,7 +143,7 @@ class DescribeLabelsSet:
             flywheel.ROLE_LABELS, **{flywheel.APPROVAL: "ready", flywheel.PLAN: "epic"}
         )
         assert {"ready", "epic"} <= set(env["data"]["missing"])
-        assert not {"approved", "tracking"} & set(env["data"]["missing"])
+        assert not {"approved", "plan"} & set(env["data"]["missing"])
 
     @pytest.mark.spec("labels-cmd-sets-role")
     def it_keeps_the_files_other_roles_and_keys(self, project, fake):
@@ -282,25 +282,25 @@ class DescribeLabelsFile:
 class DescribeTakenClaimLabel:
     @pytest.mark.spec("labels-cmd-flags-taken-claim-label")
     def it_names_a_claim_label_the_repository_describes_otherwise(self, project, fake):
-        hub = fake([*DEFAULTS, ("in-progress", "Someone is on it")])
+        hub = fake([*DEFAULTS, ("claimed", "Someone is on it")])
         code, env = project.run("labels", "--create")
         assert code == flywheel.PROBLEMS
-        assert env["data"]["taken"] == "in-progress"
-        assert "in-progress" not in hub.created
+        assert env["data"]["taken"] == "claimed"
+        assert "claimed" not in hub.created
         assert len(env["errors"]) == 1
-        assert "the claim label `in-progress` is taken" in env["errors"][0]
+        assert "the claim label `claimed` is taken" in env["errors"][0]
         assert "labels --set claim=NAME" in env["errors"][0]
 
     @pytest.mark.spec("labels-cmd-flags-taken-claim-label")
     def it_accepts_a_claim_label_carrying_flywheels_description(self, project, fake):
-        fake([*DEFAULTS, ("In-Progress", flywheel.ROLE_TEXTS[flywheel.CLAIM])])
+        fake([*DEFAULTS, ("Claimed", flywheel.ROLE_TEXTS[flywheel.CLAIM])])
         code, env = project.run("labels", "--create")
         assert code == flywheel.OK, env["errors"]
         assert env["data"]["taken"] is None
 
     @pytest.mark.spec("labels-cmd-flags-taken-claim-label", "labels-cmd-sets-role")
     def it_clears_once_the_claim_has_a_label_of_its_own(self, project, fake):
-        hub = fake([*DEFAULTS, ("in-progress", "Someone is on it")])
+        hub = fake([*DEFAULTS, ("claimed", "Someone is on it")])
         code, env = project.run("labels", "--set", "claim=flywheel-claim", "--create")
         assert code == flywheel.OK, env["errors"]
         assert "flywheel-claim" in hub.created

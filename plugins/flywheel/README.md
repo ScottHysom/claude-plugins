@@ -285,16 +285,16 @@ Filing in [ScottHysom/claude-plugins](https://github.com/ScottHysom/claude-plugi
 > ## What's wrong
 > …
 
-1 issue(s), without a tracking issue.
+1 issue(s), without a plan issue.
 
 Approval token: `4b50df6f72547b94`
 ```
 
-A plan of several issues also gets a **tracking issue**: an issue that lists
+A plan of several issues also gets a **plan issue**: an issue that lists
 the plan's issues in the order to work them, as its sub-issues. Each issue
 that waits on another is marked "blocked by" it on GitHub. When every issue
 in a plan is closed, ask Claude to close the plan, and Claude closes the
-tracking issue.
+plan issue.
 
 ### Approving an issue
 
@@ -320,9 +320,9 @@ stops a mistake rather than a determined workaround.
 Before a session works an issue, it **claims** it: it creates a branch named
 `issue/` and the issue's number on GitHub. Only one session can create that
 branch, so two sessions never work the same issue. Claude then adds the
-claim label (`in-progress` unless you chose another) and a comment, so the
+claim label (`claimed` unless you chose another) and a comment, so the
 claim shows in the issue list.
-When a plan groups several issues under one tracking issue, Claude offers
+When a plan groups several issues under one plan issue, Claude offers
 them in the plan's order.
 
 When a session stops without finishing, ask Claude to release the claim.
@@ -546,9 +546,9 @@ label, and any other label your project's own instructions ask for:
 | Label | Means |
 | --- | --- |
 | `bug`, `enhancement`, `documentation` | the kind of issue |
-| `tracking` | an issue that groups a plan's issues |
+| `plan` | an issue that groups a plan's issues |
 | `approved` | you agree a session may work the issue |
-| `in-progress` | a session has claimed the issue |
+| `claimed` | a session has claimed the issue |
 
 When you adopt flywheel, Claude asks for your repository's kind labels,
 offering GitHub's own kinds first. To have each issue carry another label,
@@ -590,14 +590,14 @@ flywheel, Claude asks which label your repository uses for each of these,
 and flywheel then uses your labels:
 
 - the label that approves an issue, `approved` by default.
-- the label of a plan's tracking issue, `tracking` by default.
-- the label of a claimed issue, `in-progress` by default.
+- the label of a plan issue, `plan` by default.
+- the label of a claimed issue, `claimed` by default.
 
 Claude records your label answers in `.flywheel/labels.json`, which you
 commit.
 Flywheel adds and removes the claim label itself, so give it a label that
 nothing else in your repository uses. If your repository already uses
-`in-progress` for something else, Claude says so and asks for another name.
+`claimed` for something else, Claude says so and asks for another name.
 
 A repository GitHub has just created lacks most of these, and Claude refuses
 to file an issue whose labels the repository does not have. The adopt skill
@@ -614,7 +614,7 @@ The plugin ships two GitHub Actions workflows. Copy each into your project's
   last run. Set its `cron` line to the schedule you want. It runs on Mondays
   until you do. GitHub does not have your session records, so that report
   leaves spend out.
-- `templates/issue-closed.yml` takes the claim label (`in-progress`, or
+- `templates/issue-closed.yml` takes the claim label (`claimed`, or
   the one `.flywheel/labels.json` names) off an issue when it closes, to keep
   the label meaning that someone is working on the issue.
 

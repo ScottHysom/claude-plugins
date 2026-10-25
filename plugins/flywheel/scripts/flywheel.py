@@ -17,15 +17,15 @@ Usage:
     python3 flywheel.py labels --create
     python3 flywheel.py queue
     python3 flywheel.py queue --count 3
-    python3 flywheel.py queue --tracking 347
+    python3 flywheel.py queue --plan 347
     python3 flywheel.py queue 12 14
     python3 flywheel.py claim 12
     python3 flywheel.py claim --next
-    python3 flywheel.py claim --next --tracking 347
+    python3 flywheel.py claim --next --plan 347
     python3 flywheel.py brief 12
     python3 flywheel.py role implementer
     python3 flywheel.py events --since 2026-10-15T09:00:00Z
-    python3 flywheel.py events --tracking 347 --since 2026-10-15T09:00:00Z
+    python3 flywheel.py events --plan 347 --since 2026-10-15T09:00:00Z
     python3 flywheel.py review-policy
     python3 flywheel.py review-brief 71
     python3 flywheel.py review-post 71 --findings findings.json
@@ -68,23 +68,23 @@ Commands:
                  owner's target level from --level and, under each level,
                  each control's state.
     labels       each label the loop and file-issue need that the repository
-                 lacks, such as `tracking`, and the claim label when the
+                 lacks, such as `plan`, and the claim label when the
                  repository describes it otherwise. With --set ROLE=NAME,
                  first write NAME as ROLE's label into
                  .flywheel/labels.json. With --kind NAME=TEXT, first write
                  the project's kinds there, in place of the ones it gives.
                  With --create, create each one.
     queue        up to --count of the oldest open approved issues nobody
-                 holds and no open issue blocks, or an approved tracking
-                 issue that comes first. With --tracking N, up to --count of
-                 tracking issue N's sub-issues in its order instead, or that
+                 holds and no open issue blocks, or an approved plan
+                 issue that comes first. With --plan N, up to --count of
+                 plan issue N's sub-issues in its order instead, or that
                  N's plan is finished when every sub-issue is closed. With
                  issue numbers, as in `queue 12 14`, each one named that can
-                 start, a tracking issue named on its own, and the reason
+                 start, a plan issue named on its own, and the reason
                  each other one cannot start. Changes nothing.
     claim N      take issue N: push issue/N, switch to it, label and comment.
-    claim --next take the issue `queue` would offer, or with --tracking N
-                 the one `queue --tracking N` would. When another agent
+    claim --next take the issue `queue` would offer, or with --plan N
+                 the one `queue --plan N` would. When another agent
                  wins it, take the next free one, until a claim is won or
                  none is free.
     brief N      print the first message of a session that works issue N: the
@@ -95,7 +95,7 @@ Commands:
     events       each open pull request from an issue/N branch, with its CI
                  and review state, and with --since TIME each merged after
                  TIME. Its as_of is the --since of the next look. With
-                 --tracking N, only those from tracking issue N's
+                 --plan N, only those from plan issue N's
                  sub-issues, and with --issue N, given once for each issue,
                  only those from the issues it names.
     review-policy  print .flywheel/review-policy.md, its P3 cap and the
@@ -146,9 +146,9 @@ Commands:
                  ending with an approval token, and write the same report to
                  .flywheel/plan/report.md.
     plan file    file the plan that report showed: its issues, their "blocked
-                 by" links, the tracking issue and its sub-issues, then read
+                 by" links, the plan issue and its sub-issues, then read
                  them back.
-    plan close N close approved tracking issue N, with a comment naming its
+    plan close N close approved plan issue N, with a comment naming its
                  sub-issues, once every one of them is closed.
 
 Every command takes --json and -C/--repo; claim, release, clear, sweep and
@@ -161,7 +161,7 @@ disagree, the issue changed after approval, the roles file exists already,
 cannot start, the repository lacks a label
 the loop needs and --create was not given, the claim label is taken, the
 roles file leaves a role's model or effort unset, a plan is refused or not filed
-as it says, a tracking issue is not an open approved plan or has open
+as it says, a plan issue is not an open approved plan or has open
 sub-issues, the reviewer's findings are refused, a pull request holds or is
 not open for review, a drafted pull request description fails `pr check`,
 a control at or below the recorded level is missing,
@@ -171,7 +171,7 @@ issue template without a heading, and a pull request template without a
 heading or without exactly one section marked for requirement ids).
 
 The labels. The loop acts on three labels by their role: the approval label,
-which the owner adds to approve an issue, the plan label of a tracking
+which the owner adds to approve an issue, the plan label of a plan
 issue, and the claim label that `claim` adds. A repository may already have
 labels for these, so .flywheel/labels.json can give each role's label under
 `roles`, and ROLE_LABELS holds the label of each role it leaves out. The same
@@ -368,17 +368,17 @@ plugin rather than from the copy in .flywheel/.
 Plans. The file-issue skill drives the plan commands. `plan report --help`
 shows the shape of the plan file. The model writes a plan's issues as JSON,
 each under a key of its own, and names another issue of the plan in a body as
-{KEY}. A plan of several issues takes a tracking issue. A plan of one issue
+{KEY}. A plan of several issues takes a plan issue. A plan of one issue
 may leave it out, and is then filed as that issue alone. `plan report` checks
 each draft's opening against OPENING, its headings against
 .flywheel/issue-template.md, and its labels against the kinds and
 roles .flywheel/labels.json gives, with the defaults beside LABELS_FILE for
-what the project leaves out. It also checks the plan's keys and links. It refuses a draft's body or the tracking
+what the project leaves out. It also checks the plan's keys and links. It refuses a draft's body or the plan
 issue's plan that continues a paragraph or a list item onto a second line, outside a fence or an HTML comment, and names the line.
 GitHub renders that newline in an issue body as a line break, so the
 paragraph reads as a ragged column. It then orders the issues so each comes
 after the issues that block it, with ties in the order the plan lists them.
-The tracking issue's body is the plan text, after `**Claude:**`, then an
+The plan issue's body is the plan text, after `**Claude:**`, then an
 Order section written from that order. A refused plan's report holds the
 faults and no token. An issue that is open already joins a plan by its
 number in place of a draft. The report shows it as GitHub holds it, and
@@ -397,7 +397,7 @@ as they are now, then checks the plan again, since an outside blocker may
 have closed since the report. It files the issues in order, putting each
 number in place of its {KEY} in the bodies that follow. So a body may name
 only an issue filed before it, and `plan report` refuses one that names a
-later issue. It then adds the links, files the tracking issue, adds the
+later issue. It then adds the links, files the plan issue, adds the
 sub-issues in order, and reads every link and the sub-issues back.
 
 A filed issue cannot be counted on to come back, since deleting one takes
@@ -416,15 +416,15 @@ Things that look like bugs and are not:
 - `queue` exits 0 when nothing is free, or when every free issue is blocked.
   An empty queue is not a problem. `claim` ignores blockers, so the owner can
   still name a blocked issue.
-- `queue` never offers a sub-issue of an approved tracking issue, even the
+- `queue` never offers a sub-issue of an approved plan issue, even the
   lowest-numbered free one. The plan's issues are taken in the plan's order,
-  through `queue --tracking N`, so `queue` names the plan in their place, and
+  through `queue --plan N`, so `queue` names the plan in their place, and
   offers no issue after it.
-- `queue --tracking N` exits 0 when every sub-issue is closed, and says the
+- `queue --plan N` exits 0 when every sub-issue is closed, and says the
   plan is finished. A finished plan is not a problem; `plan close N` closes
-  it. A tracking issue without sub-issues is not finished, since an empty
+  it. A plan issue without sub-issues is not finished, since an empty
   plan is a mistake for the owner to fix.
-- `queue --tracking N` stops at an unapproved sub-issue instead of skipping
+- `queue --plan N` stops at an unapproved sub-issue instead of skipping
   to a later approved one, since skipping would work the plan out of its
   order. It exits 1 when that sub-issue is the first it would offer, and
   otherwise offers the ones before it and warns.
@@ -473,7 +473,7 @@ Things that look like bugs and are not:
 - `events` gives as its as_of the newest merge it saw, rather than the time
   of the look, so the next look never names a merge twice. It reads the
   clock only when no claim pull request has ever merged. It finds that merge
-  among every claim pull request, even with --tracking or --issue, so a look
+  among every claim pull request, even with --plan or --issue, so a look
   at one round does not move where the next look starts. As a
   simplification, it leaves out a merge made in the same second as the as_of
   of the look before, after that look ran.
@@ -512,7 +512,7 @@ Things that look like bugs and are not:
   one: the body puts each paragraph on one line.
 - `plan file` checks that the plan's open blockers are open, and does not
   check the issues it filed in an earlier run. The record says it filed them.
-- `plan file` adds a missing sub-issue at the end of the tracking issue's
+- `plan file` adds a missing sub-issue at the end of the plan issue's
   list. A run cut short adds them in order up to where it stopped, so the
   rest follow in order. A list put out of order some other way is reported by
   the read-back rather than reordered.
@@ -686,8 +686,8 @@ GUARD_EVENT = "PreToolUse"
 GUARD_MATCHER = "Bash"
 
 APPROVED = "approved"
-IN_PROGRESS = "in-progress"
-TRACKING = "tracking"
+PLAN_LABEL = "plan"
+CLAIMED = "claimed"
 REMOTE = "origin"
 BASE = "main"
 BRANCH_PREFIX = "issue/"
@@ -831,7 +831,7 @@ review-post opens each finding's comment with **Claude:** and its level.
 
 
 # `plan`: what an issue's body opens with and the headings it holds. A
-# tracking issue's body opens the same way.
+# plan issue's body opens the same way.
 OPENING = AGENT_MARK
 HEADING_RE = re.compile(r"^##[ \t]+(.*?)[ \t]*$", re.M)
 # `.flywheel/issue-template.md`: each `##` heading an issue's body holds, with
@@ -903,7 +903,7 @@ DEFAULT_KINDS = {
     "documentation": "Improvements or additions to documentation",
 }
 APPROVAL, PLAN, CLAIM = "approval", "plan", "claim"
-ROLE_LABELS = {APPROVAL: APPROVED, PLAN: TRACKING, CLAIM: IN_PROGRESS}
+ROLE_LABELS = {APPROVAL: APPROVED, PLAN: PLAN_LABEL, CLAIM: CLAIMED}
 # `labels`: each label the loop and file-issue need, with its description.
 # A role's label is named by its role.
 ROLE_TEXTS = {
@@ -911,12 +911,12 @@ ROLE_TEXTS = {
     APPROVAL: "The owner approved this issue to be worked",
     CLAIM: "A session has claimed this issue",
 }
-PLAN_KEYS = ("issues", "tracking")
+PLAN_KEYS = ("issues", "plan")
 ISSUE_KEYS = ("key", "title", "labels", "body", "blocked_by")
 # An issue of the plan that is open on GitHub already, named by its number.
 FILED_KEYS = ("key", "number", "blocked_by")
 FILED_FIELDS = "number,title,state,labels,body,url"
-TRACKING_KEYS = ("title", "plan")
+PLAN_ISSUE_KEYS = ("title", "body")
 # `plan draft`: the name of the file a run of the file-issue skill writes its plan to.
 DRAFT_PREFIX, DRAFT_SUFFIX = "plan-", ".json"
 KEY_RE = re.compile(r"^[A-Za-z][A-Za-z0-9_-]*$")
@@ -950,16 +950,16 @@ PLAN_HELP = """\
 --drafts names a file holding one JSON object. "issues" lists the plan's
 issues, each with a "key" of its own, its "title", its "labels", its "body"
 and, if it waits on anything, "blocked_by": keys of issues in the plan, or
-numbers of open issues outside it. "tracking" holds the tracking issue's
-"title" and "plan", the text of its body after **Claude:**, which the
-Order section follows. A plan of one issue may leave "tracking" out, and is
-filed as that issue alone. A body or the plan names an issue of the plan as
+numbers of open issues outside it. "plan" holds the plan issue's "title"
+and "body", the text of its body after **Claude:**, which the Order
+section follows. A plan of one issue may leave "plan" out, and is filed as
+that issue alone. A body names an issue of the plan as
 {KEY}, and filing puts the issue's number there, so #{KEY} becomes #342. A
 {KEY} in a code span or a fence stays as it is.
 
 An issue that is open already takes a "key" and its "number" in place of a
 title, labels and body, and may take "blocked_by". Filing leaves it as it
-is, links it and adds it to the tracking issue in the plan's order.
+is, links it and adds it to the plan issue in the plan's order.
 
 example:
   {"issues": [
@@ -968,7 +968,7 @@ example:
      {"key": "B", "title": "file() files twice", "labels": ["bug", "repo"],
       "blocked_by": ["A", 340], "body": "**Claude:**\\n\\n## What's wrong\\nAfter #{A}..."},
      {"key": "C", "number": 338, "blocked_by": ["B"]}],
-   "tracking": {"title": "Make filing safe", "plan": "Fix the report first."}}
+   "plan": {"title": "Make filing safe", "body": "Fix the report first."}}
 """
 
 
@@ -2449,7 +2449,7 @@ def queue_data(found, blocked, plan, finished=False):
     return {
         "issues": [bare(f) for f in found],
         "blocked": [bare(b) for b in blocked],
-        "tracking": bare(plan),
+        "plan": bare(plan),
         "finished": finished,
     }
 
@@ -2469,8 +2469,8 @@ def print_blocked(blocked):
 
 def cmd_queue(args):
     root = project_root(args.repo)
-    if args.tracking is not None:
-        return queue_in_plan(args, root, args.tracking)
+    if args.plan is not None:
+        return queue_in_plan(args, root, args.plan)
     if args.numbers:
         return queue_named(args, root, args.numbers)
     offer = free_issues(root, args.count)
@@ -2482,10 +2482,8 @@ def cmd_queue(args):
             return
         other = "other " if found else ""
         if plan:
-            print("#%d %s is an approved tracking issue." % (plan["number"], plan["title"]))
-            print(
-                "To take its next sub-issue, run: %s queue --tracking %d" % (PROG, plan["number"])
-            )
+            print("#%d %s is an approved plan issue." % (plan["number"], plan["title"]))
+            print("To take its next sub-issue, run: %s queue --plan %d" % (PROG, plan["number"]))
         elif blocked:
             print("Every %sfree approved issue is blocked by an open issue:" % other)
             print_blocked(blocked)
@@ -2552,7 +2550,7 @@ def free_issues(root, count):
 
 
 def queue_in_plan(args, root, number):
-    """`queue --tracking N`: #N's sub-issues to work, in #N's order."""
+    """`queue --plan N`: #N's sub-issues to work, in #N's order."""
     offer = plan_issues(root, number, args.count)
     found, blocked, finished = offer["found"], offer["blocked"], offer["finished"]
     data = queue_data(found, blocked, offer["plan"], finished)
@@ -2586,8 +2584,8 @@ def queue_named(args, root, numbers):
         plan = summary(plans[0])
 
         def human_plan():
-            print("#%d %s is a tracking issue." % (plan["number"], plan["title"]))
-            print("To run its plan, run: %s queue --tracking %d" % (PROG, plan["number"]))
+            print("#%d %s is a plan issue." % (plan["number"], plan["title"]))
+            print("To run its plan, run: %s queue --plan %d" % (PROG, plan["number"]))
 
         return emit(args, "queue", queue_data([], [], plan), human=human_plan)
 
@@ -2597,7 +2595,7 @@ def queue_named(args, root, numbers):
         n = item["number"]
         reasons = []
         if has_label(item, names[PLAN]):
-            reasons.append("it is a tracking issue; to run its plan, name it on its own")
+            reasons.append("it is a plan issue; to run its plan, name it on its own")
         elif not is_open(item):
             reasons.append("it is closed")
         else:
@@ -2621,7 +2619,7 @@ def queue_named(args, root, numbers):
 
 
 def plan_issues(root, number, count):
-    """Up to `count` of tracking issue #number's free sub-issues, in #number's order."""
+    """Up to `count` of plan issue #number's free sub-issues, in #number's order."""
     item = issue(root, number)
     plan = summary(item)
     names = role_labels(root)
@@ -2630,7 +2628,7 @@ def plan_issues(root, number, count):
         problems.append("#%d is closed; its plan is finished" % number)
     if not has_label(item, names[PLAN]):
         problems.append(
-            "#%d is not labeled %s; run %s queue without --tracking" % (number, names[PLAN], PROG)
+            "#%d is not labeled %s; run %s queue without --plan" % (number, names[PLAN], PROG)
         )
     if not has_label(item, names[APPROVAL]):
         problems.append(
@@ -2672,10 +2670,9 @@ def plan_issues(root, number, count):
 
 def cmd_claim(args):
     root = project_root(args.repo)
-    if args.tracking is not None and not args.next:
+    if args.plan is not None and not args.next:
         raise Fatal(
-            "--tracking works only with --next. Run: %s claim --next --tracking %d"
-            % (PROG, args.tracking)
+            "--plan works only with --next. Run: %s claim --next --plan %d" % (PROG, args.plan)
         )
     if args.next:
         return claim_next(args, root)
@@ -2690,15 +2687,15 @@ def claim_next(args, root):
     """`claim --next`: claim what `queue` offers, and on a lost race the next one."""
     lost = []
     while True:
-        if args.tracking is None:
+        if args.plan is None:
             offer = free_issues(root, len(lost) + 1)
         else:
-            offer = plan_issues(root, args.tracking, len(lost) + 1)
+            offer = plan_issues(root, args.plan, len(lost) + 1)
         fresh = [f for f in offer["found"] if f["number"] not in lost]
         data = {"number": None, "branch": None, "lost": lost}
         if not fresh:
             errors = offer["errors"] or offer["warnings"]
-            return emit(args, "claim", data, errors or [nothing_free(offer, args.tracking, lost)])
+            return emit(args, "claim", data, errors or [nothing_free(offer, args.plan, lost)])
         n = fresh[0]["number"]
         errors, warnings, held = take(args, root, n)
         if held:
@@ -2712,26 +2709,26 @@ def claim_next(args, root):
         return emit(args, "claim", data, errors, warnings, human=human)
 
 
-def nothing_free(offer, tracking, lost):
+def nothing_free(offer, plan_issue, lost):
     """Why `claim --next` found nothing to claim, and what to do next."""
     other = "other " if lost else ""
     plan, blocked = offer["plan"], offer["blocked"]
-    if tracking is None and plan:
+    if plan_issue is None and plan:
         return (
-            "#%d %s is an approved tracking issue, and its plan comes first. Ask the owner "
-            "whether to start on it, and on a yes run: %s claim --next --tracking %d"
+            "#%d %s is an approved plan issue, and its plan comes first. Ask the owner "
+            "whether to start on it, and on a yes run: %s claim --next --plan %d"
             % (plan["number"], plan["title"], PROG, plan["number"])
         )
     if offer["finished"]:
         return (
             "Every sub-issue of #%d is closed, so its plan is finished. To close it, run: %s %d"
             % (
-                tracking,
+                plan_issue,
                 PLAN_CLOSE,
-                tracking,
+                plan_issue,
             )
         )
-    where = "approved issue" if tracking is None else "sub-issue of #%d" % tracking
+    where = "approved issue" if plan_issue is None else "sub-issue of #%d" % plan_issue
     if blocked:
         return "Every %sfree %s is blocked by an open issue: %s" % (
             other,
@@ -3054,8 +3051,8 @@ def pull_row(pull):
 
 def round_issues(root, args):
     """The issues of the round `events` looks at, or None to look at every claim."""
-    if args.tracking is not None:
-        return {s["number"] for s in sub_issues(root, args.tracking)}
+    if args.plan is not None:
+        return {s["number"] for s in sub_issues(root, args.plan)}
     if args.issue:
         return set(args.issue)
     return None
@@ -4706,7 +4703,7 @@ def check_issue(index, item, known, rules):
         if lbl.lower() == names[APPROVAL].lower():
             faults.append("%s carries `%s`, which only the owner adds" % (name, lbl))
         elif lbl.lower() == names[PLAN].lower():
-            faults.append("%s carries `%s`, which only the tracking issue carries" % (name, lbl))
+            faults.append("%s carries `%s`, which only the plan issue carries" % (name, lbl))
         elif lbl.lower() not in known:
             faults.append("%s carries `%s`, a label the repository does not have" % (name, lbl))
     row = {
@@ -4780,7 +4777,7 @@ def a_cycle(left, deps):
 
 
 def check_plan(repo, plan, labels):
-    """The plan's issue rows in filing order, its tracking issue, and every fault.
+    """The plan's issue rows in filing order, its plan issue, and every fault.
 
     Rows come in the plan's listed order when a fault leaves no order to give.
     """
@@ -4793,20 +4790,22 @@ def check_plan(repo, plan, labels):
     if not isinstance(issues, list) or not issues:
         faults.append('the plan\'s "issues" is not a list holding at least one issue')
         issues = []
-    tracking = plan.get("tracking")
-    if "tracking" not in plan and len(issues) <= 1:
-        # A plan of one issue is that issue alone, without a tracking issue.
+    plan_issue = plan.get("plan")
+    if "plan" not in plan and len(issues) <= 1:
+        # A plan of one issue is that issue alone, without a plan issue.
         pass
-    elif not (isinstance(tracking, dict) and all(is_text(tracking.get(k)) for k in TRACKING_KEYS)):
-        faults.append('the plan\'s "tracking" is not an object with a "title" and a "plan"')
-        tracking = None
+    elif not (
+        isinstance(plan_issue, dict) and all(is_text(plan_issue.get(k)) for k in PLAN_ISSUE_KEYS)
+    ):
+        faults.append('the plan\'s "plan" is not an object with a "title" and a "body"')
+        plan_issue = None
     else:
-        for extra in sorted(set(tracking) - set(TRACKING_KEYS)):
+        for extra in sorted(set(plan_issue) - set(PLAN_ISSUE_KEYS)):
             faults.append(
-                "the tracking issue has %r, which is not one of %s"
-                % (extra, ", ".join(TRACKING_KEYS))
+                "the plan issue has %r, which is not one of %s"
+                % (extra, ", ".join(PLAN_ISSUE_KEYS))
             )
-        tracking = {"title": tracking["title"], "plan": tracking["plan"]}
+        plan_issue = {"title": plan_issue["title"], "body": plan_issue["body"]}
 
     known = {lbl.lower(): lbl for lbl in labels}
     names, kinds = label_rules(repo)
@@ -4826,8 +4825,8 @@ def check_plan(repo, plan, labels):
     faults += fill_filed(repo, rows)
     drafts = [r for r in rows if r["number"] is None]
     texts = [(r["name"] + "'s body", r["body"]) for r in drafts]
-    if tracking:
-        texts.append(("the tracking issue's plan", tracking["plan"]))
+    if plan_issue:
+        texts.append(("the plan issue's body", plan_issue["body"]))
     for where, text in texts:
         for n in split_lines(text):
             faults.append(
@@ -4864,7 +4863,7 @@ def check_plan(repo, plan, labels):
             "the links form a cycle: %s"
             % ", ".join("`%s` is blocked by `%s`" % (a, b) for a, b in zip(cycle, cycle[1:]))
         )
-        return rows, tracking, faults
+        return rows, plan_issue, faults
 
     place = {k: i for i, k in enumerate(order)}
     by_key = {r["key"]: r for r in rows}
@@ -4888,11 +4887,11 @@ def check_plan(repo, plan, labels):
                         ref,
                     )
                 )
-    return [by_key[k] for k in order], tracking, faults
+    return [by_key[k] for k in order], plan_issue, faults
 
 
-def tracking_body(tracking, rows, numbers):
-    """The tracking issue's body: the plan, then its Order section, with each
+def plan_issue_body(plan_issue, rows, numbers):
+    """The plan issue's body: the plan, then its Order section, with each
     known number in place of its {KEY}."""
     lines = []
     for i, r in enumerate(rows, 1):
@@ -4902,7 +4901,7 @@ def tracking_body(tracking, rows, numbers):
         )
     text = "%s\n\n%s\n\n%s\n\n%s\n" % (
         OPENING,
-        tracking["plan"].strip(),
+        plan_issue["body"].strip(),
         ORDER_HEADING,
         "\n".join(lines),
     )
@@ -4923,7 +4922,7 @@ def approval_token(raw, name, labels):
 
 
 def empty_ledger(name):
-    return {"repository": name, "plan": None, "issues": {}, "tracking": None, "complete": False}
+    return {"repository": name, "plan": None, "issues": {}, "plan_issue": None, "complete": False}
 
 
 def read_ledger(repo, name, raw):
@@ -4949,8 +4948,8 @@ def read_ledger(repo, name, raw):
     if ledger.get("complete"):
         if ledger.get("plan") == hashlib.sha256(raw).hexdigest():
             under = ""
-            if ledger.get("tracking"):
-                under = ", under tracking issue #%d" % ledger["tracking"]["number"]
+            if ledger.get("plan_issue"):
+                under = ", under plan issue #%d" % ledger["plan_issue"]["number"]
             return ledger, ["this plan was filed already%s; nothing is left to file" % under]
         return empty_ledger(name), []
     return ledger, []
@@ -4974,7 +4973,7 @@ def ledger_warnings(ledger, rows):
     keys = set(r["key"] for r in rows)
     return [
         "`%s` was filed as #%d by an earlier run of plan file and is not in this plan; "
-        "it stays as it is, outside the tracking issue" % (key, entry["number"])
+        "it stays as it is, outside the plan issue" % (key, entry["number"])
         for key, entry in sorted(ledger["issues"].items())
         if key not in keys
     ]
@@ -5015,17 +5014,17 @@ def report_markdown(data, faults, warnings):
                 % numbers[row["key"]]
             )
         out += ["", quoted(render(row["body"], numbers))]
-    if data["tracking"]:
-        out += ["", "## Tracking issue: %s" % data["tracking"]["title"], ""]
-        out.append("- **Labels:** %s" % ", ".join(data["tracking"]["labels"]))
-        if data["tracking"].get("number"):
+    if data["plan"]:
+        out += ["", "## Plan issue: %s" % data["plan"]["title"], ""]
+        out.append("- **Labels:** %s" % ", ".join(data["plan"]["labels"]))
+        if data["plan"].get("number"):
             out.append(
                 "- **Filed already** as #%d, by an earlier run. plan file leaves it as it is."
-                % data["tracking"]["number"]
+                % data["plan"]["number"]
             )
-        if data["tracking"].get("body"):
-            out += ["", quoted(data["tracking"]["body"])]
-    tail = "and a tracking issue" if data["tracking"] else "without a tracking issue"
+        if data["plan"].get("body"):
+            out += ["", quoted(data["plan"]["body"])]
+    tail = "and a plan issue" if data["plan"] else "without a plan issue"
     out += ["", "%d issue(s), %s." % (len(data["issues"]), tail)]
     if data["token"]:
         out += ["", "%s`%s`" % (TOKEN_LABEL.capitalize(), data["token"])]
@@ -5033,19 +5032,19 @@ def report_markdown(data, faults, warnings):
 
 
 def checked_plan(args, repo):
-    """Read and check the plan: (raw, repository, labels, rows, tracking,
+    """Read and check the plan: (raw, repository, labels, rows, plan_issue,
     ledger, faults, warnings)."""
     raw, plan = read_plan(args.drafts)
     where = gh_repository(repo)
     labels = repo_labels(repo)
-    rows, tracking, faults = check_plan(repo, plan, labels)
+    rows, plan_issue, faults = check_plan(repo, plan, labels)
     ledger, stopped = read_ledger(repo, where["name"], raw)
     return (
         raw,
         where,
         labels,
         rows,
-        tracking,
+        plan_issue,
         ledger,
         faults + stopped,
         ledger_warnings(ledger, rows),
@@ -5079,20 +5078,20 @@ def cmd_plan_draft(args):
 
 def cmd_plan_report(args):
     repo = project_root(args.repo)
-    raw, where, labels, rows, tracking, ledger, faults, warnings = checked_plan(args, repo)
+    raw, where, labels, rows, plan_issue, ledger, faults, warnings = checked_plan(args, repo)
     numbers = plan_numbers(ledger, rows)
     shown = None
-    if tracking:
+    if plan_issue:
         shown = {
-            "title": tracking["title"],
+            "title": plan_issue["title"],
             "labels": [role_labels(repo)[PLAN]],
             "body": None,
             "number": None,
         }
-        if ledger["tracking"]:
-            shown["number"] = ledger["tracking"]["number"]
+        if ledger["plan_issue"]:
+            shown["number"] = ledger["plan_issue"]["number"]
         if not faults:
-            shown["body"] = tracking_body(tracking, rows, numbers)
+            shown["body"] = plan_issue_body(plan_issue, rows, numbers)
     # No token for a refused plan: the owner cannot approve what file would refuse.
     token = None if faults else approval_token(raw, where["name"], labels)
     data = {
@@ -5103,7 +5102,7 @@ def cmd_plan_report(args):
             for r in rows
         ],
         "order": [] if faults else [r["key"] for r in rows],
-        "tracking": shown,
+        "plan": shown,
         "numbers": numbers,
         "token": token,
     }
@@ -5152,23 +5151,23 @@ def issue_list(numbers):
     return ", ".join("#%d" % n for n in numbers) or "nothing"
 
 
-def file_tracking(repo, ledger, tracking, rows, numbers):
-    """The plan's tracking issue, filed now unless an earlier run filed it,
+def file_plan_issue(repo, ledger, plan_issue, rows, numbers):
+    """The plan's plan issue, filed now unless an earlier run filed it,
     with whether this run filed it."""
-    t = ledger["tracking"]
+    t = ledger["plan_issue"]
     filed = t is None
     if filed:
-        body = tracking_body(tracking, rows, numbers)
-        number, url = create_issue(repo, tracking["title"], body, [role_labels(repo)[PLAN]])
-        t = {"number": number, "title": tracking["title"], "url": url}
-        ledger["tracking"] = t
+        body = plan_issue_body(plan_issue, rows, numbers)
+        number, url = create_issue(repo, plan_issue["title"], body, [role_labels(repo)[PLAN]])
+        t = {"number": number, "title": plan_issue["title"], "url": url}
+        ledger["plan_issue"] = t
         write_ledger(repo, ledger)
     return dict(t, filed=filed)
 
 
-def add_sub_issues(repo, tracking, rows, numbers, ids, data):
-    """Add each of the plan's issues that tracking issue #tracking lacks, in order."""
-    have = [s["number"] for s in sub_issues(repo, tracking)]
+def add_sub_issues(repo, plan_issue, rows, numbers, ids, data):
+    """Add each of the plan's issues that plan issue #plan_issue lacks, in order."""
+    have = [s["number"] for s in sub_issues(repo, plan_issue)]
     for r in rows:
         n = numbers[r["key"]]
         if n in have:
@@ -5178,20 +5177,20 @@ def add_sub_issues(repo, tracking, rows, numbers, ids, data):
             "api",
             "-X",
             "POST",
-            SUB_ISSUES_ADD_PATH % tracking,
+            SUB_ISSUES_ADD_PATH % plan_issue,
             "-F",
             "sub_issue_id=%d" % database_id(repo, n, ids),
         )
-        data["sub_issues"].append({"issue": n, "tracking": tracking})
+        data["sub_issues"].append({"issue": n, "plan": plan_issue})
 
 
 def cmd_plan_file(args):
     repo = project_root(args.repo)
-    raw, where, labels, rows, tracking, ledger, faults, warnings = checked_plan(args, repo)
+    raw, where, labels, rows, plan_issue, ledger, faults, warnings = checked_plan(args, repo)
     data = {
         "repository": where["name"],
         "issues": [],
-        "tracking": None,
+        "plan": None,
         "links": [],
         "sub_issues": [],
         "dry_run": args.dry_run,
@@ -5222,10 +5221,10 @@ def cmd_plan_file(args):
             print(said("", item))
         for link in data["links"]:
             print("linked #%d, blocked by #%d" % (link["issue"], link["blocked_by"]))
-        if data["tracking"]:
-            print(said("tracking issue ", data["tracking"]))
+        if data["plan"]:
+            print(said("plan issue ", data["plan"]))
         for sub in data["sub_issues"]:
-            print("added #%d to #%d" % (sub["issue"], sub["tracking"]))
+            print("added #%d to #%d" % (sub["issue"], sub["plan"]))
 
     if args.dry_run:
         for r in rows:
@@ -5239,10 +5238,10 @@ def cmd_plan_file(args):
                     "filed": entry is None,
                 }
             )
-        t = ledger["tracking"]
-        if tracking:
-            data["tracking"] = {
-                "title": tracking["title"],
+        t = ledger["plan_issue"]
+        if plan_issue:
+            data["plan"] = {
+                "title": plan_issue["title"],
                 "number": t["number"] if t else None,
                 "url": t["url"] if t else None,
                 "filed": t is None,
@@ -5283,9 +5282,9 @@ def cmd_plan_file(args):
                 )
                 data["links"].append({"issue": n, "blocked_by": b})
 
-        if tracking:
-            data["tracking"] = file_tracking(repo, ledger, tracking, rows, numbers)
-            add_sub_issues(repo, data["tracking"]["number"], rows, numbers, ids, data)
+        if plan_issue:
+            data["plan"] = file_plan_issue(repo, ledger, plan_issue, rows, numbers)
+            add_sub_issues(repo, data["plan"]["number"], rows, numbers, ids, data)
     except Fatal as exc:
         if isinstance(exc, UnreadableAddress):
             remedy = (
@@ -5314,7 +5313,7 @@ def cmd_plan_file(args):
                 "#%d is blocked by %s on GitHub, and the plan says %s"
                 % (n, issue_list(on), issue_list(want))
             )
-    t = data["tracking"]
+    t = data["plan"]
     if t:
         on = [s["number"] for s in sub_issues(repo, t["number"])]
         want = [numbers[r["key"]] for r in rows]
@@ -5365,7 +5364,7 @@ def cmd_plan_close(args):
                 % (
                     n,
                     issue_list([s["number"] for s in still_open]),
-                    "%s claim --next --tracking %d" % (PROG, n),
+                    "%s claim --next --plan %d" % (PROG, n),
                 )
             ],
         )
@@ -5535,7 +5534,7 @@ def build_parser():
         help="check only the issues named, for a round of those issues",
     )
     which.add_argument(
-        "--tracking", type=int, metavar="N", help="take the next sub-issues of tracking issue N"
+        "--plan", type=int, metavar="N", help="take the next sub-issues of plan issue N"
     )
     p.set_defaults(func=cmd_queue)
 
@@ -5548,10 +5547,10 @@ def build_parser():
         help="take the issue queue offers, and the next one if another agent wins it",
     )
     p.add_argument(
-        "--tracking",
+        "--plan",
         type=int,
         metavar="N",
-        help="with --next, take tracking issue N's next sub-issue",
+        help="with --next, take plan issue N's next sub-issue",
     )
     p.set_defaults(func=cmd_claim)
 
@@ -5583,10 +5582,10 @@ def build_parser():
     )
     scope = p.add_mutually_exclusive_group()
     scope.add_argument(
-        "--tracking",
+        "--plan",
         type=int,
         metavar="N",
-        help="name only the pull requests from tracking issue N's sub-issues",
+        help="name only the pull requests from plan issue N's sub-issues",
     )
     scope.add_argument(
         "--issue",
@@ -5707,7 +5706,7 @@ def build_parser():
     p.set_defaults(func=cmd_pr_open)
 
     p = sub.add_parser(
-        "plan", help="file an issue, or a plan's issues under a tracking issue, and close a plan"
+        "plan", help="file an issue, or a plan's issues under a plan issue, and close a plan"
     )
     plans = p.add_subparsers(dest="plan_command", required=True)
     drafts = argparse.ArgumentParser(add_help=False)
@@ -5732,7 +5731,7 @@ def build_parser():
     p = plans.add_parser(
         "file",
         parents=[common, drafts, preview],
-        help="file the plan report showed: issues, links, tracking issue and sub-issues",
+        help="file the plan report showed: issues, links, plan issue and sub-issues",
         epilog=PLAN_HELP,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -5742,7 +5741,7 @@ def build_parser():
     p = plans.add_parser(
         "close",
         parents=[common, numbered],
-        help="close an approved tracking issue once every sub-issue is closed",
+        help="close an approved plan issue once every sub-issue is closed",
     )
     p.set_defaults(func=cmd_plan_close)
 
