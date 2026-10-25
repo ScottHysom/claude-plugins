@@ -1,4 +1,15 @@
 {
+  "extraKnownMarketplaces": {
+    "scott-claude-plugins": {
+      "source": {
+        "source": "directory",
+        "path": "."
+      }
+    }
+  },
+  "enabledPlugins": {
+    "flywheel@scott-claude-plugins": true
+  },
   "hooks": {
     "PostToolUse": [
       {

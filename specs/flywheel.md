@@ -185,7 +185,7 @@ Source: #716, with the owner's approval of the plan posted there.
 
 When the owner adopts the loop in a project that keeps prose rules, they want
 open-pr to hold each description to those rules before the owner reads it, as
-this repository's own open-pr does.
+this repository's own open-pr did.
 
 Source: commit db742c2, and the owner's decision of 2026-10-22 to make
 open-pr's reading fixes in flywheel's skill, so that they survive #717. The

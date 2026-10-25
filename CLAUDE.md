@@ -7,8 +7,10 @@ on a summary here; this file holds what the README does not.
 ## Workflow
 
 - Work on a branch off `main` (for an issue, the one claiming makes; see
-  "Issues"), and open a pull request with the open-pr skill, rather than with
-  `gh pr create`. The owner reviews and merges.
+  "Issues"), and open a pull request with flywheel's open-pr skill, rather
+  than with `gh pr create`. `.claude/settings.json` enables flywheel from
+  this repository, so a session here has the skill. The owner reviews and
+  merges.
 - Once the pull request is open in a desktop session, turn on its Auto-fix
   and archive-on-close with the session's `set_monitor` tool, without asking
   the owner first.
@@ -16,30 +18,10 @@ on a summary here; this file holds what the README does not.
   not read it. The owner knows each of this repository's plugins by name
   and what it is for. The owner does not know the terms that a plugin, a
   spec or a script gives its own meaning, or the vocabulary the work
-  introduced. The description uses these headings, in this order, in place
-  of `## Summary`:
-  1. `## Scenario` opens with who, by role, does what. Then it gives:
-     - what happened before the change, under `### Before`.
-     - what happens after it, under `### After`.
-
-     Where a Before or an After covers more than one behavior, each
-     behavior is a bullet, and the After's bullets follow the Before's
-     order.
-
-     A change that nobody meets in use, such as a refactor or a CI fix, names
-     who would notice it and why it is made.
-  2. `## Change` says what the pull request changes. Where it departs from
-     the issue, it says how and why in a sentence or two, in terms the
-     description has already defined. For what the issue proposed and the
-     pull request leaves as it is, it points to the issue rather than giving
-     an account of it.
-  3. `## Requirements` names each requirement id the pull request adds,
-     changes or removes, or says that it does not change any.
-  4. `## Test plan` says what ran.
-
-  `Closes #N` follows them. Each paragraph and each list item sits on one
-  line, because GitHub renders a newline inside one as a line break.
-  #720's opening, rewritten in this shape:
+  introduced. open-pr writes the description in the shape
+  `.flywheel/pr-template.md` gives: flywheel's default sections, with this
+  repository's guidance under each. In CI, `gate.py verify` checks it with
+  flywheel's `pr check`. #720's opening, rewritten in this shape:
 
   ```markdown
   ## Scenario
