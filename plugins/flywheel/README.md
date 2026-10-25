@@ -571,16 +571,14 @@ description in that shape.
 If your project keeps rules for how its prose reads, such as
 `.claude/rules/prose-style.md`, Claude asks for them when you adopt flywheel.
 It names each file in `.flywheel/pr-template.md` on a line of its own, as
-`<!-- prose-rules: .claude/rules/prose-style.md -->`. open-pr then has a
-second Claude session read each description against those files, and
-rewrites what breaks them before you see it.
+`<!-- prose-rules: .claude/rules/prose-style.md -->`.
 
-Some rules carry a pattern, a search that finds a likely break of the rule
-without a reader. If you have a skill installed that runs those patterns over
-a file, Claude also asks for its name, and adds it to the template as
-`<!-- prose-check: SKILL -->`. open-pr then hands each draft to that skill
-before anyone reads it. When that skill is not installed, open-pr opens the
-pull request without the patterns and tells you so.
+flywheel does not check prose itself. If you have a skill installed that
+checks a file against prose rules, Claude also asks for its name, and adds it
+to the template as `<!-- prose-check: SKILL -->`. open-pr then hands each
+description to that skill, and rewrites what breaks the rules before you see
+it. When the template names no such skill, or the skill is not installed,
+open-pr opens the pull request without the check and tells you so.
 
 Your repository may already have labels that do some of these jobs, such as
 `ready` for approving an issue or `epic` for a plan. When you adopt

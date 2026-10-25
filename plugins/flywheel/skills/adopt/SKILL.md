@@ -181,10 +181,9 @@ Then ask the owner, with one more `AskUserQuestion`, for both of these:
 
 - the files that hold the project's prose rules, if it keeps any, such as
   `.claude/rules/prose-style.md`. Offer each such file the repository has.
-- the installed skill that runs the patterns of those rules over a file it
-  is handed, if there is one. A **pattern** is a regular expression in a rule
-  that finds a likely breach without a reader. Offer each skill of the
-  session whose description says it checks a file against prose rules.
+- the installed skill that checks a file it is handed against those rules,
+  if there is one. Offer each skill of the session whose description says it
+  checks a file against prose rules.
 
 For each file, put a line `<!-- prose-rules: PATH -->` at the top of
 `.flywheel/pr-template.md`, with the path from the project root. For the
