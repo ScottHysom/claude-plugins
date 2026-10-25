@@ -1,6 +1,6 @@
 ---
 name: run
-description: Run a round of approved GitHub issues as the dispatcher, starting one implementer session per issue, a reviewer session on each pull request, and a new implementer each time a pull request merges. Checks each role's model and effort with flywheel.py role, takes the issues from flywheel.py queue, starts each session in its own worktree with flywheel.py brief as its first message, watches the claim pull requests with flywheel.py events, merges what the merge policy lets flow with flywheel.py merge-check, asks the owner about what it holds, clears each merged claim and closes a finished plan. Claude Code desktop app only. Use when asked to fix, work, run or start a round of issues, a number of issues at once such as the next 3 issues, particular issues named by number, or the issues of a plan or tracking issue, and when asked to fix, work or take an issue, the next issue, or the next issue in a plan, unless the request says to do it here or in this session. Never use it in a session whose first message is a brief, which the work-issue skill takes.
+description: Run a round of approved GitHub issues as the dispatcher, starting one implementer session per issue, a reviewer session on each pull request, and a new implementer each time a pull request merges. Checks each role's model and effort with flywheel.py role, takes the issues from flywheel.py queue, starts each session in its own worktree with flywheel.py brief as its first message, watches the claim pull requests with flywheel.py events, merges what the merge policy lets flow with flywheel.py merge-check, asks the owner about what it holds, clears each merged claim and closes a finished plan. Claude Code desktop app only. Use when asked to fix, work, run or start a round of issues, a number of issues at once such as the next 3 issues, particular issues named by number, or the issues of a plan or plan issue, and when asked to fix, work or take an issue, the next issue, or the next issue in a plan, unless the request says to do it here or in this session. Never use it in a session whose first message is a brief, which the work-issue skill takes.
 ---
 
 # Run a round of issues
@@ -16,7 +16,7 @@ message `flywheel.py brief N` prints for the session that works issue N.
 The owner names the round in one of these ways:
 
 - a count, as in "fix the next 3 issues".
-- a tracking issue's plan, as in "fix the issues in #653", with or without a
+- a plan, named by its plan issue, as in "fix the issues in #653", with or without a
   count, as in "three at a time".
 - issues, as in "fix #12 and #14".
 - one issue to fix, work or take, as in "fix #12" or "fix issue 12", which is
@@ -27,7 +27,7 @@ The owner names the round in one of these ways:
 A request to work an issue here, or in this session, is not a round. The
 work-issue skill takes it, and this session becomes the implementer.
 
-A number the owner names may be an issue or a tracking issue, and step 4
+A number the owner names may be an issue or a plan issue, and step 4
 tells them apart. When the owner names a plan without a count, ask how many
 sessions to keep in flight. A round of named issues starts each one that can
 start at once, and takes nothing more from the queue.
@@ -92,10 +92,10 @@ every reviewer starts at.
 <!-- seam: judgment: the owner chose a count, a plan or issues, and the command differs by that choice -->
 
 Take the first look at the claim pull requests, so later looks name only what
-changed since. For a plan, with its tracking issue:
+changed since. For a plan, with its plan issue:
 
 ```sh
-FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" events --tracking 653 --json
+FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" events --plan 653 --json
 ```
 
 For issues the owner named, with `--issue` once for each:
@@ -128,19 +128,19 @@ For a count alone:
 FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" queue --count 3 --json
 ```
 
-For a plan, with its tracking issue:
+For a plan, with its plan issue:
 
 ```sh
-FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" queue --tracking 653 --count 3 --json
+FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" queue --plan 653 --count 3 --json
 ```
 
 What the result means:
 
 - `data.issues` lists the issues to start, in order. Start each as step 5
   says.
-- `data.tracking` without `--tracking` is an approved plan that comes before
+- `data.plan` without `--plan` is an approved plan that comes before
   every other issue. Ask the owner whether to run that plan, and on a yes,
-  read the queue again with `--tracking`.
+  read the queue again with `--plan`.
 - `data.finished` true means the plan is finished. Close it as step 10 says.
 - Fewer issues than free places, with `data.issues` empty and no session
   still working or waiting on a merge, means the round is over. Stop as step
@@ -160,19 +160,19 @@ What the result means:
   says, even on exit 1.
 - Each entry in `errors` names an issue that cannot start and the reason.
   Tell the owner each one, and start no session on it.
-- `data.tracking` means the one number named is a tracking issue. The round
+- `data.plan` means the one number named is a plan issue. The round
   runs that plan from here, as a plan the owner named. Look again as step 3
-  says for a plan, and read the queue with `--tracking`.
+  says for a plan, and read the queue with `--plan`.
 
 For the next issue, read the queue once, at the start of the round, for one
-issue, with `--tracking` when the owner named a plan:
+issue, with `--plan` when the owner named a plan:
 
 ```sh
-FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" queue --tracking 653 --count 1 --json
+FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" queue --plan 653 --count 1 --json
 ```
 
 The issue in `data.issues` is the round, and the round goes on as a round of
-that one named issue. Act on `data.tracking`, `data.finished` and exit 1 as
+that one named issue. Act on `data.plan`, `data.finished` and exit 1 as
 for a count or a plan.
 
 Later in a round of named issues, read the queue no more. A merge or a
@@ -214,10 +214,10 @@ message, such as after merging a pull request.
 <!-- seam: judgment: the owner chose a count, a plan or issues, and the command differs by that choice -->
 
 Each time this session is woken, look again with the last `data.as_of`, at
-this round's pull requests alone. For a plan, with its tracking issue:
+this round's pull requests alone. For a plan, with its plan issue:
 
 ```sh
-FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" events --tracking 653 --since 2026-10-15T09:00:00Z --json
+FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" events --plan 653 --since 2026-10-15T09:00:00Z --json
 ```
 
 Otherwise, with `--issue` once for each issue this round started, including
@@ -312,7 +312,7 @@ queue as step 4 says.
 ## Step 10: close a finished plan
 <!-- spec: run-closes-finished-plan -->
 
-When the queue says the plan is finished, close its tracking issue:
+When the queue says the plan is finished, close its plan issue:
 
 ```sh
 FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" plan close 653 --json

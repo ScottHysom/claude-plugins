@@ -250,12 +250,12 @@ specs/repo.md, which keeps the requirements this repo's own checks meet.
   names the lowest-numbered open issue carrying the approval label that is
   unheld by any `issue/N` branch and unblocked by any open issue. It exits 0
   even when every such issue is held or blocked. It does not offer a
-  **tracking issue** (an issue carrying the plan label, which groups a plan's
-  issues as its sub-issues), or a sub-issue of an open tracking issue
+  **plan issue** (an issue carrying the plan label, which groups a plan's
+  issues as its sub-issues), or a sub-issue of an open plan issue
   carrying the approval label.
 - `queue-cmd-offers-up-to-count` (test): When `flywheel.py queue --count N`
   runs, it offers up to N free approved issues that no open issue blocks,
-  oldest first, and says when fewer are free. With `--tracking`, it offers up
+  oldest first, and says when fewer are free. With `--plan`, it offers up
   to N of the plan's sub-issues in the plan's order, and stops with a warning
   before a sub-issue that lacks the approval label.
 - `claim-cmd-picks-one-winner` (test): When two agents claim the same
@@ -269,8 +269,8 @@ specs/repo.md, which keeps the requirements this repo's own checks meet.
 - `next-cmd-moves-past-lost-claim` (test): When `flywheel.py claim --next`
   loses the claim on the issue `queue` offered, it claims the next free
   issue, until it wins or none is free, and then exits 1 saying why. With
-  `--tracking N`, it takes #N's next free sub-issue, and stops where
-  `queue --tracking N` stops. When the owner named the issue, as in
+  `--plan N`, it takes #N's next free sub-issue, and stops where
+  `queue --plan N` stops. When the owner named the issue, as in
   `claim N`, a lost claim still stops the agent.
 
 ## need owner-orders-dependent-issues: Leave an issue until its blocker closes
@@ -288,26 +288,26 @@ Source: the owner's request on 2026-10-04, recorded in #345.
 
 ## need owner-works-one-plan: Work one approved plan in its order
 
-When the owner has grouped one plan's issues under a tracking issue and
+When the owner has grouped one plan's issues under a plan issue and
 approved the plan, the owner wants to tell an agent to take the plan's next
 issue, so agents work the plan in its listed order without picking issues
 from outside it.
 
 Source: the owner's request on 2026-10-05, recorded in #350.
 
-- `next-cmd-follows-tracking-issue` (test): When `flywheel.py queue
-  --tracking N` runs, it offers the first sub-issue in #N's listed order that
+- `next-cmd-follows-plan-issue` (test): When `flywheel.py queue
+  --plan N` runs, it offers the first sub-issue in #N's listed order that
   is open, unheld and unblocked. It exits 1 when that sub-issue lacks the
   approval label, or when #N is not an open issue carrying both the plan
   label and the approval label.
-- `next-cmd-names-tracking-issue` (test): When an open tracking issue
+- `next-cmd-names-plan-issue` (test): When an open plan issue
   carrying the approval label takes its place in the queue, at the lowest number among itself
   and its open sub-issues, before the issue `flywheel.py queue` would offer,
-  `queue` names the tracking issue and the command to follow it, and exits 0.
+  `queue` names the plan issue and the command to follow it, and exits 0.
 - `next-cmd-reports-finished-plan` (test): When every sub-issue of #N is
-  closed, `flywheel.py queue --tracking N` says the plan is finished, names
+  closed, `flywheel.py queue --plan N` says the plan is finished, names
   the command that closes #N, and exits 0. An open sub-issue keeps the plan
-  unfinished even when a claim holds it, and so does a tracking issue without
+  unfinished even when a claim holds it, and so does a plan issue without
   sub-issues.
 - `planclose-cmd-closes-finished-plan` (test): When `flywheel.py plan close N`
   runs on an open issue carrying both the plan label and the approval label
@@ -320,7 +320,7 @@ Source: the owner's request on 2026-10-05, recorded in #350.
 ## need owner-approves-plan-once: Approve a plan's issues once
 
 When a plan yields several issues, the owner wants to approve the whole plan
-once, and have its issues filed, linked and grouped under a tracking issue
+once, and have its issues filed, linked and grouped under a plan issue
 exactly as approved, so the order GitHub holds is the order the owner
 approved.
 
@@ -342,12 +342,12 @@ commands meet.
   filed after it, a blocker outside the plan is anything but an open issue, or
   the links form a cycle, `plan report` refuses the plan and names each fault.
 - `planreport-cmd-accepts-one-issue` (test): When `flywheel.py plan report`
-  reads a plan of one issue with no tracking issue, it checks and reports
-  that issue alone, and `plan file` files it without a tracking issue. It
-  refuses a plan of several issues without a tracking issue.
+  reads a plan of one issue with no plan issue, it checks and reports
+  that issue alone, and `plan file` files it without a plan issue. It
+  refuses a plan of several issues without a plan issue.
 - `planreport-cmd-orders-by-links` (test): When `plan report` accepts a plan,
   it puts each issue after the issues that block it, with ties in the plan's
-  listed order. It shows each issue whole, and the tracking issue's body as
+  listed order. It shows each issue whole, and the plan issue's body as
   it will be filed, with an Order section written from the links.
 - `planfile-cmd-requires-token` (test): When `flywheel.py plan file --drafts
   <file> --token <token>` is given a token that does not match the plan, the
@@ -356,7 +356,7 @@ commands meet.
 - `planfile-cmd-files-in-order` (test): When `plan file` runs with a current
   token, it files the issues in the report's order, each `{KEY}` replaced by
   the number filed, and adds each "blocked by" link. It then files the
-  tracking issue carrying the plan label, and adds the sub-issues in that
+  plan issue carrying the plan label, and adds the sub-issues in that
   order.
 - `planfile-cmd-verifies-links` (test): When `plan file` has filed a plan, it
   reads every link and the sub-issues back from GitHub, and exits 1 naming
@@ -398,7 +398,7 @@ so a reader never takes a stale label for a claim.
 
 Source: README.md, under "Claiming an issue", and #33.
 
-- `claim-cmd-adds-in-progress-label` (test): When `flywheel.py claim` wins,
+- `claim-cmd-adds-claim-label` (test): When `flywheel.py claim` wins,
   it adds the claim label and a claim comment, and if either fails, it warns
   and still exits 0.
 - `stale-cmd-reports-claims-left-behind` (test): When any of these holds, `flywheel.py stale` fails and names the remedy:
@@ -539,7 +539,7 @@ and `match-capability-to-task`.
   newest merge it saw, so a look that passes it as `--since` does not name a
   merge twice.
 - `events-cmd-scopes-to-round` (test): When `flywheel.py events` runs with
-  `--tracking N`, it lists only the pull requests from sub-issues of #N, and
+  `--plan N`, it lists only the pull requests from sub-issues of #N, and
   with `--issue M`, given once per issue, only those from the issues it
   names. Its `as_of` still comes from every claim pull request's merge.
 - `role-cmd-names-unset-fields` (test): When `flywheel.py role NAME` runs, it
@@ -557,10 +557,10 @@ and `match-capability-to-task`.
   one when either is above its own session's.
 - `queue-cmd-checks-named-issues` (test): When `flywheel.py queue` is given
   issue numbers, as in `queue 12 14`, it reports each as an issue to start, a
-  tracking issue, or the reason it cannot start: closed, lacking the approval label,
+  plan issue, or the reason it cannot start: closed, lacking the approval label,
   held by another session's claim, or blocked by an open issue. It exits 1
   when any named issue cannot start, and refuses issue numbers given with
-  `--tracking`.
+  `--plan`.
 - `run-starts-named-issues` (step): When the owner names issues, `run`
   starts one session for each issue that can start, tells the owner why each
   other one cannot, and stops once each has merged or stopped.
@@ -576,7 +576,7 @@ and `match-capability-to-task`.
   messages the implementer once for each head and set of reasons, and tells
   the owner which pull request waits and why when the implementer has
   already been messaged or has stopped.
-- `run-closes-finished-plan` (step): When `queue --tracking N` says #N's plan
+- `run-closes-finished-plan` (step): When `queue --plan N` says #N's plan
   is finished, `run` closes it with `plan close N`.
 - `run-stops-on-empty-queue` (step): When `queue` offers nothing and no pull
   request from its round is open, `run` reports what merged and stops.

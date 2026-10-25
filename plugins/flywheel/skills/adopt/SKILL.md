@@ -261,7 +261,7 @@ Each issue:
 - for a missing spec, says the owner supplies each need and constraint, and
   that the agent drafts none of them.
 
-The tracking issue's plan says the repository is adopting the method at the
+The plan issue's body says the repository is adopting the method at the
 target level, and that the issues come in the order of `docs/adoption.md`'s
 tables.
 

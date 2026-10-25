@@ -121,7 +121,7 @@ class DescribeLabels:
         plan = tmp_path / "plan.json"
         plan.write_text(
             json.dumps(
-                {"issues": [draft, dict(draft, key="B")], "tracking": {"title": "t", "plan": "p"}}
+                {"issues": [draft, dict(draft, key="B")], "plan": {"title": "t", "body": "p"}}
             )
         )
         code, env = project.run("plan", "report", "--drafts", str(plan))

@@ -11,7 +11,7 @@ The owner ran the issue loop by hand: three desktop sessions a round, each
 started with its model and effort chosen, told when CI failed or a review
 landed, and told when its pull request merged. The parts a script or a skill
 could do lived in this repo's `.github/scripts/issues.py` and its
-`.claude/skills/`, which no other repo can install. Tracking issue #653 plans
+`.claude/skills/`, which no other repo can install. Plan issue #653 plans
 the move into this plugin, one piece per issue. #643 made the plugin exist
 with its script's first two commands, #645 moved the queue and the claim
 lock in from `issues.py`, and #647 moved the plan commands and the file-plan
@@ -66,7 +66,7 @@ files, each holding the requirements its side meets.
 The method's Scope stage files issues, and the loop needs it twice: the
 owner files a plan, and an implementer that finds a gap files a candidate
 need rather than guess. One skill, file-issue, does both, so a plan of one
-issue leaves out the tracking issue that a plan of several takes.
+issue leaves out the plan issue that a plan of several takes.
 
 `plan report` and `plan file` write the report and the record of what was
 filed to `.flywheel/plan/`, which holds a `.gitignore` of its own. The

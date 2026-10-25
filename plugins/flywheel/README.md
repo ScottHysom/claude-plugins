@@ -285,16 +285,16 @@ Filing in [ScottHysom/claude-plugins](https://github.com/ScottHysom/claude-plugi
 > ## What's wrong
 > …
 
-1 issue(s), without a tracking issue.
+1 issue(s), without a plan issue.
 
 Approval token: `4b50df6f72547b94`
 ```
 
-A plan of several issues also gets a **tracking issue**: an issue that lists
+A plan of several issues also gets a **plan issue**: an issue that lists
 the plan's issues in the order to work them, as its sub-issues. Each issue
 that waits on another is marked "blocked by" it on GitHub. When every issue
 in a plan is closed, ask Claude to close the plan, and Claude closes the
-tracking issue.
+plan issue.
 
 ### Approving an issue
 
@@ -322,7 +322,7 @@ Before a session works an issue, it **claims** it: it creates a branch named
 branch, so two sessions never work the same issue. Claude then adds the
 claim label (`claimed` unless you chose another) and a comment, so the
 claim shows in the issue list.
-When a plan groups several issues under one tracking issue, Claude offers
+When a plan groups several issues under one plan issue, Claude offers
 them in the plan's order.
 
 When a session stops without finishing, ask Claude to release the claim.

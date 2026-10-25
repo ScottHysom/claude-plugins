@@ -35,7 +35,7 @@ FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" queue --json
 
 ## Step 1: claim the issue
 <!-- spec: workissue-claims-first, next-cmd-moves-past-lost-claim -->
-<!-- seam: judgment: the owner decides whether to start on a tracking issue's plan before claim runs again with --tracking -->
+<!-- seam: judgment: the owner decides whether to start on a plan before claim runs again with --plan -->
 
 Claim the issue before any other work, including reading code. When the
 session's first message is a brief, or the request names an issue, as in
@@ -46,14 +46,14 @@ FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" claim 648 --json
 ```
 
 When the request asks for the next issue, claim the one the queue offers,
-with `--tracking M` for the next issue in tracking issue M's plan:
+with `--plan M` for the next issue in the plan of plan issue M:
 
 ```sh
 FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" claim --next --json
 ```
 
 ```sh
-FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" claim --next --tracking 653 --json
+FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" claim --next --plan 653 --json
 ```
 
 When another session wins the issue the queue offered, `claim --next` claims
@@ -64,9 +64,9 @@ The owner does not reliably see a command's output, so the next thing after
 
 - On exit 0, name `data.number` and the `data.branch` it switched to, any
   issue in `data.lost`, and any warning.
-- On exit 1, relay the error, and stop. When the error says a tracking
-  issue's plan comes first, ask the owner whether to start on that plan, and
-  on a yes claim again with `--next --tracking`.
+- On exit 1, relay the error, and stop. When the error says a plan
+  comes first, ask the owner whether to start on that plan, and
+  on a yes claim again with `--next --plan`.
 - On exit 2, relay the error, and stop.
 
 ## Step 2: read the issue as approved
