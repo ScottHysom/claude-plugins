@@ -15,7 +15,7 @@ What happens after it. Where it covers more than one behavior, each is a bullet,
 
 ## Change
 
-What the pull request changes. When the fix departs from what the issue proposed, what the issue proposed and why the fix differs.
+What the pull request changes. Where it departs from the issue, how and why, in a sentence or two and in terms the description has already defined. For what the issue proposed and the pull request leaves as it is, a pointer to the issue rather than an account of it.
 
 ## Requirements
 
