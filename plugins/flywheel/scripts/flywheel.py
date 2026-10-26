@@ -17,6 +17,7 @@ Usage:
     python3 flywheel.py labels --create
     python3 flywheel.py queue
     python3 flywheel.py queue --count 3
+    python3 flywheel.py queue --count 3 --from 12
     python3 flywheel.py queue --plan 347
     python3 flywheel.py queue 12 14
     python3 flywheel.py claim 12
@@ -76,7 +77,9 @@ Commands:
                  With --create, create each one.
     queue        up to --count of the oldest open approved issues nobody
                  holds and no open issue blocks, or an approved plan
-                 issue that comes first. With --plan N, up to --count of
+                 issue that comes first. With --from N, leave out every
+                 issue and plan issue that comes before issue N, and warn
+                 when N itself cannot be offered. With --plan N, up to --count of
                  plan issue N's sub-issues in its order instead, or that
                  N's plan is finished when every sub-issue is closed. With
                  issue numbers, as in `queue 12 14`, each one named that can
@@ -428,6 +431,9 @@ Things that look like bugs and are not:
   to a later approved one, since skipping would work the plan out of its
   order. It exits 1 when that sub-issue is the first it would offer, and
   otherwise offers the ones before it and warns.
+- `queue --from 12` says nothing of #12 when a claim holds it, since a round
+  that starts at #12 holds it from its first session on, and reads the queue
+  again for each later one.
 - `queue 12 14` offers a sub-issue of an approved plan, which plain `queue`
   never does, since the owner named it. It ignores --count, since the round
   is the issues named.
@@ -2473,7 +2479,7 @@ def cmd_queue(args):
         return queue_in_plan(args, root, args.plan)
     if args.numbers:
         return queue_named(args, root, args.numbers)
-    offer = free_issues(root, args.count)
+    offer = free_issues(root, args.count, args.start)
     found, blocked, plan = offer["found"], offer["blocked"], offer["plan"]
 
     def human():
@@ -2490,7 +2496,9 @@ def cmd_queue(args):
         else:
             print("No %sapproved issue is free." % other)
 
-    return emit(args, "queue", queue_data(found, blocked, plan), human=human)
+    return emit(
+        args, "queue", queue_data(found, blocked, plan), warnings=offer["warnings"], human=human
+    )
 
 
 def offer_of(found=None, blocked=None, plan=None, finished=False, errors=None, warnings=None):
@@ -2505,8 +2513,11 @@ def offer_of(found=None, blocked=None, plan=None, finished=False, errors=None, w
     }
 
 
-def free_issues(root, count):
-    """Up to `count` of the oldest free approved issues, or the plan that comes first."""
+def free_issues(root, count, start=None):
+    """Up to `count` of the oldest free approved issues, or the plan that comes first.
+
+    With `start`, every issue and plan that comes before #start is left out.
+    """
     names = role_labels(root)
     approved = gh_json(
         root,
@@ -2525,28 +2536,68 @@ def free_issues(root, count):
     # An approved plan's issues are taken only in the plan's order. The plan
     # takes its place at its lowest open number, which is never after any of
     # its sub-issues, and wins a tie, so it is named before one is offered.
-    queue = []
+    # Leaving out what comes before `start` can leave out a plan, so its
+    # sub-issues are passed over by number rather than by the plan's break.
+    queue, plan_of = [], {}
     for item in approved:
         if has_label(item, names[PLAN]):
             subs = [s["number"] for s in sub_issues(root, item["number"]) if is_open(s)]
+            plan_of.update((n, item["number"]) for n in subs)
             queue.append((min([item["number"], *subs]), item, True))
         elif item["number"] not in held:
             queue.append((item["number"], item, False))
     queue.sort(key=lambda entry: (entry[0], not entry[2]))
 
     found, plan, blocked = [], None, []
-    for _, item, is_plan in queue:
+    for place, item, is_plan in queue:
+        if start is not None and place < start:
+            continue
         if len(found) == count:
             break
         if is_plan:
             plan = summary(item)
             break
+        if item["number"] in plan_of:
+            continue
         open_blockers = blockers(root, item["number"])
         if open_blockers:
             blocked.append(dict(summary(item), blocked_by=open_blockers))
         else:
             found.append(summary(item))
-    return offer_of(found, blocked, plan)
+    offered = [i["number"] for i in found] + ([plan["number"]] if plan else [])
+    warnings = []
+    if start is not None and start not in offered and start not in held:
+        listed = {item["number"]: item for item in approved}
+        item = listed.get(start) or issue(root, start)
+        if has_label(item, names[PLAN]):
+            reasons = [
+                "it is a plan issue; to run its plan, run: %s queue --plan %d" % (PROG, start)
+            ]
+        elif start in plan_of:
+            reasons = [
+                "it is a sub-issue of plan issue #%d; to take its plan's issues in order,"
+                " run: %s queue --plan %d" % (plan_of[start], PROG, plan_of[start])
+            ]
+        else:
+            reasons = start_problems(root, item, names, held)[0]
+        warnings.append("#%d %s is not offered: %s" % (start, item["title"], "; ".join(reasons)))
+    return offer_of(found, blocked, plan, warnings=warnings)
+
+
+def start_problems(root, item, names, held):
+    """Why an issue that is not a plan issue cannot start, and its open blockers."""
+    n = item["number"]
+    if not is_open(item):
+        return ["it is closed"], []
+    reasons = []
+    if not has_label(item, names[APPROVAL]):
+        reasons.append("it is not labeled %s; ask the owner to approve it" % names[APPROVAL])
+    if n in held:
+        reasons.append("another session holds its claim on %s" % branch(n))
+    open_blockers = blockers(root, n)
+    if open_blockers:
+        reasons.append("it is blocked by %s" % ", ".join("#%d" % b for b in open_blockers))
+    return reasons, open_blockers
 
 
 def queue_in_plan(args, root, number):
@@ -2592,25 +2643,16 @@ def queue_named(args, root, numbers):
     held = claims(root)
     found, blocked, errors = [], [], []
     for item in items:
-        n = item["number"]
-        reasons = []
         if has_label(item, names[PLAN]):
-            reasons.append("it is a plan issue; to run its plan, name it on its own")
-        elif not is_open(item):
-            reasons.append("it is closed")
+            reasons = ["it is a plan issue; to run its plan, name it on its own"]
         else:
-            if not has_label(item, names[APPROVAL]):
-                reasons.append(
-                    "it is not labeled %s; ask the owner to approve it" % names[APPROVAL]
-                )
-            if n in held:
-                reasons.append("another session holds its claim on %s" % branch(n))
-            open_blockers = blockers(root, n)
+            reasons, open_blockers = start_problems(root, item, names, held)
             if open_blockers:
                 blocked.append(dict(summary(item), blocked_by=open_blockers))
-                reasons.append("it is blocked by %s" % ", ".join("#%d" % b for b in open_blockers))
         if reasons:
-            errors.append("#%d %s cannot start: %s" % (n, item["title"], "; ".join(reasons)))
+            errors.append(
+                "#%d %s cannot start: %s" % (item["number"], item["title"], "; ".join(reasons))
+            )
         else:
             found.append(summary(item))
     return emit(
@@ -5535,6 +5577,13 @@ def build_parser():
     )
     which.add_argument(
         "--plan", type=int, metavar="N", help="take the next sub-issues of plan issue N"
+    )
+    which.add_argument(
+        "--from",
+        dest="start",
+        type=int,
+        metavar="N",
+        help="leave out every issue that comes before issue N, for a round that starts there",
     )
     p.set_defaults(func=cmd_queue)
 

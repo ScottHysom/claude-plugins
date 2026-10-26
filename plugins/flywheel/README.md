@@ -108,7 +108,7 @@ run.
 | --- | --- |
 | "fix #12", "fix issue 12", "fix #12 and #14", "fix the next issue" | A round of those issues: an implementer for each, a reviewer for each pull request, and a merge check. |
 | "fix #12 here", "fix the next issue in this session" | The session you are talking to works the issue. You review and merge the pull request yourself. |
-| "fix the next 3 issues", "fix the issues in #653 three at a time" | A round that keeps that many issues in flight, from the queue or from a plan, until none is left. |
+| "fix the next 3 issues", "fix the next 3 issues starting at #12", "fix the issues in #653 three at a time" | A round that keeps that many issues in flight, from the queue or from a plan, until none is left. |
 | "file an issue for …", "open an issue for …", "file this as a plan" | Claude drafts the issues, shows you a report, and files them once you approve. |
 | `! gh issue edit 12 --add-label approved` | You approve issue 12, so a session may work it. |
 | "review #671" | A reviewer reads the pull request against your review policy and posts its findings. |
@@ -183,7 +183,8 @@ edited after you approved it, until you approve it again.
 
 Ask Claude for a round in any of these ways:
 
-- a number of issues, such as "fix the next 3 issues".
+- a number of issues, such as "fix the next 3 issues", or "fix the next 3
+  issues starting at #12" to leave out the issues before #12.
 - a plan, such as "fix the issues in #653 three at a time".
 - the issues you pick, such as "fix #12 and #14".
 - one issue, such as "fix #12", or the next issue, such as "fix the next

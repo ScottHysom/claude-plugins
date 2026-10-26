@@ -871,6 +871,98 @@ class DescribeQueueCount:
         assert "is not a whole number of 1 or more" in capsys.readouterr().err
 
 
+@pytest.mark.spec("queue-cmd-starts-at-issue")
+class DescribeQueueFrom:
+    def it_leaves_out_every_issue_before_the_one_named(self, capsys, clone, github):
+        github(*(make_issue(n, "approved") for n in (10, 11, 12, 13, 14)))
+        code, out = run(capsys, clone("a"), "queue", "--count", "2", "--from", "12")
+        assert code == flywheel.OK
+        assert (out.out, out.err) == ("#12 issue 12\n#13 issue 13\n", "")
+
+    def it_passes_over_a_plan_that_comes_before_the_issue_and_its_sub_issues(
+        self, capsys, clone, github
+    ):
+        github(
+            make_issue(20, "approved", "plan"),
+            *(make_issue(n, "approved") for n in (11, 12, 13, 14)),
+            subs={20: [11, 13]},
+        )
+        code, data = run_json(capsys, clone("a"), "queue", "--count", "3", "--from", "12")
+        assert code == flywheel.OK
+        assert data["data"]["issues"] == [{"number": 12}, {"number": 14}]
+        assert data["data"]["plan"] is None
+        assert data["warnings"] == []
+
+    def it_names_a_plan_that_comes_after_the_issue(self, capsys, clone, github):
+        github(
+            make_issue(20, "approved", "plan"),
+            make_issue(12, "approved"),
+            make_issue(13, "approved"),
+            subs={20: [13]},
+        )
+        code, data = run_json(capsys, clone("a"), "queue", "--count", "3", "--from", "12")
+        assert code == flywheel.OK
+        assert data["data"]["issues"] == [{"number": 12}]
+        assert data["data"]["plan"] == {"number": 20}
+
+    @pytest.mark.parametrize(
+        ("issues", "kwargs", "says"),
+        [
+            (
+                [make_issue(12)],
+                {},
+                "it is not labeled approved; ask the owner to approve it",
+            ),
+            (
+                [make_issue(12, "approved", state="CLOSED")],
+                {},
+                "it is closed",
+            ),
+            (
+                [make_issue(12, "approved")],
+                {"blockers": {12: [(9, "open")]}},
+                "it is blocked by #9",
+            ),
+            (
+                [make_issue(20, "approved", "plan"), make_issue(11), make_issue(12, "approved")],
+                {"subs": {20: [11, 12]}},
+                "it is a sub-issue of plan issue #20; to take its plan's issues in order, "
+                "run: flywheel.py queue --plan 20",
+            ),
+            (
+                [make_issue(12, "approved", "plan"), make_issue(11)],
+                {"subs": {12: [11]}},
+                "it is a plan issue; to run its plan, run: flywheel.py queue --plan 12",
+            ),
+        ],
+    )
+    def it_warns_when_the_issue_cannot_be_offered_and_offers_the_rest(
+        self, capsys, clone, github, issues, kwargs, says
+    ):
+        github(*issues, make_issue(13, "approved"), **kwargs)
+        code, out = run(capsys, clone("a"), "queue", "--count", "3", "--from", "12")
+        assert code == flywheel.OK
+        assert out.out.startswith("#13 issue 13\n")
+        assert out.err == "warning: #12 issue 12 is not offered: %s\n" % says
+
+    def it_says_nothing_of_the_issue_once_a_claim_holds_it(self, capsys, remote, clone, github):
+        a = clone("a")
+        github(make_issue(12, "approved"))
+        run(capsys, a, "claim", "12")
+        github(make_issue(12, "approved", "claimed"), make_issue(13, "approved"))
+        code, out = run(capsys, a, "queue", "--count", "3", "--from", "12")
+        assert code == flywheel.OK
+        assert out.out.startswith("#13 issue 13\n")
+        assert out.err == ""
+
+    @pytest.mark.parametrize("other", [["12"], ["--plan", "20"]])
+    def it_cannot_run_with_named_issues_or_a_plan(self, capsys, clone, other):
+        with pytest.raises(SystemExit) as exc:
+            flywheel.main(["queue", "--from", "12", *other, "-C", str(clone("a"))])
+        assert exc.value.code == flywheel.CANNOT_RUN
+        assert "not allowed with argument --from" in capsys.readouterr().err
+
+
 @pytest.mark.spec("queue-cmd-checks-named-issues")
 class DescribeQueueNamed:
     def it_offers_each_named_issue_that_can_start_in_the_order_named(self, capsys, clone, github):
