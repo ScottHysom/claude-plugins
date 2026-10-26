@@ -1,6 +1,6 @@
 # Adoption: bringing a repo under the playbook
 
-This document states what "adopted" means, for a new repo or an existing one, by level and principle ID. A plugin or skill in the implementation layer (the tooling a project uses to carry out the playbook) does the assessing and the applying, and cites the IDs below. In the flywheel plugin, `flywheel.py assess` does the assessing, and its docstring says what counts as evidence for each control.
+This document states what "adopted" means, for a new repo or an existing one, by level and principle ID. A plugin or skill in the playbook's implementation layer does the assessing and the applying, and cites the IDs below. In the flywheel plugin, `flywheel.py assess` does the assessing, and its docstring says what counts as evidence for each control.
 
 **A new repo is an existing repo with every gap open.** So both take one path:
 
