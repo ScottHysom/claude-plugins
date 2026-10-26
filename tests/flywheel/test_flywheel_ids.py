@@ -1,4 +1,4 @@
-"""What `flywheel.py ids` finds when a method id is cited and not defined."""
+"""What `flywheel.py ids` finds when a playbook id is cited and not defined."""
 
 import os
 
@@ -32,18 +32,18 @@ def write(root, rel, text):
 @pytest.mark.spec("ids-cmd-fails-unknown-id")
 class DescribeAnUnknownId:
     def it_names_an_id_the_spec_cites_and_the_docs_do_not_define(self, project, plugin):
-        project.write(SPEC, "# flywheel\n\nSource: #1, and the method's `no-such-rule`.\n")
+        project.write(SPEC, "# flywheel\n\nSource: #1, and the playbook's `no-such-rule`.\n")
         code, env = project.run("ids")
         assert code == flywheel.PROBLEMS
         assert env["data"]["unknown"] == [{"id": "no-such-rule", "file": SPEC, "line": 3}]
         assert env["errors"] == [
-            "specs/flywheel.md:3: `no-such-rule` is cited as the method's, and no document"
-            " under docs/ defines it. Correct the citation, or define the id in the method's"
+            "specs/flywheel.md:3: `no-such-rule` is cited as the playbook's, and no document"
+            " under docs/ defines it. Correct the citation, or define the id in the playbook's"
             " docs."
         ]
 
     def it_names_an_id_a_skill_cites(self, project, plugin):
-        write(plugin, "skills/run/SKILL.md", "# Run\n\nThis follows the method's `made-up-id`.\n")
+        write(plugin, "skills/run/SKILL.md", "# Run\n\nThis follows the playbook's `made-up-id`.\n")
         code, env = project.run("ids")
         assert code == flywheel.PROBLEMS
         assert env["data"]["unknown"] == [
@@ -51,7 +51,7 @@ class DescribeAnUnknownId:
         ]
 
     def it_names_an_id_a_template_cites(self, project, plugin):
-        write(plugin, "templates/policy.md", "Per the method's\n`made-up-id`.\n")
+        write(plugin, "templates/policy.md", "Per the playbook's\n`made-up-id`.\n")
         code, env = project.run("ids")
         assert code == flywheel.PROBLEMS
         assert env["data"]["unknown"] == [
@@ -59,7 +59,7 @@ class DescribeAnUnknownId:
         ]
 
     def it_reads_every_id_in_the_citing_sentence(self, project, plugin):
-        project.write(SPEC, "Source: the method's `%s`, `bad-one` and\n`bad-two`.\n" % DEFINED)
+        project.write(SPEC, "Source: the playbook's `%s`, `bad-one` and\n`bad-two`.\n" % DEFINED)
         code, env = project.run("ids")
         assert code == flywheel.PROBLEMS
         assert [(u["id"], u["line"]) for u in env["data"]["unknown"]] == [
@@ -68,7 +68,7 @@ class DescribeAnUnknownId:
         ]
 
     def it_names_the_unknown_id_in_text_on_stderr(self, project, plugin):
-        project.write(SPEC, "Source: the method's `no-such-rule`.\n")
+        project.write(SPEC, "Source: the playbook's `no-such-rule`.\n")
         code, out, err = project.human("ids")
         assert code == flywheel.PROBLEMS
         assert out == ""
@@ -78,26 +78,31 @@ class DescribeAnUnknownId:
 @pytest.mark.spec("ids-cmd-fails-unknown-id")
 class DescribeWhatCountsAsACitation:
     def it_passes_an_id_the_docs_define(self, project, plugin):
-        project.write(SPEC, "Source: the method's `%s`.\n" % DEFINED)
+        project.write(SPEC, "Source: the playbook's `%s`.\n" % DEFINED)
         code, env = project.run("ids")
         assert code == flywheel.OK
         assert env["data"] == {"files": [*shipped(plugin), SPEC], "unknown": []}
 
     def it_passes_a_stage_rule_id(self, project, plugin):
-        project.write(SPEC, "Source: the method's `one-command-per-gate`.\n")
+        project.write(SPEC, "Source: the playbook's `one-command-per-gate`.\n")
         assert project.run("ids")[0] == flywheel.OK
 
     def it_ignores_backticks_outside_the_citing_sentence(self, project, plugin):
         project.write(
             SPEC,
-            "Source: the method's `%s`. Then `setup-cmd-copies-script`.\n\n"
-            "the method's\n\n`other-id` sits in the next paragraph.\n" % DEFINED,
+            "Source: the playbook's `%s`. Then `setup-cmd-copies-script`.\n\n"
+            "the playbook's\n\n`other-id` sits in the next paragraph.\n" % DEFINED,
         )
         code, env = project.run("ids")
         assert code == flywheel.OK, env["errors"]
 
+    def it_ignores_an_id_cited_as_the_methods(self, project, plugin):
+        project.write(SPEC, "Source: the method's `no-such-rule`.\n")
+        code, env = project.run("ids")
+        assert code == flywheel.OK, env["errors"]
+
     def it_ignores_backticked_text_that_is_not_an_id(self, project, plugin):
-        project.write(SPEC, "Source: the method's `roles.md` and `README`.\n")
+        project.write(SPEC, "Source: the playbook's `roles.md` and `README`.\n")
         assert project.run("ids")[0] == flywheel.OK
 
     def it_runs_without_a_spec_in_the_repo(self, project, plugin):
@@ -108,7 +113,7 @@ class DescribeWhatCountsAsACitation:
     def it_says_what_it_checked_in_text(self, project, plugin):
         code, out, err = project.human("ids")
         assert code == flywheel.OK
-        assert out == "every method id cited in %d files is defined\n" % len(shipped(plugin))
+        assert out == "every playbook id cited in %d files is defined\n" % len(shipped(plugin))
         assert err == ""
 
 
@@ -135,7 +140,7 @@ class DescribeWhenItCannotRun:
             doc.write_text("# Empty\n\n| Stage | Rule |\n| --- | --- |\n| Spec | not-an-id |\n")
         code, _ = project.run("ids")
         assert code == flywheel.CANNOT_RUN
-        assert "defines a method id" in project.err
+        assert "defines a playbook id" in project.err
 
     def it_stops_on_a_file_that_is_not_utf8(self, project, plugin):
         (project.root / "specs").mkdir()
@@ -149,10 +154,10 @@ class DescribeWhenItCannotRun:
 class DescribeWhereIdsAreDefined:
     def it_reads_definitions_only_from_markdown(self, project, plugin):
         write(plugin, "docs/extra.txt", "| ID |\n| --- |\n| txt-only-id |\n")
-        project.write(SPEC, "Source: the method's `txt-only-id`.\n")
+        project.write(SPEC, "Source: the playbook's `txt-only-id`.\n")
         assert project.run("ids")[0] == flywheel.PROBLEMS
 
     def it_reads_definitions_from_any_markdown_under_docs(self, project, plugin):
         write(plugin, "docs/extra.md", "| Stage | ID |\n| --- | --- |\n| Spec | extra-rule |\n")
-        project.write(SPEC, "Source: the method's `extra-rule`.\n")
+        project.write(SPEC, "Source: the playbook's `extra-rule`.\n")
         assert project.run("ids")[0] == flywheel.OK

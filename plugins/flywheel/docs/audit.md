@@ -44,7 +44,7 @@ The Strategist fans the checklist out to Reviewers in parallel, then merges what
 5. **Security.** Checked against the security spec.
 6. **Privacy.** Data handling checked against the privacy spec.
 7. **Documentation.** External and inline docs match the code.
-8. **Method.** Trends are reviewed, not just breaches. Each measure still names the decision it informs. Anything that lags, costs too much or runs slowly becomes a proposed improvement trial (improve-by-measured-trial).
+8. **Playbook.** Trends are reviewed, not just breaches. Each measure still names the decision it informs. Anything that lags, costs too much or runs slowly becomes a proposed improvement trial (improve-by-measured-trial).
 9. **Controls.** Every mistake an agent has made twice has a check, hook or eval behind it (repeat-mistakes-become-checks). The eval suite passes on the current tier-to-model mapping (eval-instructions-on-change).
 
 ## Severity scale

@@ -29,22 +29,22 @@ The `.gitignore` that `setup` writes names those copies and itself, rather
 than `*` as todos does. `.flywheel/` also holds what the owner sets and
 commits, starting with `roles.json`.
 
-## The method's docs
+## The playbook's docs
 
-`docs/` holds the method the loop follows, copied from the Cowork project
+`docs/` holds the playbook the loop follows, copied from the Cowork project
 where it was first written, at that project's commit 940ae7a. That project
 stays as the archive, with its history, its notes and its own skills; the
-plugin is now where the method changes. Its ids become stable once a repo
+plugin is now where the playbook changes. Its ids become stable once a repo
 records an adopted version, and the plugin's version is that version.
 
 `ids` checks that every id the plugin's templates and skills, and
-`specs/flywheel.md`, cite as the method's is one the docs define. It reads
+`specs/flywheel.md`, cite as the playbook's is one the docs define. It reads
 the docs from the plugin, so it does not run from the copy in `.flywheel/`.
 The script's docstring has the citation form it reads.
 
 ## The roles file
 
-A role maps to a tier from the method's roles.md, and the tier is fixed. The
+A role maps to a tier from the playbook's roles.md, and the tier is fixed. The
 model behind a tier, and its default effort, come only from the owner, so
 the template leaves them null and `config init` names each null field it
 writes. `config init` fills in the plugin version, so a later version can tell
@@ -63,7 +63,7 @@ files, each holding the requirements its side meets.
 
 ## Plans
 
-The method's Scope stage files issues, and the loop needs it twice: the
+The playbook's Scope stage files issues, and the loop needs it twice: the
 owner files a plan, and an implementer that finds a gap files a candidate
 need rather than guess. One skill, file-issue, does both, so a plan of one
 issue leaves out the plan issue that a plan of several takes.
@@ -153,15 +153,15 @@ back and forth between the two sessions.
 
 ## Adoption
 
-#651 gives the method's adoption.md a command. A level is how far a project
-has adopted the method, and each level introduces controls. A control does
+#651 gives the playbook's adoption.md a command. A level is how far a project
+has adopted the playbook, and each level introduces controls. A control does
 not have a level of its own: it belongs to the level that introduces it.
 
 The controls each level introduces have their home in `specs/flywheel.md`,
 in the requirements `assess-cmd-checks-level-1-controls` to `-3-`, so
 changing one is a requirement change that holds the pull request for the
 owner. adoption.md is the view that ships with the plugin, since `specs/`
-does not. The script's `METHOD_LEVELS` is a third copy, because the copy in
+does not. The script's `PLAYBOOK_LEVELS` is a third copy, because the copy in
 `.flywheel/` carries neither, and tests fail when it differs from either.
 
 The evidence for a control is something a script can read without
