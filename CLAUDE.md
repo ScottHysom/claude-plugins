@@ -449,6 +449,11 @@ defines each one.
   `no-merge-without-alignment`.
 - Run the project's `verify` command before asking for review, since CI runs
   it on every pull request. Source: the method's `one-command-per-gate`.
+- Open a pull request through the project's skill for opening one, or
+  flywheel's open-pr when the project has none. Name each requirement id it
+  adds, changes or removes in the section that `.flywheel/pr-template.md`
+  marks, `## Requirements` without the file. Source: the method's
+  `no-merge-without-alignment`.
 - Never loosen a test or a check to make it pass. Confirm that each new test
   fails on the code before the change. Source: the method's
   `agents-never-weaken-checks`.
