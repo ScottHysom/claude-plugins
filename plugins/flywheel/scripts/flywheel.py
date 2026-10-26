@@ -32,6 +32,7 @@ Usage:
     python3 flywheel.py review-post 71 --findings findings.json
     python3 flywheel.py merge-check 71 --merge
     python3 flywheel.py release 12
+    python3 flywheel.py close 12 --reason "#261 removed the check this covered."
     python3 flywheel.py stale
     python3 flywheel.py measure --since 2026-10-01
     python3 flywheel.py clear 12
@@ -112,7 +113,11 @@ Commands:
                  .flywheel/merge-policy.md, each reason it holds, and the
                  next step. With --merge, squash it when it flows.
     release N    give issue N up: delete issue/N if it holds no work, remove
-                 the label, comment.
+                 the label, comment. With --drop-work, delete it even when it
+                 holds commits, naming the dropped tip in the comment.
+    close N      close issue N as not planned, with --reason as its comment,
+                 first freeing any claim as release would (taking
+                 --drop-work the same way).
     stale        labels, branches and issue states that disagree, including a
                  closed issue that still has the label and a held issue that
                  lacks it.
@@ -442,9 +447,10 @@ Things that look like bugs and are not:
   stops on a held issue rather than moving on, since the owner named it.
 - `claim` exits 0 when the push succeeded but labeling or commenting failed.
   The branch is the claim; those failures are warnings to fix by hand.
-- `release` refuses to delete a branch with commits not on main, and `clear`
-  one with changes main lacks. Neither has a flag to force it. Throwing away
-  work is for a person to decide.
+- `release` refuses to delete a branch with commits not on main unless
+  --drop-work is given, and `clear` refuses one with changes main lacks, with
+  no flag to force it. Throwing away work is for the owner to decide, so an
+  agent passes --drop-work only on the owner's word.
 - `clear` never asks whether issue/N's commits are on main. A squash or rebase
   merge gives the work new hashes, so they never are, and `git branch -d` calls
   such a branch unmerged. It asks instead whether a merged pull request from
@@ -533,7 +539,7 @@ Things that look like bugs and are not:
 `setup`, `config init`, `record`, `plan report` and `plan file` write only
 under .flywheel/, `fails-on-base` writes only under a temporary directory, and `plan file` also files issues through gh. `review-post` and
 `merge-check --merge` write only to GitHub, through gh. `claim`, `release`,
-`clear` and `sweep` write to git (a push, a branch switch, a branch deletion),
+`close`, `clear` and `sweep` write to git (a push, a branch switch, a branch deletion),
 so they are not for Cowork's device bridge, where a git write strands
 `.git/*.lock` files. COWORK.md, at the repo root, has the rest of what the
 bridge allows.
@@ -703,6 +709,8 @@ CLAIM_MARK = "Claimed on branch"
 RELEASE_MARK = "Released "
 # What an agent's own comment opens with, under the owner's account.
 AGENT_MARK = "**Claude:**"
+# The reason `close` gives GitHub, in gh's spelling.
+NOT_PLANNED = "not planned"
 MERGED_FIELDS = "number,headRefName,headRefOid"
 OPEN_PULL_FIELDS = "number,title,url,headRefName,statusCheckRollup,reviewDecision"
 MERGED_PULL_FIELDS = "number,title,url,headRefName,mergedAt"
@@ -3983,34 +3991,61 @@ def cmd_review_post(args):
 
 
 # --------------------------------------------------------------------------
-# release, stale, clear and sweep
+# release, close, stale, clear and sweep
 # --------------------------------------------------------------------------
+
+
+def release_check(root, n, item, drop_work):
+    """What freeing the claim on #n would delete: (sha, labeled, dropped, errors).
+
+    sha is issue/N's tip, or None when there is no branch, and dropped is that
+    tip when it holds commits off main and drop_work lets them go.
+    """
+    sha = claims(root).get(n)
+    labeled = has_label(item, role_labels(root)[CLAIM])
+    if sha is None and not labeled:
+        return sha, labeled, None, ["#%d is not claimed" % n]
+    if sha is None:
+        return sha, labeled, None, []
+    git(root, "fetch", "--quiet", REMOTE, BASE, ref(n))
+    ahead = int(git(root, "rev-list", "--count", "%s/%s..%s" % (REMOTE, BASE, sha)).stdout)
+    if not ahead:
+        return sha, labeled, None, []
+    if drop_work:
+        return sha, labeled, sha, []
+    return (
+        sha,
+        labeled,
+        None,
+        [
+            "%s has %d commit(s) not on %s. Keep the work on another branch, or, once the owner "
+            "has said to drop it, run again with --drop-work" % (branch(n), ahead, BASE)
+        ],
+    )
+
+
+def release_apply(root, n, sha, labeled, dropped):
+    """Free the claim release_check passed. Returns the errors, empty on success."""
+    if sha is not None:
+        # Delete only the commit we checked, in case work was pushed since.
+        lease = "--force-with-lease=%s:%s" % (ref(n), sha)
+        delete = git(root, "push", "--quiet", lease, REMOTE, ":" + ref(n), check=False)
+        if delete.returncode != 0:
+            return ["%s changed while releasing; run release again" % branch(n)]
+    if labeled:
+        gh(root, "issue", "edit", str(n), "--remove-label", role_labels(root)[CLAIM])
+    tail = ", dropping %s" % dropped if dropped else ""
+    gh(root, "issue", "comment", str(n), "--body", "%s%s%s." % (RELEASE_MARK, branch(n), tail))
+    return []
 
 
 def cmd_release(args):
     root = project_root(args.repo)
     n = args.number
     data = {"number": n, "branch": branch(n)}
-    item = issue(root, n)
-    sha = claims(root).get(n)
-    claim = role_labels(root)[CLAIM]
-    labeled = has_label(item, claim)
-    if sha is None and not labeled:
-        return emit(args, "release", data, ["#%d is not claimed" % n])
-    if sha is not None:
-        git(root, "fetch", "--quiet", REMOTE, BASE, ref(n))
-        ahead = int(git(root, "rev-list", "--count", "%s/%s..%s" % (REMOTE, BASE, sha)).stdout)
-        if ahead:
-            return emit(
-                args,
-                "release",
-                data,
-                [
-                    "%s has %d commit(s) not on %s. Keep the work on another branch, or delete "
-                    "%s yourself; release does not throw work away"
-                    % (branch(n), ahead, BASE, branch(n))
-                ],
-            )
+    sha, labeled, dropped, errors = release_check(root, n, issue(root, n), args.drop_work)
+    if errors:
+        return emit(args, "release", data, errors)
 
     def human():
         verb = "Would release" if args.dry_run else "Released"
@@ -4018,22 +4053,27 @@ def cmd_release(args):
 
     if args.dry_run:
         return emit(args, "release", data, human=human)
+    errors = release_apply(root, n, sha, labeled, dropped)
+    return emit(args, "release", data, errors, human=human)
 
-    if sha is not None:
-        # Delete only the commit we checked, in case work was pushed since.
-        lease = "--force-with-lease=%s:%s" % (ref(n), sha)
-        delete = git(root, "push", "--quiet", lease, REMOTE, ":" + ref(n), check=False)
-        if delete.returncode != 0:
-            return emit(
-                args,
-                "release",
-                data,
-                ["%s changed while releasing; run release again" % branch(n)],
-            )
-    if labeled:
-        gh(root, "issue", "edit", str(n), "--remove-label", claim)
-    gh(root, "issue", "comment", str(n), "--body", "%s%s." % (RELEASE_MARK, branch(n)))
-    return emit(args, "release", data, human=human)
+
+def cmd_close(args):
+    root = project_root(args.repo)
+    n = args.number
+    data = {"number": n}
+    item = issue(root, n)
+    if item.get("state") != "OPEN":
+        return emit(args, "close", data, ["#%d is already closed" % n])
+    sha, labeled, dropped, errors = release_check(root, n, item, args.drop_work)
+    if sha is not None or labeled:
+        errors = errors or release_apply(root, n, sha, labeled, dropped)
+        if errors:
+            return emit(args, "close", data, errors)
+    reason = args.reason.strip()
+    if not reason.startswith(AGENT_MARK):
+        reason = "%s %s" % (AGENT_MARK, reason)
+    gh(root, "issue", "close", str(n), "--reason", NOT_PLANNED, "--comment", reason)
+    return emit(args, "close", data, human=lambda: print("Closed #%d as %s" % (n, NOT_PLANNED)))
 
 
 def cmd_stale(args):
@@ -5685,7 +5725,23 @@ def build_parser():
     p.set_defaults(func=cmd_merge_check)
 
     p = sub.add_parser("release", parents=[common, numbered, preview], help="give an issue up")
+    p.add_argument(
+        "--drop-work",
+        action="store_true",
+        help="delete issue/N even when it holds commits, once the owner has said to",
+    )
     p.set_defaults(func=cmd_release)
+
+    p = sub.add_parser(
+        "close", parents=[common, numbered], help="close an issue as not planned, freeing its claim"
+    )
+    p.add_argument("--reason", required=True, help="why the issue needs no work, for its comment")
+    p.add_argument(
+        "--drop-work",
+        action="store_true",
+        help="free a claim whose issue/N holds commits, once the owner has said to",
+    )
+    p.set_defaults(func=cmd_close)
 
     p = sub.add_parser("stale", parents=[common], help="labels and branches that disagree")
     p.set_defaults(func=cmd_stale)

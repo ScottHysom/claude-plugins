@@ -407,23 +407,50 @@ Source: README.md, under "Claiming an issue", and #33.
   - a closed issue keeps its branch.
   - an open issue has its branch and lacks the label.
 
-## need owner-frees-abandoned-claims: Free an abandoned claim without losing work
+## need owner-frees-abandoned-claims: Free an abandoned claim, keeping its work unless the owner drops it
 
 When an agent stops without opening a pull request, the owner wants its claim
-freed for someone else, so the issue does not stay held, and wants every commit
-on the claim branch kept through the freeing.
+freed for someone else, so the issue does not stay held. The owner wants every
+commit on the claim branch kept through the freeing, unless the owner has said
+in chat to drop them, so that dropping them needs no step run by hand.
 
-Source: README.md, under "Claiming an issue", and CLAUDE.md, under "Issues".
+Source: README.md, under "Claiming an issue", CLAUDE.md, under "Issues", and
+#264.
 
 - `release-cmd-frees-unused-claim` (test): When `flywheel.py release N`
   finds `issue/N` with no commits off main, or only the claim label,
   it deletes the branch, removes the label and comments.
 - `release-cmd-keeps-work` (test): When `issue/N` has commits off main, or
   changed after `release` checked it, `flywheel.py release` exits 1 and
-  deletes nothing.
+  deletes nothing. Without `--drop-work`, its error names `--drop-work` as
+  the way to drop the commits once the owner has said to.
+- `release-cmd-drops-work-on-request` (test): When `flywheel.py release N
+  --drop-work` finds `issue/N` with commits off main, it deletes the branch
+  only at the tip it checked, removes the claim label, and comments with
+  that tip's sha, so the work can be recovered.
+- `workissue-drops-work-on-owner-word` (step): When work-issue gives up a
+  claim whose `issue/N` holds commits, it passes `--drop-work` only after the
+  owner has said in chat to drop them.
 - `release-cmd-requires-held-claim` (test): When `flywheel.py release N`
   finds neither `issue/N` nor the claim label, it exits 1 without
   commenting, so only an issue that was held can read as released.
+
+## need owner-closes-moot-issue: Close an issue that has no work left
+
+When an approved issue turns out to need no change, the owner wants an agent
+to close it as not planned and free its claim on the owner's word, so that the
+owner does not run commands by hand.
+
+Source: #264.
+
+- `close-cmd-closes-not-planned` (test): When `flywheel.py close N --reason
+  TEXT` finds #N open, it frees any claim on #N as `release` would, taking
+  `--drop-work` the same way, then closes #N as not planned with a comment
+  that opens with the agent's mark and carries the reason. When #N is closed
+  already, or `release` would refuse, it exits 1 and closes nothing.
+- `workissue-closes-on-owner-word` (step): When work-issue finds that its
+  issue needs no change, it asks the owner, and runs `flywheel.py close` only
+  after the owner has said in chat to close it.
 
 ## need owner-clears-merged-claims: Clear a merged claim's local branch
 

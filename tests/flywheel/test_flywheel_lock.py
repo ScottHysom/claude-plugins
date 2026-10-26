@@ -1144,6 +1144,122 @@ class DescribeRelease:
         assert "issue/12" not in remote_branches(remote)
         assert gh.writes() == [("issue", "comment", "12", "--body", "Released issue/12.")]
 
+    @pytest.mark.spec("release-cmd-keeps-work")
+    def it_names_the_flag_that_drops_work(self, capsys, remote, clone, github):
+        worked(capsys, clone, github)
+        code, out = run(capsys, clone("b"), "release", "12")
+        assert code == flywheel.PROBLEMS
+        assert "--drop-work" in out.err
+
+    @pytest.mark.spec("release-cmd-drops-work-on-request")
+    def it_drops_work_when_asked(self, capsys, remote, clone, github):
+        tip = worked(capsys, clone, github)
+        gh = github(make_issue(12, "approved", "claimed"))
+        code, out = run(capsys, clone("b"), "release", "12", "--drop-work")
+        assert code == flywheel.OK
+        assert remote_branches(remote) == {flywheel.BASE}
+        assert gh.writes() == [
+            ("issue", "edit", "12", "--remove-label", "claimed"),
+            ("issue", "comment", "12", "--body", "Released issue/12, dropping %s." % tip),
+        ]
+
+    @pytest.mark.spec("release-cmd-drops-work-on-request")
+    def it_keeps_work_pushed_while_dropping(self, capsys, remote, clone, github, monkeypatch):
+        worked(capsys, clone, github)
+        a = clone("c")
+        git(a, "switch", "--quiet", "issue/12")
+        gh = github(make_issue(12, "approved", "claimed"))
+        real = flywheel.git
+
+        def pushed_meanwhile(repo, *args, **kwargs):
+            if "push" in args and any(w.startswith("--force-with-lease") for w in args):
+                git(a, "commit", "--quiet", "--allow-empty", "-m", "more")
+                git(a, "push", "--quiet")
+            return real(repo, *args, **kwargs)
+
+        monkeypatch.setattr(flywheel, "git", pushed_meanwhile)
+        code, out = run(capsys, clone("b"), "release", "12", "--drop-work")
+        assert code == flywheel.PROBLEMS
+        assert "issue/12 changed while releasing" in out.err
+        assert "issue/12" in remote_branches(remote)
+        assert gh.writes() == []
+
+
+def worked(capsys, clone, github):
+    """Claim #12 and push a commit to issue/12. Returns the commit's sha."""
+    a = clone("a")
+    github(make_issue(12, "approved"))
+    run(capsys, a, "claim", "12")
+    (a / "work").write_text("work\n")
+    git(a, "add", "work")
+    git(a, "commit", "--quiet", "-m", "work")
+    git(a, "push", "--quiet")
+    github(make_issue(12, "approved", "claimed"))
+    return git(a, "rev-parse", "HEAD")
+
+
+NOT_PLANNED = ("issue", "close", "12", "--reason", "not planned", "--comment")
+
+
+class DescribeClose:
+    @pytest.mark.spec("close-cmd-closes-not-planned")
+    def it_closes_an_unclaimed_issue_as_not_planned(self, capsys, clone, github):
+        gh = github(make_issue(12, "approved"))
+        code, out = run(capsys, clone("a"), "close", "12", "--reason", "#261 removed the check.")
+        assert code == flywheel.OK
+        assert gh.writes() == [(*NOT_PLANNED, "**Claude:** #261 removed the check.")]
+
+    @pytest.mark.spec("close-cmd-closes-not-planned")
+    def it_marks_the_reason_once(self, capsys, clone, github):
+        gh = github(make_issue(12, "approved"))
+        run(capsys, clone("a"), "close", "12", "--reason", "**Claude:** Moot.")
+        assert gh.writes() == [(*NOT_PLANNED, "**Claude:** Moot.")]
+
+    @pytest.mark.spec("close-cmd-closes-not-planned")
+    def it_frees_the_claim_before_closing(self, capsys, remote, clone, github):
+        a = clone("a")
+        github(make_issue(12, "approved"))
+        run(capsys, a, "claim", "12")
+        gh = github(make_issue(12, "approved", "claimed"))
+        code, out = run(capsys, a, "close", "12", "--reason", "Moot.")
+        assert code == flywheel.OK
+        assert remote_branches(remote) == {flywheel.BASE}
+        assert gh.writes() == [
+            ("issue", "edit", "12", "--remove-label", "claimed"),
+            ("issue", "comment", "12", "--body", "Released issue/12."),
+            (*NOT_PLANNED, "**Claude:** Moot."),
+        ]
+
+    @pytest.mark.spec("close-cmd-closes-not-planned")
+    def it_keeps_work_and_the_issue_open_without_drop_work(self, capsys, remote, clone, github):
+        worked(capsys, clone, github)
+        gh = github(make_issue(12, "approved", "claimed"))
+        code, out = run(capsys, clone("b"), "close", "12", "--reason", "Moot.")
+        assert code == flywheel.PROBLEMS
+        assert "--drop-work" in out.err
+        assert "issue/12" in remote_branches(remote)
+        assert gh.writes() == []
+
+    @pytest.mark.spec("close-cmd-closes-not-planned", "release-cmd-drops-work-on-request")
+    def it_drops_work_and_closes_with_drop_work(self, capsys, remote, clone, github):
+        tip = worked(capsys, clone, github)
+        gh = github(make_issue(12, "approved", "claimed"))
+        code, out = run(capsys, clone("b"), "close", "12", "--reason", "Moot.", "--drop-work")
+        assert code == flywheel.OK
+        assert remote_branches(remote) == {flywheel.BASE}
+        assert gh.writes()[1:] == [
+            ("issue", "comment", "12", "--body", "Released issue/12, dropping %s." % tip),
+            (*NOT_PLANNED, "**Claude:** Moot."),
+        ]
+
+    @pytest.mark.spec("close-cmd-closes-not-planned")
+    def it_is_a_problem_on_a_closed_issue(self, capsys, clone, github):
+        gh = github(make_issue(12, "approved", state="CLOSED"))
+        code, out = run(capsys, clone("a"), "close", "12", "--reason", "Moot.")
+        assert code == flywheel.PROBLEMS
+        assert "#12 is already closed" in out.err
+        assert gh.writes() == []
+
 
 def claimed(capsys, clone, github):
     a = clone("a")
