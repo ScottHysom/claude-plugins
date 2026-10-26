@@ -960,7 +960,7 @@ class DescribeQueueFrom:
         with pytest.raises(SystemExit) as exc:
             flywheel.main(["queue", "--from", "12", *other, "-C", str(clone("a"))])
         assert exc.value.code == flywheel.CANNOT_RUN
-        assert "not allowed with argument" in capsys.readouterr().err
+        assert "not allowed with argument --from" in capsys.readouterr().err
 
 
 @pytest.mark.spec("queue-cmd-checks-named-issues")
