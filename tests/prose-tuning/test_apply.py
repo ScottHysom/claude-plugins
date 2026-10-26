@@ -1322,3 +1322,101 @@ class DescribeSameRewrites:
         assert len(errors_of(envelope)) == 1
         assert "overlaps" in errors_of(envelope)[0]
         assert prose_repo.read() == before
+
+
+class DescribeHeldRewrites:
+    """One rule's finding can rewrite a whole sentence, and another rule's a
+    phrase inside it, where the sentence's rewrite already makes the phrase's
+    change. The two overlap, so report used to ask the author to choose
+    between them, though applying the outer one gives what both ask for.
+    """
+
+    OUTER = ("Final paragraph.", "The last section.")
+    INNER = ("paragraph.", "section.")
+
+    @pytest.fixture
+    def pair(self, prose_repo, target_lines):
+        style = prose_repo.root / prose.CONFIG_PATH
+        style.write_text(style.read_text() + OTHER_RULE_TEXT)
+        return [
+            prose_repo.finding(
+                target_lines["last-paragraph"], rule=rule, text=text, replacement=new
+            )
+            for rule, (text, new) in ((RULE_ID, self.OUTER), (OTHER_RULE, self.INNER))
+        ]
+
+    @pytest.mark.spec("report-cmd-merges-held-rewrites", "report-cmd-names-overlaps")
+    @pytest.mark.parametrize(
+        ("order", "group"),
+        [
+            pytest.param((0, 1), [1, 2], id="outer-first"),
+            pytest.param((1, 0), [2, 1], id="inner-first"),
+        ],
+    )
+    def it_reports_the_pair_as_one_change_led_by_the_outer_finding(
+        self, prose_repo, pair, order, group
+    ):
+        code, envelope = prose_repo.report([pair[i] for i in order])
+        assert code == prose.OK, envelope["errors"]
+        assert envelope["data"]["overlaps"] == []
+        assert [r["same_rewrite"] for r in envelope["data"]["findings"]] == [group, group]
+
+    @pytest.mark.spec("report-cmd-merges-held-rewrites")
+    def it_names_every_finding_and_rule_over_the_outer_rewrite(
+        self, prose_repo, pair, target_lines
+    ):
+        _code, envelope = prose_repo.report(pair)
+        with open(envelope["data"]["report"], encoding="utf-8") as fh:
+            page = fh.read()
+        heading = "## `target.md:%d`, `%s` and `%s` (findings 1 and 2)\n" % (
+            target_lines["last-paragraph"],
+            RULE_ID,
+            OTHER_RULE,
+        )
+        assert heading in page
+        assert page.count("The last section.") == 1
+        assert "|section.|" not in page
+
+    @pytest.mark.spec("report-cmd-merges-held-rewrites")
+    @pytest.mark.parametrize(
+        "flags",
+        [
+            pytest.param((), id="every-finding"),
+            pytest.param(("--only", RULE_ID), id="outer-rule"),
+            pytest.param(("--only", OTHER_RULE), id="inner-rule"),
+        ],
+    )
+    def it_writes_the_outer_rewrite_once_whichever_side_is_selected(self, prose_repo, pair, flags):
+        before = prose_repo.read()
+        code, envelope = prose_repo.apply(pair, *flags)
+        assert code == prose.OK, envelope["errors"]
+        assert prose_repo.read() == before.replace("Final paragraph.", "The last section.")
+
+    @pytest.mark.spec("report-cmd-names-overlaps")
+    @pytest.mark.parametrize(
+        ("outer", "inner"),
+        [
+            pytest.param(None, ("paragraph.", "part."), id="outer-lacks-the-inner-rewrite"),
+            pytest.param(
+                ("Final paragraph.", "The last section. Final paragraph."),
+                None,
+                id="outer-keeps-the-inner-text",
+            ),
+            pytest.param(None, ("Final paragraph.", "section."), id="same-text"),
+            pytest.param(
+                ("Final paragraph.", "Final part."),
+                ("Final ", ""),
+                id="outer-keeps-what-the-inner-cuts",
+            ),
+        ],
+    )
+    def it_still_refuses_a_pair_whose_rewrites_disagree(self, prose_repo, pair, outer, inner):
+        for f, change in zip(pair, (outer, inner)):
+            if change:
+                f["text"], f["replacement"] = change
+        before = prose_repo.read()
+        code, envelope = prose_repo.apply(pair)
+        assert code == prose.PROBLEMS
+        assert len(errors_of(envelope)) == 1
+        assert "overlaps" in errors_of(envelope)[0]
+        assert prose_repo.read() == before
