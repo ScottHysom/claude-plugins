@@ -886,17 +886,6 @@ class DescribeShippedPatterns:
             (TAIL, "Do not run any of it from here, or offer to.", [", or offer to."]),
             (TAIL, "Run the check on every file, and try to.", [", and try to."]),
             (
-                SECTION,
-                'Install the plugin, as "What you need" says.',
-                ['"What you need" says'],
-            ),
-            (SECTION, 'README.md, under "Issues", has the process.', ['under "Issues"']),
-            (
-                SECTION,
-                'It runs in a step, or in "Locate the script".',
-                ['in "Locate the script".'],
-            ),
-            (
                 ONE_NEGATION,
                 "Nothing can show that it was never asked for.",
                 ["Nothing can show that it was never"],
@@ -926,6 +915,17 @@ class DescribeShippedPatterns:
             (NONE, "It fails when a root holds none.", ["holds none"]),
             (NONE, "The rule gets none.", ["gets none"]),
             (NONE, "The search found none.", ["found none"]),
+            (
+                SECTION,
+                'Install the plugin, as "What you need" says.',
+                ['"What you need" says'],
+            ),
+            (SECTION, 'README.md, under "Issues", has the process.', ['under "Issues"']),
+            (
+                SECTION,
+                'It runs in a step, or in "Locate the script".',
+                ['in "Locate the script".'],
+            ),
         ],
     )
     def it_finds_what_its_rule_names(self, shipped, rid, doc, want):
