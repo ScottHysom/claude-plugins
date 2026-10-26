@@ -1,4 +1,4 @@
-# The flywheel playbook
+# The Flywheel Playbook
 
 A playbook with two legs: a living spec that code always matches, and agents matched to tasks by capability and cost. Every behavior in the code traces to a need someone stated.
 
@@ -131,7 +131,7 @@ After that, a retired ID is listed here with the date it was retired, what repla
 ## Open questions
 
 - [x] Decided: improving the playbook itself is a value (Measured improvement). Measures exist to drive decisions: improvement trials, triage and estimating. See improve-by-measured-trial and [metrics.md](metrics.md).
-- [x] Decided: the name is "the flywheel playbook", "the playbook" for short.
+- [x] Decided: the name is "the Flywheel Playbook", "the playbook" for short.
 - [x] Decided: stay spec-anchored, not *spec-as-source*. Humans, agents or both may edit code, under the same rules.
 - [ ] Which spec documents are the minimum for a small consulting engagement? Proposed: the needs spec (`specs/`) alone, with its out-of-scope list, and a PRD only when the client needs one. See [traceability.md](traceability.md).
 - [ ] For bigger projects, how much of the PRD and design documents is still needed once needs and constraints cover the product? Candidates for what remains: success metrics, architecture reasons (ADRs), visual design and the threat model. Proposed: collapse requirements and design into the needs spec and its design notes by default, and split a document out only when a different person must sign it. See the reconciliation note (`notes/ai-native-sdlc-reconciliation.md` in the playbook's Cowork archive), collision 3.

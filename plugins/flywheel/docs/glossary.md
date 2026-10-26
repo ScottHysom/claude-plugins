@@ -41,7 +41,7 @@ One meaning per term, used the same way by client, spec, code and agents (one-sh
 | Pause on discovery | Stopping work on a unit when coding reveals a needed change, updating the spec, then resuming against it. |
 | Plan | The work units for one change, their order, the files each touches and the requirement IDs each builds. Approved before code; disposable; never spec (approve-plan-before-code). Also the name of Stage 3. |
 | Plan mode | A tool setting that keeps an agent read-only until a human accepts its plan. Claude Code has one. |
-| Playbook | The flywheel playbook: the premise, manifesto, core principles and practices these documents define, which the flywheel plugin implements. A file cites one of its IDs as "the playbook's `id`". Not the AI-Native SDLC Playbook, which this glossary names in full. |
+| Playbook | The Flywheel Playbook: the premise, manifesto, core principles and practices these documents define, which the flywheel plugin implements. A file cites one of its IDs as "the playbook's `id`". Not the AI-Native SDLC Playbook, which this glossary names in full. |
 | PR | Pull request. A request to merge a branch into main. It is the unit of review and approval (in GitHub, for example), and the point where no-merge-without-alignment is checked. |
 | PRD | Product Requirements Document. Why the product exists, for whom, and how success is measured. |
 | Premise | The idea the playbook rests on: the spec is the source of truth, and code is its implementation. The top layer of the README's diagram. |
