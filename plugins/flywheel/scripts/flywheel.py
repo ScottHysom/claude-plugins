@@ -62,7 +62,7 @@ Commands:
     fails-on-base  fail each test the branch adds since its merge base with
                  --base that passes on the merge base's code, unless
                  .flywheel/passes-on-base.json gives the reason it does.
-    assess       each of the method's levels, and each control it introduces
+    assess       each of the playbook's levels, and each control it introduces
                  by principle id with the evidence the project holds for it,
                  the level the project holds, and each control whose state
                  changed since the adoption record.
@@ -203,7 +203,7 @@ What git ignores. .flywheel/ also holds what the owner sets and commits, such
 as roles.json, so the .gitignore that `setup` writes names only the files it
 copies, and itself, rather than `*`.
 
-The roles file. One entry per role, each with its tier from the method's
+The roles file. One entry per role, each with its tier from the playbook's
 roles.md, the model and the default effort, and the plugin version it was set
 under. `config init` fills in the version. A field the template leaves null is
 one only the owner can fill, such as the model behind a tier, and `config
@@ -236,7 +236,7 @@ a finding at P0 to P2 is open, and any other finding is a disagreement. Its
 a check, a conflict or a thread waits on the implementer, then review again,
 then ask the owner.
 
-The levels. METHOD_LEVELS holds the method's levels, each with the controls
+The levels. PLAYBOOK_LEVELS holds the playbook's levels, each with the controls
 it introduces. The requirements assess-cmd-checks-level-N-controls in
 specs/flywheel.md are their home, and adoption.md is the view that ships;
 tests hold the script to both. A project holds a level when it holds every
@@ -272,11 +272,11 @@ The record. `record` writes, under each level, the ids and the state of each
 control the level introduces to .flywheel/adoption.json, beside the version
 and the target level, and the owner commits it. `assess` then names each
 control whose state differs, and each control the record lacks under its
-level as new: one the method added, or moved to that level, since.
+level as new: one the playbook added, or moved to that level, since.
 
 The gates file. .flywheel/gates.json maps each gate the project has, such as
 `check` or `verify`, to the command that runs it, under "gates". `config
-init` writes the gates the method names, null, and the owner gives each its
+init` writes the gates the playbook names, null, and the owner gives each its
 command. `brief` names those that are set to the session it starts, and warns
 when the file is missing. Under "tests", it gives the commands
 `fails-on-base` runs:
@@ -327,7 +327,7 @@ behind. `sweep` deletes every local branch whose work is on main, whatever its
 name.
 
 The measures. `measure` reads only records the work already leaves, and
-each measure informs a decision, as the method's metrics.md asks. A measure
+each measure informs a decision, as the playbook's metrics.md asks. A measure
 that informs none is dropped. The owner reads them against a baseline when
 changing a role's model or effort, so the change is a trial:
 
@@ -352,7 +352,7 @@ changing a role's model or effort, so the change is a trial:
   the approval label was added before the merge. It informs estimating, and
   whether a change slows the loop. A re-approval after an edit restarts it.
 
-Control bands and their triggers wait for the history the method says they
+Control bands and their triggers wait for the history the playbook says they
 need.
 
 The brief. `brief` reads the issue through GitHub's GraphQL API, since only
@@ -365,10 +365,10 @@ post under the owner's account, so the owner's comments are those by the
 repository's owner that open with neither `**Claude:**` nor the text this
 script writes when it claims or releases.
 
-The method's ids. The documents under docs/ define each principle and
+The playbook's ids. The documents under docs/ define each principle and
 stage-rule id as a row of a table whose header has an ID column. A file
-cites one by naming it in backticks after the words "the method's", in the
-same sentence: "Source: the method's `one-home-per-artifact`." `ids` reads
+cites one by naming it in backticks after the words "the playbook's", in the
+same sentence: "Source: the playbook's `one-home-per-artifact`." `ids` reads
 the citations in the plugin's templates and skills and in specs/flywheel.md,
 when the repo has one, and needs the plugin's own docs/, so it runs from the
 plugin rather than from the copy in .flywheel/.
@@ -600,10 +600,10 @@ TEMPLATES_DIR = "templates"
 SKILLS_DIR = "skills"
 SPEC_FILE = "specs/flywheel.md"
 ID_HEADER = "ID"
-METHOD_ID = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)+")
-# "the method's" opens a citation, which runs to the end of its sentence or
+PLAYBOOK_ID = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)+")
+# "the playbook's" opens a citation, which runs to the end of its sentence or
 # its paragraph.
-CITATION = re.compile(r"\bthe\s+method's\b(.*?)(?:\.(?=\s|$)|\n[ \t]*\n|$)", re.S)
+CITATION = re.compile(r"\bthe\s+playbook's\b(.*?)(?:\.(?=\s|$)|\n[ \t]*\n|$)", re.S)
 BACKTICKED = re.compile(r"`([^`\n]+)`")
 
 ROLES_FILE = COPY_DIR + "/roles.json"
@@ -672,8 +672,8 @@ PROTECTED_KEY = "protected"
 BRIEF_ROLE = "implementer"
 BRIEF_SKILL = "work-issue"
 
-# `assess` and `record`. METHOD_LEVELS, after the evidence it names, lists the
-# method's levels and the controls each introduces.
+# `assess` and `record`. PLAYBOOK_LEVELS, after the evidence it names, lists the
+# playbook's levels and the controls each introduces.
 ADOPTION_FILE = COPY_DIR + "/adoption.json"
 LEVELS_KEY = "levels"
 LEVEL_KEY = "level"
@@ -1564,7 +1564,7 @@ def pytest_config(root):
 
 
 def gates_text(root):
-    """The gates file with each gate the method names and the test commands
+    """The gates file with each gate the playbook names and the test commands
     added, or None when it gives them all, the fields left for the owner, and
     why the test commands are left as they are when it gives them already."""
     found = project_json(root, GATES_FILE)
@@ -1908,18 +1908,18 @@ def ticked(names):
 
 
 def cites(texts, ids, where):
-    """Whether the files in texts cite every id as the method's, and the evidence."""
+    """Whether the files in texts cite every id as the playbook's, and the evidence."""
     if not texts:
         return False, "the project has no %s" % where
     files = ", ".join(rel for rel, _ in texts)
     cited = {name for _, text in texts for name, _ in cited_ids(text)}
     missing = [name for name in ids if name not in cited]
     if missing:
-        return False, "the files read (%s) do not cite %s as the method's" % (
+        return False, "the files read (%s) do not cite %s as the playbook's ids" % (
             files,
             ticked(missing),
         )
-    return True, "the files read (%s) cite %s as the method's" % (files, ticked(ids))
+    return True, "the files read (%s) cite %s as the playbook's ids" % (files, ticked(ids))
 
 
 def rules_evidence(root, ids):
@@ -2046,11 +2046,11 @@ def roles_evidence(root, ids):
     return True, "%s gives every role a model and an effort" % ROLES_FILE
 
 
-# The method's levels, each with the controls it introduces, in the order of the
-# method's adoption.md: (level, its name, its controls). A control is (key, the
+# The playbook's levels, each with the controls it introduces, in the order of the
+# playbook's adoption.md: (level, its name, its controls). A control is (key, the
 # control as adoption.md words it, its principle ids, its evidence). The
 # module docstring says what counts as evidence.
-METHOD_LEVELS = (
+PLAYBOOK_LEVELS = (
     (
         1,
         "Core",
@@ -2180,7 +2180,7 @@ METHOD_LEVELS = (
         ),
     ),
 )
-ADOPTION_LEVELS = tuple(level for level, _, _ in METHOD_LEVELS)
+ADOPTION_LEVELS = tuple(level for level, _, _ in PLAYBOOK_LEVELS)
 TOP_LEVEL = ADOPTION_LEVELS[-1]
 
 
@@ -2188,7 +2188,7 @@ def level_states(root):
     """Each level, with each control it introduces, whether the project holds
     it, and the evidence."""
     out = []
-    for level, name, controls in METHOD_LEVELS:
+    for level, name, controls in PLAYBOOK_LEVELS:
         states = []
         for key, text, ids, evidence in controls:
             held, found = evidence(root, ids)
@@ -2294,7 +2294,7 @@ def print_levels(levels):
 
 
 def cmd_assess(args):
-    """Each level of the method, with the evidence the project holds for each
+    """Each level of the playbook, with the evidence the project holds for each
     control it introduces."""
     root = project_root(args.repo)
     levels = level_states(root)
@@ -4308,18 +4308,18 @@ def defined_ids(text):
         cells = table_cells(line)
         if column is None:
             column = cells.index(ID_HEADER) if ID_HEADER in cells else -1
-        elif 0 <= column < len(cells) and METHOD_ID.fullmatch(cells[column]):
+        elif 0 <= column < len(cells) and PLAYBOOK_ID.fullmatch(cells[column]):
             out.add(cells[column])
     return out
 
 
 def cited_ids(text):
-    """(id, line) for each id the text cites as the method's, in order."""
+    """(id, line) for each id the text cites as the playbook's, in order."""
     out = []
     for cite in CITATION.finditer(text):
         for tick in BACKTICKED.finditer(cite.group(1)):
             name = tick.group(1)
-            if METHOD_ID.fullmatch(name):
+            if PLAYBOOK_ID.fullmatch(name):
                 line = text.count("\n", 0, cite.start(1) + tick.start()) + 1
                 out.append((name, line))
     return out
@@ -4345,7 +4345,7 @@ def read_text(path):
 
 
 def cmd_ids(args):
-    """Name each cited method id that the plugin's docs do not define."""
+    """Name each cited playbook id that the plugin's docs do not define."""
     if in_copy():
         raise Fatal(
             "ids reads the plugin's docs/, which %s/ does not hold. Run the plugin's own"
@@ -4359,7 +4359,7 @@ def cmd_ids(args):
             defined |= defined_ids(read_text(os.path.join(plugin, rel)))
     if not defined:
         raise Fatal(
-            "no document under %s defines a method id. Install the flywheel plugin again."
+            "no document under %s defines a playbook id. Install the flywheel plugin again."
             % os.path.join(plugin, DOCS_DIR)
         )
 
@@ -4374,8 +4374,8 @@ def cmd_ids(args):
             if name not in defined:
                 unknown.append({"id": name, "file": rel, "line": line})
     errors = [
-        "%s:%d: `%s` is cited as the method's, and no document under %s/ defines it. Correct"
-        " the citation, or define the id in the method's docs."
+        "%s:%d: `%s` is cited as the playbook's, and no document under %s/ defines it. Correct"
+        " the citation, or define the id in the playbook's docs."
         % (u["file"], u["line"], u["id"], DOCS_DIR)
         for u in unknown
     ]
@@ -4383,7 +4383,7 @@ def cmd_ids(args):
 
     def human():
         if not unknown:
-            print("every method id cited in %d files is defined" % len(sources))
+            print("every playbook id cited in %d files is defined" % len(sources))
 
     return emit(args, "ids", data, errors=errors, human=human)
 
@@ -5499,7 +5499,7 @@ def label_pair(text):
 
 
 def adoption_level(text):
-    """argparse type: one of the method's levels."""
+    """argparse type: one of the playbook's levels."""
     if text not in [str(n) for n in ADOPTION_LEVELS]:
         raise argparse.ArgumentTypeError(
             "%r is not a level. Name one from 1 to %d" % (text, TOP_LEVEL)
@@ -5557,7 +5557,7 @@ def build_parser():
     p = sub.add_parser(
         "assess",
         parents=[common],
-        help="each of the method's controls by level and principle id, with its evidence",
+        help="each of the playbook's controls by level and principle id, with its evidence",
     )
     p.set_defaults(func=cmd_assess)
 
@@ -5775,7 +5775,7 @@ def build_parser():
     p = sub.add_parser(
         "ids",
         parents=[common],
-        help="name each method id cited in the plugin or %s that %s/ does not define"
+        help="name each playbook id cited in the plugin or %s that %s/ does not define"
         % (SPEC_FILE, DOCS_DIR),
     )
     p.set_defaults(func=cmd_ids)

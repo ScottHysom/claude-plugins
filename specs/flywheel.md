@@ -19,7 +19,7 @@ When the owner wants the issue loop in a repo, they want to install one plugin
 that carries its script, skills, rules and docs, so the repo adopts it as it
 adopts any other plugin.
 
-Source: #643, and the method's `match-capability-to-task` and
+Source: #643, and the playbook's `match-capability-to-task` and
 `scripts-do-deterministic-work`.
 
 - `setup-cmd-copies-script` (test): When `flywheel.py setup` runs in a
@@ -225,13 +225,13 @@ flywheel ships.
   open-pr skips the prose check, and tells the owner when the template
   names prose rules files.
 
-## need contributor-reads-method-beside-plugin: Read the method beside the plugin
+## need contributor-reads-playbook-beside-plugin: Read the playbook beside the plugin
 
 When a contributor or an adopting owner reads a principle id in a spec, a
 template or a skill, they want to open the document that defines it from the
 same install, so the id is a definition and not a pointer to another repo.
 
-Source: #644, and the method's `one-home-per-artifact`.
+Source: #644, and the playbook's `one-home-per-artifact`.
 
 - `ids-cmd-fails-unknown-id` (test): When `flywheel.py ids` finds a principle
   or stage-rule id cited in the plugin's templates, skills or
@@ -501,7 +501,7 @@ first message to carry the issue as approved, the owner's comments, the role
 and the gate commands, so the session works from what the owner approved and
 nothing else.
 
-Source: #645, and the method's `humans-decide-agents-record` and
+Source: #645, and the playbook's `humans-decide-agents-record` and
 `owner-admits-every-need`.
 
 - `brief-cmd-prints-issue-as-approved` (test): When `flywheel.py brief N`
@@ -521,7 +521,7 @@ When an implementer meets something the issue does not answer, the owner
 wants it to stop and ask, or to file the idea and go on, so no behavior
 enters from a guess.
 
-Source: #648, and the method's `pause-on-discovery` and
+Source: #648, and the playbook's `pause-on-discovery` and
 `owner-admits-every-need`.
 
 - `workissue-claims-first` (step): When work-issue starts, it claims the
@@ -539,7 +539,7 @@ When an agent opens a pull request from a desktop session, the owner wants
 that session woken on CI failures, conflicts and review comments, and
 archived on close, without turning either on by hand.
 
-Source: #305, #648, and the method's `checks-over-instructions`.
+Source: #305, #648, and the playbook's `checks-over-instructions`.
 
 - `workissue-opens-pr-through-skill` (step): When work-issue has the unit
   committed and `check` passing, it opens the pull request through the
@@ -557,7 +557,7 @@ merge and reported on, so the loop runs without the owner typing each start.
 They want to run more than one round at once, each on its own plan, count or
 issues, without one round acting on another's pull requests.
 
-Source: #649, #665, #688, #689, #701, #703, and the method's `decompose-into-parallel-units`
+Source: #649, #665, #688, #689, #701, #703, and the playbook's `decompose-into-parallel-units`
 and `match-capability-to-task`.
 
 - `events-cmd-lists-claim-prs` (test): When `flywheel.py events` runs, it
@@ -621,7 +621,7 @@ When a pull request would change what the product does, the owner wants to
 approve it themselves, and when it would not, they want it merged once the
 checks and the reviewer pass, so their attention goes where the risk is.
 
-Source: #650, and the method's `autonomy-scales-with-risk` and
+Source: #650, and the playbook's `autonomy-scales-with-risk` and
 `owner-admits-every-need`.
 
 - `mergecheck-cmd-holds-requirement-changes` (test): When
@@ -664,7 +664,7 @@ When a pull request is reviewed by an agent, the owner wants the review made
 from a written policy in a fresh context, so reviews are comparable and nits
 cannot bury a real finding.
 
-Source: #650, and the method's `review-against-written-policy` and
+Source: #650, and the playbook's `review-against-written-policy` and
 `separate-generation-from-verification`.
 
 - `reviewpolicy-cmd-prints-policy` (test): When `flywheel.py review-policy`
@@ -700,13 +700,13 @@ Source: #650, and the method's `review-against-written-policy` and
   request it has reviewed before, it resolves each thread whose answer it
   accepts, and leaves the others unresolved.
 
-## need owner-adopts-by-level: Adopt the method by level
+## need owner-adopts-by-level: Adopt the playbook by level
 
-When the owner brings a repo under the method, they want its gaps named by
+When the owner brings a repo under the playbook, they want its gaps named by
 principle id against the level they chose, filed one control per issue, and
 the version recorded, so a later assessment shows only what changed.
 
-Source: #651, the method's adoption.md, and the method's
+Source: #651, the playbook's adoption.md, and the playbook's
 `checks-over-instructions`.
 
 - `assess-cmd-reports-gaps-by-id` (test): When `flywheel.py assess` runs in a
@@ -717,55 +717,55 @@ Source: #651, the method's adoption.md, and the method's
   runs, it holds level 1 only when the project holds all of these controls,
   each named by its key:
   - `agent-rules`, rules for agents in the file agents read every session,
-    from the method's `trace-behavior-to-need` and
+    from the playbook's `trace-behavior-to-need` and
     `humans-decide-agents-record`.
   - `needs-spec`, a needs spec for each component opening with its
-    out-of-scope list, from the method's `list-out-of-scope-first` and
+    out-of-scope list, from the playbook's `list-out-of-scope-first` and
     `source-needs-outside-code`.
   - `approved-ticket`, the ticket as the home of each change's intent, which
-    the owner approves, from the method's `owner-admits-every-need` and
+    the owner approves, from the playbook's `owner-admits-every-need` and
     `one-home-per-artifact`.
-  - `core-gates`, the `build`, `test` and `check` commands, from the method's
+  - `core-gates`, the `build`, `test` and `check` commands, from the playbook's
     `one-command-per-gate`.
   - `tests-first`, tests written first and named for behavior, from the
-    method's `write-behavior-tests-first`.
+    playbook's `write-behavior-tests-first`.
 - `assess-cmd-checks-level-2-controls` (test): When `flywheel.py assess`
   runs, it holds level 2 only when the project holds level 1 and all of these
   controls, each named by its key:
-  - `trace-checks`, traceability checks in CI, from the method's
+  - `trace-checks`, traceability checks in CI, from the playbook's
     `checks-over-instructions` and `no-merge-without-alignment`.
   - `verify-gate`, the `verify` command run by CI on every pull request, from
-    the method's `one-command-per-gate`.
+    the playbook's `one-command-per-gate`.
   - `unweakened-checks`, new tests that must fail on the base and checks that
-    agents cannot loosen, from the method's `agents-never-weaken-checks`.
+    agents cannot loosen, from the playbook's `agents-never-weaken-checks`.
     It is held only when `.flywheel/gates.json` gives the test commands
     under `tests`, the `verify` command or a file it names runs
     `fails-on-base`, and a workflow cites the principle.
   - `approval-guard`, approval kept out of agent reach by a hook or a CI
-    check, from the method's `checks-over-instructions` and
+    check, from the playbook's `checks-over-instructions` and
     `owner-admits-every-need`.
-  - `plan-first`, a plan approved before code, from the method's
+  - `plan-first`, a plan approved before code, from the playbook's
     `approve-plan-before-code`.
   - `review-policy`, a written review policy and a fresh-context reviewer,
-    from the method's `review-against-written-policy` and
+    from the playbook's `review-against-written-policy` and
     `separate-generation-from-verification`.
 - `assess-cmd-checks-level-3-controls` (test): When `flywheel.py assess`
   runs, it holds level 3 only when the project holds level 2 and all of these
   controls, each named by its key:
   - `instruction-evals`, evals for the agent's instructions rerun on every
-    change to them, from the method's `eval-instructions-on-change`.
+    change to them, from the playbook's `eval-instructions-on-change`.
   - `role-tiers`, agents assigned by role and tier, each tier with a model and
-    a default effort, from the method's `match-capability-to-task`.
-  - `merge-policy`, a written merge policy, from the method's
+    a default effort, from the playbook's `match-capability-to-task`.
+  - `merge-policy`, a written merge policy, from the playbook's
     `autonomy-scales-with-risk`.
-  - `scheduled-audit`, a scheduled audit, from the method's
+  - `scheduled-audit`, a scheduled audit, from the playbook's
     `audit-on-schedule`.
   - `loop-measures`, measures for each stage with control bands, from the
-    method's `measure-the-loop` and `scripts-detect-models-diagnose`.
+    playbook's `measure-the-loop` and `scripts-detect-models-diagnose`.
   - `measured-trials`, improvement trials one change at a time against a
-    baseline, from the method's `improve-by-measured-trial`.
+    baseline, from the playbook's `improve-by-measured-trial`.
   - `mistakes-to-checks`, repeated mistakes that climb to checks, from the
-    method's `repeat-mistakes-become-checks`.
+    playbook's `repeat-mistakes-become-checks`.
 - `record-cmd-writes-version-and-controls` (test): When
   `flywheel.py record --level N` runs, it writes the plugin version, level N
   and, under each level, whether each control the level introduces is held,
@@ -795,17 +795,17 @@ Source: #651, the method's adoption.md, and the method's
   any gaps to file-issue.
 - `adopt-files-gaps-as-plan` (step): When `record` names a control missing at
   or below the target level, adopt files the gaps as one plan through
-  file-issue, one control per issue, in the order of the method's tables.
+  file-issue, one control per issue, in the order of the playbook's tables.
 - `hook-ships-with-plugin` (test): When the plugin is installed, its
   `hooks/hooks.json` runs the approval guard on every Bash call.
 
 ## need owner-checks-new-tests-fail: Check that each new test fails on the base
 
-When the owner adopts the method at level 2, they want the plugin to fail a
+When the owner adopts the playbook at level 2, they want the plugin to fail a
 pull request whose new test passes on the code before its change, in a
 project of any language, so the control is a check rather than a comment.
 
-Source: #682, and the method's `agents-never-weaken-checks`.
+Source: #682, and the playbook's `agents-never-weaken-checks`.
 
 - `failsonbase-cmd-fails-test-passing-on-base` (test): When a test that the
   branch adds since its merge base with `--base` passes in the base tree,
@@ -860,7 +860,7 @@ When the owner considers a change to a role's model or effort, they want the
 loop's cost, first-pass CI rate, review findings and lead time over a period,
 so the change is a trial against a baseline and not a guess.
 
-Source: #652, and the method's `measure-the-loop` and
+Source: #652, and the playbook's `measure-the-loop` and
 `improve-by-measured-trial`. specs/repo.md holds the requirement this repo's
 scheduled workflow meets under this need.
 

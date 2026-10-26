@@ -1,4 +1,4 @@
-# Adoption: bringing a repo under the paradigm
+# Adoption: bringing a repo under the playbook
 
 What "adopted" means, for a new repo or an existing one, stated by level and principle ID. A plugin or skill in the implementation layer does the assessing and the applying, and cites the IDs below. In the flywheel plugin, `flywheel.py assess` does the assessing, and its docstring says what counts as evidence for each control.
 
@@ -9,11 +9,11 @@ flowchart LR
   A[Assess<br/>gaps by principle ID] --> I[Intent<br/>owner sets the target level]
   I --> P[Plan<br/>one control per unit]
   P --> AP[Apply<br/>small PRs]
-  AP --> R[Record<br/>paradigm version applied]
-  R -. paradigm changes .-> A
+  AP --> R[Record<br/>playbook version applied]
+  R -. playbook changes .-> A
 ```
 
-Adoption follows the paradigm's own lifecycle. The gap report is the intent. The owner sets the target level and approves it. Each control is one unit of work, landed as its own PR (stack-small-reviewable-prs). A script does the assessing and the file writing; a model does only what needs judgment, such as interviewing the owner (scripts-do-deterministic-work).
+Adoption follows the playbook's own lifecycle. The gap report is the intent. The owner sets the target level and approves it. Each control is one unit of work, landed as its own PR (stack-small-reviewable-prs). A script does the assessing and the file writing; a model does only what needs judgment, such as interviewing the owner (scripts-do-deterministic-work).
 
 ## Levels
 
@@ -72,11 +72,11 @@ Each level is a floor. A repo may adopt a control from a higher level early.
 
 ## The record
 
-After each step, the repo records which paradigm version it adopted, and which controls, by principle ID. Where the record lives is the implementation layer's choice. In the flywheel plugin, `flywheel.py record` writes it to `.flywheel/adoption.json`.
+After each step, the repo records which playbook version it adopted, and which controls, by principle ID. Where the record lives is the implementation layer's choice. In the flywheel plugin, `flywheel.py record` writes it to `.flywheel/adoption.json`.
 
-Re-running the assessment against a newer paradigm version then shows exactly what changed. A new principle shows as a new gap; a changed one shows what to revisit. This works only because principle IDs are never renamed or reused.
+Re-running the assessment against a newer playbook version then shows exactly what changed. A new principle shows as a new gap; a changed one shows what to revisit. This works only because principle IDs are never renamed or reused.
 
-**Example.** A repo at Level 2 recorded the paradigm version it adopted. The paradigm later adds a principle at Level 2. Re-running the assessment shows one gap, cites its ID, and proposes one PR.
+**Example.** A repo at Level 2 recorded the playbook version it adopted. The playbook later adds a principle at Level 2. Re-running the assessment shows one gap, cites its ID, and proposes one PR.
 
 ## What adoption never writes
 

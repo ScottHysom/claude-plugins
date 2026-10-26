@@ -1,16 +1,16 @@
 ---
 name: adopt
-description: Bring a repository under the flywheel method, or re-assess one that adopted it, by level and principle id. Uses flywheel.py assess to report each of the method's controls with the evidence found or missing, asks the owner for the target level and for every field only the owner sets, writes the roles file and the review and merge policies with flywheel.py config init, writes the rules for agents into the project's CLAUDE.md, records the version and the controls held with flywheel.py record, and files each missing control as an issue of one plan. Claude Code only. Use when asked to adopt flywheel or the method, to bring a repository under the method, to assess which level a repository is at, or to find what changed since it adopted an earlier version.
+description: Bring a repository under the Flywheel Playbook, or re-assess one that adopted it, by level and principle id. Uses flywheel.py assess to report each of the playbook's controls with the evidence found or missing, asks the owner for the target level and for every field only the owner sets, writes the roles file and the review and merge policies with flywheel.py config init, writes the rules for agents into the project's CLAUDE.md, records the version and the controls held with flywheel.py record, and files each missing control as an issue of one plan. Claude Code only. Use when asked to adopt flywheel or the playbook, to bring a repository under the playbook, to assess which level a repository is at, or to find what changed since it adopted an earlier version.
 ---
 
-# Adopt the method
+# Adopt the playbook
 
-The method the flywheel plugin follows sorts its **controls** (the rules,
+The playbook the flywheel plugin follows sorts its **controls** (the rules,
 files and checks a repository holds) into three levels, each a floor for the
 next. The plugin's `docs/adoption.md` lists them, and `flywheel.py assess`
 reports each one with the evidence the repository holds for it. Adopting means
 choosing a target level, closing the gaps up to it one control per issue, and
-recording which version of the method was adopted, so that a later run shows
+recording which version of the playbook was adopted, so that a later run shows
 only what changed.
 
 Some things only the owner supplies: the target level, a need or a
@@ -47,7 +47,7 @@ is `held`, and its `evidence`. `data.level` is the highest level the
 repository holds, with every level below it. When the repository has adopted
 before, `data.recorded` gives the version and the target level it recorded,
 and `data.changes` names each control whose state changed since, including a
-control the method added after that version, as `new`.
+control the playbook added after that version, as `new`.
 
 Exit 1 means a control at or below the recorded level is missing. That is a
 gap to file, not a reason to stop.
@@ -261,7 +261,7 @@ Each issue:
 - for a missing spec, says the owner supplies each need and constraint, and
   that the agent drafts none of them.
 
-The plan issue's body says the repository is adopting the method at the
+The plan issue's body says the repository is adopting the playbook at the
 target level, and that the issues come in the order of `docs/adoption.md`'s
 tables.
 

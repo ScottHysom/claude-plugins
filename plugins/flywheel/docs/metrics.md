@@ -66,7 +66,7 @@ flowchart LR
 | Use | The decision | Measures it reads | Section |
 | --- | --- | --- | --- |
 | Triage | Is something broken or drifting? | Every measure, against its band | Control bands |
-| Improvement trials | Keep this change to the method, or revert it? | The measures the change should move, and the ones it might harm | Improvement trials |
+| Improvement trials | Keep this change to the playbook, or revert it? | The measures the change should move, and the ones it might harm | Improvement trials |
 | Estimating | What will this scope cost, and how long will it take? | Spend per merged unit, lead time | Estimating |
 
 ## Reading the numbers
@@ -89,13 +89,13 @@ A control band is the range a measure is expected to stay in, set from its own h
 
 - **A script decides when a band is breached.** No model sits in the trigger. A model is called only to diagnose, and a human triages.
 - **No band until there is history.** Until a measure has about twenty values, it is logged and never triggers.
-- **The band thresholds live in the implementation layer**, in a file the owner approves changes to. The playbook calls it `bands.yaml`. This repo names no file.
+- **The band thresholds live in the implementation layer**, in a file the owner approves changes to. The SDLC Playbook calls it `bands.yaml`. This repo names no file.
 
 **Example.** For months, rework runs at about one fix for every four features. In the two weeks after the Implementer's model changes, it reaches one fix for every two. That is beyond 2σ. The script opens a ticket. A model reads the recent fixes and finds most touch skills the new model follows less well. The owner holds the swap, as in [roles.md](roles.md).
 
 ## Improvement trials (improve-by-measured-trial)
 
-The method itself is improved by trial, one change at a time. A trial is to the method what an A/B flight is to the product (experiments-are-spec): written down first, measured, then kept or removed.
+The playbook itself is improved by trial, one change at a time. A trial is to the playbook what an A/B flight is to the product (experiments-are-spec): written down first, measured, then kept or removed.
 
 ```mermaid
 flowchart LR
@@ -133,7 +133,7 @@ The same records answer a consultant's question: what does a unit of work cost, 
 
 *Simplified:* units vary in size. Use the range from history, such as the middle half of past units, not a single average, and quote the range. A new kind of work has no history yet, so its first estimate is a guess, marked as one.
 
-How a consultant turns cost into a rate or a quote is a business decision, outside this paradigm.
+How a consultant turns cost into a rate or a quote is a business decision, outside this playbook.
 
 ## Cadence
 

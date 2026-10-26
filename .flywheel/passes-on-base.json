@@ -15,6 +15,9 @@
     "tests/flywheel/test_flywheel_labels.py::DescribeLabelsKinds::it_refuses_an_option_without_a_name[docs]": "pins the kind-label behavior that #725 keeps, in a test renamed when #725 dropped area labels from it",
     "tests/flywheel/test_flywheel_labels.py::DescribeLabelsKinds::it_writes_the_kinds_and_creates_each": "pins the kind-label behavior that #725 keeps, in a test renamed when #725 dropped area labels from it",
     "tests/flywheel/test_flywheel_plan.py::DescribeIssueRules::it_checks_each_draft_against_the_kinds_the_file_gives": "pins the kind-label behavior that #725 keeps, in a test renamed when #725 dropped area labels from it",
-    "tests/flywheel/test_flywheel_plan.py::DescribeIssueRules::it_takes_githubs_kinds_without_the_labels_file": "pins the kind-label behavior that #725 keeps, in a test renamed when #725 dropped area labels from it"
+    "tests/flywheel/test_flywheel_plan.py::DescribeIssueRules::it_takes_githubs_kinds_without_the_labels_file": "pins the kind-label behavior that #725 keeps, in a test renamed when #725 dropped area labels from it",
+    "tests/flywheel/test_flywheel_adopt.py::DescribeRecord::it_refuses_a_level_the_playbook_does_not_have[0]": "pins that record still refuses a level outside the playbook's, the test #655 renamed from it_refuses_a_level_the_method_does_not_have",
+    "tests/flywheel/test_flywheel_adopt.py::DescribeRecord::it_refuses_a_level_the_playbook_does_not_have[4]": "pins that record still refuses a level outside the playbook's, the test #655 renamed from it_refuses_a_level_the_method_does_not_have",
+    "tests/flywheel/test_flywheel_adopt.py::DescribeRecord::it_refuses_a_level_the_playbook_does_not_have[two]": "pins that record still refuses a level outside the playbook's, the test #655 renamed from it_refuses_a_level_the_method_does_not_have"
   }
 }

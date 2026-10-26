@@ -1,4 +1,4 @@
-"""What `flywheel.py assess` reports of the method's levels and the controls
+"""What `flywheel.py assess` reports of the playbook's levels and the controls
 each introduces, and what `flywheel.py record` writes for a later assessment
 to compare against."""
 
@@ -24,10 +24,10 @@ LEVEL_SPECS = ["assess-cmd-checks-level-%d-controls" % n for n in flywheel.ADOPT
 
 
 def controls():
-    """(level, key, text, ids, evidence) for each control, in the method's order."""
+    """(level, key, text, ids, evidence) for each control, in the playbook's order."""
     return [
         (level, *control)
-        for level, _, introduced in flywheel.METHOD_LEVELS
+        for level, _, introduced in flywheel.PLAYBOOK_LEVELS
         for control in introduced
     ]
 
@@ -46,7 +46,7 @@ def rules_up_to(level):
 
 
 def cite(ids):
-    return "".join("# Source: the method's `%s`.\n" % name for name in ids)
+    return "".join("# Source: the playbook's `%s`.\n" % name for name in ids)
 
 
 def ci_ids():
@@ -123,7 +123,7 @@ def spec_controls(requirement):
 )
 class DescribeTheLevels:
     def it_introduces_the_controls_each_level_of_the_spec_names(self):
-        for (level, _, introduced), requirement in zip(flywheel.METHOD_LEVELS, LEVEL_SPECS):
+        for (level, _, introduced), requirement in zip(flywheel.PLAYBOOK_LEVELS, LEVEL_SPECS):
             listed = [(key, list(ids)) for key, _, ids, _ in introduced]
             assert listed == spec_controls(requirement), level
 
@@ -140,7 +140,7 @@ class DescribeTheLevels:
     def it_has_a_rule_in_the_template_for_every_id_each_level_names(self):
         sections = template_sections()
         assert sorted(sections) == list(flywheel.ADOPTION_LEVELS)
-        for level, _, introduced in flywheel.METHOD_LEVELS:
+        for level, _, introduced in flywheel.PLAYBOOK_LEVELS:
             named = {i for _, _, ids, _ in introduced for i in ids}
             assert {n for n, _ in flywheel.cited_ids(sections[level])} == named, level
 
@@ -193,7 +193,7 @@ class DescribeAssess:
         project.write("CLAUDE.md", cite(["owner-admits-every-need"]))
         _, env = project.run("assess")
         assert states(env)["approved-ticket"]["evidence"] == (
-            "the files read (CLAUDE.md) do not cite `one-home-per-artifact` as the method's"
+            "the files read (CLAUDE.md) do not cite `one-home-per-artifact` as the playbook's ids"
         )
 
     def it_names_each_spec_that_does_not_open_with_out_of_scope(self, project):
@@ -258,7 +258,7 @@ class DescribeAssess:
         assert states(env)["unweakened-checks"]["held"] is True
         assert states(env)["unweakened-checks"]["evidence"] == (
             "the `verify` gate runs `fails-on-base`, and the files read"
-            " (.github/workflows/ci.yml) cite `agents-never-weaken-checks` as the method's"
+            " (.github/workflows/ci.yml) cite `agents-never-weaken-checks` as the playbook's ids"
         )
 
     @pytest.mark.spec("assess-cmd-checks-level-2-controls")
@@ -377,7 +377,7 @@ class DescribeRecord:
         assert "level 2" not in out
 
     @pytest.mark.parametrize("level", ["0", "4", "two"])
-    def it_refuses_a_level_the_method_does_not_have(self, project, level, capsys):
+    def it_refuses_a_level_the_playbook_does_not_have(self, project, level, capsys):
         with pytest.raises(SystemExit) as exc:
             flywheel.main(["record", "--level", level, "-C", str(project.root)])
         assert exc.value.code == flywheel.CANNOT_RUN

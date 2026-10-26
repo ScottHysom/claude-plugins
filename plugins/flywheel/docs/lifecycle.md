@@ -120,7 +120,7 @@ The two directions of questioning meet here. In Spec, an agent interrogates the 
 
 ## Gate commands (one-command-per-gate)
 
-Every repo exposes four commands, each inside the next. The paradigm names them; each repo's task runner defines them.
+Every repo exposes four commands, each inside the next. The playbook names them; each repo's task runner defines them.
 
 ```mermaid
 flowchart LR
@@ -198,7 +198,7 @@ Maintain runs alongside the increments, not after the last one. Three things fee
 - **Scheduled scans**, such as a security scan, or a CI run against the latest release of the platform the product depends on.
 - **Metric triggers.** A script watches each stage's leading and lagging measures (measure-the-loop) and opens a ticket when one breaches its band. See [metrics.md](metrics.md).
 
-Maintain also improves the method itself. The owner runs improvement trials, one change at a time, measured against a baseline (improve-by-measured-trial). See [metrics.md](metrics.md).
+Maintain also improves the playbook itself. The owner runs improvement trials, one change at a time, measured against a baseline (improve-by-measured-trial). See [metrics.md](metrics.md).
 
 A script starts each one; a model only diagnoses; a human triages. Findings land as tickets. Each then goes one of two ways:
 

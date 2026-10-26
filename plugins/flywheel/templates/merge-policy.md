@@ -4,7 +4,7 @@ The dispatcher merges a pull request without the owner when
 `flywheel.py merge-check` reports that it flows under this policy, and asks
 the owner about every other pull request, with merge-check's reasons. A
 change that alters what the product does keeps the owner's gate. Source: the
-method's `autonomy-scales-with-risk` and `owner-admits-every-need`.
+playbook's `autonomy-scales-with-risk` and `owner-admits-every-need`.
 
 ## Flow
 
