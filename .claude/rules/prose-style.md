@@ -67,6 +67,12 @@ and the owner reads the description without them.
 A term that needs no gloss still gets one where a passage tells two of its
 kind apart.
 
+A term the industry uses in its usual sense, such as "implementation layer",
+needs no gloss. When the reader needs to know whose it is, name the owner in
+the noun phrase rather than defining the term: "the plugin's implementation
+layer", not "the implementation layer (the tooling the plugin uses to do
+its work)".
+
 These need no gloss:
 
 - Git, GitHub, Python, pytest, shell, CI and JSON.

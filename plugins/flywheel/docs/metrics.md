@@ -1,13 +1,13 @@
 # Metrics: measuring the loop
 
-Measuring is only worth doing when someone acts on the numbers (improve-by-measured-trial). Each measure here names the decision it informs. A measure that informs none is dropped.
+Measuring is only worth doing when someone acts on the numbers (improve-by-measured-trial). Each measure here names the decision it informs. A measure that does not inform a decision is dropped.
 
 Each stage has two measures (measure-the-loop):
 
 - a **leading** measure, which shows speed and moves first
 - a **lagging** measure, which shows quality and moves later
 
-A script computes both from records the work already leaves: commits, tickets, pull requests (PRs), continuous integration (CI) runs and agent usage logs. Nobody fills in a form, and nobody reports a number by hand.
+A script computes both from records the work already leaves: commits, tickets, pull requests (PRs), continuous integration (CI) runs and agent usage logs. The script does not need anyone to fill in a form or report a number by hand.
 
 ```mermaid
 flowchart LR
@@ -33,10 +33,10 @@ flowchart LR
 | 6 Release | Lead time from approved ticket to merge or deploy | Change failure rate: releases followed by a fix or revert | Git history; releases |
 | 7 Maintain | Time from breach to ticket | Repeat findings of the same class | Tickets |
 
-Three more measures span stages.
+The measures that span more than one stage:
 
-- **Spend per merged unit**, by role: tokens or money for each merged PR. It shows whether leg 2 is economical.
-- **Escalation rate**, by tier: escalations per work unit. It shows whether a tier is set at the right level.
+- **Spend per merged unit**, by role: tokens or money for each merged PR. It shows whether leg 2 (giving each task the model and effort it needs, and no more) is economical.
+- **Escalation rate**, by tier (the capability level a role maps to): escalations (an agent handing a question up a tier or to a human) per work unit. It shows whether a tier is set at the right level.
 - **Eval pass rate** over time, described below.
 
 Read spend and escalations together, and against a lagging quality measure such as rework:
@@ -47,7 +47,7 @@ Read spend and escalations together, and against a lagging quality measure such 
 | Flat | Rising | Falling | A tier is set too low |
 | Falling | Flat | Flat | A cheaper mapping is working |
 
-The eval pass rate It moves when instructions or the tier-to-model mapping change (eval-instructions-on-change), and it gates a model swap (see [roles.md](roles.md)).
+The eval pass rate moves when instructions or the tier-to-model mapping change (eval-instructions-on-change), and it gates a model swap (see [roles.md](roles.md)).
 
 Release's two measures are half of DORA's four, the DevOps Research and Assessment group's delivery metrics. A project with a running service adds the other two: deployment frequency and time to restore service.
 
@@ -73,12 +73,12 @@ flowchart LR
 
 - **A measure is a signal, never a target.** Goodhart's law: when a measure becomes a target, it stops being a good measure. Push first-pass CI rate as a goal, and agents learn to open smaller, emptier PRs.
 - **Read per component, not across the repo.** A new component and a mature one behave differently, and an average hides both.
-- **Pauses are read by age.** Many pauses in an early slice mean the team is learning; that is pause-on-discovery working. Pauses rising on a mature component mean interrogation was too thin.
+- **Pauses are read by age.** Many pauses in an early slice mean the team is learning; that is pause-on-discovery working. Pauses rising on a mature component mean interrogation (an agent hunting the spec for gaps before building) was too thin.
 - **Start small.** A solo project starts with five: first-pass CI rate, rework, pauses, lead time and spend per merged unit. Add a measure when a real question needs it, not for completeness.
 
 ## Control bands (scripts-detect-models-diagnose)
 
-A control band is the range a measure is expected to stay in, set from its own history. *Simplified:* the band is the mean of its recent values, plus or minus some number of standard deviations (σ, sigma).
+A **control band** is the range a measure is expected to stay in, set from its own history. As a simplification, this section gives the band as the mean of its recent values, plus or minus some number of standard deviations (σ, sigma), and leaves out how many values count as recent.
 
 | Where the value falls | Response |
 | --- | --- |
@@ -87,11 +87,11 @@ A control band is the range a measure is expected to stay in, set from its own h
 | Beyond 2σ | A ticket; a model diagnoses it, read-only |
 | Beyond 3σ | A ticket at P1; an automatic fix only if it restores a requirement (fixes-restore-never-add) |
 
-- **A script decides when a band is breached.** No model sits in the trigger. A model is called only to diagnose, and a human triages.
-- **No band until there is history.** Until a measure has about twenty values, it is logged and never triggers.
-- **The band thresholds live in the implementation layer**, in a file the owner approves changes to. The SDLC Playbook calls it `bands.yaml`. This repo names no file.
+- **A script decides when a band is breached.** A model does not sit in the trigger. A model is called only to diagnose, and a human triages.
+- **A measure has no band until it has history.** Until a measure has about twenty values, it is logged and never triggers.
+- **The band thresholds live in the implementation layer**, in a file the owner approves changes to. The SDLC (software development life cycle) Playbook calls it `bands.yaml`. This repo does not name a file.
 
-**Example.** For months, rework runs at about one fix for every four features. In the two weeks after the Implementer's model changes, it reaches one fix for every two. That is beyond 2σ. The script opens a ticket. A model reads the recent fixes and finds most touch skills the new model follows less well. The owner holds the swap, as in [roles.md](roles.md).
+**Example.** For months, rework runs at about one fix for every four features. In the two weeks after the model behind the Implementer (the role that builds each unit of work) changes, it reaches one fix for every two. That is beyond 2σ. The script opens a ticket. A model reads the recent fixes and finds most touch skills the new model follows less well. The owner holds the swap, as in [roles.md](roles.md).
 
 ## Improvement trials (improve-by-measured-trial)
 
@@ -109,7 +109,7 @@ flowchart LR
 
 - **Write the trial first:** the change, the measures it should move, the ones it must not harm, the threshold and an end date.
 - **Change one thing at a time.** Two changes at once leave you unable to tell which one moved the numbers.
-- **Run long enough to compare.** *Simplified:* about twenty units of work, the same history a control band needs. Evals give a faster first read.
+- **Run long enough to compare.** As a simplification, this item gives one length for every trial: about twenty units of work, the same history a control band needs. Evals give a faster first read.
 - **The owner decides** whether a trial runs and whether its result is kept (humans-decide-agents-record). An agent may propose a trial from a trend or an audit finding.
 
 | Change tried | Measures it should move | Measures it must not harm |
@@ -131,7 +131,7 @@ The same records answer a consultant's question: what does a unit of work cost, 
 - **Time per unit** is lead time from approved ticket to merge.
 - **Estimate a scope** by counting its likely work units after Spec and Plan, then reading cost and time per unit from history.
 
-*Simplified:* units vary in size. Use the range from history, such as the middle half of past units, not a single average, and quote the range. A new kind of work has no history yet, so its first estimate is a guess, marked as one.
+As a simplification, the cost and time per unit above treat every unit as one size, and leave out that units vary in size. Use the range from history, such as the middle half of past units, not a single average, and quote the range. A new kind of work has no history yet, so its first estimate is a guess, marked as one.
 
 How a consultant turns cost into a rate or a quote is a business decision, outside this playbook.
 

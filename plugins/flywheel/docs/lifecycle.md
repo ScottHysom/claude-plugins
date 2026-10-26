@@ -19,21 +19,21 @@ flowchart LR
   H -. restores a requirement .-> B
 ```
 
-Three loops keep it iterative and in sync.
+The loops that keep the lifecycle iterative and in sync:
 
 - **The outer loop** carries what each release teaches into the next increment's scope.
-- **The inner pause-on-discovery loop** stops a unit when build or review finds a needed change. A human decides, the agent updates the spec, and coding resumes against the new spec (change-spec-before-code).
+- **The inner pause-on-discovery loop** stops a work unit (one independently buildable, reviewable piece of a plan) when build or review finds a needed change. A human decides, the agent updates the spec, and coding resumes against the new spec (change-spec-before-code).
 - **The maintain loop** turns findings into tickets. A fix that restores an existing requirement goes to Build. A finding that needs new behavior goes to Scope and waits for the owner, like any new need (fixes-restore-never-add).
 
 ## Stages and gates
 
 | Stage | In | Out | Home of the output | Owner | Gate to move on |
 | --- | --- | --- | --- | --- | --- |
-| 1 Scope | Product idea, or what the last release or a finding taught | Intent and the next thin slice (MVP first); a draft PRD beyond a small tool | The ticket; the PRD in the corpus | Human | Owner approves the ticket; the slice is small enough to ship end to end |
-| 2 Spec | Intent and slice | Interrogated spec corpus for this slice | The spec corpus | Agent asks and writes; human answers and approves | No blocking questions; corpus consistent; deferred decisions marked; every requirement under an admitted need or constraint |
+| 1 Scope | Product idea, or what the last release or a finding taught | Intent and the next thin slice (the MVP, or minimum viable product, first); a draft PRD (Product Requirements Document) beyond a small tool | The ticket; the PRD in the corpus | Human | Owner approves the ticket; the slice is small enough to ship end to end |
+| 2 Spec | Intent and slice | Interrogated spec corpus for this slice | The spec corpus | Agent asks and writes; human answers and approves | Every blocking question answered; corpus consistent; deferred decisions marked; every requirement under an admitted need or constraint |
 | 3 Plan | Spec for this slice | A written plan: work units, dependencies, parallel batches | The PR description, or a committed plan on bigger projects | Planner agent; owner approves | Owner approves the plan (approve-plan-before-code); each unit cites the requirement IDs it builds, and those requirements are its acceptance criteria |
 | 4 Build | One work unit | Code and tests | The branch | Implementer agent | `check` passes (one-command-per-gate); no test or check weakened (agents-never-weaken-checks); discoveries paused and escalated, not guessed |
-| 5 Verify | PR | Review findings, P0 to P3 | The PR thread | Reviewer agent | `verify` passes, evals included; no open P0 or P1 under the written review policy (review-against-written-policy); spec and code aligned (no-merge-without-alignment) |
+| 5 Verify | PR | Review findings, P0 to P3 | The PR thread | Reviewer agent | `verify` passes (including evals); no open P0 or P1 under the written review policy (review-against-written-policy); spec and code aligned (no-merge-without-alignment) |
 | 6 Release | Approved PRs | Shipped increment; experiment results | The main branch and its version | Human, or agent under the merge policy (autonomy-scales-with-risk) | Spec matches what shipped; results feed the next Scope |
 | 7 Maintain | The shipped system, a schedule, metrics | Findings | Tickets | Scripts detect; agents diagnose; human triages | Each finding triaged; a fix restores a requirement or waits for admission (fixes-restore-never-add) |
 
@@ -41,11 +41,11 @@ Each output has one home, and everything else links to it (one-home-per-artifact
 
 ## The spec corpus
 
-A set of documents, not one. Scale it to the project: a weekend tool needs only the needs spec; a client product may need all seven.
+The spec corpus is a set of documents, not one. Scale it to the project: a weekend tool needs only the needs spec; a client product may need all seven.
 
 The needs spec is the traceable layer of every corpus. The other documents feed it: a PRD section is the source of a need, and the security spec is the source of a constraint. See [traceability.md](traceability.md). How much of the other documents a bigger project still needs is an open question in the README.
 
-**Rule: spec documents are written and changed only in the Spec stage.** The one exception is the PRD's first draft, which comes out of Scope. Plan, Build, Verify, Release and Maintain read the corpus but never edit it. One narrow exception keeps small changes light: a new or changed requirement under an existing need may ride in the PR that builds it, listed in the PR description, and the owner's review approves it. A new need or constraint always goes through Spec (owner-admits-every-need). When they find a needed change, work pauses and the change goes back through Spec (pause-on-discovery). Each increment revisits the corpus in its own Spec stage, adding full detail only for that slice (spec-next-increment-deeply).
+**Rule: spec documents are written and changed only in the Spec stage.** The one exception is the PRD's first draft, which comes out of Scope. Plan, Build, Verify, Release and Maintain read the corpus but never edit it. One narrow exception keeps small changes light. A new or changed requirement under an existing need may ride in the PR that builds it, listed in the PR description, and the owner's review approves it. A new need or constraint always goes through Spec (owner-admits-every-need). When a later stage finds a needed change, work pauses and the change goes back through Spec (pause-on-discovery). Each increment revisits the corpus in its own Spec stage, adding full detail only for that slice (spec-next-increment-deeply).
 
 | Document | Answers | When needed | First drafted | Changed |
 | --- | --- | --- | --- | --- |
@@ -70,7 +70,7 @@ Scope decides how much of the product this pass of the spec covers. The first sl
 
 ## Interrogation (interrogate-before-building)
 
-In the Spec stage, an agent reads the draft and lists every gap, ambiguity and contradiction it finds. A human answers. The agent folds the answers into the corpus and asks again until nothing blocks the slice.
+In the Spec stage, an agent reads the draft and lists every gap, ambiguity and contradiction it finds. A human answers. The agent folds the answers into the corpus and asks again until every question that blocks the slice is answered.
 
 - Needs come from sources outside the code, and each cites its source (source-needs-outside-code). "The code does it" is not a source.
 - Each spec opens with an out-of-scope list (list-out-of-scope-first).
@@ -79,13 +79,13 @@ In the Spec stage, an agent reads the draft and lists every gap, ambiguity and c
 
 ## Client-facing variant
 
-For consulting work, the Spec stage includes the client. Job stories ("When a renter returns a car, they want every charge listed...") are written in the client's words, so the client can confirm the needs directly. Concrete examples ("given this order, the invoice shows...") are the fastest way for a client to confirm or correct a rule. The client signs off on the interrogated spec before Plan.
+For consulting work, the Spec stage includes the client. Job stories (a need written as a situation, a motivation and an outcome, as in "When a renter returns a car, they want every charge listed...") are written in the client's words, so the client can confirm the needs directly. Concrete examples ("given this order, the invoice shows...") are the fastest way for a client to confirm or correct a rule. The client signs off on the interrogated spec before Plan.
 
 ## Deferred decisions (defer-decisions-explicitly)
 
 Not every question needs an answer now. A deferred decision is written into the spec where it applies, as a marker with the question, the current default and the trigger to revisit it.
 
-**Example.** "DEFERRED: tax rules outside the US. Default: US only. Revisit: first non-US customer." Coders treat the default as the spec; the marker keeps the gap visible.
+**Example.** "DEFERRED: tax rules outside the US. Default: US only. Revisit: first non-US customer." Implementers treat the default as the spec; the marker keeps the gap visible.
 
 ## Sufficient, not exhaustive (sufficient-not-exhaustive)
 
@@ -94,7 +94,7 @@ A spec is sufficient when an implementer can build the increment without guessin
 - **Too short** leaves gaps, and an agent fills each one with a plausible guess.
 - **Too long** costs context on every agent run, buries the rules that matter, and is too much for a client to read and confirm.
 
-**The test.** Could a fast, low-tier implementer build this increment without asking a question whose answer would change the behavior? If not, something is missing. If so, more text is cost.
+**The test.** Could a fast, low-tier implementer (an agent on the least capable model class) build this increment without asking a question whose answer would change the behavior? If not, something is missing. If so, more text is cost.
 
 Every sentence in the corpus should state a behavior, rule, constraint or decision. Spec reviews cut text that doesn't, and collapse lists that a rule covers.
 
@@ -110,13 +110,13 @@ A prototype is built to answer a question named in the spec, such as "will users
 
 Before any code, the planner writes a plan: the work units, their order, the files each touches and the requirement IDs each builds. The owner approves it or sends questions back. Until then, agents stay read-only, enforced by the tool where it can be (plan mode, in tools that have one).
 
-- **Its home** is the PR description on solo and small work. A bigger project may commit it.
-- **It is disposable.** A plan is never spec, and nobody updates it after the code lands.
+- **A plan's home** is the PR description on solo and small work. A bigger project may commit it.
+- **A plan is disposable.** A plan is never spec. It stays as written after the code lands.
 - **A one-unit fix may skip the approval.** Its PR description still names the requirement it builds or restores.
 
 The two directions of questioning meet here. In Spec, an agent interrogates the human's intent. In Plan, the human interrogates the agent's plan.
 
-**Example.** A plan for "send an invoice" lists three units: the `send` command and its tests, the email template, and the audit log entry. Each names its requirement IDs. The owner asks why the audit log is needed, finds no requirement for it, and cuts the unit.
+**Example.** A plan for "send an invoice" lists three units: the `send` command and its tests, the email template, and the audit log entry. Each names its requirement IDs. The owner asks why the audit log is needed, does not find a requirement for it, and cuts the unit.
 
 ## Gate commands (one-command-per-gate)
 
@@ -136,9 +136,9 @@ flowchart LR
 
 | Command | Does | Run |
 | --- | --- | --- |
-| `build` | Compile and package. A no-op where nothing compiles. | By `check`, or alone |
+| `build` | Compile and package. A no-op for an interpreted language. | By `check`, or alone |
 | `test` | Unit tests only, fast, with no coverage. Keeps the meaning its ecosystem gives it, such as `npm test` or `pytest`. | Many times per unit, in the test-first loop |
-| `check` | `build`, then lint, format and type checks, then `test` with coverage, then the traceability checks. Needs no network. | Once per unit, before calling it done |
+| `check` | `build`, then lint, format and type checks, then `test` with coverage, then the traceability checks. Does not need a network. | Once per unit, before calling it done |
 | `verify` | `check`, then whatever needs the base branch, independence or money: diff coverage, the PR's spec changes, new tests failing on the base, evals, the reviewer | On every PR in CI; locally on demand |
 
 - **A unit is done when `check` passes. A PR is ready when `verify` passes.** Put that line where agents read it every session.
@@ -150,7 +150,7 @@ flowchart LR
 
 When an implementer finds the spec silent or wrong, it stops work on that unit and escalates. It does not pick an answer in code. The question goes through impact analysis and a Spec-stage change before the unit resumes.
 
-When it finds only that the spec *could* be better, such as a feature that might be useful, it does not pause. It files the idea as a candidate need, a ticket the owner may admit later (owner-admits-every-need), and keeps building against the spec as written.
+When an implementer finds only that the spec *could* be better, such as a feature that might be useful, it does not pause. It files the idea as a candidate need, a ticket the owner may admit later (owner-admits-every-need), and keeps building against the spec as written.
 
 | The spec is | The implementer |
 | --- | --- |
@@ -183,16 +183,16 @@ In Verify, `verify` runs and the reviewer checks the PR against the requirements
 - Every behavior in the code is covered by a test that cites a requirement.
 - Every requirement in scope is verified by something of its kind.
 - The PR description lists every requirement it adds, changes or removes.
-- The reviewer judges what no script can: does each new requirement truly serve its need?
+- The reviewer judges what a script cannot: does each new requirement truly serve its need?
 - A mismatch blocks the merge. It is fixed in the code, or sent back through Spec if the spec is what's wrong.
 
 ## Experiments (experiments-are-spec)
 
-An A/B flight is written into the spec before it is built: hypothesis, variants, audience, success metric and end date. At Release the result is recorded. In the next Spec stage, the winning variant becomes the plain spec, and the losing variant is removed from spec and code.
+An A/B flight (an experiment that shows different variants to different users) is written into the spec before it is built: hypothesis, variants, audience, success metric and end date. At Release the result is recorded. In the next Spec stage, the winning variant becomes the plain spec, and the losing variant is removed from spec and code.
 
 ## Maintain (audit-on-schedule, scripts-detect-models-diagnose, fixes-restore-never-add)
 
-Maintain runs alongside the increments, not after the last one. Three things feed it:
+Maintain runs alongside the increments, not after the last one. Maintain draws on these sources:
 
 - **The scheduled audit** of the whole system, which also checks the corpus for alignment and self-consistency. See [audit.md](audit.md).
 - **Scheduled scans**, such as a security scan, or a CI run against the latest release of the platform the product depends on.
@@ -200,9 +200,9 @@ Maintain runs alongside the increments, not after the last one. Three things fee
 
 Maintain also improves the playbook itself. The owner runs improvement trials, one change at a time, measured against a baseline (improve-by-measured-trial). See [metrics.md](metrics.md).
 
-A script starts each one; a model only diagnoses; a human triages. Findings land as tickets. Each then goes one of two ways:
+A script starts each audit, scan and trigger; a model only diagnoses; a human triages. Findings land as tickets. Each then goes one of two ways:
 
-- **It breaks an existing requirement.** A fix restores it, through Build, Verify and Release as usual. An automatic fix may do this.
-- **It needs new behavior.** It goes to Scope as an intent and waits for the owner's admission. An automatic fix may never do this (fixes-restore-never-add).
+- **The finding breaks an existing requirement.** A fix restores it, through Build, Verify and Release as usual. An automatic fix may do this.
+- **The finding needs new behavior.** It goes to Scope as an intent and waits for the owner's admission. An automatic fix may never do this (fixes-restore-never-add).
 
-**Example.** A weekly CI run against the newest platform release fails a test for `close-cmd-shows-late-fee`. That requirement already exists, so a fix that restores it may go straight to Build. If instead the platform now offers a new fee type nobody has asked for, supporting it is a new need, and it goes to Scope.
+**Example.** A weekly CI run against the newest platform release fails a test for `close-cmd-shows-late-fee`. That requirement already exists, so a fix that restores it may go straight to Build. If instead the platform now offers a new fee type that nobody has asked for, supporting it is a new need, and it goes to Scope.

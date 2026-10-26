@@ -1,6 +1,6 @@
 # Adoption: bringing a repo under the playbook
 
-What "adopted" means, for a new repo or an existing one, stated by level and principle ID. A plugin or skill in the implementation layer does the assessing and the applying, and cites the IDs below. In the flywheel plugin, `flywheel.py assess` does the assessing, and its docstring says what counts as evidence for each control.
+This document states what "adopted" means, for a new repo or an existing one, by level and principle ID. A plugin or skill in the playbook's implementation layer does the assessing and the applying, and cites the IDs below. In the flywheel plugin, `flywheel.py assess` does the assessing, and its docstring says what counts as evidence for each control.
 
 **A new repo is an existing repo with every gap open.** So both take one path:
 
@@ -13,13 +13,13 @@ flowchart LR
   R -. playbook changes .-> A
 ```
 
-Adoption follows the playbook's own lifecycle. The gap report is the intent. The owner sets the target level and approves it. Each control is one unit of work, landed as its own PR (stack-small-reviewable-prs). A script does the assessing and the file writing; a model does only what needs judgment, such as interviewing the owner (scripts-do-deterministic-work).
+Adoption follows the playbook's own lifecycle. The gap report is the intent. The owner sets the target level and approves it. Each control is one unit of work, landed as its own PR (stack-small-reviewable-prs). A script does the assessing and the file writing. A model does only what needs judgment, such as interviewing the owner (scripts-do-deterministic-work).
 
 ## Levels
 
 Each level is a floor. A repo may adopt a control from a higher level early.
 
-### Level 1: Core. Agents build only what someone asked for.
+### Level 1: Core, building only what someone asked for
 
 | Control | Principle IDs |
 | --- | --- |
@@ -29,9 +29,9 @@ Each level is a floor. A repo may adopt a control from a higher level early.
 | The `build`, `test` and `check` commands | one-command-per-gate |
 | Tests written first and named for behavior | write-behavior-tests-first |
 
-**Done when** `check` passes, and every change starts from an approved ticket.
+Level 1 is done when `check` passes, and every change starts from an approved ticket.
 
-### Level 2: Enforced. Checks, not requests.
+### Level 2: Enforced, by checks rather than requests
 
 | Control | Principle IDs |
 | --- | --- |
@@ -42,9 +42,9 @@ Each level is a floor. A repo may adopt a control from a higher level early.
 | A plan approved before code | approve-plan-before-code |
 | A written review policy and a fresh-context reviewer | review-against-written-policy, separate-generation-from-verification |
 
-**Done when** every check fails rather than warns, and the list of untraced items is empty.
+Level 2 is done when every check fails rather than warns, and the list of untraced items is empty.
 
-### Level 3: Measured. The loop watches itself.
+### Level 3: Measured, by a loop that watches itself
 
 | Control | Principle IDs |
 | --- | --- |
@@ -56,7 +56,7 @@ Each level is a floor. A repo may adopt a control from a higher level early.
 | Improvement trials, one change at a time against a baseline | improve-by-measured-trial |
 | Repeated mistakes climb to checks | repeat-mistakes-become-checks |
 
-**Done when** the audit has run on its schedule, the eval suite gates a change, and the measures have enough history for bands.
+Level 3 is done when the audit has run on its schedule, the eval suite gates a change, and the measures have enough history for bands.
 
 ### Choosing a level
 
@@ -68,7 +68,7 @@ Each level is a floor. A repo may adopt a control from a higher level early.
 
 **A new repo** adopts Level 1 in its first commit, with checks as errors from day one. It has nothing to sift. Level 2 follows with the first feature.
 
-**An existing repo** adopts one control at a time, in the order of the tables above. Its checks start as warnings and list each flagged item against the ticket that will fix it. That list only shrinks. The trap is reading needs from the code: an agent reading code finds a reason for everything in it (source-needs-outside-code). Behavior nobody can place goes to the owner with a recommended outcome. [traceability.md](traceability.md), under "Adopting it", has the steps and the outcomes.
+**An existing repo** adopts one control at a time, in the order of the tables above. Its checks start as warnings and list each flagged item against the ticket that will fix it. That list only shrinks. The trap is reading needs from the code, because an agent reading code finds a reason for everything in it (source-needs-outside-code). Behavior that nobody can place goes to the owner with a recommended outcome. [traceability.md](traceability.md), under "Adopting it", has the steps and the outcomes.
 
 ## The record
 

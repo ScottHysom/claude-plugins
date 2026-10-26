@@ -1,12 +1,17 @@
 # Traceability: needs before code
 
-The spec says what the product should be. Traceability ties every behavior in the code to the reason it exists, so nothing gets built that nobody asked for (trace-behavior-to-need).
+The spec says what the product should be. Traceability ties every behavior in the code to the reason it exists, so only behavior someone asked for gets built (trace-behavior-to-need).
 
-This practice comes from the "needs before code" method in the claude-plugins repo, [SPEC-METHODOLOGY.md](../../../SPEC-METHODOLOGY.md). That file is the worked example. It holds the mechanics this repo leaves out: the spec-file grammar, the id rules, test markers, and the scripts that run the checks.
+This practice comes from the "needs before code" method in the claude-plugins repo, [SPEC-METHODOLOGY.md](../../../SPEC-METHODOLOGY.md). That file is the worked example. It holds the mechanics this repo leaves out:
+
+- the spec-file grammar.
+- the id rules.
+- test markers.
+- the scripts that run the checks.
 
 ## The problem
 
-An agent filling a gap guesses. It completes a pattern, adds an option a person would have stopped to ask about, or guards against an input nothing produces. Martin Fowler and Kent Beck call this *speculative generality*: machinery built for a need nobody has.
+An agent filling a gap guesses. It completes a pattern, adds an option a person would have stopped to ask about, or guards against an input that nothing produces. Martin Fowler and Kent Beck call this *speculative generality*: machinery built for a need that nobody has.
 
 Tests don't catch it. A test shows that a behavior works. It says nothing about whether anyone needs it.
 
@@ -15,7 +20,7 @@ Tests don't catch it. A test shows that a behavior works. It says nothing about 
 - The key arrived inside a 3,686-line pull request (PR), too large to weigh each behavior.
 - A later ticket, written against the code as it stood, required a script to write one of the values.
 - Asked why the key existed, an agent defended it by symmetry: one value per route into the file.
-- Nothing read the key, and nothing wrote two of its values.
+- The code never read the key. It never wrote two of its values.
 
 An audit then found about one behavior in six with no written need.
 
@@ -26,7 +31,7 @@ A behavior is justified by one of two things:
 - a **need**, which someone wants
 - a **constraint**, which the platform forces
 
-Symmetry, completeness and "it might be useful" are neither. A behavior with no need or constraint has no place in the code.
+Symmetry, completeness and "it might be useful" are neither. A behavior belongs in the code only when a need or constraint justifies it.
 
 ## Needs, constraints and requirements
 
@@ -40,7 +45,7 @@ EARS is the Easy Approach to Requirements Syntax: templated sentences that open 
 
 Each spec file opens with an **Out of scope** list (list-out-of-scope-first). It names what the component deliberately does not do, so an agent sees a feature is unwanted before building it.
 
-**Example (simplified).** One section of a spec file for a car rental service:
+**Example.** As a simplification, this section of a spec file for a car rental service shows one need with two of its requirements, and leaves out the rest of the file:
 
 ```markdown
 ## Out of scope
@@ -60,7 +65,7 @@ Source: the product brief, under "Receipts".
   receipt shows the late fee on a line of its own.
 ```
 
-Each requirement has a stable id that reads as a short sentence, subject first. Requirement ids and principle ids are separate namespaces: principles are rules for the people and agents doing the work; requirements are behaviors of the product.
+Each requirement has a stable id that reads as a short sentence, subject first. Requirement ids and principle ids (the playbook's ids in parentheses, such as `trace-behavior-to-need`) are separate namespaces: principles are rules for the people and agents doing the work; requirements are behaviors of the product.
 
 ### Requirement kinds
 
@@ -71,7 +76,7 @@ Each requirement names its kind: what verifies it.
 | test | An automated test that cites the requirement id | A unit test tagged with `close-cmd-shows-late-fee` |
 | step | A step in an agent's instructions (a skill) that cites it | "Ask all open questions in one batch" |
 | check | A continuous integration (CI) workflow step that cites it | A lint step |
-| eval | An eval: a set task run through the agent's instructions, then graded | Optional. Closes the gap that a step marker leaves |
+| eval | An eval: a set task run through the agent's instructions, then graded | Optional. An eval closes the gap that a step marker leaves |
 
 ## The chain
 
@@ -92,24 +97,24 @@ A machine checks every link on every PR (checks-over-instructions):
 
 | Link | Fails when |
 | --- | --- |
-| Code runs under a test | A PR adds a line no test runs, or coverage falls below its floor |
-| A test or step cites a requirement | It cites nothing, or an id no spec holds |
-| Each requirement is cited by something of its kind | Nothing verifies it |
+| Code runs under a test | A PR adds a line that no test runs, or coverage falls below its floor |
+| A test or step cites a requirement | It cites nothing, or an id missing from every spec |
+| Each requirement is cited by something of its kind | It is not verified |
 | Each requirement sits under a need or constraint | It sits outside any |
 | A PR lists the requirements it changes | Its description leaves one out |
 
-Coverage is the link most easily left out. In the `source` example, no test ran the code that checked the key's values. A trace through tests alone would have passed. Coverage forces a test onto new logic; the trace forces that test to cite a requirement.
+Coverage is the link most easily left out. In the `source` example, the code that checked the key's values did not run under any test. A trace through tests alone would have passed. Coverage forces a test onto new logic; the trace forces that test to cite a requirement.
 
-Two judgments stay with the owner, because no script can make them:
+Two judgments stay with the owner (the person who decides what the product is for), because a script cannot make them:
 
 - Is the need real?
 - Does the requirement truly serve the need it sits under?
 
 The chain makes those judgments cheap. Each behavior is one short line in a spec file, not a buried change in a long diff.
 
-## Where it sits in the spec corpus
+## Place in the spec corpus
 
-The needs spec is the traceable layer of every corpus (see [lifecycle.md](lifecycle.md)). It lives in a `specs/` folder: one file per component, plus one for what the whole repo shares.
+The needs spec is the traceable layer of every spec corpus (the PRD, the needs spec and the other documents that specify a product; see [lifecycle.md](lifecycle.md)). It lives in a `specs/` folder: one file per component, plus one for what the whole repo shares.
 
 ```mermaid
 flowchart TD
@@ -122,7 +127,7 @@ flowchart TD
 ```
 
 - **Small project.** The needs spec *is* the product spec. Other documents are optional.
-- **Bigger project.** The PRD, design documents, and privacy and security specs sit above it. A need's `Source:` line cites a PRD section. A constraint cites the security spec or the Technical Design Document.
+- **Bigger project.** The product requirements document (PRD), design documents, and privacy and security specs sit above it. A need's `Source:` line cites a PRD section. A constraint cites the security spec or the Technical Design Document.
 
 A first cut at what each larger document contributes, *simplified*:
 
@@ -130,15 +135,15 @@ A first cut at what each larger document contributes, *simplified*:
 | --- | --- | --- |
 | PRD | Goals and users become needs | Success metrics; product strategy |
 | Product spec | Its rules become requirements under needs | Screen flow and narrative, if kept |
-| Technical Design Document | Platform facts become constraints | Architecture choices and their reasons (ADRs) |
+| Technical Design Document | Platform facts become constraints | Architecture choices and their reasons (architecture decision records, ADRs) |
 | Design system | Behavioral rules become requirements | Visual tokens and components |
 | Privacy and security specs | Legal and threat facts become constraints | The threat model as a whole |
 
 How much of the right-hand column a bigger project still needs is an open question. See the README.
 
-## Admission: the owner controls what enters
+## Admission
 
-A new need or constraint is the decision that matters most. Either one justifies behavior, so a constraint an agent invented would let in behavior nobody asked for. So it enters only through the owner (owner-admits-every-need).
+A new need or constraint is the decision that matters most. Either one justifies behavior, so a constraint an agent invented would let in behavior that nobody asked for. So it enters only through the owner (owner-admits-every-need).
 
 | What changes | Where it is approved |
 | --- | --- |
@@ -148,13 +153,13 @@ A new need or constraint is the decision that matters most. Either one justifies
 
 A ticket carries a "Requirements" field listing the ids it adds, changes or removes, or the id a bug breaks. Approving the ticket approves those lines explicitly.
 
-**Example.** An agent wrote a ticket against the code as it stood. Its "Done when" line required a script to write one of the `source` values. Approving the idea approved the key, and nobody saw it happen. A "Requirements" field would have put the key in front of the owner.
+**Example.** An agent wrote a ticket against the code as it stood. Its "Done when" line required a script to write one of the `source` values. Approving the idea approved the key without anyone seeing it happen. A "Requirements" field would have put the key in front of the owner.
 
 **Requests and controls.** A rule an agent reads is a request. A check the agent can edit is a weak control. The owner's approval is the control to keep out of the agent's reach. Where agents post under the owner's account, a hook stops an agent adding the approval label, and CI refuses work on a ticket that lacks it.
 
 ## Scripts and models (leg 2)
 
-Traceability also sharpens the second leg: the right worker for each task. The cheapest worker is a script. See Tier 0 in [roles.md](roles.md) (scripts-do-deterministic-work).
+Traceability also sharpens the second leg: the right worker for each task. The cheapest worker is a script. See Tier 0 (the scripts a model runs) in [roles.md](roles.md) (scripts-do-deterministic-work).
 
 - **The script** does deterministic work, where two runs on the same input should give the same answer: parsing, selecting files, diffing, validating, writing results.
 - **The model** does only what needs judgment: inferring a rule, writing prose, deciding whether something conforms. It also calls tools a script cannot reach.
@@ -173,15 +178,15 @@ A courier seam costs context on every run and is a place the model can go wrong.
 
 ## Rules for agents
 
-Put these where the agent reads them every session, such as `CLAUDE.md` or `AGENTS.md`:
+Put the rules below where the agent reads them every session, such as `CLAUDE.md` or `AGENTS.md`:
 
 - Build only what a requirement asks for. Before adding a command, option, value, refusal or branch, find the requirement it serves.
 - A behavior is justified by a need or a constraint. Symmetry, completeness and "it might be useful" are neither.
-- When no requirement covers the work, stop. Propose the requirement, and the need or constraint it serves, in the ticket or PR. Wait for the owner.
-- Asked why a behavior exists, answer with its requirement and need. If it has none, say so and file a ticket. Do not defend it by the design's own consistency.
+- When the work lacks a requirement, stop. Propose the requirement, and the need or constraint it serves, in the ticket or PR. Wait for the owner.
+- Asked why a behavior exists, answer with its requirement and need. If it has no requirement, say so and file a ticket. Do not defend it by the design's own consistency.
 - Put the model between two commands only at a judgment or platform seam.
 
-## Adopting it
+## Adoption
 
 ### A new codebase
 
@@ -189,7 +194,7 @@ Write the needs spec with the first feature. Add the rules for agents, the out-o
 
 ### An existing codebase
 
-The trap: an agent reading code finds a reason for everything in it. A spec written that way records guesses as requirements. So needs come from sources outside the code, never from reading it (source-needs-outside-code). Work one component at a time:
+The trap is that an agent reading code finds a reason for everything in it. A spec written that way records guesses as requirements. So needs come from sources outside the code, never from reading it (source-needs-outside-code). Work one component at a time:
 
 ```mermaid
 flowchart LR
@@ -201,13 +206,13 @@ flowchart LR
   S --> E[7 Switch<br/>checks become errors]
 ```
 
-Each item an agent cannot place goes to the owner with evidence and a recommended outcome:
+Each item an agent cannot place goes to the owner with evidence and one of these recommended outcomes:
 
-- **Remove.** Nothing calls it, and no need asks for it.
+- **Remove.** The code does not call it. It does not serve a need.
 - **Keep.** The owner states the need.
-- **Wire up.** The need is real, but nothing uses the behavior yet.
+- **Wire up.** The need is real, but the code does not use the behavior yet.
 - **Fix.** The need is real, and the behavior is wrong.
-- **Probe.** It claims a platform limit nobody has measured.
+- **Probe.** It claims a platform limit that nobody has measured.
 - **Merge.** It is a courier seam; move its work into the script.
 
 Checks start as warnings. Each flagged item waits on a list keyed to the ticket that will fix it. The list only shrinks, and an entry whose ticket has closed fails.
@@ -218,14 +223,14 @@ Spec-driven tools draw four common criticisms. This practice is built to avoid e
 
 | Criticism | How this practice avoids it |
 | --- | --- |
-| Volume: long generated specs are harder to review than code | A behavior is one line. No document per feature |
+| Volume: long generated specs are harder to review than code | A behavior is one line. A feature does not get a document of its own |
 | Guessing: tools tell the model to guess and record an assumption | A guess goes to the owner as an unplaced item, not into the spec |
-| Stale specs | A requirement nothing verifies fails the trace |
+| Stale specs | A requirement that nothing verifies fails the trace |
 | False control: an agent can ignore a spec it only reads | CI checks every link; admission rides on the owner's approval |
 
 ## Schemes considered
 
-- **Use cases** (Alistair Cockburn). Good at stating a need, and the job story and out-of-scope list keep that. Too coarse as the unit a test cites: a new behavior can hide under a broad use case.
+- **Use cases** (Alistair Cockburn). Use cases are good at stating a need, and the job story and out-of-scope list keep that. They are too coarse as the unit a test cites: a new behavior can hide under a broad use case.
 - **Executable examples** (behavior-driven development, BDD: Given / When / Then). The tests here are the examples. But a scenario says what happens, not whether anyone wants it.
 - **A spec-driven tool adopted whole** (for example OpenSpec or GitHub Spec Kit). Each brings its own record of change, which drifts from the tickets. This practice borrows their formats and keeps the ticket as the only record of change.
 
