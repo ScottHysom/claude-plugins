@@ -15,7 +15,8 @@ message `flywheel.py brief N` prints for the session that works issue N.
 
 The owner names the round in one of these ways:
 
-- a count, as in "fix the next 3 issues".
+- a count, as in "fix the next 3 issues", with or without an issue to start
+  at, as in "starting at #12".
 - a plan, named by its plan issue, as in "fix the issues in #653", with or without a
   count, as in "three at a time".
 - issues, as in "fix #12 and #14".
@@ -104,8 +105,8 @@ For issues the owner named, with `--issue` once for each:
 FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" events --issue 12 --issue 14 --json
 ```
 
-For a count alone, or the next issue, the round has not started any issue
-yet, so look without naming one:
+For a count (including one with an issue to start at), or the next issue,
+the round has not started any issue yet, so look without naming one:
 
 ```sh
 FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" events --json
@@ -128,6 +129,13 @@ For a count alone:
 FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" queue --count 3 --json
 ```
 
+For a count with an issue to start at, pass that issue with `--from` on every
+read of the round:
+
+```sh
+FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" queue --count 3 --from 12 --json
+```
+
 For a plan, with its plan issue:
 
 ```sh
@@ -145,6 +153,8 @@ What the result means:
 - Fewer issues than free places, with `data.issues` empty and no session
   still working or waiting on a merge, means the round is over. Stop as step
   11 says.
+- Each entry in `warnings` names an issue to start at that the queue does
+  not offer, and why. Tell the owner each one.
 - On exit 1, relay the errors to the owner and stop starting sessions.
 
 For issues the owner named, including one issue to fix, work or take, read

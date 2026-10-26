@@ -530,7 +530,7 @@ merge and reported on, so the loop runs without the owner typing each start.
 They want to run more than one round at once, each on its own plan, count or
 issues, without one round acting on another's pull requests.
 
-Source: #649, #665, #688, #689, #701, and the method's `decompose-into-parallel-units`
+Source: #649, #665, #688, #689, #701, #703, and the method's `decompose-into-parallel-units`
 and `match-capability-to-task`.
 
 - `events-cmd-lists-claim-prs` (test): When `flywheel.py events` runs, it
@@ -555,6 +555,13 @@ and `match-capability-to-task`.
   `queue`, it starts one session per issue with `brief N`, at the roles
   file's model and effort for the implementer. It stops rather than start
   one when either is above its own session's.
+- `queue-cmd-starts-at-issue` (test): When `flywheel.py queue --count N
+  --from M` runs, it offers up to N free approved issues as `queue --count N`
+  does, leaving out every issue and plan issue that comes before #M in the
+  queue's order. The queue's order is by number, with a plan issue at its
+  lowest open number. It warns, naming the reason, when #M cannot be offered
+  and no claim holds it, and refuses `--from` given with issue numbers or
+  `--plan`.
 - `queue-cmd-checks-named-issues` (test): When `flywheel.py queue` is given
   issue numbers, as in `queue 12 14`, it reports each as an issue to start, a
   plan issue, or the reason it cannot start: closed, lacking the approval label,
