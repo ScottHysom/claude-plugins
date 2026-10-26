@@ -87,7 +87,7 @@ back them. What agents do:
   - `CLAUDE.md` outside "Rules for agents". That section comes from the
     plugin's `templates/agent-rules.md`.
 
-  A change that needs both is two issues, one per area. Satisfy a method
+  A change that needs both is two issues, one per area. Satisfy a playbook
   control with what the plugin ships, rather than with a script in
   `.github/scripts/`.
 - **File a plan as issues.** When the owner asks for a plan, or for a fix
@@ -408,7 +408,7 @@ When writing comments and docs, do not:
 
 ## Rules for agents
 
-These rules are the method's rules for agents that the flywheel plugin
+These rules are the playbook's rules for agents that the flywheel plugin
 follows. Each level's section has a rule for every principle that level's
 controls name, and each rule cites its principle. The plugin's `docs/`
 defines each one.
@@ -417,57 +417,57 @@ defines each one.
 
 - Build only what a need someone stated, or a constraint the platform forces,
   asks for. Before adding a command, an option or a branch, find the
-  requirement it serves. Source: the method's `trace-behavior-to-need`.
+  requirement it serves. Source: the playbook's `trace-behavior-to-need`.
 - The owner decides, and agents record. When the work needs a decision the
   issue does not make, propose it on the issue and wait for the owner. Source:
-  the method's `humans-decide-agents-record`.
+  the playbook's `humans-decide-agents-record`.
 - Drop a claim's commits, or close an issue as not planned, only after the
-  owner has said so in chat. Source: the method's
+  owner has said so in chat. Source: the playbook's
   `humans-decide-agents-record`.
 - Open each component's spec with what it deliberately does not do. Source:
-  the method's `list-out-of-scope-first`.
+  the playbook's `list-out-of-scope-first`.
 - Take each need from a source outside the code, such as the owner, a brief
   or an issue, and cite that source. Never infer a need from what the code
-  does. Source: the method's `source-needs-outside-code`.
+  does. Source: the playbook's `source-needs-outside-code`.
 - Work only on an issue labeled `approved`, and never add that label. A new
   need or constraint enters `specs/` only once the owner approves the issue
-  that proposes it. Source: the method's `owner-admits-every-need`.
+  that proposes it. Source: the playbook's `owner-admits-every-need`.
 - Keep a change's intent in its issue, and link to the issue rather than
-  copying it into the pull request or the code. Source: the method's
+  copying it into the pull request or the code. Source: the playbook's
   `one-home-per-artifact`.
 - Run the project's `build`, `test` and `check` commands to finish a unit,
-  and do not open a pull request while `check` fails. Source: the method's
+  and do not open a pull request while `check` fails. Source: the playbook's
   `one-command-per-gate`.
 - Write a failing test first, then the code that passes it. Name the test for
   the behavior it checks, as `describe`/`it`, without the word "should".
-  Source: the method's `write-behavior-tests-first`.
+  Source: the playbook's `write-behavior-tests-first`.
 
 ### Level 2
 
 - Treat a rule that only this file states as a request, and propose a check
   for each rule that matters. Never edit a check to get past it. Source: the
-  method's `checks-over-instructions`.
+  playbook's `checks-over-instructions`.
 - Do not merge a change whose code and spec disagree. Update the spec in the
-  same pull request, or stop and ask. Source: the method's
+  same pull request, or stop and ask. Source: the playbook's
   `no-merge-without-alignment`.
 - Run the project's `verify` command before asking for review, since CI runs
-  it on every pull request. Source: the method's `one-command-per-gate`.
+  it on every pull request. Source: the playbook's `one-command-per-gate`.
 - Open a pull request through the project's skill for opening one, or
   flywheel's open-pr when the project has none. Name each requirement id it
   adds, changes or removes in the section that `.flywheel/pr-template.md`
-  marks, `## Requirements` without the file. Source: the method's
+  marks, `## Requirements` without the file. Source: the playbook's
   `no-merge-without-alignment`.
 - Never loosen a test or a check to make it pass. Confirm that each new test
-  fails on the code before the change. Source: the method's
+  fails on the code before the change. Source: the playbook's
   `agents-never-weaken-checks`.
 - Never add the `approved` label, by any route, and leave approval to the
-  owner. Source: the method's `owner-admits-every-need`.
+  owner. Source: the playbook's `owner-admits-every-need`.
 - Before writing code for an issue of more than one unit, post the plan on the
   issue, naming the requirement ids each unit builds, and wait for the owner
-  to approve it. Source: the method's `approve-plan-before-code`.
+  to approve it. Source: the playbook's `approve-plan-before-code`.
 - Review a pull request against the project's written review policy, its
   passes, its P0 to P3 scale and its cap on nits, and not against your own
-  taste. Source: the method's `review-against-written-policy`.
+  taste. Source: the playbook's `review-against-written-policy`.
 - Leave the review of your own pull request to a reviewer that starts without
-  your context. Source: the method's
+  your context. Source: the playbook's
   `separate-generation-from-verification`.

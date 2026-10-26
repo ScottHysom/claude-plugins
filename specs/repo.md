@@ -402,7 +402,7 @@ When a contributor or an agent finishes a unit or readies a pull request, they
 want one command for each gate that CI runs unchanged, so the local gate and
 CI cannot drift and a green test run is never mistaken for a done unit.
 
-Source: the method's `one-command-per-gate` and `checks-over-instructions`,
+Source: the playbook's `one-command-per-gate` and `checks-over-instructions`,
 and #646.
 
 - `build-cmd-builds-nothing` (test): When `gate.py build` runs, it says the
@@ -547,7 +547,7 @@ new test passes on the code before the change, unless the test says why.
 This repo runs the flywheel plugin's check for it, at the cost of one run of
 each new test at the branch and one on the base.
 
-Source: the method's `agents-never-weaken-checks`, CLAUDE.md, under "Tests",
+Source: the playbook's `agents-never-weaken-checks`, CLAUDE.md, under "Tests",
 #669 and #682. specs/flywheel.md has the check's own requirements, under
 `owner-checks-new-tests-fail`.
 

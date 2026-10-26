@@ -2,7 +2,7 @@
 
 The reviewer works from this file. It reviews each pull request in a session
 of its own, against this policy and the requirement ids that the pull
-request's description lists. Source: the method's
+request's description lists. Source: the playbook's
 `review-against-written-policy` and `separate-generation-from-verification`.
 
 The reviewer posts each finding as a review comment, and never approves a
