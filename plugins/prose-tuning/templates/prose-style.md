@@ -380,6 +380,30 @@ and the reader loses track of which phrase carries the claim.
 
 <!-- FILL: a real before and after from this project. -->
 
+### sentences-section-named-as-section: A section is named as a section
+
+A reference to a section calls it a section, as in `the "What you need" section` or `README.md's "Issues" section`. A title in quotation marks on its own reads as a quoted phrase, and more so when the title is a phrase itself. A title after "under" or "in", as in `under "Issues"`, is a bare title too.
+
+**Pattern.** `"[A-Z][^"\n,]*" (?:says|say|describes|lists|covers|explains|shows|gives|holds|has)\b`
+**Pattern.** `\bunder "[A-Z][^"\n,]*"(?! section)`
+**Pattern.** `\b(?:in|see) "[A-Z][^"\n,]*"[.;:)]`
+
+<!-- FILL: replace the example below with a real before and after from this
+     project, naming one of its own sections. -->
+
+> **Before.** 1. Install the plugin, as "What you need" says.
+> **After.** 1. Install the plugin, as the "What you need" section says.
+
+### sentences-possessive-names-noun: A possessive names its noun
+
+A possessive whose noun the sentence does not name, as in "cite these as the method's", leaves the reader asking "the method's what?". Name the noun after it. A possessive that stands for a noun named in the same sentence, as in "three further skills: the dispatcher's, the implementer's and the reviewer's", stays as it is.
+
+<!-- FILL: replace the example below with a real before and after from this
+     project. -->
+
+> **Before.** The files read cite `trace-behavior-to-need` as the method's.
+> **After.** The files read cite `trace-behavior-to-need` as the method's rules.
+
 ## Headings
 
 ### headings-noun-phrase: A heading is a short noun phrase

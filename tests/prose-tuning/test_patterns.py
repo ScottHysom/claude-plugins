@@ -769,6 +769,7 @@ INCLUDING = "sentences-parenthetical-including"
 ONE_NEGATION = "sentences-one-negation"
 NONE = "sentences-none-names-noun"
 TAIL = "sentences-tail-beside-verb"
+SECTION = "sentences-section-named-as-section"
 
 
 class DescribeShippedPatterns:
@@ -799,6 +800,7 @@ class DescribeShippedPatterns:
             "sentences-one-negation",
             "sentences-none-names-noun",
             "sentences-tail-beside-verb",
+            SECTION,
         ]
 
     @pytest.mark.spec("template-patterns-find-only-their-breaches")
@@ -913,6 +915,17 @@ class DescribeShippedPatterns:
             (NONE, "It fails when a root holds none.", ["holds none"]),
             (NONE, "The rule gets none.", ["gets none"]),
             (NONE, "The search found none.", ["found none"]),
+            (
+                SECTION,
+                'Install the plugin, as "What you need" says.',
+                ['"What you need" says'],
+            ),
+            (SECTION, 'README.md, under "Issues", has the process.', ['under "Issues"']),
+            (
+                SECTION,
+                'It runs in a step, or in "Locate the script".',
+                ['in "Locate the script".'],
+            ),
         ],
     )
     def it_finds_what_its_rule_names(self, shipped, rid, doc, want):
@@ -961,6 +974,10 @@ class DescribeShippedPatterns:
             (NONE, "It finds none of the tests."),
             (NONE, "A marker runs one command or none."),
             (NONE, "It was none the wiser."),
+            (SECTION, 'Install the plugin, as the "What you need" section says.'),
+            (SECTION, 'README.md, under the "Issues" section, has the process.'),
+            (SECTION, 'It reads "A new" in "A new need" and "A new requirement".'),
+            (SECTION, 'A quote such as "When a car returns, list every charge." is fine.'),
         ],
     )
     def it_leaves_a_near_miss_alone(self, shipped, rid, doc):
