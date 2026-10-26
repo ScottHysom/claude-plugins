@@ -329,13 +329,21 @@ description.
 - `apply-cmd-names-empty-filters` (test): When a filter given to `apply`
   does not match any finding, alone or with the other filter, `apply` names it and
   leaves every file as it was.
-- `report-cmd-names-overlaps` (test): When two findings overlap, and they
-  do not replace the same text with the same rewrite, `report` and `apply`
-  name both, and `apply` writes neither.
+- `report-cmd-names-overlaps` (test): When two findings overlap, and
+  neither `report-cmd-merges-same-rewrites` nor
+  `report-cmd-merges-held-rewrites` makes them one change, `report` and
+  `apply` name both, and `apply` writes neither.
 - `report-cmd-merges-same-rewrites` (test): When two findings replace the
   same text with the same rewrite, `report` shows them as one change naming
   each finding and each rule, and `apply` writes the rewrite once when any of
   them is selected.
+- `report-cmd-merges-held-rewrites` (test): When one finding's text lies
+  inside another's and is shorter, and the outer finding's rewrite holds the
+  inner one's change, `report` shows them as one change naming each finding
+  and each rule, and `apply` writes the outer rewrite once when either of
+  them is selected. The outer rewrite holds the change when it contains the
+  inner rewrite, and does not contain the inner text more often than the
+  inner rewrite does.
 - `overlap-names-remedy` (test): When two findings overlap, `report` names
   both and says to put the pair to the author.
 - `apply-cmd-plans-one-snapshot` (test): When `apply` writes several

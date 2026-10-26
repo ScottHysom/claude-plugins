@@ -18,6 +18,13 @@
     "tests/flywheel/test_flywheel_plan.py::DescribeIssueRules::it_takes_githubs_kinds_without_the_labels_file": "pins the kind-label behavior that #725 keeps, in a test renamed when #725 dropped area labels from it",
     "tests/flywheel/test_flywheel_adopt.py::DescribeRecord::it_refuses_a_level_the_playbook_does_not_have[0]": "pins that record still refuses a level outside the playbook's, the test #655 renamed from it_refuses_a_level_the_method_does_not_have",
     "tests/flywheel/test_flywheel_adopt.py::DescribeRecord::it_refuses_a_level_the_playbook_does_not_have[4]": "pins that record still refuses a level outside the playbook's, the test #655 renamed from it_refuses_a_level_the_method_does_not_have",
-    "tests/flywheel/test_flywheel_adopt.py::DescribeRecord::it_refuses_a_level_the_playbook_does_not_have[two]": "pins that record still refuses a level outside the playbook's, the test #655 renamed from it_refuses_a_level_the_method_does_not_have"
+    "tests/flywheel/test_flywheel_adopt.py::DescribeRecord::it_refuses_a_level_the_playbook_does_not_have[two]": "pins that record still refuses a level outside the playbook's, the test #655 renamed from it_refuses_a_level_the_method_does_not_have",
+    "tests/prose-tuning/test_apply.py::DescribeGuards::it_refuses_a_missing_file[unfiltered]": "pins the missing-file refusal this test made before #777 parametrized it, under its new id",
+    "tests/prose-tuning/test_apply.py::DescribeGuards::it_refuses_a_missing_file[filtered]": "pins that a filtered apply still names a missing file, the case #777's partner lookup skips",
+    "tests/prose-tuning/test_apply.py::DescribeHeldRewrites::it_writes_the_outer_rewrite_once_whichever_side_is_selected[outer-rule]": "pins that selecting only the outer finding writes the outer rewrite, as it did before #777",
+    "tests/prose-tuning/test_apply.py::DescribeHeldRewrites::it_still_refuses_a_pair_whose_rewrites_disagree[outer-keeps-the-inner-text]": "pins that report and apply still refuse a nested pair whose outer rewrite does not hold the inner change, which #777 keeps",
+    "tests/prose-tuning/test_apply.py::DescribeHeldRewrites::it_still_refuses_a_pair_whose_rewrites_disagree[outer-keeps-what-the-inner-cuts]": "pins that report and apply still refuse a nested pair whose outer rewrite does not hold the inner change, which #777 keeps",
+    "tests/prose-tuning/test_apply.py::DescribeHeldRewrites::it_still_refuses_a_pair_whose_rewrites_disagree[outer-lacks-the-inner-rewrite]": "pins that report and apply still refuse a nested pair whose outer rewrite does not hold the inner change, which #777 keeps",
+    "tests/prose-tuning/test_apply.py::DescribeHeldRewrites::it_still_refuses_a_pair_whose_rewrites_disagree[same-text]": "pins that report and apply still refuse a nested pair whose outer rewrite does not hold the inner change, which #777 keeps"
   }
 }

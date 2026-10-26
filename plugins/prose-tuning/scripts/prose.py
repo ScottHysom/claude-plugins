@@ -4635,7 +4635,8 @@ def stage_findings(text, blocks, rel, findings, numbers=None):
     Findings that replace the same text with the same rewrite are one edit,
     labeled with each of them, as when one rewrite fixes two rules. As two
     edits they would start at the same offset, which EditEngine refuses, and
-    either order would write the rewrite twice.
+    either order would write the rewrite twice. fold_held makes one edit, in
+    the same way, of a finding and another inside it that its rewrite holds.
     """
     engine = EditEngine(text)
     code_spans = blocks.code_span_offsets(blocks.protected_offsets())
@@ -4796,6 +4797,7 @@ def stage_findings(text, blocks, rel, findings, numbers=None):
         placed.append((n, f, a, b))
         applied.append({"file": rel, "line": line, "rule": f["rule"]})
 
+    fold_held(text, accepted)
     cut = cut_lines(text, accepted)
     for a, b, new, touched, refs in accepted:
         if not touched <= cut:
@@ -4823,6 +4825,41 @@ def stage_findings(text, blocks, rel, findings, numbers=None):
         if len(x[4]) > 1:
             same.update((r["finding"], [q["finding"] for q in x[4]]) for r in x[4])
     return Staged(engine, placed, applied, rejected, dismissed, same, shown)
+
+
+def holds(text, outer, inner):
+    """Whether outer's rewrite already makes inner's change, for two of
+    stage_findings' accepted edits.
+
+    It does when inner's text lies inside outer's and is shorter, and outer's
+    rewrite contains inner's rewrite, and does not contain inner's text more
+    often than inner's rewrite does. The last clause is what keeps a cut, whose
+    rewrite every text contains, from folding into an outer rewrite that keeps
+    the words the cut removes.
+    """
+    a, b, new = outer[:3]
+    c, d, mine = inner[:3]
+    if not (a <= c and d <= b and (c, d) != (a, b)):
+        return False
+    was = text.s[c:d]
+    return mine in new and new.count(was) <= mine.count(was)
+
+
+def fold_held(text, accepted):
+    """Fold each of stage_findings' accepted edits that another one holds
+    into it, so the pair is one edit labeled with the outer's findings and
+    then the inner's. An edit inside one that is inside a third folds twice.
+    """
+    while True:
+        pair = next(
+            ((x, y) for x in accepted for y in accepted if x is not y and holds(text, x, y)),
+            None,
+        )
+        if pair is None:
+            return
+        outer, inner = pair
+        outer[4].extend(inner[4])
+        accepted.remove(inner)
 
 
 class ListRun:
@@ -5248,6 +5285,29 @@ def select_findings(config, findings, only=None, file=None):
         unmatched.append("--only and --file together match no finding")
     rejected.extend(unmatched)
     return by_file, rejected
+
+
+def add_partners(repo, config, findings, by_file):
+    """Add to each file's selection every finding that shares an edit with a
+    selected one, so apply writes that edit whichever side --only or --file
+    kept. Without its partner, the inner side of a pair that fold_held makes
+    one edit would write its own rewrite rather than the outer one the report
+    showed.
+    """
+    every, _ = select_findings(config, findings)
+    for rel, mine in by_file.items():
+        path = repo.abspath(rel) if rel else None
+        if not rel or not os.path.exists(path):
+            continue
+        text = Text.read(path)
+        whole = every.get(rel, [])
+        staged = stage_findings(
+            text, Blocks(text), rel, [f for _n, f in whole], [n for n, _f in whole]
+        )
+        chosen = set(n for n, _f in mine)
+        partners = set(m for n in chosen for m in staged.same.get(n, ()))
+        mine.extend(x for x in whole if x[0] in partners - chosen)
+        mine.sort(key=lambda x: x[0])
 
 
 def selected_files(repo, by_file, rejected):
@@ -5871,6 +5931,8 @@ def cmd_apply(args):
         stale = TOKEN_STALE % config.rel()
         return emit(args, "apply", repo.root, {"applied": []}, errors=[stale])
     by_file, rejected = select_findings(config, findings, args.only, args.file)
+    if args.only or args.file:
+        add_partners(repo, config, findings, by_file)
     staged, applied = [], []
     for path, rel, text, numbers, mine in selected_files(repo, by_file, rejected):
         new, done, refused = plan_findings(text, Blocks(text), rel, mine, numbers)
