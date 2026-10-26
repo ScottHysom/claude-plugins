@@ -151,11 +151,19 @@ class DescribeGuards:
             assert "Final paragraph." not in prose_repo.read()
 
     @pytest.mark.spec("report-cmd-refuses-stale-findings")
-    def it_refuses_a_missing_file(self, prose_repo):
+    @pytest.mark.parametrize(
+        "flags",
+        [
+            pytest.param((), id="unfiltered"),
+            pytest.param(("--only", "sentences-own-subject"), id="filtered"),
+        ],
+    )
+    def it_refuses_a_missing_file(self, prose_repo, flags):
         code, envelope = prose_repo.apply(
             [
                 prose_repo.finding(1, file="nowhere.md"),
-            ]
+            ],
+            *flags,
         )
         assert code == prose.PROBLEMS
         assert errors_of(envelope) == ["nowhere.md  no such file"]
