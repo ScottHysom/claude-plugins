@@ -533,6 +533,8 @@ python3 plugins/flywheel/scripts/flywheel.py claim --next # take the issue queue
 python3 plugins/flywheel/scripts/flywheel.py claim --next --plan 347  # the same, through #347's plan
 python3 plugins/flywheel/scripts/flywheel.py brief 12     # the first message of a session that works #12
 python3 plugins/flywheel/scripts/flywheel.py release 12   # give it up without a pull request
+python3 plugins/flywheel/scripts/flywheel.py release 12 --drop-work  # give it up, dropping issue/12's commits
+python3 plugins/flywheel/scripts/flywheel.py close 12 --reason "..."  # close it as not planned, freeing the claim
 python3 plugins/flywheel/scripts/flywheel.py stale        # labels, branches and issue states that disagree
 python3 plugins/flywheel/scripts/flywheel.py clear 12     # delete the local issue/12 once its pull request merges
 python3 plugins/flywheel/scripts/flywheel.py sweep        # delete every local branch whose work is on main
@@ -574,8 +576,16 @@ is given up, and `.github/workflows/issue-closed.yml`, when the issue closes,
 whether a merged pull request closed it or someone closed it by hand. When the
 label and the branch disagree, the branch is right, and `stale` lists the
 disagreement. That includes a closed issue that still has the label.
-flywheel.py's docstring covers the details, including why `release` will not delete
-a branch that has commits on it.
+flywheel.py's docstring covers the details.
+
+`release` will not delete a branch that has commits on it. To give up a claim
+that holds work the owner does not want, the owner says so in chat, and the
+agent runs `release N --drop-work`. The comment it leaves on the issue names
+the dropped tip's sha, so the work can still be recovered from it. When an
+issue turns out to need no change, the owner tells the agent to close it, and
+the agent runs `close N --reason TEXT`. `close` frees the claim as `release`
+does, taking `--drop-work` on the same terms, then closes the issue as not
+planned with the reason as its comment.
 
 A merge leaves the local `issue/N` behind, and `git branch -d` refuses it,
 because a squash or rebase merge puts the work on `main` under new hashes.

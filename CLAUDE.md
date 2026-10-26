@@ -421,6 +421,9 @@ defines each one.
 - The owner decides, and agents record. When the work needs a decision the
   issue does not make, propose it on the issue and wait for the owner. Source:
   the method's `humans-decide-agents-record`.
+- Drop a claim's commits, or close an issue as not planned, only after the
+  owner has said so in chat. Source: the method's
+  `humans-decide-agents-record`.
 - Open each component's spec with what it deliberately does not do. Source:
   the method's `list-out-of-scope-first`.
 - Take each need from a source outside the code, such as the owner, a brief

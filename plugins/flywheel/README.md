@@ -327,7 +327,9 @@ When a plan groups several issues under one plan issue, Claude offers
 them in the plan's order.
 
 When a session stops without finishing, ask Claude to release the claim.
-Claude deletes the branch only when it is empty of work. Once the issue's pull
+Claude deletes the branch only when it is empty of work, unless you tell it
+to drop the work too. When an issue turns out to need no change, tell Claude
+to close it, and Claude closes it as not planned and frees its claim. Once the issue's pull
 request merges, ask Claude to clear the claim, which removes the branch from
 your clone. The dispatcher clears the claims of the pull requests in its
 round itself.
