@@ -66,6 +66,12 @@ defines it, and only there.
 A term that needs no gloss still gets one where a passage tells two of its
 kind apart.
 
+A term the industry uses in its usual sense, such as "implementation layer",
+needs no gloss. When the reader needs to know whose it is, name the owner in
+the noun phrase rather than defining the term: "the plugin's implementation
+layer", not "the implementation layer (the tooling the plugin uses to do
+its work)".
+
 <!-- FILL: list the terms that need no gloss, and the terms in THIS project
      that always do. Both halves matter: without the first, every document
      over-explains; without the second, jargon slips through. Then add a

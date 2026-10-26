@@ -69,9 +69,9 @@ kind apart.
 
 A term the industry uses in its usual sense, such as "implementation layer",
 needs no gloss. When the reader needs to know whose it is, name the owner in
-the noun phrase rather than defining the term: "the playbook's implementation
-layer", not "the implementation layer (the tooling a project uses to carry
-out the playbook)".
+the noun phrase rather than defining the term: "the plugin's implementation
+layer", not "the implementation layer (the tooling the plugin uses to do
+its work)".
 
 These need no gloss:
 
