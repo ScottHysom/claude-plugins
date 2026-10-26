@@ -18,13 +18,13 @@ flowchart TD
   T1 -. decision needed .-> H
 ```
 
-Work flows down; questions flow up. No tier guesses at something above its remit (match-capability-to-task).
+Work flows down; questions flow up. A tier does not guess at something above its remit (match-capability-to-task).
 
 Tier 0 is not a model. It is the scripts a model runs. It is the cheapest and most reliable worker, so any deterministic work goes there: parsing, diffing, validating, writing results (scripts-do-deterministic-work). A model stands between two commands only to make a judgment or to reach a tool a script cannot. See the seams in [traceability.md](traceability.md). Scripts also start Maintain work: a script detects a breach or drift, and a model is called only to diagnose it (scripts-detect-models-diagnose).
 
 ## Two dials: model and effort (match-capability-to-task)
 
-Leg 2 exists for economy as much as quality: each task gets the capability it needs, and no more. Capability has two dials, and both cost money and time.
+Leg 2 of the playbook (agents matched to tasks by capability and cost) exists for economy as much as quality: each task gets the capability it needs, and no more. Capability has two dials, and both cost money and time.
 
 | Dial | Examples | Set by |
 | --- | --- | --- |
