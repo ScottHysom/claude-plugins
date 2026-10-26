@@ -1,5 +1,5 @@
 {
-  "version": "0.8.0",
+  "version": "0.16.1",
   "level": 2,
   "levels": {
     "1": {
@@ -28,7 +28,7 @@
         "ids": [
           "one-command-per-gate"
         ],
-        "held": false
+        "held": true
       },
       "tests-first": {
         "ids": [
@@ -43,19 +43,19 @@
           "checks-over-instructions",
           "no-merge-without-alignment"
         ],
-        "held": false
+        "held": true
       },
       "verify-gate": {
         "ids": [
           "one-command-per-gate"
         ],
-        "held": false
+        "held": true
       },
       "unweakened-checks": {
         "ids": [
           "agents-never-weaken-checks"
         ],
-        "held": false
+        "held": true
       },
       "approval-guard": {
         "ids": [
@@ -89,13 +89,13 @@
         "ids": [
           "match-capability-to-task"
         ],
-        "held": false
+        "held": true
       },
       "merge-policy": {
         "ids": [
           "autonomy-scales-with-risk"
         ],
-        "held": false
+        "held": true
       },
       "scheduled-audit": {
         "ids": [

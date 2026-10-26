@@ -2,21 +2,21 @@
   "roles": {
     "dispatcher": {
       "tier": 2,
-      "model": null,
-      "effort": null,
-      "version": "0.8.0"
+      "model": "opus",
+      "effort": "high",
+      "version": "0.16.1"
     },
     "implementer": {
       "tier": 3,
-      "model": null,
-      "effort": null,
-      "version": "0.8.0"
+      "model": "sonnet",
+      "effort": "medium",
+      "version": "0.16.1"
     },
     "reviewer": {
       "tier": 2,
-      "model": null,
-      "effort": null,
-      "version": "0.8.0"
+      "model": "opus",
+      "effort": "high",
+      "version": "0.16.1"
     }
   }
 }
