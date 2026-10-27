@@ -619,7 +619,9 @@ The plugin ships two GitHub Actions workflows. Copy each into your project's
   leaves spend out.
 - `templates/issue-closed.yml` takes the claim label (`claimed`, or
   the one `.flywheel/labels.json` names) off an issue when it closes, to keep
-  the label meaning that someone is working on the issue.
+  the label meaning that someone is working on the issue. When the issue was
+  the last open one in a plan, it also closes the plan issue, so an open plan
+  issue always means work remains.
 
 ### Levels
 

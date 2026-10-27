@@ -16,6 +16,13 @@ name: issue-closed
 # gives another under `roles`, as `{"roles": {"claim": "flywheel-claim"}}`, so
 # this reads the file from the closed issue's repository. The flywheel
 # plugin's README.md, under "Claiming an issue", describes the claim.
+#
+# When the closed issue is the last open sub-issue of an approved plan issue,
+# the second job closes the plan issue, as `flywheel.py plan close` does by
+# hand. It fetches the script from the repository that ships the plugin,
+# because a project's `.flywheel/` copy is ignored by git and so is not in the
+# checkout, and the script reads the plan and approval labels from
+# .flywheel/labels.json. Set `ref` on that checkout to hold it at one version.
 
 on:
   issues:
@@ -47,3 +54,30 @@ jobs:
             'map(ascii_downcase) | index($claim | ascii_downcase) != null' > /dev/null; then
             gh issue edit "$NUMBER" --repo "$GITHUB_REPOSITORY" --remove-label "$claim"
           fi
+
+  close-finished-plan:
+    # One pull request can close two issues of one plan, and each close
+    # starts a run. The group runs them one at a time, so the second finds
+    # the plan closed already. A run waiting in the group is canceled when a
+    # third one queues, and `flywheel.py queue --plan N` still names a plan
+    # that such a run left open. The claim label's job stays outside the
+    # group, so it is never canceled to make way.
+    runs-on: ubuntu-latest
+    concurrency:
+      group: ${{ github.workflow }}-close-finished-plan
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: .flywheel
+      - name: Fetch the flywheel plugin
+        uses: actions/checkout@v4
+        with:
+          repository: ScottHysom/claude-plugins
+          path: .flywheel-plugin
+      - name: Close the plan the issue finished
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ github.event.issue.number }}
+          FLYWHEEL: .flywheel-plugin/plugins/flywheel/scripts/flywheel.py
+        run: python3 "$FLYWHEEL" plan close --sub-issue "$NUMBER"

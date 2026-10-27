@@ -44,6 +44,7 @@ Usage:
     python3 flywheel.py plan report --drafts plan.json
     python3 flywheel.py plan file --drafts plan.json --token 3f9a1c0e7b2d4a68
     python3 flywheel.py plan close 347
+    python3 flywheel.py plan close --sub-issue 12
 
 Run from anywhere in a clone, with git and, for every command but setup,
 config init, fails-on-base, assess, record, review-policy, ids, pr draft and
@@ -157,7 +158,12 @@ Commands:
                  by" links, the plan issue and its sub-issues, then read
                  them back.
     plan close N close approved plan issue N, with a comment naming its
-                 sub-issues, once every one of them is closed.
+                 sub-issues, once every one of them is closed. With
+                 --sub-issue M instead of N, close the plan issue that holds
+                 #M, and exit 0 without closing anything when #M has no
+                 parent or its plan is not finished. The workflow in
+                 templates/issue-closed.yml runs it on every issue that
+                 closes, so a finished plan closes with its last issue.
 
 Every command takes --json and -C/--repo; claim, release, clear, sweep and
 plan file take --dry-run.
@@ -430,7 +436,9 @@ Things that look like bugs and are not:
   offers no issue after it.
 - `queue --plan N` exits 0 when every sub-issue is closed, and says the
   plan is finished. A finished plan is not a problem; `plan close N` closes
-  it. A plan issue without sub-issues is not finished, since an empty
+  it. The issue-closed workflow usually closes it first, so `queue --plan N`
+  names one only when the plan finished before the project installed the
+  workflow, or when the workflow's run failed. A plan issue without sub-issues is not finished, since an empty
   plan is a mistake for the owner to fix.
 - `queue --plan N` stops at an unapproved sub-issue instead of skipping
   to a later approved one, since skipping would work the plan out of its
@@ -767,6 +775,9 @@ SUB_ISSUES_PATH = "repos/{owner}/{repo}/issues/%d/sub_issues?per_page=100"
 # The command that closes a finished plan.
 PLAN_CLOSE = PROG + " plan close"
 SUB_ISSUES_ADD_PATH = "repos/{owner}/{repo}/issues/%d/sub_issues"
+# GitHub answers 404 for an issue without a parent.
+PARENT_PATH = "repos/{owner}/{repo}/issues/%d/parent"
+NOT_FOUND = "(HTTP 404)"
 ISSUE_PATH = "repos/{owner}/{repo}/issues/%d"
 BRIEF_QUERY = """\
 query($owner: String!, $name: String!, $number: Int!) {
@@ -5410,11 +5421,9 @@ def cmd_plan_file(args):
     return emit(args, "plan file", data, errors, warnings, human=human)
 
 
-def cmd_plan_close(args):
-    repo = project_root(args.repo)
-    n = args.number
-    item = issue(repo, n)
-    data = {"number": n, "sub_issues": [], "closed": False}
+def plan_close_problems(repo, item):
+    """Why issue `item` cannot be closed as a finished plan, and its sub-issues."""
+    n = item["number"]
     problems = []
     names = role_labels(repo)
     if not is_open(item):
@@ -5427,38 +5436,69 @@ def cmd_plan_close(args):
             % (n, names[APPROVAL])
         )
     if problems:
-        return emit(args, "plan close", data, problems)
+        return problems, []
 
     subs = sub_issues(repo, n)
-    data["sub_issues"] = [s["number"] for s in subs]
     still_open = [s for s in subs if is_open(s)]
     if not subs:
-        return emit(
-            args, "plan close", data, ["#%d has no sub-issues; ask the owner what it tracks" % n]
+        problems.append("#%d has no sub-issues; ask the owner what it tracks" % n)
+    elif still_open:
+        problems.append(
+            "#%d still has open sub-issues: %s. Run %s for the next one"
+            % (
+                n,
+                issue_list([s["number"] for s in still_open]),
+                "%s claim --next --plan %d" % (PROG, n),
+            )
         )
-    if still_open:
-        return emit(
-            args,
-            "plan close",
-            data,
-            [
-                "#%d still has open sub-issues: %s. Run %s for the next one"
-                % (
-                    n,
-                    issue_list([s["number"] for s in still_open]),
-                    "%s claim --next --plan %d" % (PROG, n),
-                )
-            ],
-        )
+    return problems, [s["number"] for s in subs]
 
+
+def parent_issue(repo, number):
+    """The number of issue `number`'s parent, or None when it has none."""
+    try:
+        return gh_json(repo, "api", PARENT_PATH % number)["number"]
+    except Fatal as exc:
+        if NOT_FOUND in str(exc):
+            return None
+        raise
+
+
+def close_plan(repo, data):
     comment = "Every sub-issue is closed: %s." % issue_list(data["sub_issues"])
-    gh(repo, "issue", "close", str(n), "--reason", "completed", "--comment", comment)
+    gh(repo, "issue", "close", str(data["number"]), "--reason", "completed", "--comment", comment)
     data["closed"] = True
+    return lambda: print("Closed #%d. %s" % (data["number"], comment))
 
-    def human():
-        print("Closed #%d. %s" % (n, comment))
 
-    return emit(args, "plan close", data, human=human)
+def cmd_plan_close(args):
+    repo = project_root(args.repo)
+    if args.sub_issue:
+        return plan_close_sub_issue(args, repo, args.sub_issue)
+    n = args.number
+    data = {"number": n, "sub_issues": [], "closed": False}
+    problems, data["sub_issues"] = plan_close_problems(repo, issue(repo, n))
+    if problems:
+        return emit(args, "plan close", data, problems)
+    return emit(args, "plan close", data, human=close_plan(repo, data))
+
+
+def plan_close_sub_issue(args, repo, m):
+    """Close the plan issue that holds #m once it is finished. A workflow runs
+    this on every issue that closes, so an issue outside a finished plan is
+    not a problem: it says why it closed nothing and exits 0."""
+    data = {"sub_issue": m, "number": None, "sub_issues": [], "closed": False, "skipped": None}
+    n = parent_issue(repo, m)
+    if n is None:
+        data["skipped"] = "#%d is not a sub-issue of any issue, so there is no plan to close" % m
+    else:
+        data["number"] = n
+        problems, data["sub_issues"] = plan_close_problems(repo, issue(repo, n))
+        if problems:
+            data["skipped"] = "Left #%d open: %s" % (n, "; ".join(problems))
+    if data["skipped"]:
+        return emit(args, "plan close", data, human=lambda: print(data["skipped"]))
+    return emit(args, "plan close", data, human=close_plan(repo, data))
 
 
 # --------------------------------------------------------------------------
@@ -5845,8 +5885,16 @@ def build_parser():
 
     p = plans.add_parser(
         "close",
-        parents=[common, numbered],
+        parents=[common],
         help="close an approved plan issue once every sub-issue is closed",
+    )
+    which = p.add_mutually_exclusive_group(required=True)
+    which.add_argument("number", type=int, nargs="?", help="the plan issue's number")
+    which.add_argument(
+        "--sub-issue",
+        type=int,
+        metavar="M",
+        help="close the plan issue that holds #M, if its plan is finished; exits 0 otherwise",
     )
     p.set_defaults(func=cmd_plan_close)
 
