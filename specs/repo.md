@@ -228,6 +228,19 @@ holds the requirements the flywheel plugin meets under this need.
   label from `.flywheel/labels.json`, and `claimed` when the file does not
   give one.
 
+## need owner-sees-finished-plans-closed: See a finished plan closed
+
+When the last issue of a plan closes, the owner wants the plan's tracking
+issue closed with it, so an open tracking issue always means work remains.
+
+Source: the owner's request on 2026-10-21, recorded in #732 and #733, with
+#729 as the example. specs/flywheel.md holds the requirements the flywheel
+plugin meets under this need.
+
+- `issueclosed-closes-finished-plan` (check): When an issue closes,
+  issue-closed.yml runs `flywheel.py plan close --sub-issue` on it, so the
+  plan issue that holds it closes once every one of its sub-issues is closed.
+
 ## need owner-prevents-stale-branches: Keep finished branches from piling up
 
 When a session's work has merged or was never started, the owner wants every
