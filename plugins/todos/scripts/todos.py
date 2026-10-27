@@ -69,6 +69,15 @@ around `last`, with `line` null, and the TODO carries the comment's address
 and lines. The token also covers the pull request's number and the review
 comments the drafts name.
 
+Prose from a review. scan gives the pull request's `prose`, true when its
+diff changes a file named prose-style.md (PROSE_RULES_FILE), at any path. A
+skill that learns prose rules writes them into the checkout it runs in, so
+for a pull request that is not about prose, `report` and `file` refuse a
+draft routing a TODO of kind prose to `skill`. Such a TODO goes to `issue`
+with `skill`, and a later session hands it on from a branch of its own. The
+script can tell only the kind word the TODO carries, so a TODO whose kind
+the model settled is held back by SKILL.md alone.
+
 Suggestions. A review comment can hold a suggestion block, a fence marked
 `suggestion` that holds the wording the author wants for the lines it
 covers. scan gives the first block's lines as the TODO's `suggestion`, with
@@ -93,6 +102,10 @@ goes. The route `issue` takes `title`, `body` and `labels`, for a new issue.
 The route `comment` takes `issue` and `body`, for a comment on an open issue
 that already covers the TODO. The route `skill` takes `skill`, the name the
 Skill tool takes, for an installed skill made for the work the TODO asks for.
+An `issue` draft may also take `skill`, for a TODO that a later session hands
+to that skill: `report` ends its body with the hand-off's arguments, as
+`file` would print them, the branch under --pr and the last commit, so the
+report shows the body the issue gets and the token covers it.
 `python3 todos.py report --help` shows an example.
 
 Hand-offs. A draft routed to `skill` does not reach GitHub, so `report` does
@@ -407,6 +420,13 @@ DRAFT_KEYS = {
     ROUTE_COMMENT: ("file", "line", "text", "route", "issue", "body"),
     ROUTE_SKILL: ("file", "line", "text", "route", "skill"),
 }
+# The keys a draft may also hold, by route. An issue's `skill` names the
+# skill a later session hands its TODO to.
+DRAFT_OPTIONAL_KEYS = {ROUTE_ISSUE: ("skill",)}
+# A pull request whose diff changes a file of this name is about prose, so a
+# prose TODO in its review may go to a skill in its checkout.
+PROSE_RULES_FILE = "prose-style.md"
+PROSE_KIND = "prose"
 # Only the owner adds it, so no draft may carry it, in any case.
 APPROVED_LABEL = "approved"
 DRAFTS_HELP = """\
@@ -415,7 +435,9 @@ file, line and text name the TODO as scan gave it: its path, its first line's
 number, and that line's text. route is "issue", which takes title, body and
 labels, "comment", which takes issue, the number of an open issue, and body, or
 "skill", which takes skill, the name of an installed skill as the Skill tool
-takes it. Every label must be one scan lists.
+takes it. An "issue" may also take skill, for a TODO a later session hands to
+that skill; report adds the hand-off to its body. Every label must be one
+scan lists.
 
 example:
   [{"file": "src/run.py", "line": 12, "text": "# TODO(bug): run() waits forever",
@@ -429,6 +451,13 @@ example:
 
 # The line that opens the Skill tool's arguments for a hand-off.
 HANDOFF_LEAD = "Each note below is a TODO the author left on a passage, given with that passage."
+# The section an issue routed to a skill ends its body with: the skill, then
+# the hand-off's arguments, read at a branch and commit.
+HANDOFF_ISSUE_HEADING = "## Hand-off to `%s`"
+HANDOFF_ISSUE_LEAD = (
+    "Invoke `%s` through the Skill tool, from a branch of its own, with the arguments below"
+    " as they stand. Their passages were read%s at commit `%s`."
+)
 # The shortest markdown code fence.
 MIN_FENCE = 3
 
@@ -675,9 +704,13 @@ class Review:
         self.number = pull["number"]
         self.url = pull["url"]
         self.branch = pull["headRefName"]
+        # About prose when its diff changes a prose rules file, at any path.
+        self.prose = any(
+            f["path"].rsplit("/", 1)[-1] == PROSE_RULES_FILE for f in pull.get("files") or []
+        )
 
     def info(self):
-        return {"number": self.number, "url": self.url, "branch": self.branch}
+        return {"number": self.number, "url": self.url, "branch": self.branch, "prose": self.prose}
 
     def scan(self, repo):
         return ReviewScan(repo, self)
@@ -796,8 +829,16 @@ class GitHub:
         )
 
     def pull(self, number):
-        """{number, url, headRefName} of a pull request."""
-        args = ("pr", "view", str(number), "--repo", self.name, "--json", "number,url,headRefName")
+        """{number, url, headRefName, files} of a pull request."""
+        args = (
+            "pr",
+            "view",
+            str(number),
+            "--repo",
+            self.name,
+            "--json",
+            "number,url,headRefName,files",
+        )
         try:
             return gh_json(self.root, *args)
         except GhFailed as exc:
@@ -1663,7 +1704,16 @@ def cmd_scan(args):
         print()
         short = commit["hash"][:ABBREV]
         if review is not None:
-            print("TODOs in the review of #%d, placed in %s.\n" % (review.number, repo.root))
+            print("TODOs in the review of #%d, placed in %s." % (review.number, repo.root))
+            if review.prose:
+                print(
+                    "#%d changes a %s, so it is about prose.\n" % (review.number, PROSE_RULES_FILE)
+                )
+            else:
+                print(
+                    "#%d does not change a %s, so a prose TODO in its review goes to an issue.\n"
+                    % (review.number, PROSE_RULES_FILE)
+                )
         if not todos:
             if review is not None:
                 print("No review comment on #%d opens with a TODO." % review.number)
@@ -1800,8 +1850,13 @@ def draft_problems(draft, github, label_names):
             % (json.dumps(route), ROUTE_ISSUE, ROUTE_COMMENT, ROUTE_SKILL)
         ]
     keys = DRAFT_KEYS[route]
+    optional = DRAFT_OPTIONAL_KEYS.get(route, ())
     out = ["lacks `%s`" % k for k in keys if k not in draft]
-    out += ["has `%s`, which a draft does not take" % k for k in sorted(draft) if k not in keys]
+    out += [
+        "has `%s`, which a draft does not take" % k
+        for k in sorted(draft)
+        if k not in keys and k not in optional
+    ]
     if out:
         return out
     if not is_number(draft["line"]):
@@ -1809,9 +1864,9 @@ def draft_problems(draft, github, label_names):
     for key in ("file", "text", "body"):
         if key in keys and not is_text(draft[key]):
             out.append("has a `%s` that is not a string" % key)
+    if "skill" in draft and (not is_text(draft["skill"]) or not draft["skill"].strip()):
+        out.append("has a `skill` that is not a string with words in it")
     if route == ROUTE_SKILL:
-        if not is_text(draft["skill"]) or not draft["skill"].strip():
-            out.append("has a `skill` that is not a string with words in it")
         return out
     if route == ROUTE_COMMENT:
         if not is_number(draft["issue"]):
@@ -1855,9 +1910,14 @@ def target_problems(draft, targets, github):
     return []
 
 
-def check_drafts(drafts, found, github, labels):
+def check_drafts(drafts, found, github, labels, repo):
     """(rows, refused): a row for each draft that names a pending TODO and
-    passes every check, and a reason for each that does not."""
+    passes every check, and a reason for each that does not.
+
+    Under --pr for a pull request that is not about prose, a TODO of kind
+    prose cannot go to a skill, which would write into the pull request's
+    checkout. An issue draft that names a skill ends its body with the
+    hand-off's arguments, so the report shows the body the issue gets."""
     # Two review comments can sit on one line, so the text tells them apart.
     todos = dict(((t["file"], t["first"], t["text"]), t) for t in found.todos)
     label_names = set(label["name"] for label in labels)
@@ -1892,6 +1952,20 @@ def check_drafts(drafts, found, github, labels):
                 % (n, todo["comment"]["url"])
             )
             continue
+        review = getattr(found, "pull", None)
+        if (
+            draft["route"] == ROUTE_SKILL
+            and todo["kind"] == PROSE_KIND
+            and review is not None
+            and not review.prose
+        ):
+            refused.append(
+                "draft %d: #%d does not change a %s, so the prose TODO from its review would"
+                " put a rule into a pull request that is not about prose. Route it to `%s`,"
+                " with `skill`, so a later session hands it on from a branch of its own"
+                % (n, review.number, PROSE_RULES_FILE, ROUTE_ISSUE)
+            )
+            continue
         claims.setdefault(place, []).append(n)
         row = {
             "draft": n,
@@ -1913,6 +1987,9 @@ def check_drafts(drafts, found, github, labels):
             row["above"] = todo["above"]["line"] if todo["above"] else None
         else:
             row.update(title=draft["title"], body=draft["body"], labels=draft["labels"])
+            if "skill" in draft:
+                row["skill"] = draft["skill"]
+                row["body"] = handoff_issue_body(row, todo, found, repo)
         rows.append(row)
     for place, numbers in sorted(claims.items()):
         if len(numbers) > 1:
@@ -2068,7 +2145,7 @@ def cmd_report(args):
     github = GitHub(repo)
     labels = github.labels()
     found = gather(repo, review)
-    rows, refused = check_drafts(drafts, found, github, labels)
+    rows, refused = check_drafts(drafts, found, github, labels, repo)
     drafted = set((r["file"], r["first"]) for r in rows)
     left = [t for t in found.todos if (t["file"], t["first"]) not in drafted]
     # No token for a report that failed: the author cannot approve a batch
@@ -2288,7 +2365,7 @@ def cmd_file(args):
             return emit(args, "file", data, errors=[TOKEN_MISSING])
         if args.token != approval_token(repo, github, drafts, found):
             return emit(args, "file", data, errors=[TOKEN_STALE])
-    rows, refused = check_drafts(drafts, found, github, github.labels())
+    rows, refused = check_drafts(drafts, found, github, github.labels(), repo)
     if refused:
         refused.append("nothing was filed, posted or written")
         return emit(args, "file", data, errors=refused)
@@ -2529,25 +2606,7 @@ def handoffs(finished, found, checkout):
     for row in sorted(finished, key=lambda r: (r["file"], r["first"])):
         if row["route"] != ROUTE_SKILL:
             continue
-        passage = None
-        lines = found.files[row["file"]].found
-        if "comment" in row:
-            passage = dict(lines.passage(row["first"], row["last"]), file=row["file"])
-            passage.update(line=None, trailing=False)
-        elif row["above"] is not None:
-            passage = dict(lines.passage(row["above"]), file=row["file"])
-            passage.update(line=row["above"], trailing=row["above"] == row["first"])
-        todo = {"draft": row["draft"], "title": row["title"], "detail": row["detail"]}
-        todo["passage"] = passage
-        if "comment" in row:
-            comment = row["comment"]
-            todo["comment"] = {
-                "id": comment["id"],
-                "url": comment["url"],
-                "first": row["first"],
-                "last": row["last"],
-            }
-        out.setdefault(row["skill"], []).append((row["file"], todo))
+        out.setdefault(row["skill"], []).append((row["file"], handoff_note(row, found)))
     return [
         {
             "skill": skill,
@@ -2557,6 +2616,55 @@ def handoffs(finished, found, checkout):
         }
         for skill, items in sorted(out.items())
     ]
+
+
+def handoff_note(row, found):
+    """One TODO of a hand-off: its title and detail, the passage it sat
+    above, and for a TODO from a review comment, the comment's address and
+    lines. row gives `above` as the line number, or None."""
+    passage = None
+    lines = found.files[row["file"]].found
+    if "comment" in row:
+        passage = dict(lines.passage(row["first"], row["last"]), file=row["file"])
+        passage.update(line=None, trailing=False)
+    elif row["above"] is not None:
+        passage = dict(lines.passage(row["above"]), file=row["file"])
+        passage.update(line=row["above"], trailing=row["above"] == row["first"])
+    todo = {"draft": row["draft"], "title": row["title"], "detail": row["detail"]}
+    todo["passage"] = passage
+    if "comment" in row:
+        comment = row["comment"]
+        todo["comment"] = {
+            "id": comment["id"],
+            "url": comment["url"],
+            "first": row["first"],
+            "last": row["last"],
+        }
+    return todo
+
+
+def handoff_issue_body(row, todo, found, repo):
+    """The body of an issue that carries a hand-off for a later session: the
+    model's body, then a section naming the skill and holding the hand-off's
+    arguments, fenced so they reach the skill as they stand. It names the
+    branch the passage was read on, under --pr, and the commit."""
+    note = dict(row, title=todo["title"], detail=todo["detail"])
+    note["above"] = todo["above"]["line"] if todo["above"] else None
+    arguments = handoff_arguments(None, [(row["file"], handoff_note(note, found))])
+    review = getattr(found, "pull", None)
+    on = " on branch `%s`," % review.branch if review is not None else ""
+    fence = code_fence(arguments)
+    section = [
+        HANDOFF_ISSUE_HEADING % row["skill"],
+        "",
+        HANDOFF_ISSUE_LEAD % (row["skill"], on, repo.head),
+        "",
+        fence + "markdown",
+        arguments.rstrip("\n"),
+        fence,
+    ]
+    head = [row["body"].rstrip(), ""] if row["body"].strip() else []
+    return "\n".join(head + section) + "\n"
 
 
 def code_fence(text):

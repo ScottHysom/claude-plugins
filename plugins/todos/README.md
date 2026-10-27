@@ -96,6 +96,14 @@ you left the comment, Claude leaves them as they are, warns, and passes your
 wording on in the note. When the TODO becomes an issue, the issue keeps the
 suggestion, and your files stay as they are.
 
+A skill that learns prose rules writes each rule into the folder it runs in.
+So a `TODO(prose):` from a review goes to that skill only when the pull
+request is about prose, which it is when it changes a file named
+`prose-style.md`. From any other pull request, the TODO becomes an issue
+instead, and the rule stays out of that pull request. The issue holds
+everything the skill needs, so a later session can hand the note on from a
+branch of its own.
+
 In place of a mark in a file, Claude replies in each comment's thread,
 naming the issue, comment or skill the TODO went to, as in
 `TODO-HANDLED(#12): Filed as #12.` The reply opens the way your project's

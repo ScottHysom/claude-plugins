@@ -380,10 +380,16 @@ class FakeGitHub:
         gives = {"addPullRequestReviewThreadReply": {"comment": {"url": made["html_url"]}}}
         return json.dumps({"data": gives if self.reply_gives is None else self.reply_gives})
 
-    def add_pull(self, number, branch, comments=()):
-        """A pull request from branch, holding review comments."""
+    def add_pull(self, number, branch, comments=(), files=()):
+        """A pull request from branch, holding review comments, whose diff
+        changes files."""
         url = "https://github.com/%s/pull/%d" % (self.repository, number)
-        self.pulls[number] = {"number": number, "url": url, "headRefName": branch}
+        self.pulls[number] = {
+            "number": number,
+            "url": url,
+            "headRefName": branch,
+            "files": [{"path": path, "additions": 1, "deletions": 0} for path in files],
+        }
         self.reviews[number] = list(comments)
         return self.pulls[number]
 

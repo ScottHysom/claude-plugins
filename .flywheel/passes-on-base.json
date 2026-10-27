@@ -25,6 +25,8 @@
     "tests/prose-tuning/test_apply.py::DescribeHeldRewrites::it_still_refuses_a_pair_whose_rewrites_disagree[outer-keeps-the-inner-text]": "pins that report and apply still refuse a nested pair whose outer rewrite does not hold the inner change, which #777 keeps",
     "tests/prose-tuning/test_apply.py::DescribeHeldRewrites::it_still_refuses_a_pair_whose_rewrites_disagree[outer-keeps-what-the-inner-cuts]": "pins that report and apply still refuse a nested pair whose outer rewrite does not hold the inner change, which #777 keeps",
     "tests/prose-tuning/test_apply.py::DescribeHeldRewrites::it_still_refuses_a_pair_whose_rewrites_disagree[outer-lacks-the-inner-rewrite]": "pins that report and apply still refuse a nested pair whose outer rewrite does not hold the inner change, which #777 keeps",
-    "tests/prose-tuning/test_apply.py::DescribeHeldRewrites::it_still_refuses_a_pair_whose_rewrites_disagree[same-text]": "pins that report and apply still refuse a nested pair whose outer rewrite does not hold the inner change, which #777 keeps"
+    "tests/prose-tuning/test_apply.py::DescribeHeldRewrites::it_still_refuses_a_pair_whose_rewrites_disagree[same-text]": "pins that report and apply still refuse a nested pair whose outer rewrite does not hold the inner change, which #777 keeps",
+    "tests/todos/test_todos_review.py::DescribeProseFromOtherPullRequest::it_hands_off_a_todo_of_another_kind": "pins that a review TODO of a kind other than prose still goes to a skill under --pr, which #705 keeps",
+    "tests/todos/test_todos_review.py::DescribeProseFromOtherPullRequest::it_hands_off_a_prose_todo_from_a_pull_request_about_prose": "pins that a prose TODO from a pull request about prose still goes to a skill, which #705 keeps"
   }
 }
