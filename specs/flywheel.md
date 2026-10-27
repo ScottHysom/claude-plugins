@@ -317,6 +317,22 @@ Source: the owner's request on 2026-10-05, recorded in #350.
   - #N lacks sub-issues.
   - #N is closed, or lacks either label.
 
+## need owner-sees-finished-plans-closed: See a finished plan closed
+
+When the last issue of a plan closes, the owner wants the plan's tracking
+issue closed with it, so an open tracking issue always means work remains.
+
+Source: the owner's request on 2026-10-21, recorded in #732, with #729 as
+the example.
+
+- `planclose-cmd-closes-parent-plan` (test): When `flywheel.py plan close
+  --sub-issue M` runs, it finds the issue that holds #M as a sub-issue, and
+  closes it under the checks `plan close N` makes, with the same comment. It
+  exits 0 without writing to GitHub when any of these holds:
+  - #M is not a sub-issue of any issue.
+  - the parent is closed, or lacks the plan label or the approval label.
+  - a sub-issue of the parent is open.
+
 ## need owner-approves-plan-once: Approve a plan's issues once
 
 When a plan yields several issues, the owner wants to approve the whole plan

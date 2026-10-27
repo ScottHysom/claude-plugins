@@ -84,7 +84,12 @@ an issue that names it.
 
 `templates/issue-closed.yml` takes the claim label off an issue that closes,
 since a claim usually ends with a merge, where no command of the script
-runs. A project copies it into `.github/workflows/`. This repository's copy
+runs. For the same reason, a second job runs `plan close --sub-issue` with the
+closed issue's number, which closes the issue's plan issue once every
+sub-issue is closed. That job fetches the script as the loop report does, and
+runs in a concurrency group, so two issues that one merge closes lead to one
+close of their plan. The claim label's job stays outside the group, since
+GitHub cancels a run waiting in a group when another one queues. A project copies it into `.github/workflows/`. This repository's copy
 adds the `# spec:` line that ties its step to `specs/repo.md`.
 
 ## The loop report

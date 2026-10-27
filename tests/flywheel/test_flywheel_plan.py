@@ -64,6 +64,8 @@ class Hub:
                 "url": "https://github.com/o/r/issues/%d" % number,
             }
         self.blocked, self.subs, self.calls = {}, {}, []
+        # {sub-issue: parent}, as GitHub's "get parent issue" endpoint answers.
+        self.parents = {}
         self.next = FIRST
         self.creates = 0
         self.fail_create = fail_create
@@ -109,6 +111,13 @@ class Hub:
                 self.subs.setdefault(int(path.split("/")[-2]), []).append(number)
             return "{}"
         path = args[1]
+        if path.endswith("/parent"):
+            number = int(path.split("/")[-2])
+            if number not in self.parents:
+                raise flywheel.Fatal(
+                    "`gh api %s` failed: gh: No parent issue found (HTTP 404)" % path
+                )
+            return json.dumps({"number": self.parents[number]})
         if "/sub_issues" in path:
             listed = self.subs.get(int(path.split("/")[-2]), [])
             # The REST API spells state in lower case, unlike gh issue view.
@@ -986,6 +995,107 @@ class DescribePlanClose:
         assert code == flywheel.PROBLEMS
         assert "#20 has no sub-issues" in out.err
         assert gh.writes() == []
+
+
+def sub_of(gh, parent):
+    for n in gh.subs[parent]:
+        gh.parents[n] = parent
+
+
+class DescribePlanCloseSubIssue:
+    @pytest.mark.spec("planclose-cmd-closes-parent-plan")
+    def it_closes_the_plan_of_a_closed_issue_once_its_sub_issues_are_closed(
+        self, capsys, repo, hub
+    ):
+        gh = hub()
+        plan_issue(gh, 20, "approved", "plan", subs=[(11, "CLOSED"), (12, "CLOSED")])
+        sub_of(gh, 20)
+        code, out = run(capsys, repo, "plan", "close", "--sub-issue", "12")
+        assert code == flywheel.OK
+        assert (out.out, out.err) == ("Closed #20. Every sub-issue is closed: #11, #12.\n", "")
+        assert gh.writes() == [
+            (
+                "issue",
+                "close",
+                "20",
+                "--reason",
+                "completed",
+                "--comment",
+                "Every sub-issue is closed: #11, #12.",
+            )
+        ]
+
+    @pytest.mark.spec("planclose-cmd-closes-parent-plan")
+    def it_leaves_an_issue_without_a_parent(self, capsys, repo, hub):
+        gh = hub(outside=[(12, "CLOSED")])
+        code, data = run_json(capsys, repo, "plan", "close", "--sub-issue", "12")
+        assert code == flywheel.OK
+        assert data["errors"] == []
+        assert data["data"]["closed"] is False
+        assert data["data"]["number"] is None
+        assert "#12 is not a sub-issue" in data["data"]["skipped"]
+        assert gh.writes() == []
+
+    @pytest.mark.spec("planclose-cmd-closes-parent-plan")
+    def it_leaves_a_plan_while_any_sub_issue_is_open(self, capsys, repo, hub):
+        gh = hub()
+        plan_issue(gh, 20, "approved", "plan", subs=[(11, "CLOSED"), (12, "OPEN")])
+        sub_of(gh, 20)
+        code, out = run(capsys, repo, "plan", "close", "--sub-issue", "11")
+        assert code == flywheel.OK
+        assert "#20 still has open sub-issues: #12" in out.out
+        assert out.err == ""
+        assert gh.writes() == []
+
+    @pytest.mark.spec("planclose-cmd-closes-parent-plan")
+    @pytest.mark.parametrize(
+        ("labels", "state", "says"),
+        [
+            (("plan",), "OPEN", "not labeled approved"),
+            (("approved",), "OPEN", "not labeled plan"),
+            (("approved", "plan"), "CLOSED", "is closed already"),
+        ],
+    )
+    def it_leaves_a_parent_that_is_not_an_open_approved_plan(
+        self, capsys, repo, hub, labels, state, says
+    ):
+        gh = hub()
+        plan_issue(gh, 20, *labels, state=state, subs=[(11, "CLOSED")])
+        sub_of(gh, 20)
+        code, data = run_json(capsys, repo, "plan", "close", "--sub-issue", "11")
+        assert code == flywheel.OK
+        assert says in data["data"]["skipped"]
+        assert data["data"]["number"] == 20
+        assert gh.writes() == []
+
+    @pytest.mark.spec("planclose-cmd-closes-parent-plan")
+    def it_stops_on_any_other_failure_to_read_the_parent(self, capsys, repo, hub, monkeypatch):
+        gh = hub()
+
+        def broken(repo_, *args, stdin=None):
+            if args and args[0] == "api" and args[1].endswith("/parent"):
+                raise flywheel.Fatal("`gh api` failed: HTTP 502")
+            return gh(repo_, *args, stdin=stdin)
+
+        monkeypatch.setattr(flywheel, "gh", broken)
+        code, out = run(capsys, repo, "plan", "close", "--sub-issue", "11")
+        assert code == flywheel.CANNOT_RUN
+        assert "HTTP 502" in out.err
+
+    @pytest.mark.spec("planclose-cmd-closes-parent-plan")
+    @pytest.mark.parametrize(
+        ("argv", "says"),
+        [
+            ((), "one of the arguments number --sub-issue is required"),
+            (("20", "--sub-issue", "11"), "not allowed with argument"),
+        ],
+    )
+    def it_takes_a_plan_issue_or_a_sub_issue_and_not_both(self, capsys, repo, hub, argv, says):
+        hub()
+        with pytest.raises(SystemExit) as exc:
+            flywheel.main(["plan", "close", *argv, "-C", str(repo)])
+        assert exc.value.code == flywheel.CANNOT_RUN
+        assert says in capsys.readouterr().err
 
 
 def one_issue_plan(tmp_path, *issues):
