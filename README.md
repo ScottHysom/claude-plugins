@@ -486,10 +486,12 @@ and for update-prose-config. A plan issue:
   needs its own `approved` before an agent works it.
 - is never claimed or closed by a pull request.
 
-An agent closes it once its last sub-issue closes. When every sub-issue of
-#N is closed, `flywheel.py queue --plan N` says the plan is finished, and the agent
-runs `python3 plugins/flywheel/scripts/flywheel.py plan close N`. `plan close` refuses
-while any sub-issue of #N is open.
+`.github/workflows/issue-closed.yml` closes a plan issue when its last
+sub-issue closes. The workflow can miss a plan, as when a run fails or the
+plan finished before the workflow had the job. For such a plan,
+`flywheel.py queue --plan N` says the plan is finished, and the agent runs
+`python3 plugins/flywheel/scripts/flywheel.py plan close N`. `plan close`
+refuses while any sub-issue of #N is open.
 
 An agent files an issue, or a plan that splits into several issues, through
 the flywheel plugin's file-issue skill, which runs two commands of

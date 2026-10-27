@@ -1,7 +1,7 @@
 name: issue-closed
 
 # Copied from the flywheel plugin's template,
-# plugins/flywheel/templates/issue-closed.yml, with the spec line below
+# plugins/flywheel/templates/issue-closed.yml, with the spec lines below
 # added. Change the template, then copy it here again.
 #
 # `flywheel.py claim` adds the claim label to an issue, and `release` takes
@@ -75,6 +75,7 @@ jobs:
         with:
           repository: ScottHysom/claude-plugins
           path: .flywheel-plugin
+      # spec: issueclosed-closes-finished-plan
       - name: Close the plan the issue finished
         env:
           GH_TOKEN: ${{ github.token }}
