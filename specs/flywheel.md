@@ -657,6 +657,12 @@ Source: #650, and the playbook's `autonomy-scales-with-risk` and
 - `workissue-answers-each-thread` (step): When a review comment arrives on
   its pull request, work-issue answers each unresolved thread with a reply
   opening with `**Claude:**`, and leaves resolving it to the reviewer.
+- `workissue-hands-review-todos` (step): When an unresolved thread on its
+  pull request holds a review comment that opens with `TODO`, and the
+  session has a skill whose description says it processes the TODOs in a
+  pull request's review comments, work-issue hands that skill the pull
+  request's number through the Skill tool before it answers any thread. When
+  the session has no such skill, it answers that comment as any other thread.
 
 ## need owner-gets-review-from-policy: Review every pull request from a written policy
 
