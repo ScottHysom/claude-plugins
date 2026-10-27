@@ -170,10 +170,21 @@ Then report the pull request's url to the owner. When the session has no
 owner turns the watch on by hand.
 
 ## Step 7: answer each review thread
-<!-- spec: workissue-answers-each-thread -->
-<!-- no-command: the implementer's judgment of each finding, posted as replies on GitHub -->
+<!-- spec: workissue-answers-each-thread, workissue-hands-review-todos -->
+<!-- no-command: the implementer's judgment of each finding, posted as replies on GitHub, and a hand-off with the Skill tool -->
 
-When the app wakes this session on a review comment, answer every
+When the app wakes this session on a review comment, read the unresolved
+threads on the pull request first. A **review TODO** is a review comment
+whose text opens with `TODO`, such as `TODO(prose): say what it counts`.
+When any thread holds one, and the session's skills include one whose
+description says it processes the TODOs in a pull request's review
+comments, call that skill with the Skill tool before answering anything
+else. Pass it the pull request's number, and say the TODOs are in its
+review comments. That skill marks each review TODO it takes with a reply in
+its thread. A review TODO that the skill leaves without a reply, or any
+review TODO when the session has no such skill, is a thread like the rest.
+
+Then answer every
 unresolved thread on the pull request with a reply under it. Open each reply
 with `**Claude:**`, and say what changed and the commit that changed it, or
 why the change is not made. Push the fixes before replying.
