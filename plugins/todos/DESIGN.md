@@ -280,6 +280,29 @@ any run of backticks in its text, so a fence in the passage cannot close it.
 The receiving skill may end the session's work when it stops, so do-todos
 gives its report first and invokes the skills as its last act.
 
+## Prose TODOs from a review
+
+A skill that learns prose rules writes them into the checkout it runs in,
+which under `--pr` is the pull request's branch. The owner asked in #705 for
+a rule to land in the pull request under review only when that pull request
+is about prose. #702 rewrote a README and drew three `TODO(prose)` review
+comments, and handing them on from its branch would have changed the house
+style in the same diff.
+
+A pull request is about prose when its diff changes a file named
+`prose-style.md`, at any path. The owner approved that test on #705. #702's
+issue carried the `docs` label, so a test on that label would have counted
+#702 as about prose. The file name is a convention the two plugins share,
+and neither `SKILL.md` names the other plugin.
+
+From any other pull request, the TODO goes to `issue` with `skill`. `report`
+builds the hand-off section of the body from the same parts as `file`'s
+hand-off, so the model does not retype the passage, and the token covers
+the body as shown. The section names the branch and the commit, since the
+lines it gives are those of that commit. `report` and `file` refuse such a
+TODO routed to `skill` only when it carries the kind word `prose`, since
+the script cannot see the kind the model settled in step 2.
+
 ## Commits left to the project
 
 How a project commits is settled wherever that project settles it, such as

@@ -50,11 +50,16 @@ def comments():
     return Comments()
 
 
+# A file whose change makes a pull request about prose, so that a prose TODO
+# in its review may go to a skill.
+PROSE_RULES = ".claude/rules/prose-style.md"
+
+
 @pytest.fixture
 def review(repo, github, comments):
-    """The repo's branch as the head of PR, whose review comments are
-    `comments`. Returns the pull request."""
-    pull = github.add_pull(PR, branch_of(repo))
+    """The repo's branch as the head of PR, a pull request about prose,
+    whose review comments are `comments`. Returns the pull request."""
+    pull = github.add_pull(PR, branch_of(repo), files=("README.md", PROSE_RULES))
     github.reviews[PR] = comments.made
     return pull
 
@@ -96,6 +101,7 @@ class DescribeReviewTodos:
             "number": PR,
             "url": review["url"],
             "branch": review["headRefName"],
+            "prose": True,
         }
 
     def it_reads_threads_past_the_first_page(self, repo, review, comments, monkeypatch):
@@ -437,7 +443,7 @@ class DescribeReviewHandoffs:
         worktree.write("doc.md", DOC)
         worktree.commit()
         comments.add("doc.md", 3, worktree.head(), "TODO(prose): wordy")
-        github.add_pull(PR, branch_of(worktree), comments.made)
+        github.add_pull(PR, branch_of(worktree), comments.made, files=(PROSE_RULES,))
         [todo] = scan_pr(repo)["data"]["todos"]
         drafts = repo.drafts([repo.skill(todo)])
         code, env = repo.run("file", "--pr", str(PR), "--drafts", drafts)
@@ -906,3 +912,138 @@ class DescribeSuggestionsInDrafts:
         assert repo.read("doc.md") == DOC.encode()
         assert env["data"]["suggested"] == []
         assert "```suggestion\nOne.\n```" in github.issues[0]["body"]
+
+
+@pytest.fixture
+def other_review(repo, github, comments):
+    """The repo's branch as the head of PR, a pull request whose diff does
+    not change any prose-style.md. Returns the pull request."""
+    files = ("README.md", "docs/prose-style.md.orig", "prose-style.txt")
+    pull = github.add_pull(PR, branch_of(repo), files=files)
+    github.reviews[PR] = comments.made
+    return pull
+
+
+@pytest.mark.spec("scan-cmd-tells-prose-pr")
+class DescribeProsePullRequest:
+    def it_says_a_pull_request_that_changes_a_prose_style_file_is_about_prose(
+        self, repo, github, comments
+    ):
+        github.add_pull(PR, branch_of(repo), comments.made, files=("a/b/prose-style.md",))
+        assert scan_pr(repo)["data"]["pull_request"]["prose"] is True
+
+    def it_says_a_pull_request_that_changes_no_prose_style_file_is_not(self, repo, other_review):
+        assert scan_pr(repo)["data"]["pull_request"]["prose"] is False
+
+    def it_says_so_in_human_output(self, repo, other_review):
+        code, out, _ = repo.human("scan", "--pr", str(PR))
+        assert code == todos.OK
+        assert "#%d does not change a prose-style.md" % PR in out
+
+
+def review_doc(repo, comments, body="TODO(prose): wordy"):
+    """Commit DOC and leave one review comment on its line 3. Returns the
+    TODO scan gives for it."""
+    repo.write("doc.md", DOC)
+    repo.commit()
+    comments.add("doc.md", 3, repo.head(), body)
+    [todo] = scan_pr(repo)["data"]["todos"]
+    return todo
+
+
+@pytest.mark.spec("report-cmd-holds-prose-from-pr")
+class DescribeProseFromOtherPullRequest:
+    def it_refuses_a_prose_todo_routed_to_a_skill(self, repo, other_review, comments):
+        todo = review_doc(repo, comments)
+        drafts = repo.drafts([repo.skill(todo)])
+        code, env = repo.run("report", "--pr", str(PR), "--drafts", drafts)
+        assert code == todos.PROBLEMS
+        [error] = env["errors"]
+        assert error.startswith("draft 1:")
+        assert "does not change a prose-style.md" in error
+        assert "Route it to `issue`, with `skill`" in error
+
+    def it_refuses_it_in_file_and_hands_off_nothing(self, repo, other_review, comments, github):
+        todo = review_doc(repo, comments)
+        drafts = repo.drafts([repo.skill(todo)])
+        code, env = repo.run("file", "--pr", str(PR), "--drafts", drafts)
+        assert code == todos.PROBLEMS
+        assert env["data"]["handoffs"] == []
+        assert github.replies == []
+
+    def it_hands_off_a_todo_of_another_kind(self, repo, other_review, comments):
+        todo = review_doc(repo, comments, "TODO(change): split the step")
+        drafts = repo.drafts([repo.skill(todo)])
+        code, env = repo.run("file", "--pr", str(PR), "--drafts", drafts)
+        assert code == todos.OK, repo.err
+        assert [h["skill"] for h in env["data"]["handoffs"]] == ["example:learn-prose-rules"]
+
+    def it_hands_off_a_prose_todo_from_a_pull_request_about_prose(self, repo, review, comments):
+        todo = review_doc(repo, comments)
+        drafts = repo.drafts([repo.skill(todo)])
+        code, env = repo.run("file", "--pr", str(PR), "--drafts", drafts)
+        assert code == todos.OK, repo.err
+        assert len(env["data"]["handoffs"]) == 1
+
+
+SKILL = "example:learn-prose-rules"
+
+
+@pytest.mark.spec("file-cmd-files-handoff-issue")
+class DescribeHandoffIssues:
+    def it_adds_the_handoff_to_the_body_the_report_shows(self, repo, other_review, comments):
+        todo = review_doc(repo, comments, "TODO(prose): wordy\nSay it once.")
+        drafts = repo.drafts(
+            [repo.draft(todo, body="For a skill that learns prose rules.", skill=SKILL)]
+        )
+        code, env = repo.run("report", "--pr", str(PR), "--drafts", drafts)
+        assert code == todos.OK, repo.err
+        [row] = env["data"]["drafts"]
+        body = row["body"]
+        assert body.startswith("For a skill that learns prose rules.\n\n")
+        assert "Hand-off to `%s`" % SKILL in body
+        assert "branch `%s`" % branch_of(repo) in body
+        assert "commit `%s`" % repo.head() in body
+        assert todos.HANDOFF_LEAD in body
+        assert "## Note: wordy" in body
+        assert "> Say it once." in body
+        assert "- **File:** `doc.md`" in body
+        assert "- **Lines:** 3-3" in body
+        assert "- **Lines changed since the last commit:** none" in body
+        assert comments.made[0]["html_url"] in body
+        assert "First paragraph." in body
+        report = Path(env["data"]["report"]).read_text()
+        assert "Hand-off to `%s`" % SKILL in report
+
+    def it_files_the_body_the_report_showed_and_names_the_issue_in_the_reply(
+        self, repo, other_review, comments, github
+    ):
+        todo = review_doc(repo, comments)
+        drafts = repo.drafts([repo.draft(todo, body="Later.", skill=SKILL)])
+        code, env = repo.run("report", "--pr", str(PR), "--drafts", drafts)
+        assert code == todos.OK, repo.err
+        shown = env["data"]["drafts"][0]["body"]
+        code, env = file_pr(repo, drafts, "--reply-lead", "**Claude:**")
+        assert code == todos.OK, repo.err
+        assert github.issues[0]["body"] == shown
+        assert env["data"]["handoffs"] == []
+        [reply] = thread(github, comments.made[0])
+        assert reply.startswith("**Claude:** TODO-HANDLED(#1):")
+
+    def it_leaves_a_suggestion_in_the_body_and_unwritten(
+        self, repo, other_review, comments, github
+    ):
+        todo = review_doc(repo, comments, suggesting("wordy", "One."))
+        drafts = repo.drafts([repo.draft(todo, skill=SKILL)])
+        code, env = file_pr(repo, drafts)
+        assert code == todos.OK, repo.err
+        assert repo.read("doc.md") == DOC.encode()
+        assert env["data"]["suggested"] == []
+        assert "```suggestion\nOne.\n```" in github.issues[0]["body"]
+
+    def it_refuses_a_skill_without_words(self, repo, other_review, comments):
+        todo = review_doc(repo, comments)
+        drafts = repo.drafts([repo.draft(todo, skill=" ")])
+        code, env = repo.run("report", "--pr", str(PR), "--drafts", drafts)
+        assert code == todos.PROBLEMS
+        assert env["errors"] == ["draft 1 has a `skill` that is not a string with words in it"]

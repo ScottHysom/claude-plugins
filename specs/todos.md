@@ -403,10 +403,15 @@ When a TODO asks for work an installed skill exists to do (such as a change to
 how a passage reads, which prose-tuning's update-prose-config learns rules
 from), the user wants Claude to hand it to that skill rather than improvise,
 and never to hand a change to what a document says to a prose skill, so the
-work follows that skill's rules.
+work follows that skill's rules. When the TODO comes from the review of a
+pull request that is not about prose, the user wants the prose rule kept out
+of that pull request, and the note filed as an issue that a later session
+hands on from a branch of its own.
 
-Source: #319, which quotes the owner's first use case, and CLAUDE.md, under
-"A plugin knows only itself", for the hand-off convention.
+Source: #319, which quotes the owner's first use case, CLAUDE.md, under
+"A plugin knows only itself", for the hand-off convention, and #705, where
+the owner asks for a review's prose rules to stay out of a pull request that
+is not about prose, and approved its test.
 
 - `file-cmd-prints-handoffs` (test): When a draft is routed to `skill`, `file`
   prints the skill's name, the TODO's title and detail, and the passage it sat
@@ -427,7 +432,22 @@ Source: #319, which quotes the owner's first use case, and CLAUDE.md, under
 - `dotodos-passes-todos-to-skills` (step): When an installed skill's
   description covers the work a TODO asks for, such as a `prose` TODO and a
   skill that learns prose rules, do-todos routes it to that skill, and
-  otherwise drafts an issue.
+  otherwise drafts an issue. Under `--pr`, when `scan` says the pull request
+  is not about prose, do-todos routes a `prose` TODO (including one whose
+  kind it settled in step 2) to `issue` with `skill`, naming that skill.
+- `scan-cmd-tells-prose-pr` (test): When `scan` is given `--pr`, it says
+  whether the pull request is about prose, which it is when its diff changes
+  a file named `prose-style.md`, at any path.
+- `report-cmd-holds-prose-from-pr` (test): Under `--pr` for a pull request
+  that is not about prose, `report` and `file` refuse a draft routed to
+  `skill` for a TODO of kind `prose`, and the error says to route it to
+  `issue` with `skill`. A TODO of another kind may still go to a skill.
+- `file-cmd-files-handoff-issue` (test): When a draft routed to `issue` also
+  names a `skill`, `report` ends its body with a section that names the
+  skill and holds the hand-off's arguments as `file-cmd-prints-handoffs`
+  gives them, with the branch under `--pr` and the commit the passage was
+  read at. The report shows that body, and `file` files it as shown. It
+  leaves the lines of the TODO's suggestion block as they are.
 - `dotodos-withholds-facts-from-prose` (step): When a TODO asks to change what
   a document says, including a name that is wrong or out of date, do-todos
   drafts an issue, and never routes it to a prose skill. A term changed only

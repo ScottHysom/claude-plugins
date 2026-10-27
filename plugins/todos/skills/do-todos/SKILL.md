@@ -87,6 +87,9 @@ branch to check out, and stop.
   comment's suggestion block, the wording the author wants for those lines,
   or is null when the comment has no suggestion block.
 
+Under `--pr`, `data.pull_request.prose` says whether the pull request is
+about prose. Step 3 routes a `prose` TODO by it.
+
 `data.labels` lists the labels of `data.repository`, the repository the issues
 would go to. Each warning names a line that looks like a TODO and was not read,
 and why.
@@ -217,6 +220,15 @@ this session lists, and a skill's description says what it is for:
 A routed TODO takes the route `skill`, with `skill` (the skill's name as the
 Skill tool takes it) and nothing else.
 
+**Under `--pr`, when `data.pull_request.prose` is false,** a `prose` TODO
+that would go to a skill becomes an issue instead, so that its rule stays out
+of a pull request that is not about prose. This holds also for a TODO whose
+kind the author settled in step 2. Route it to `issue`, with `skill` set to
+the skill it would have gone to. Write the body as what the note asks, and
+say that a later session hands it to that skill from a branch of its own.
+`report` adds the hand-off's arguments to the body, and `report` and `file`
+refuse such a TODO routed to `skill`.
+
 When an open issue already covers a TODO, from its `similar` or the author's
 answer in step 2, route the TODO to `comment` on that issue rather than
 drafting a new one. Write the comment's body as what the TODO adds to the
@@ -252,7 +264,8 @@ END
 `file`, `line` and `text` are the TODO's `file`, `first` and `text` from
 step 1, copied exactly. `route` is one of:
 
-- `issue`, with `title`, `body` and `labels`;
+- `issue`, with `title`, `body` and `labels`, and `skill` for a `prose`
+  TODO held back from a pull request that is not about prose;
 - `comment`, with `issue` (the open issue's number) and `body`;
 - `skill`, with `skill`.
 
