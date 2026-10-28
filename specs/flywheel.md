@@ -580,14 +580,15 @@ Source: #305, #648, and the playbook's `checks-over-instructions`.
   waiting thread as `workissue-answers-each-thread` says, and ends the check
   once the pull request is no longer open.
 - `workissue-archives-after-clear` (step): When work-issue's pull request has
-  merged or closed, the session archives itself with the app's
-  `archive_session` tool once `flywheel.py clear` has succeeded, or once it
-  has discarded only its own temporary files and `clear` then succeeded. When
-  `clear` finds changes the session did not make or cannot account for, the
-  session names them to the owner and stays unarchived. When the session
-  cannot archive itself, the dispatcher of a round archives it after clearing
-  its claim, and outside a round the session tells the owner it is ready to
-  archive.
+  merged, the session archives itself with the app's `archive_session` tool
+  once `flywheel.py clear` has succeeded, or once it has discarded only its
+  own temporary files and `clear` then succeeded. When `clear` finds changes
+  the session did not make or cannot account for, the session names them to
+  the owner and stays unarchived. When the pull request closes unmerged, the
+  session tells the owner and stays unarchived. When the session cannot
+  archive itself, the dispatcher of a round archives it once the
+  implementer reports, and outside a round the session tells the owner it is
+  ready to archive.
 - `unanswered-cmd-lists-waiting-threads` (test): When `flywheel.py unanswered N`
   runs, it lists each unresolved review thread on pull request N whose last
   comment does not open with `**Claude:**`, or that has a single comment, with

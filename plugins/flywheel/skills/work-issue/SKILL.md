@@ -197,30 +197,30 @@ nothing by hand.
 
 When `clear` exits 1 because the worktree holds changes, sort them:
 
-- Files the session made itself as temporary files, such as a scratch
-  folder it created, it may delete. Run `clear` again.
+- The session may delete files it made itself as temporary files, such as a
+  scratch folder it created, and run `clear` again.
 - Changes the session did not make or cannot account for stay where they
   are. Name them to the owner, and leave the session unarchived.
 
-When `data.state` is `CLOSED` without a merge, there is no claim to clear.
-Run `release 648` as step 3 says, and check the worktree for changes in the
-same way.
-
-Once `clear` has succeeded (or the claim is released), archive the session.
-Find out first whether it can archive itself: load the app's `archive_session`
-tool with ToolSearch, and call it on this session's own id. When the tool is
-missing or the call is refused:
-
-- when the session's first message came from a dispatcher session, say so in
-  the report. The dispatcher archives the implementer after clearing its
-  claim.
-- otherwise, tell the owner the session is ready to archive.
+When `data.state` is `CLOSED` without a merge, `clear` cannot succeed, since
+the issue is still open. Tell the owner the pull request closed unmerged,
+and leave the session unarchived.
 
 Then report the pull request's url to the owner, and say the check is
 scheduled. When the session has no `set_monitor` tool, or the call is
 refused, say so in the same report, so the owner turns the watch on by hand.
 When the session has no `CronCreate` tool, say so too, so the owner tells the
 session in chat when a comment arrives.
+
+Once `clear` has succeeded, archive the session as the last thing it does,
+after any report. Load the app's `archive_session` tool with ToolSearch, and
+call it with `session_id: "self"`. The owner's approval of this skill is the
+agreement the tool asks for, and a prompt the owner leaves unanswered counts
+as a refusal. When the tool is missing or the call is refused:
+
+- when the session's first message came from a dispatcher session, say so in
+  the report. The dispatcher archives the implementer after it reports.
+- otherwise, tell the owner the session is ready to archive.
 
 ## Step 7: answer each review thread
 <!-- spec: workissue-answers-each-thread, workissue-hands-review-todos -->
