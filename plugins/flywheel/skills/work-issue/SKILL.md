@@ -149,7 +149,8 @@ none, use this plugin's open-pr skill, which writes the description in the
 shape merge-check reads.
 
 ## Step 6: watch the pull request
-<!-- spec: workissue-turns-on-pr-watch, workissue-rechecks-for-comments -->
+<!-- spec: workissue-turns-on-pr-watch, workissue-rechecks-for-comments, workissue-clears-merged-claim -->
+<!-- seam: platform: the session binds the pull request, turns on the watch and schedules the check with the app's tools before unanswered runs -->
 
 Read the pull request the session is bound to with the app's `get_status`
 tool. When it does not report the pull request just opened, bind it with
@@ -180,6 +181,17 @@ FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" unanswered 795 --json
 lists any, answer them as step 7 says. When `data.state` is not `OPEN`, delete
 the job by its id with `CronDelete` and stop checking. The job lasts the
 session and expires after seven days.
+
+When `data.state` is `MERGED`, clear the claim before the session ends, with
+the issue's number:
+
+```sh
+FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" clear 648 --json
+```
+
+`clear` exits 0 when the claim is cleared already, as the dispatcher of a
+round may have done. When it exits 1, relay its error to the owner and delete
+nothing by hand.
 
 Then report the pull request's url to the owner, and say the check is
 scheduled. When the session has no `set_monitor` tool, or the call is

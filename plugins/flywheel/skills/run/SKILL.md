@@ -349,8 +349,8 @@ For each issue whose pull request merged, clear its claim:
 FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" clear 649 --json
 ```
 
-When `clear` exits 1, relay its error to the owner and delete nothing by
-hand. Either way, a merge from this round freed a place in it, so read the
+`clear` exits 0 for a claim its implementer already cleared. When it exits 1,
+relay its error to the owner and delete nothing by hand. Either way, a merge from this round freed a place in it, so read the
 queue as step 5 says.
 
 ## Step 11: close a finished plan

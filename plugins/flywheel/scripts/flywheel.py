@@ -4235,6 +4235,15 @@ def cmd_clear(args):
         )
     local = git(root, "rev-parse", "--verify", "--quiet", ref(n), check=False)
     if local.returncode != 0:
+        merged = merged_pulls(root, branch(n))
+        if merged:
+            data["pull_request"] = merged[0]["number"]
+            return emit(
+                args,
+                "clear",
+                data,
+                human=lambda: print("%s is already cleared" % branch(n)),
+            )
         return emit(args, "clear", data, ["there is no local %s to clear" % branch(n)])
     sha = local.stdout.strip()
     base = "%s/%s" % (REMOTE, BASE)
