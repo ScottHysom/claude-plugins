@@ -341,7 +341,7 @@ what the app started it at, and start nothing else on that pull request until th
 owner answers.
 
 ## Step 10: clear a merged claim
-<!-- spec: run-restarts-after-merge -->
+<!-- spec: run-restarts-after-merge, workissue-archives-after-clear -->
 
 For each issue whose pull request merged, clear its claim:
 
@@ -350,7 +350,10 @@ FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" clear 649 --json
 ```
 
 `clear` exits 0 for a claim its implementer already cleared. When it exits 1,
-relay its error to the owner and delete nothing by hand. Either way, a merge from this round freed a place in it, so read the
+relay its error to the owner and delete nothing by hand.
+
+When the implementer's report says it could not archive itself, archive its
+session once `clear` has succeeded. Either way, a merge from this round freed a place in it, so read the
 queue as step 5 says.
 
 ## Step 11: close a finished plan
