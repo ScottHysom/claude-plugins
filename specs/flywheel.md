@@ -561,7 +561,8 @@ Source: #648, and the playbook's `pause-on-discovery` and
 
 When an agent opens a pull request from a desktop session, the owner wants
 that session woken on CI failures, conflicts and review comments, and
-archived on close, without turning either on by hand.
+archived once it has cleaned up after the pull request closes, without
+turning either on by hand.
 
 Source: #305, #648, and the playbook's `checks-over-instructions`.
 
@@ -570,14 +571,24 @@ Source: #305, #648, and the playbook's `checks-over-instructions`.
   project's own skill for opening one, and through the plugin's open-pr
   skill when the project has none.
 - `workissue-turns-on-pr-watch` (step): When work-issue has opened the pull
-  request, it turns on Auto-fix and archive-on-close for it with the
-  session's monitor tool, before reporting.
+  request, it turns on Auto-fix for it, and leaves archive-on-close
+  off, with the session's monitor tool, before reporting.
 - `workissue-rechecks-for-comments` (step): When work-issue has turned on the
   watch, it schedules a recurring check of its pull request's unresolved
   review threads with `flywheel.py unanswered`, since the app does not wake the
   session on comments from the account the session posts as. It answers a
   waiting thread as `workissue-answers-each-thread` says, and ends the check
   once the pull request is no longer open.
+- `workissue-archives-after-clear` (step): When work-issue's pull request has
+  merged, the session archives itself with the app's `archive_session` tool
+  once `flywheel.py clear` has succeeded, or once it has discarded only its
+  own temporary files and `clear` then succeeded. When `clear` finds changes
+  the session did not make or cannot account for, the session names them to
+  the owner and stays unarchived. When the pull request closes unmerged, the
+  session tells the owner and stays unarchived. When the session cannot
+  archive itself, the dispatcher of a round archives it once the
+  implementer reports, and outside a round the session tells the owner it is
+  ready to archive.
 - `unanswered-cmd-lists-waiting-threads` (test): When `flywheel.py unanswered N`
   runs, it lists each unresolved review thread on pull request N whose last
   comment does not open with `**Claude:**`, or that has a single comment, with

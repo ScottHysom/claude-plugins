@@ -243,7 +243,7 @@ is woken when an implementer ends a turn. The owner wakes it by sending any
 message, such as after merging a pull request.
 
 ## Step 7: look again when woken
-<!-- spec: run-reports-pull-request, run-restarts-after-merge -->
+<!-- spec: run-reports-pull-request, run-restarts-after-merge, workissue-archives-after-clear -->
 <!-- seam: judgment: the owner chose a count, a plan or issues, and the command differs by that choice -->
 
 Each time this session is woken, look again with the last `data.as_of`, at
@@ -267,6 +267,8 @@ note that woke this session shows:
   time a look shows it. Then check it as step 8 says.
 - A pull request in `data.merged` whose claim this session has not cleared
   since step 8 merged it. Clear its claim as step 10 says.
+- An implementer that reports it could not archive itself, once its claim
+  is cleared. Archive its session.
 - An implementer that stopped without a pull request. Relay what it said to
   the owner. When it lost its claim to another session, its place in the
   round is free, so read the queue as step 5 says.
@@ -350,8 +352,8 @@ FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" clear 649 --json
 ```
 
 `clear` exits 0 for a claim its implementer already cleared. When it exits 1,
-relay its error to the owner and delete nothing by hand. Either way, a merge from this round freed a place in it, so read the
-queue as step 5 says.
+relay its error to the owner and delete nothing by hand. Either way, a merge
+from this round freed a place in it, so read the queue as step 5 says.
 
 ## Step 11: close a finished plan
 <!-- spec: run-closes-finished-plan -->

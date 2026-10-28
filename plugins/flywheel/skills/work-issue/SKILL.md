@@ -1,6 +1,6 @@
 ---
 name: work-issue
-description: Work one approved GitHub issue as the implementer, from its claim to a pull request the session watches. Claims the issue with flywheel.py claim, works from the issue as the owner approved it through flywheel.py brief, stops and asks on a gap the issue does not answer, runs the project's check gate, opens the pull request through the project's pull request skill, turns on the session's Auto-fix and archive-on-close for it, and answers each review thread. Claude Code desktop app only. Use when a session's first message is a brief that says to work an issue as the implementer with the work-issue skill, or when asked to work, fix or take an issue, the next issue, or the next issue in a plan here or in this session. A request to fix, work or take an issue that does not say here or this session goes to the plugin's run skill, which starts a reviewer and checks the merge.
+description: Work one approved GitHub issue as the implementer, from its claim to a pull request the session watches. Claims the issue with flywheel.py claim, works from the issue as the owner approved it through flywheel.py brief, stops and asks on a gap the issue does not answer, runs the project's check gate, opens the pull request through the project's pull request skill, turns on the session's Auto-fix for it, and answers each review thread. Once the pull request has merged and the claim is cleared, archives the session. Claude Code desktop app only. Use when a session's first message is a brief that says to work an issue as the implementer with the work-issue skill, or when asked to work, fix or take an issue, the next issue, or the next issue in a plan here or in this session. A request to fix, work or take an issue that does not say here or this session goes to the plugin's run skill, which starts a reviewer and checks the merge.
 ---
 
 # Work an issue
@@ -149,7 +149,7 @@ none, use this plugin's open-pr skill, which writes the description in the
 shape merge-check reads.
 
 ## Step 6: watch the pull request
-<!-- spec: workissue-turns-on-pr-watch, workissue-rechecks-for-comments, workissue-clears-merged-claim -->
+<!-- spec: workissue-turns-on-pr-watch, workissue-rechecks-for-comments, workissue-clears-merged-claim, workissue-archives-after-clear -->
 <!-- seam: platform: the model reads data.state from unanswered and calls CronDelete before it runs clear -->
 
 Read the pull request the session is bound to with the app's `get_status`
@@ -162,8 +162,10 @@ Turn on the session's watch with `set_monitor`, in one call:
 - `auto_fix`: true, so the app wakes the session on a CI failure, a merge
   conflict or a review comment.
 - `address_comments`: true, since it must equal `auto_fix`.
-- `auto_archive_on_close`: true, so the app archives the session once the
-  pull request merges or closes.
+
+Leave `auto_archive_on_close` off. The app would archive the session the
+moment the pull request closes, before the session has checked its worktree
+or cleared its claim.
 
 The app may not wake the session on a review comment from the account the
 session posts as, and where agents post under the owner's GitHub account that
@@ -193,11 +195,32 @@ FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" clear 648 --json
 round may have done. When it exits 1, relay its error to the owner and delete
 nothing by hand.
 
+When `clear` exits 1 because the worktree holds changes, sort them:
+
+- The session may delete files it made itself as temporary files, such as a
+  scratch folder it created, and run `clear` again.
+- Changes the session did not make or cannot account for stay where they
+  are. Name them to the owner, and leave the session unarchived.
+
+When `data.state` is `CLOSED` without a merge, `clear` cannot succeed, since
+the issue is still open. Tell the owner the pull request closed unmerged,
+and leave the session unarchived.
+
 Then report the pull request's url to the owner, and say the check is
 scheduled. When the session has no `set_monitor` tool, or the call is
 refused, say so in the same report, so the owner turns the watch on by hand.
 When the session has no `CronCreate` tool, say so too, so the owner tells the
 session in chat when a comment arrives.
+
+Once `clear` has succeeded, archive the session as the last thing it does,
+after any report. Load the app's `archive_session` tool with ToolSearch, and
+call it with `session_id: "self"`. The owner's approval of this skill is the
+agreement the tool asks for, and a prompt the owner leaves unanswered counts
+as a refusal. When the tool is missing or the call is refused:
+
+- when the session's first message came from a dispatcher session, say so in
+  the report. The dispatcher archives the implementer after it reports.
+- otherwise, tell the owner the session is ready to archive.
 
 ## Step 7: answer each review thread
 <!-- spec: workissue-answers-each-thread, workissue-hands-review-todos -->

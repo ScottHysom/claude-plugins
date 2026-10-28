@@ -13,7 +13,7 @@ on a summary here; this file holds what the README does not.
   reviews and merges, apart from a pull request that a round's dispatcher
   merges under `.flywheel/merge-policy.md`.
 - Once the pull request is open in a desktop session, turn on its Auto-fix
-  and archive-on-close with the session's `set_monitor` tool, without asking
+  with the session's `set_monitor` tool, without asking
   the owner first.
 - A pull request description stands without the issue, for an owner who has
   not read it. The owner knows each of this repository's plugins by name
