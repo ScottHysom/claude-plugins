@@ -596,10 +596,25 @@ and `match-capability-to-task`.
   `--plan N`, it lists only the pull requests from sub-issues of #N, and
   with `--issue M`, given once per issue, only those from the issues it
   names. Its `as_of` still comes from every claim pull request's merge.
-- `role-cmd-names-unset-fields` (test): When `flywheel.py role NAME` runs, it
-  prints the model and effort `.flywheel/roles.json` gives the role. It exits
-  1 naming the field when the file leaves either unset, and naming the role
-  when the file does not have it.
+- `checkrole-cmd-names-unset-fields` (test): When `flywheel.py check-role NAME`
+  runs, it prints the model and effort `.flywheel/roles.json` gives the role.
+  It exits 1 naming the field when the file leaves either unset, and naming
+  the role when the file does not have it.
+- `checkrole-cmd-exits-1-above-session` (test): When `flywheel.py check-role
+  NAME` runs with `--model` and `--effort`, a session's own, it exits 1 when
+  the role's model or effort is above the session's, and says to run the
+  skill from a session at least that strong. It matches a model by family, so
+  `opus` matches `claude-opus-5-5`. It exits 1 when it cannot rank either
+  value, and refuses one of the two options given alone.
+- `run-checks-dispatcher-role` (step): When `run` starts, it reads its own
+  model and effort with the app's `get_session` tool and checks the
+  `dispatcher` role against them with `check-role`, before it starts
+  anything. It stops when the role is above its own session.
+- `run-checks-started-session` (step): After each `start_session` call,
+  `run` reads the new session with `get_session` and checks it against its
+  role with `check-role`. When `check-role` exits 1, the session runs below
+  its role's model or effort, and `run` tells the owner and starts nothing
+  else on that work until the owner answers.
 - `run-refuses-unmapped-role` (step): When the roles file does not name a
   role `run` needs, `run` stops and names the field.
 - `adopt-asks-roles-at-every-level` (step): When adopt runs at any target
@@ -608,7 +623,7 @@ and `match-capability-to-task`.
 - `run-starts-one-session-per-issue` (step): When `run` has the issues from
   `queue`, it starts one session per issue with `brief N`, at the roles
   file's model and effort for the implementer. It stops rather than start
-  one when either is above its own session's.
+  one when either is above its own session's, as `check-role` finds.
 - `queue-cmd-starts-at-issue` (test): When `flywheel.py queue --count N
   --from M` runs, it offers up to N free approved issues as `queue --count N`
   does, leaving out every issue and plan issue that comes before #M in the
@@ -680,7 +695,9 @@ Source: #650, and the playbook's `autonomy-scales-with-risk` and
   asks the owner with its reasons and merges nothing until they answer.
 - `run-reviews-each-pull-request` (step): When `merge-check` names `review`
   as the next step for a pull request from the round, `run` starts a reviewer
-  session on it at the roles file's model and effort for the reviewer.
+  session on it at the roles file's model and effort for the reviewer. It
+  stops rather than start one when either is above its own session's, as
+  `check-role` finds.
 - `workissue-answers-each-thread` (step): When a review comment arrives on
   its pull request, work-issue answers each unresolved thread with a reply
   opening with `**Claude:**`, and leaves resolving it to the reviewer.

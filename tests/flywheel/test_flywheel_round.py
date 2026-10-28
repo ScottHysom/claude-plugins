@@ -1,6 +1,6 @@
 """What the dispatcher reads to run a round: a role's model and effort, and events.
 
-`role` reads only the project's roles file. `events` reads only gh, which is
+`check-role` reads only the project's roles file. `events` reads only gh, which is
 faked here with the pull requests each test names.
 """
 
@@ -67,22 +67,22 @@ def write_roles(project, roles):
     project.write(flywheel.ROLES_FILE, json.dumps({"roles": roles}))
 
 
-@pytest.mark.spec("role-cmd-names-unset-fields")
-class DescribeRole:
+@pytest.mark.spec("checkrole-cmd-names-unset-fields")
+class DescribeCheckRole:
     def it_prints_the_model_and_effort_the_roles_file_gives(self, project):
         write_roles(
             project, {"implementer": {"tier": 3, "model": "claude-sonnet-5-5", "effort": "high"}}
         )
-        code, env = project.run("role", "implementer")
+        code, env = project.run("check-role", "implementer")
         assert code == flywheel.OK
-        assert env["command"] == "role"
+        assert env["command"] == "check-role"
         assert env["data"] == {
             "name": "implementer",
             "tier": 3,
             "model": "claude-sonnet-5-5",
             "effort": "high",
         }
-        code, out, err = project.human("role", "implementer")
+        code, out, err = project.human("check-role", "implementer")
         assert (code, out, err) == (
             flywheel.OK,
             "implementer: model claude-sonnet-5-5, effort high, tier 3\n",
@@ -91,7 +91,7 @@ class DescribeRole:
 
     def it_names_each_field_the_owner_has_not_filled_in(self, project):
         write_roles(project, {"implementer": {"tier": 3, "model": None, "effort": " "}})
-        code, out, err = project.human("role", "implementer")
+        code, out, err = project.human("check-role", "implementer")
         assert code == flywheel.PROBLEMS
         assert out == ""
         assert err == (
@@ -103,7 +103,7 @@ class DescribeRole:
 
     def it_names_a_role_the_file_does_not_have(self, project):
         write_roles(project, {"implementer": {"tier": 3, "model": "m", "effort": "e"}})
-        code, env = project.run("role", "reviewer")
+        code, env = project.run("check-role", "reviewer")
         assert code == flywheel.PROBLEMS
         assert env["errors"] == [
             '.flywheel/roles.json does not name the reviewer role. Add it under "roles", with'
@@ -112,12 +112,84 @@ class DescribeRole:
         assert env["data"]["model"] is None
 
     def it_says_to_run_config_init_without_a_roles_file(self, project):
-        code, env = project.run("role", "implementer")
+        code, env = project.run("check-role", "implementer")
         assert code == flywheel.PROBLEMS
         assert env["errors"] == [
             ".flywheel/roles.json is missing. Run config init to write it, then fill in each"
             " field it names"
         ]
+
+
+@pytest.mark.spec("checkrole-cmd-exits-1-above-session")
+class DescribeCheckRoleAgainstSession:
+    @pytest.fixture(autouse=True)
+    def roles(self, project):
+        write_roles(project, {"reviewer": {"tier": 2, "model": "opus", "effort": "high"}})
+
+    def it_passes_a_session_that_matches_by_family(self, project):
+        code, env = project.run(
+            "check-role", "reviewer", "--model", "claude-opus-5-5", "--effort", "high"
+        )
+        assert code == flywheel.OK
+        assert env["errors"] == []
+
+    def it_exits_1_when_the_effort_is_above_the_session(self, project):
+        code, env = project.run(
+            "check-role", "reviewer", "--model", "claude-opus-5-5", "--effort", "medium"
+        )
+        assert code == flywheel.PROBLEMS
+        assert env["errors"] == [
+            "The reviewer role's effort high is above this session's medium. Run the skill"
+            " from a session at least that strong"
+        ]
+
+    def it_exits_1_when_the_model_is_above_the_session(self, project):
+        code, env = project.run(
+            "check-role", "reviewer", "--model", "claude-sonnet-5-5", "--effort", "max"
+        )
+        assert code == flywheel.PROBLEMS
+        assert len(env["errors"]) == 1
+        assert "model opus is above this session's claude-sonnet-5-5" in env["errors"][0]
+
+    def it_names_the_session_model_it_cannot_rank(self, project):
+        code, env = project.run("check-role", "reviewer", "--model", "gpt", "--effort", "high")
+        assert code == flywheel.PROBLEMS
+        assert env["errors"] == [
+            "The session's model gpt is not one check-role can rank (haiku, sonnet, opus,"
+            " fable). Pass the model that get_session reports"
+        ]
+
+    def it_names_the_session_effort_it_cannot_rank(self, project):
+        code, env = project.run(
+            "check-role", "reviewer", "--model", "claude-opus-5-5", "--effort", "extreme"
+        )
+        assert code == flywheel.PROBLEMS
+        assert len(env["errors"]) == 1
+        assert "The session's effort extreme is not one check-role can rank" in env["errors"][0]
+
+    def it_does_not_match_an_effort_by_substring(self, project):
+        write_roles(project, {"reviewer": {"tier": 2, "model": "opus", "effort": "xhigh"}})
+        code, env = project.run(
+            "check-role", "reviewer", "--model", "claude-opus-5-5", "--effort", "high"
+        )
+        assert code == flywheel.PROBLEMS
+        assert "effort xhigh is above this session's high" in env["errors"][0]
+
+    def it_names_the_role_value_it_cannot_rank(self, project):
+        write_roles(project, {"reviewer": {"tier": 2, "model": "gpt-5", "effort": "high"}})
+        code, env = project.run(
+            "check-role", "reviewer", "--model", "claude-opus-5-5", "--effort", "high"
+        )
+        assert code == flywheel.PROBLEMS
+        assert env["errors"] == [
+            "The reviewer role's model gpt-5 is not one check-role can rank (haiku, sonnet,"
+            " opus, fable). Set it in .flywheel/roles.json to one of those"
+        ]
+
+    def it_refuses_one_of_the_two_options_alone(self, project):
+        code, out, err = project.human("check-role", "reviewer", "--model", "opus")
+        assert code == flywheel.CANNOT_RUN
+        assert "together" in err
 
 
 @pytest.mark.spec("events-cmd-lists-claim-prs")
