@@ -753,3 +753,62 @@ class DescribeMerging:
         assert data["reasons"] == [
             "the merge failed: `gh pr merge` failed: head branch was modified"
         ]
+
+
+# --------------------------------------------------------------------------
+
+OWNER_COMMENT = "Why this name?"
+
+
+@pytest.mark.spec("unanswered-cmd-lists-waiting-threads")
+class DescribeUnanswered:
+    def it_lists_a_thread_whose_last_comment_is_not_the_agents(self, project, github):
+        github.threads = [
+            thread("T1", OWNER_COMMENT),
+            thread("T2", finding("P2"), (OWNER_COMMENT, AFTER)),
+        ]
+        code, env = project.run("unanswered", "71")
+        assert code == flywheel.OK
+        data = env["data"]
+        assert data["state"] == "OPEN"
+        assert [t["id"] for t in data["threads"]] == ["T1", "T2"]
+        assert data["threads"][0]["path"] == "plugins/demo/app.py"
+        assert data["threads"][0]["line"] == 3
+        assert data["threads"][0]["comments"][-1]["body"] == OWNER_COMMENT
+
+    def it_lists_a_finding_nobody_answered(self, project, github):
+        github.threads = [thread("T1", finding("P1"))]
+        _, env = project.run("unanswered", "71")
+        assert [t["id"] for t in env["data"]["threads"]] == ["T1"]
+
+    def it_leaves_out_an_answered_thread_and_a_resolved_one(self, project, github):
+        github.threads = [
+            thread("T1", OWNER_COMMENT, (ANSWER, AFTER)),
+            thread("T2", OWNER_COMMENT, resolved=True),
+        ]
+        _, env = project.run("unanswered", "71")
+        assert env["data"]["threads"] == []
+
+    def it_reports_the_state_of_a_pull_request_that_merged(self, project, github):
+        github.pull["state"] = "MERGED"
+        github.threads = [thread("T1", OWNER_COMMENT)]
+        code, env = project.run("unanswered", "71")
+        assert code == flywheel.OK
+        assert env["data"]["state"] == "MERGED"
+
+    def it_prints_each_waiting_thread_in_text(self, project, github):
+        github.threads = [thread("T1", OWNER_COMMENT)]
+        code, out, _ = project.human("unanswered", "71")
+        assert code == flywheel.OK
+        assert "plugins/demo/app.py:3, thread T1" in out
+        assert OWNER_COMMENT in out
+
+    def it_says_so_in_text_when_none_waits(self, project, github):
+        code, out, _ = project.human("unanswered", "71")
+        assert code == flywheel.OK
+        assert "None waiting." in out
+
+    def it_stops_on_a_number_that_is_not_a_pull_request(self, project, github):
+        github.missing = True
+        code, _ = project.run("unanswered", "71")
+        assert code == flywheel.CANNOT_RUN

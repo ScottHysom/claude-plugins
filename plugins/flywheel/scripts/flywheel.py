@@ -29,6 +29,7 @@ Usage:
     python3 flywheel.py events --plan 347 --since 2026-10-15T09:00:00Z
     python3 flywheel.py review-policy
     python3 flywheel.py review-brief 71
+    python3 flywheel.py unanswered 71
     python3 flywheel.py review-post 71 --findings findings.json
     python3 flywheel.py merge-check 71 --merge
     python3 flywheel.py release 12
@@ -107,6 +108,9 @@ Commands:
                  files its rules pass reads.
     review-brief N print pull request N for the reviewer: its head,
                  description, requirement ids, review threads and diff.
+    unanswered N list the unresolved review threads on pull request N whose
+                 last comment does not open with **Claude:**, which wait on
+                 the implementer, and the pull request's state.
     review-post N  check the reviewer's findings against pull request N and
                  the review policy, resolve the threads they name, and post
                  one review of the head that only comments.
@@ -3862,6 +3866,32 @@ def cmd_review_brief(args):
     )
 
 
+def waiting_on_implementer(thread):
+    """Whether an unresolved thread's last comment is not the agent's."""
+    comments = thread["comments"]
+    return not thread["resolved"] and not (
+        len(comments) > 1 and comments[-1]["body"].startswith(AGENT_MARK)
+    )
+
+
+def cmd_unanswered(args):
+    """List the unresolved threads on a pull request that wait on the implementer."""
+    root = project_root(args.repo)
+    n = args.number
+    state = pull_request(root, n).get("state")
+    threads = [t for t in review_threads(root, n) if waiting_on_implementer(t)]
+
+    def human():
+        if not threads:
+            sys.stdout.write("None waiting.\n")
+        for t in threads:
+            sys.stdout.write("### %s, thread %s\n\n" % (where(t), t["id"]))
+            for c in t["comments"]:
+                sys.stdout.write(quoted("**%s**\n\n%s" % (c["created_at"], c["body"])) + "\n\n")
+
+    return emit(args, "unanswered", {"number": n, "state": state, "threads": threads}, human=human)
+
+
 def read_findings(path):
     raw = sys.stdin.read() if path == "-" else read_bytes(path).decode("utf-8")
     try:
@@ -5741,6 +5771,13 @@ def build_parser():
         help="print a pull request for the reviewer: its description, threads and diff",
     )
     p.set_defaults(func=cmd_review_brief)
+
+    p = sub.add_parser(
+        "unanswered",
+        parents=[common, pulled],
+        help="the unresolved review threads on a pull request that wait on the implementer",
+    )
+    p.set_defaults(func=cmd_unanswered)
 
     p = sub.add_parser(
         "review-post",

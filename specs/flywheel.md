@@ -564,6 +564,17 @@ Source: #305, #648, and the playbook's `checks-over-instructions`.
 - `workissue-turns-on-pr-watch` (step): When work-issue has opened the pull
   request, it turns on Auto-fix and archive-on-close for it with the
   session's monitor tool, before reporting.
+- `workissue-rechecks-for-comments` (step): When work-issue has turned on the
+  watch, it schedules a recurring check of its pull request's unresolved
+  review threads with `flywheel.py unanswered`, since the app does not wake the
+  session on comments from the account the session posts as. It answers a
+  waiting thread as `workissue-answers-each-thread` says, and ends the check
+  once the pull request is no longer open.
+- `unanswered-cmd-lists-waiting-threads` (test): When `flywheel.py unanswered N`
+  runs, it lists each unresolved review thread on pull request N whose last
+  comment does not open with `**Claude:**`, or that has a single comment, with
+  the pull request's state. It lists none for a thread that is resolved or
+  whose last comment is an answer.
 
 ## need owner-starts-round-with-one-command: Start a round of issues with one command
 
