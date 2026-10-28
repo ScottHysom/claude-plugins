@@ -167,8 +167,8 @@ Turn on the session's watch with `set_monitor`, in one call:
 The app may not wake the session on a review comment from the account the
 session posts as, and where agents post under the owner's GitHub account that
 is the owner's every comment. So schedule a recurring check for review
-comments in every project, with the `CronCreate` tool, every ten minutes at an
-off-minute (`3-59/10 * * * *`), and keep the job id it returns. Give it a
+comments in every project, with the `CronCreate` tool, every minute
+(`*/1 * * * *`), and keep the job id it returns. Give it a
 prompt that says to run this, with the pull request's number in place of 795
 (the pull request just opened, not the issue), and to act on its result:
 
