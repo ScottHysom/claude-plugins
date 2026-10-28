@@ -206,13 +206,8 @@ claim won, so the owner can tell a working agent from a stuck one. A
 command's output does not reliably reach the owner, under
 `bash-hides-output`, so the agent says so in chat.
 
-Source: CLAUDE.md, under "Issues", and #469.
-
-- `claudemd-reports-claim-first` (test): When an agent reads CLAUDE.md's
-  "Issues" section, it is told that its next message after `flywheel.py claim
-  N` says whether the claim won, naming #N and `issue/N` on a win and the
-  reason on exit 1, before any other work on the issue. The test checks the
-  rule is written, and #474 adds the eval that checks an agent follows it.
+Source: #469. flywheel's `workissue-claims-first`, in specs/flywheel.md, is
+the requirement that serves this need.
 
 ## need owner-sees-held-issues: See from the issue list which issues are held
 
