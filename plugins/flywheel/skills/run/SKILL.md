@@ -1,6 +1,6 @@
 ---
 name: run
-description: Run a round of approved GitHub issues as the dispatcher, starting one implementer session per issue, a reviewer session on each pull request, and a new implementer each time a pull request merges. Checks each role's model and effort with flywheel.py role, takes the issues from flywheel.py queue, starts each session in its own worktree with flywheel.py brief as its first message, watches the claim pull requests with flywheel.py events, merges what the merge policy lets flow with flywheel.py merge-check, asks the owner about what it holds, clears each merged claim and closes a finished plan. Claude Code desktop app only. Use when asked to fix, work, run or start a round of issues, a number of issues at once such as the next 3 issues, particular issues named by number, or the issues of a plan or plan issue, and when asked to fix, work or take an issue, the next issue, or the next issue in a plan, unless the request says to do it here or in this session. Never use it in a session whose first message is a brief, which the work-issue skill takes.
+description: Run a round of approved GitHub issues as the dispatcher, starting one implementer session per issue, a reviewer session on each pull request, and a new implementer each time a pull request merges. Checks each role's model and effort with flywheel.py check-role, takes the issues from flywheel.py queue, starts each session in its own worktree with flywheel.py brief as its first message, watches the claim pull requests with flywheel.py events, merges what the merge policy lets flow with flywheel.py merge-check, asks the owner about what it holds, clears each merged claim and closes a finished plan. Claude Code desktop app only. Use when asked to fix, work, run or start a round of issues, a number of issues at once such as the next 3 issues, particular issues named by number, or the issues of a plan or plan issue, and when asked to fix, work or take an issue, the next issue, or the next issue in a plan, unless the request says to do it here or in this session. Never use it in a session whose first message is a brief, which the work-issue skill takes.
 ---
 
 # Run a round of issues
@@ -28,7 +28,7 @@ The owner names the round in one of these ways:
 A request to work an issue here, or in this session, is not a round. The
 work-issue skill takes it, and this session becomes the implementer.
 
-A number the owner names may be an issue or a plan issue, and step 4
+A number the owner names may be an issue or a plan issue, and step 5
 tells them apart. When the owner names a plan without a count, ask how many
 sessions to keep in flight. A round of named issues starts each one that can
 start at once, and takes nothing more from the queue.
@@ -55,40 +55,50 @@ ignores. Each later command starts a fresh shell, so start every one with
 `data.prefix` and `&&`:
 
 ```sh
-FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" role implementer --json
+FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" check-role dispatcher --json
 ```
 
-## Step 1: check the implementer's role
-<!-- spec: run-refuses-unmapped-role -->
+## Step 1: check the dispatcher's role
+<!-- spec: run-refuses-unmapped-role, run-checks-dispatcher-role -->
 
-Read the model and effort the roles file gives the implementer:
+Read this session's own model and effort with the app's `get_session` tool.
+The app starts a session at or below the model and effort of the session that
+starts it, and lowers anything higher. So check the `dispatcher` role against
+this session before anything starts, passing the session's model as
+`--model` and its effort as `--effort`:
 
 ```sh
-FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" role implementer --json
+FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" check-role dispatcher --model claude-opus-5-5 --effort medium --json
 ```
 
-When `role` exits 1, relay its errors to the owner, who fills in each field
-it names, and stop.
+When `check-role` exits 1 or 2, relay its errors to the owner, who fills in
+each field it names or runs this skill from a stronger session, and stop.
 
-On exit 0, `data.model` and `data.effort` are what every implementer starts
-at. The app starts a session at or below the model and effort of the session
-that starts it, and ignores anything higher. So when either is above this
-session's own, stop and tell the owner to run this skill from a session at
-least that strong.
+## Step 2: check the implementer's role
+<!-- spec: run-refuses-unmapped-role, run-starts-one-session-per-issue -->
 
-## Step 2: check the reviewer's role
+Check the implementer against this session in the same way:
+
+```sh
+FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" check-role implementer --model claude-opus-5-5 --effort medium --json
+```
+
+Act on the result as step 1 says. On exit 0, `data.model` and `data.effort`
+are what every implementer starts at.
+
+## Step 3: check the reviewer's role
 <!-- spec: run-refuses-unmapped-role, run-reviews-each-pull-request -->
 
-Read the model and effort the roles file gives the reviewer:
+Check the reviewer against this session in the same way:
 
 ```sh
-FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" role reviewer --json
+FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" check-role reviewer --model claude-opus-5-5 --effort medium --json
 ```
 
-Act on the result as step 1 says. `data.model` and `data.effort` are what
-every reviewer starts at.
+Act on the result as step 1 says. On exit 0, `data.model` and `data.effort`
+are what every reviewer starts at.
 
-## Step 3: take the first look
+## Step 4: take the first look
 <!-- spec: run-restarts-after-merge -->
 <!-- seam: judgment: the owner chose a count, a plan or issues, and the command differs by that choice -->
 
@@ -115,7 +125,7 @@ FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" events --json
 Keep `data.as_of`. Each later look passes it as `--since` and keeps the new
 `data.as_of` in its place.
 
-## Step 4: read the queue
+## Step 5: read the queue
 <!-- spec: run-starts-one-session-per-issue, run-closes-finished-plan, run-stops-on-empty-queue, run-starts-named-issues, run-takes-issue-requests -->
 <!-- seam: judgment: the owner chose a count, a plan or issues, and the command differs by that choice -->
 
@@ -144,12 +154,12 @@ FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" queue --plan 653 --count 3
 
 What the result means:
 
-- `data.issues` lists the issues to start, in order. Start each as step 5
+- `data.issues` lists the issues to start, in order. Start each as step 6
   says.
 - `data.plan` without `--plan` is an approved plan that comes before
   every other issue. Ask the owner whether to run that plan, and on a yes,
   read the queue again with `--plan`.
-- `data.finished` true means the plan is finished. Close it as step 10 says.
+- `data.finished` true means the plan is finished. Close it as step 11 says.
 - Fewer issues than free places, with `data.issues` empty and no session
   still working or waiting on a merge, means the round is over. Stop as step
   11 says.
@@ -166,12 +176,12 @@ FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" queue 12 14 --json
 
 What the result means:
 
-- `data.issues` lists the named issues that can start. Start each as step 5
+- `data.issues` lists the named issues that can start. Start each as step 6
   says, even on exit 1.
 - Each entry in `errors` names an issue that cannot start and the reason.
   Tell the owner each one, and start no session on it.
 - `data.plan` means the one number named is a plan issue. The round
-  runs that plan from here, as a plan the owner named. Look again as step 3
+  runs that plan from here, as a plan the owner named. Look again as step 4
   says for a plan, and read the queue with `--plan`.
 
 For the next issue, read the queue once, at the start of the round, for one
@@ -187,10 +197,10 @@ for a count or a plan.
 
 Later in a round of named issues, read the queue no more. A merge or a
 stopped implementer frees a place that no issue takes, and the round stops
-as step 11 says once each named issue has merged or stopped.
+as step 12 says once each named issue has merged or stopped.
 
-## Step 5: start a worker for each issue
-<!-- spec: run-starts-one-session-per-issue -->
+## Step 6: start a worker for each issue
+<!-- spec: run-starts-one-session-per-issue, run-checks-started-session -->
 
 For each issue the queue offered, print its brief:
 
@@ -210,16 +220,20 @@ On exit 0, start the session with the app's `start_session` tool:
   the implementer, with the work-issue skill, and that it reports its pull
   request when it opens one.
 - `use_worktree`: true, so each implementer has its own worktree.
-- `model` and `effort`: the ones step 1 read, never higher.
+- `model` and `effort`: the implementer's, as step 2 read them, never higher.
 - `name`: `issue-` and the number, as in `issue-649`.
 - `wake_when_done`: true, so this session is woken when the implementer
   ends a turn.
+
+After the call, read the new session with `get_session`. When its model or
+effort is below the implementer's, tell the owner what the app started it at,
+and start nothing else on that issue until the owner answers.
 
 Then tell the owner which sessions started, and end the turn. This session
 is woken when an implementer ends a turn. The owner wakes it by sending any
 message, such as after merging a pull request.
 
-## Step 6: look again when woken
+## Step 7: look again when woken
 <!-- spec: run-reports-pull-request, run-restarts-after-merge -->
 <!-- seam: judgment: the owner chose a count, a plan or issues, and the command differs by that choice -->
 
@@ -241,14 +255,14 @@ Keep the new `data.as_of`. Then act on each of these that the look or the
 note that woke this session shows:
 
 - A pull request in `data.open`. Report its `url` to the owner the first
-  time a look shows it. Then check it as step 7 says.
+  time a look shows it. Then check it as step 8 says.
 - A pull request in `data.merged` whose claim this session has not cleared
-  since step 7 merged it. Clear its claim as step 9 says.
+  since step 8 merged it. Clear its claim as step 10 says.
 - An implementer that stopped without a pull request. Relay what it said to
   the owner. When it lost its claim to another session, its place in the
-  round is free, so read the queue as step 4 says.
+  round is free, so read the queue as step 5 says.
 
-## Step 7: check each pull request
+## Step 8: check each pull request
 <!-- spec: run-merges-what-flows, run-asks-owner-on-hold, run-reviews-each-pull-request, run-acts-on-stalled-wait -->
 
 For each pull request in `data.open`, ask the merge policy whether it
@@ -258,12 +272,12 @@ flows, and merge it when it does:
 FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" merge-check 671 --merge --json
 ```
 
-`data.merged` true means `merge-check` squashed it. Clear its claim as step 9
+`data.merged` true means `merge-check` squashed it. Clear its claim as step 10
 says. Otherwise `data.next` says what comes next, and `data.reasons` says
 why it holds:
 
 - `review`: the pull request needs the reviewer's look at its head. Start a
-  reviewer as step 8 says, unless a reviewer this session started on it is
+  reviewer as step 9 says, unless a reviewer this session started on it is
   still working.
 - `wait`: the pull request waits on its implementer, such as for a failing
   check, a thread to answer or a check still running. The app's Auto-fix
@@ -287,8 +301,8 @@ why it holds:
 
 On exit 2, relay the error to the owner and merge nothing.
 
-## Step 8: start a reviewer
-<!-- spec: run-reviews-each-pull-request -->
+## Step 9: start a reviewer
+<!-- spec: run-reviews-each-pull-request, run-checks-started-session -->
 <!-- no-command: calls the desktop app's start_session tool, which a script cannot reach -->
 
 Start the session with the app's `start_session` tool:
@@ -301,12 +315,16 @@ Start the session with the app's `start_session` tool:
 - `background`: that the dispatcher started this session to review pull
   request N, and that it reports when it has posted its review.
 - `use_worktree`: true.
-- `model` and `effort`: the ones step 2 read, never higher.
+- `model` and `effort`: the reviewer's, as step 3 read them, never higher.
 - `name`: `review-` and the number, as in `review-671`.
 - `wake_when_done`: true, so this session is woken when the reviewer ends a
-  turn. Check the pull request again then, as step 7 says.
+  turn. Check the pull request again then, as step 8 says.
 
-## Step 9: clear a merged claim
+After the call, read the new session with `get_session`. When its model or
+effort is below the reviewer's, tell the owner what the app started it at,
+and start nothing else on that pull request until the owner answers.
+
+## Step 10: clear a merged claim
 <!-- spec: run-restarts-after-merge -->
 
 For each issue whose pull request merged, clear its claim:
@@ -317,9 +335,9 @@ FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" clear 649 --json
 
 When `clear` exits 1, relay its error to the owner and delete nothing by
 hand. Either way, a merge from this round freed a place in it, so read the
-queue as step 4 says.
+queue as step 5 says.
 
-## Step 10: close a finished plan
+## Step 11: close a finished plan
 <!-- spec: run-closes-finished-plan -->
 
 When the queue says the plan is finished, close its plan issue:
@@ -329,15 +347,15 @@ FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" plan close 653 --json
 ```
 
 Tell the owner the plan is closed, or relay the error when `plan close`
-exits 1. A finished plan has nothing left to start, so stop as step 11 says
+exits 1. A finished plan has nothing left to start, so stop as step 12 says
 once no session is still working or waiting on a merge.
 
-## Step 11: stop
+## Step 12: stop
 <!-- spec: run-stops-on-empty-queue, run-starts-named-issues -->
 <!-- no-command: reports to the owner what the round's earlier looks found -->
 
 When the queue offers nothing, and either the round started no issue or
-`data.open` in the last look of step 6 is empty, report to the owner each pull request in the round
+`data.open` in the last look of step 7 is empty, report to the owner each pull request in the round
 that merged, and each issue that stopped without one. Then stop.
 
 A round of named issues stops the same way once each issue it started has

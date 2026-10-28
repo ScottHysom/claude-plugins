@@ -132,9 +132,9 @@ the owner.
 
 run starts the implementers through the desktop app's `start_session` tool,
 which only a session can call, so the skill rather than the script starts
-them. The script does the rest: `role` reads the implementer's model and
-effort and refuses a field the owner has not filled in, and `events` reads
-the claim pull requests. The app starts a session at or below its starter's
+them. The script does the rest: `check-role` reads a role's model and
+effort, refuses a field the owner has not filled in, and exits 1 when the
+role is above the session's own. `events` reads the claim pull requests. The app starts a session at or below its starter's
 model and effort, and ignores anything higher, so the skill stops rather
 than start an implementer weaker than the roles file says.
 

@@ -24,7 +24,7 @@ Usage:
     python3 flywheel.py claim --next
     python3 flywheel.py claim --next --plan 347
     python3 flywheel.py brief 12
-    python3 flywheel.py role implementer
+    python3 flywheel.py check-role implementer
     python3 flywheel.py events --since 2026-10-15T09:00:00Z
     python3 flywheel.py events --plan 347 --since 2026-10-15T09:00:00Z
     python3 flywheel.py review-policy
@@ -96,8 +96,11 @@ Commands:
     brief N      print the first message of a session that works issue N: the
                  issue as the owner approved it, the owner's comments since,
                  the role, and the gate commands.
-    role NAME    the model and effort .flywheel/roles.json gives role NAME,
-                 which the dispatcher starts its sessions at.
+    check-role NAME
+                 the model and effort .flywheel/roles.json gives role NAME,
+                 which the dispatcher starts its sessions at. With --model
+                 and --effort, a session's own, it exits 1 when either is
+                 above the session's.
     events       each open pull request from an issue/N branch, with its CI
                  and review state, and with --since TIME each merged after
                  TIME. Its as_of is the --since of the next look. With
@@ -521,7 +524,7 @@ Things that look like bugs and are not:
   simplification of the pattern Claude Code matches tool names against.
 - `config init` exits 1 when any of its files exists, and still writes the
   others, so a project set up before the policies existed gets them.
-- `role` takes any name, not only the roles the template ships. The roles
+- `check-role` takes any name, not only the roles the template ships. The roles
   file is the owner's, and may add one.
 - `brief` reads the last 100 label events and the last 100 comments. As a
   simplification, it treats an issue whose approval is older than those label
@@ -729,6 +732,11 @@ MERGED_PULL_FIELDS = "number,title,url,headRefName,mergedAt"
 # A role the dispatcher starts a session for needs these fields, which the
 # session's model and effort come from.
 START_KEYS = ("model", "effort")
+# Model families and efforts, weakest first. A model matches by family, so
+# "opus" matches "claude-opus-5-5". As a simplification, a family's versions
+# rank alike.
+MODEL_FAMILIES = ("haiku", "sonnet", "opus", "fable")
+EFFORTS = ("low", "medium", "high", "xhigh", "max")
 # How `events` sums up a pull request's checks.
 CI_NONE, CI_PENDING, CI_FAILING, CI_PASSING = "none", "pending", "failing", "passing"
 # A finished check run that ends with any other conclusion has failed.
@@ -3025,11 +3033,45 @@ def cmd_brief(args):
 # --------------------------------------------------------------------------
 
 
-def cmd_role(args):
+def rank_of(ladder, value, label):
+    """The place of value on ladder, or None with a message in the second slot."""
+    text = value.lower()
+    if label == "model":
+        found = [i for i, family in enumerate(ladder) if family in text]
+    else:
+        found = [i for i, level in enumerate(ladder) if level == text.strip()]
+    if len(found) != 1:
+        return None, "cannot compare the %s %r. Known: %s" % (label, value, ", ".join(ladder))
+    return found[0], None
+
+
+def above_session(entry, args):
+    """Errors for each field of the role's entry that is above the session's."""
+    errors = []
+    for key, ladder, given in (
+        ("model", MODEL_FAMILIES, args.model),
+        ("effort", EFFORTS, args.effort),
+    ):
+        wanted, why = rank_of(ladder, entry[key], key)
+        have, why_have = rank_of(ladder, given, key)
+        if wanted is None or have is None:
+            errors.append(why or why_have)
+        elif wanted > have:
+            errors.append(
+                "The %s role's %s %s is above this session's %s. Run the skill from a"
+                " session at least that strong" % (args.name, key, entry[key], given)
+            )
+    return errors
+
+
+def cmd_check_role(args):
     """The model and effort the roles file gives a role, which the dispatcher
-    starts the role's sessions at."""
+    starts the role's sessions at. With the session's own, whether the role is
+    above it."""
     root = project_root(args.repo)
     name = args.name
+    if (args.model is None) != (args.effort is None):
+        raise Fatal("Give --model and --effort together, or neither.")
     roles = read_project_json(root, ROLES_FILE, ROLES_KEY)
     entry = (roles or {}).get(name)
     data = {"name": name, "tier": None, "model": None, "effort": None}
@@ -3052,13 +3094,15 @@ def cmd_role(args):
             for key in START_KEYS
             if not is_text(entry.get(key))
         ]
+        if not errors and args.model is not None:
+            errors = above_session(entry, args)
 
     def human():
         print(
             "%s: model %s, effort %s, tier %s" % (name, data["model"], data["effort"], data["tier"])
         )
 
-    return emit(args, "role", data, errors, human=None if errors else human)
+    return emit(args, "check-role", data, errors, human=None if errors else human)
 
 
 def timestamp(text):
@@ -5721,12 +5765,15 @@ def build_parser():
     p.set_defaults(func=cmd_brief)
 
     p = sub.add_parser(
-        "role",
+        "check-role",
         parents=[common],
-        help="the model and effort %s gives a role, or each field it leaves unset" % ROLES_FILE,
+        help="the model and effort %s gives a role, or each field it leaves unset; with"
+        " --model and --effort, whether the role is above the session's" % ROLES_FILE,
     )
     p.add_argument("name", help="the role, such as %s" % BRIEF_ROLE)
-    p.set_defaults(func=cmd_role)
+    p.add_argument("--model", help="the session's own model, such as claude-opus-5-5")
+    p.add_argument("--effort", help="the session's own effort, such as medium")
+    p.set_defaults(func=cmd_check_role)
 
     p = sub.add_parser(
         "events",
