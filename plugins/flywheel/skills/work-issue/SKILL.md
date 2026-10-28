@@ -164,19 +164,22 @@ Turn on the session's watch with `set_monitor`, in one call:
 - `auto_archive_on_close`: true, so the app archives the session once the
   pull request merges or closes.
 
-Agents post under the owner's GitHub account, so the app may not wake the
-session on the owner's review comments. Schedule a recurring check for them
-with the `CronCreate` tool, every ten minutes at an off-minute (`3-59/10 * * * *`),
-with a prompt that says to run this and act on its result:
+The app may not wake the session on a review comment from the account the
+session posts as, and where agents post under the owner's GitHub account that
+is the owner's every comment. So schedule a recurring check for review
+comments in every project, with the `CronCreate` tool, every ten minutes at an
+off-minute (`3-59/10 * * * *`), and keep the job id it returns. Give it a
+prompt that says to run this, with the pull request's number in place of 795
+(the pull request just opened, not the issue), and to act on its result:
 
 ```sh
-FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" unanswered 648 --json
+FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" unanswered 795 --json
 ```
 
 `data.threads` lists each unresolved thread that waits on the session. When it
 lists any, answer them as step 7 says. When `data.state` is not `OPEN`, delete
-the job with `CronDelete` and stop checking. The job lasts the session and
-expires after seven days. Keep the job's id.
+the job by its id with `CronDelete` and stop checking. The job lasts the
+session and expires after seven days.
 
 Then report the pull request's url to the owner, and say the check is
 scheduled. When the session has no `set_monitor` tool, or the call is
