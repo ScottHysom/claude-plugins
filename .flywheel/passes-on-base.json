@@ -1,5 +1,6 @@
 {
   "tests": {
+    "tests/flywheel/test_flywheel_lock.py::DescribeClear::it_is_a_problem_when_there_is_no_local_branch_and_nothing_merged": "pins that clear still exits 1 for a missing local branch with no merged pull request, the test #796 renamed from it_is_a_problem_when_there_is_no_local_branch",
     "tests/flywheel/test_flywheel_adopt.py::DescribeAssess::it_still_asks_for_the_citation_where_verify_runs_fails_on_base": "pins the workflow citation that unweakened-checks asked for before #682, and still asks for beside the run",
     "tests/flywheel/test_issue_guard.py::DescribeCheck::it_allows_a_command_that_does_not_add_the_label[gh pr create -dlbug]": "pins that the grouped-flag match from #471 still allows a grouped -l whose value is not approved",
     "tests/flywheel/test_issue_guard.py::DescribeCheck::it_allows_a_command_that_does_not_add_the_label[gh pr create -dl bug]": "pins that the grouped-flag match from #471 still allows a grouped -l whose value is not approved",

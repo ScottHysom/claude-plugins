@@ -484,10 +484,18 @@ Source: #289, and README.md, under "Claiming an issue".
     `origin/main`.
   - leaves every worktree in place.
   - deletes the branch.
-- `clear-cmd-keeps-unmerged-work` (test): When #N is open, the local `issue/N`
-  is missing, or it holds a commit that every merged pull request from it lacks
-  and a change `origin/main` lacks, `flywheel.py clear` exits 1, says what to
-  do next and deletes nothing.
+- `clear-cmd-keeps-unmerged-work` (test): `flywheel.py clear` exits 1, says
+  what to do next and deletes nothing under any of these conditions:
+  - #N is open.
+  - The local `issue/N` is missing and no pull request from it has merged.
+  - The local `issue/N` holds a commit that every merged pull request from it
+    lacks and a change `origin/main` lacks.
+- `clear-cmd-reports-cleared-claim` (test): When #N is closed, the local
+  `issue/N` is missing and a pull request from `issue/N` has merged,
+  `flywheel.py clear N` exits 0 and says the claim is already cleared.
+- `workissue-clears-merged-claim` (step): When work-issue's scheduled check
+  finds its pull request merged, it runs `flywheel.py clear` for its issue,
+  inside a round or outside one.
 - `clear-cmd-keeps-uncommitted-changes` (test): When a worktree that has
   `issue/N` checked out has uncommitted changes, `flywheel.py clear N` exits
   1, names the worktree and says to commit or discard the changes, and neither
@@ -646,7 +654,8 @@ and `match-capability-to-task`.
 - `run-reports-pull-request` (step): When a worker reports its pull request,
   `run` reports the pull request to the owner.
 - `run-restarts-after-merge` (step): When `events` reports a merge from its
-  round, `run` clears the claim and starts a worker on the next free issue.
+  round, `run` clears the claim (or accepts a claim its implementer already
+  cleared) and starts a worker on the next free issue.
 - `run-acts-on-stalled-wait` (step): When `merge-check` names `wait` for a
   pull request from the round and its implementer is not working, `run`
   messages the implementer once for each head and set of reasons, and tells

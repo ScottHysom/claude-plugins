@@ -1469,11 +1469,23 @@ class DescribeClear:
         assert "issue/12" in local_branches(a)
 
     @pytest.mark.spec("clear-cmd-keeps-unmerged-work")
-    def it_is_a_problem_when_there_is_no_local_branch(self, capsys, clone, github):
+    def it_is_a_problem_when_there_is_no_local_branch_and_nothing_merged(
+        self, capsys, clone, github
+    ):
         github(make_issue(12, "approved", state="CLOSED"))
         code, out = run(capsys, clone("a"), "clear", "12")
         assert code == flywheel.PROBLEMS
         assert "there is no local issue/12 to clear" in out.err
+
+    @pytest.mark.spec("clear-cmd-reports-cleared-claim")
+    def it_reports_a_claim_already_cleared_when_its_pull_request_merged(
+        self, capsys, clone, github
+    ):
+        github(make_issue(12, "approved", state="CLOSED"), merged=[(7, "issue/12", "0" * 40)])
+        code, out = run(capsys, clone("a"), "clear", "12")
+        assert code == flywheel.OK
+        assert "issue/12 is already cleared" in out.out
+        assert out.err == ""
 
     @pytest.mark.spec("repo:command-never-writes-in-preview")
     def it_changes_nothing_on_a_dry_run(self, capsys, remote, clone, github):
