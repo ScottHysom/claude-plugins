@@ -130,13 +130,16 @@ the owner.
 
 ## The dispatcher's skill
 
-run starts the implementers through the desktop app's `start_session` tool,
+run starts the sessions through the desktop app's `start_session` tool,
 which only a session can call, so the skill rather than the script starts
 them. The script does the rest: `check-role` reads a role's model and
 effort, refuses a field the owner has not filled in, and exits 1 when the
-role is above the session's own. `events` reads the claim pull requests. The app starts a session at or below its starter's
-model and effort, and ignores anything higher, so the skill stops rather
-than start an implementer weaker than the roles file says.
+role is above the session's own. `events` reads the claim pull requests.
+The app starts a session at or below its starter's model and effort, and
+lowers anything higher, so the skill stops rather than start an
+implementer or a reviewer weaker than the roles file says. It checks the
+dispatcher role the same way before it starts anything, and checks each
+started session against its role after.
 
 `events` gives the newest merge it saw as the start of the next look, rather
 than the time of the look, so a merge is never named twice and `clear` never

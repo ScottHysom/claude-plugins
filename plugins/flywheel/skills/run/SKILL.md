@@ -162,7 +162,7 @@ What the result means:
 - `data.finished` true means the plan is finished. Close it as step 11 says.
 - Fewer issues than free places, with `data.issues` empty and no session
   still working or waiting on a merge, means the round is over. Stop as step
-  11 says.
+  12 says.
 - Each entry in `warnings` names an issue to start at that the queue does
   not offer, and why. Tell the owner each one.
 - On exit 1, relay the errors to the owner and stop starting sessions.
@@ -201,6 +201,7 @@ as step 12 says once each named issue has merged or stopped.
 
 ## Step 6: start a worker for each issue
 <!-- spec: run-starts-one-session-per-issue, run-checks-started-session -->
+<!-- seam: platform: start_session and get_session are app tools that a script cannot call -->
 
 For each issue the queue offered, print its brief:
 
@@ -225,9 +226,17 @@ On exit 0, start the session with the app's `start_session` tool:
 - `wake_when_done`: true, so this session is woken when the implementer
   ends a turn.
 
-After the call, read the new session with `get_session`. When its model or
-effort is below the implementer's, tell the owner what the app started it at,
-and start nothing else on that issue until the owner answers.
+After the call, read the new session with `get_session` and check it
+against its role:
+
+```sh
+FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" check-role implementer --model claude-opus-5-5 --effort medium --json
+```
+
+Pass the new session's model and effort as `--model` and `--effort`. When
+`check-role` exits 1, the app ran the session below its role. Tell the owner
+what the app started it at, and start nothing else on that issue until the
+owner answers.
 
 Then tell the owner which sessions started, and end the turn. This session
 is woken when an implementer ends a turn. The owner wakes it by sending any
@@ -303,7 +312,6 @@ On exit 2, relay the error to the owner and merge nothing.
 
 ## Step 9: start a reviewer
 <!-- spec: run-reviews-each-pull-request, run-checks-started-session -->
-<!-- no-command: calls the desktop app's start_session tool, which a script cannot reach -->
 
 Start the session with the app's `start_session` tool:
 
@@ -320,9 +328,17 @@ Start the session with the app's `start_session` tool:
 - `wake_when_done`: true, so this session is woken when the reviewer ends a
   turn. Check the pull request again then, as step 8 says.
 
-After the call, read the new session with `get_session`. When its model or
-effort is below the reviewer's, tell the owner what the app started it at,
-and start nothing else on that pull request until the owner answers.
+After the call, read the new session with `get_session` and check it
+against its role:
+
+```sh
+FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" check-role reviewer --model claude-opus-5-5 --effort medium --json
+```
+
+Pass the new session's model and effort as `--model` and `--effort`. When
+`check-role` exits 1, the app ran the session below its role. Tell the owner
+what the app started it at, and start nothing else on that pull request until the
+owner answers.
 
 ## Step 10: clear a merged claim
 <!-- spec: run-restarts-after-merge -->

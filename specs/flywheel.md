@@ -611,8 +611,9 @@ and `match-capability-to-task`.
   `dispatcher` role against them with `check-role`, before it starts
   anything. It stops when the role is above its own session.
 - `run-checks-started-session` (step): After each `start_session` call,
-  `run` reads the new session with `get_session`. When the session runs
-  below its role's model or effort, `run` tells the owner and starts nothing
+  `run` reads the new session with `get_session` and checks it against its
+  role with `check-role`. When `check-role` exits 1, the session runs below
+  its role's model or effort, and `run` tells the owner and starts nothing
   else on that work until the owner answers.
 - `run-refuses-unmapped-role` (step): When the roles file does not name a
   role `run` needs, `run` stops and names the field.

@@ -3034,15 +3034,13 @@ def cmd_brief(args):
 
 
 def rank_of(ladder, value, label):
-    """The place of value on ladder, or None with a message in the second slot."""
+    """The place of value on ladder, or None when it matches none of its names."""
     text = value.lower()
     if label == "model":
         found = [i for i, family in enumerate(ladder) if family in text]
     else:
         found = [i for i, level in enumerate(ladder) if level == text.strip()]
-    if len(found) != 1:
-        return None, "cannot compare the %s %r. Known: %s" % (label, value, ", ".join(ladder))
-    return found[0], None
+    return found[0] if len(found) == 1 else None
 
 
 def above_session(entry, args):
@@ -3052,11 +3050,20 @@ def above_session(entry, args):
         ("model", MODEL_FAMILIES, args.model),
         ("effort", EFFORTS, args.effort),
     ):
-        wanted, why = rank_of(ladder, entry[key], key)
-        have, why_have = rank_of(ladder, given, key)
-        if wanted is None or have is None:
-            errors.append(why or why_have)
-        elif wanted > have:
+        wanted = rank_of(ladder, entry[key], key)
+        have = rank_of(ladder, given, key)
+        known = ", ".join(ladder)
+        if wanted is None:
+            errors.append(
+                "The %s role's %s %s is not one check-role can rank (%s). Set it in %s to one of"
+                " those" % (args.name, key, entry[key], known, ROLES_FILE)
+            )
+        if have is None:
+            errors.append(
+                "The session's %s %s is not one check-role can rank (%s). Pass the %s that"
+                " get_session reports" % (key, given, known, key)
+            )
+        if wanted is not None and have is not None and wanted > have:
             errors.append(
                 "The %s role's %s %s is above this session's %s. Run the skill from a"
                 " session at least that strong" % (args.name, key, entry[key], given)

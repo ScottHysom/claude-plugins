@@ -151,10 +151,40 @@ class DescribeCheckRoleAgainstSession:
         assert len(env["errors"]) == 1
         assert "model opus is above this session's claude-sonnet-5-5" in env["errors"][0]
 
-    def it_exits_1_on_a_model_or_effort_it_cannot_rank(self, project):
+    def it_names_the_session_model_it_cannot_rank(self, project):
         code, env = project.run("check-role", "reviewer", "--model", "gpt", "--effort", "high")
         assert code == flywheel.PROBLEMS
-        assert "cannot compare the model 'gpt'" in env["errors"][0]
+        assert env["errors"] == [
+            "The session's model gpt is not one check-role can rank (haiku, sonnet, opus,"
+            " fable). Pass the model that get_session reports"
+        ]
+
+    def it_names_the_session_effort_it_cannot_rank(self, project):
+        code, env = project.run(
+            "check-role", "reviewer", "--model", "claude-opus-5-5", "--effort", "extreme"
+        )
+        assert code == flywheel.PROBLEMS
+        assert len(env["errors"]) == 1
+        assert "The session's effort extreme is not one check-role can rank" in env["errors"][0]
+
+    def it_does_not_match_an_effort_by_substring(self, project):
+        write_roles(project, {"reviewer": {"tier": 2, "model": "opus", "effort": "xhigh"}})
+        code, env = project.run(
+            "check-role", "reviewer", "--model", "claude-opus-5-5", "--effort", "high"
+        )
+        assert code == flywheel.PROBLEMS
+        assert "effort xhigh is above this session's high" in env["errors"][0]
+
+    def it_names_the_role_value_it_cannot_rank(self, project):
+        write_roles(project, {"reviewer": {"tier": 2, "model": "gpt-5", "effort": "high"}})
+        code, env = project.run(
+            "check-role", "reviewer", "--model", "claude-opus-5-5", "--effort", "high"
+        )
+        assert code == flywheel.PROBLEMS
+        assert env["errors"] == [
+            "The reviewer role's model gpt-5 is not one check-role can rank (haiku, sonnet,"
+            " opus, fable). Set it in .flywheel/roles.json to one of those"
+        ]
 
     def it_refuses_one_of_the_two_options_alone(self, project):
         code, out, err = project.human("check-role", "reviewer", "--model", "opus")
