@@ -34,7 +34,7 @@ FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" queue --json
 ```
 
 ## Step 1: claim the issue
-<!-- spec: workissue-claims-first, next-cmd-moves-past-lost-claim -->
+<!-- spec: workissue-claims-first, next-cmd-moves-past-lost-claim, workissue-relays-changes-already-in-worktree -->
 <!-- seam: judgment: the owner decides whether to start on a plan before claim runs again with --plan -->
 
 Claim the issue before any other work, including reading code. When the
@@ -63,7 +63,9 @@ The owner does not reliably see a command's output, so the next thing after
 `claim` is a message in chat:
 
 - On exit 0, name `data.number` and the `data.branch` it switched to, any
-  issue in `data.lost`, and any warning.
+  issue in `data.lost`, and any warning. A warning that a file is already in
+  the worktree names a change an earlier session left. Relay it to the owner
+  and wait for their word on those files before starting the work.
 - On exit 1, relay the error, and stop. When the error says a plan
   comes first, ask the owner whether to start on that plan, and
   on a yes claim again with `--next --plan`.

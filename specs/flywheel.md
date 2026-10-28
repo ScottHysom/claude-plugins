@@ -263,9 +263,16 @@ specs/repo.md, which keeps the requirements this repo's own checks meet.
   the other exits 1, names the holder and writes nothing.
 - `claim-cmd-switches-to-issue-branch` (test): When `flywheel.py claim N`
   wins, it switches the clone to `issue/N`, and warns when the switch fails.
+- `claim-cmd-warns-of-changes-already-in-worktree` (test): When
+  `flywheel.py claim N` wins in a worktree that already holds untracked or
+  modified files, it names each one in a warning and still claims.
 - `claim-cmd-stops-when-nobody-wins` (test): When the push fails and
   `issue/N` does not exist, `flywheel.py claim` exits 2 without writing to
   the issue.
+- `workissue-relays-changes-already-in-worktree` (step): When `claim`
+  warns of changes already in the worktree, work-issue relays the warning to
+  the owner before it starts the work, so the owner decides what happens to
+  those files.
 - `next-cmd-moves-past-lost-claim` (test): When `flywheel.py claim --next`
   loses the claim on the issue `queue` offered, it claims the next free
   issue, until it wins or none is free, and then exits 1 saying why. With
