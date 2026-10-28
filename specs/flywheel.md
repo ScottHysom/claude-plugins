@@ -484,10 +484,12 @@ Source: #289, and README.md, under "Claiming an issue".
     `origin/main`.
   - leaves every worktree in place.
   - deletes the branch.
-- `clear-cmd-keeps-unmerged-work` (test): When #N is open, the local `issue/N`
-  is missing and no pull request from it has merged, or it holds a commit that
-  every merged pull request from it lacks and a change `origin/main` lacks,
-  `flywheel.py clear` exits 1, says what to do next and deletes nothing.
+- `clear-cmd-keeps-unmerged-work` (test): `flywheel.py clear` exits 1, says
+  what to do next and deletes nothing under any of these conditions:
+  - #N is open.
+  - The local `issue/N` is missing and no pull request from it has merged.
+  - The local `issue/N` holds a commit that every merged pull request from it
+    lacks and a change `origin/main` lacks.
 - `clear-cmd-reports-cleared-claim` (test): When #N is closed, the local
   `issue/N` is missing and a pull request from `issue/N` has merged,
   `flywheel.py clear N` exits 0 and says the claim is already cleared.

@@ -1469,9 +1469,7 @@ class DescribeClear:
         assert "issue/12" in local_branches(a)
 
     @pytest.mark.spec("clear-cmd-keeps-unmerged-work")
-    def it_is_a_problem_when_there_is_no_local_branch_and_nothing_merged(
-        self, capsys, clone, github
-    ):
+    def it_is_a_problem_when_there_is_no_local_branch(self, capsys, clone, github):
         github(make_issue(12, "approved", state="CLOSED"))
         code, out = run(capsys, clone("a"), "clear", "12")
         assert code == flywheel.PROBLEMS

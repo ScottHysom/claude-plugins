@@ -150,7 +150,7 @@ shape merge-check reads.
 
 ## Step 6: watch the pull request
 <!-- spec: workissue-turns-on-pr-watch, workissue-rechecks-for-comments, workissue-clears-merged-claim -->
-<!-- seam: platform: the session binds the pull request, turns on the watch and schedules the check with the app's tools before unanswered runs -->
+<!-- seam: platform: the model reads data.state from unanswered and calls CronDelete before it runs clear -->
 
 Read the pull request the session is bound to with the app's `get_status`
 tool. When it does not report the pull request just opened, bind it with
