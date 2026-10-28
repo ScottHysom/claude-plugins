@@ -188,14 +188,14 @@ class DescribeClaim:
         a = clone("a")
         (a / ".issues-plan").mkdir()
         (a / ".issues-plan" / "old.json").write_text("{}")
-        (a / "README.md").write_text("edited\n")
+        (a / "README").write_text("edited\n")
         github(make_issue(12, "approved"))
         code, out = run(capsys, a, "claim", "12")
         assert code == flywheel.OK
         assert "issue/12" in remote_branches(remote)
         assert git(a, "branch", "--show-current") == "issue/12"
         assert "already holds a change the claim did not make: .issues-plan/" in out.err
-        assert "already holds a change the claim did not make: README.md" in out.err
+        assert "already holds a change the claim did not make: README" in out.err
 
     @pytest.mark.spec("claim-cmd-warns-of-changes-already-in-worktree")
     def it_does_not_warn_in_a_clean_worktree(self, capsys, clone, github):
