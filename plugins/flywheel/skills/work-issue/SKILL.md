@@ -149,8 +149,7 @@ none, use this plugin's open-pr skill, which writes the description in the
 shape merge-check reads.
 
 ## Step 6: watch the pull request
-<!-- spec: workissue-turns-on-pr-watch -->
-<!-- no-command: calls the desktop app's pull request tools, which a script cannot reach -->
+<!-- spec: workissue-turns-on-pr-watch, workissue-rechecks-for-comments -->
 
 Read the pull request the session is bound to with the app's `get_status`
 tool. When it does not report the pull request just opened, bind it with
@@ -165,9 +164,28 @@ Turn on the session's watch with `set_monitor`, in one call:
 - `auto_archive_on_close`: true, so the app archives the session once the
   pull request merges or closes.
 
-Then report the pull request's url to the owner. When the session has no
-`set_monitor` tool, or the call is refused, say so in the same report, so the
-owner turns the watch on by hand.
+The app may not wake the session on a review comment from the account the
+session posts as, and where agents post under the owner's GitHub account that
+is the owner's every comment. So schedule a recurring check for review
+comments in every project, with the `CronCreate` tool, every minute
+(`*/1 * * * *`), and keep the job id it returns. Give it a
+prompt that says to run this, with the pull request's number in place of 795
+(the pull request just opened, not the issue), and to act on its result:
+
+```sh
+FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" unanswered 795 --json
+```
+
+`data.threads` lists each unresolved thread that waits on the session. When it
+lists any, answer them as step 7 says. When `data.state` is not `OPEN`, delete
+the job by its id with `CronDelete` and stop checking. The job lasts the
+session and expires after seven days.
+
+Then report the pull request's url to the owner, and say the check is
+scheduled. When the session has no `set_monitor` tool, or the call is
+refused, say so in the same report, so the owner turns the watch on by hand.
+When the session has no `CronCreate` tool, say so too, so the owner tells the
+session in chat when a comment arrives.
 
 ## Step 7: answer each review thread
 <!-- spec: workissue-answers-each-thread, workissue-hands-review-todos -->

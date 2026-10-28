@@ -162,7 +162,10 @@ yourself. The skill:
 6. turns on the session's Auto-fix, so the app wakes the session when CI
    fails, the pull request has a conflict or a review comment arrives. It
    also has the app archive the session once the pull request merges or
-   closes. The app may ask you to approve that call.
+   closes. The app may ask you to approve that call. Because the session
+   posts under your GitHub account, the app may not wake it on your own review
+   comments. So the skill also schedules a check, every minute while the
+   session lasts, for review threads that wait on it.
 7. answers each review thread with what it changed or why not, and leaves
    resolving the thread to the reviewer.
 
