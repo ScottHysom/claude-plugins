@@ -463,6 +463,7 @@ class DescribeClaimNext:
         assert code == flywheel.PROBLEMS
         assert "plan is finished. To close it, run: flywheel.py plan close 20" in out.err
 
+    @pytest.mark.spec("next-cmd-moves-past-lost-claim")
     def it_does_not_offer_to_close_a_plan_issue_that_is_closed_already(
         self, capsys, remote, clone, github
     ):
@@ -712,7 +713,7 @@ class DescribeQueueTracking:
         )
         code, out = run(capsys, clone("a"), "queue", "--plan", "20")
         assert code == flywheel.PROBLEMS
-        assert "#20 is closed" in out.err
+        assert "#20 is closed, but its plan is not finished" in out.err
 
     @pytest.mark.spec("next-cmd-follows-plan-issue")
     def it_names_each_blocked_sub_issue_when_all_are_blocked(self, capsys, clone, github):

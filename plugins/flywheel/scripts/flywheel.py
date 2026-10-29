@@ -2704,7 +2704,7 @@ def plan_issues(root, number, count):
     closed = not is_open(item)
     subs = sub_issues(root, number) if closed else None
     if closed and not (subs and not any(is_open(s) for s in subs)):
-        problems.append("#%d is closed; its plan is finished" % number)
+        problems.append("#%d is closed, but its plan is not finished" % number)
     if not has_label(item, names[PLAN]):
         problems.append(
             "#%d is not labeled %s; run %s queue without --plan" % (number, names[PLAN], PROG)
