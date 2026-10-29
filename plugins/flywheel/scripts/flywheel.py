@@ -3987,7 +3987,52 @@ def read_findings(path):
         ) from exc
 
 
-def check_findings(found, pull, threads, cap):
+HUNK_RE = re.compile(r"^@@ -\d+(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
+NEW_FILE_PREFIX = "+++ "
+
+
+def diff_lines(diff):
+    """Each file's lines that a review comment can sit on, from a unified diff.
+
+    Those are the lines on the new side of a hunk, added or unchanged. The
+    hunk header's counts say where a hunk ends, so a line inside one that
+    reads `+++ ` is content and not a file header.
+    """
+    out = {}
+    path = None
+    old_left = new_left = 0
+    new_line = 0
+    for text in diff.split("\n"):
+        if old_left > 0 or new_left > 0:
+            if text.startswith("\\"):
+                continue
+            if text.startswith("-"):
+                old_left -= 1
+            elif text.startswith("+"):
+                new_left -= 1
+                out[path].add(new_line)
+                new_line += 1
+            else:
+                old_left -= 1
+                new_left -= 1
+                out[path].add(new_line)
+                new_line += 1
+            continue
+        if text.startswith(NEW_FILE_PREFIX):
+            name = text[len(NEW_FILE_PREFIX) :].split("\t")[0]
+            path = name[2:] if name.startswith("b/") else None
+            if path is not None:
+                out.setdefault(path, set())
+            continue
+        hunk = HUNK_RE.match(text)
+        if hunk and path is not None:
+            old_left = int(hunk.group(1) if hunk.group(1) is not None else 1)
+            new_left = int(hunk.group(3) if hunk.group(3) is not None else 1)
+            new_line = int(hunk.group(2))
+    return out
+
+
+def check_findings(found, pull, threads, cap, diff):
     """Each fault in the reviewer's findings, against the pull request as it is now."""
     if not isinstance(found, dict):
         return ["the findings are not a JSON object. Write them as `review-post --help` shows"]
@@ -4012,6 +4057,7 @@ def check_findings(found, pull, threads, cap):
         faults.append('"findings" is not a list')
         findings = []
     paths = {f["path"] for f in pull.get("files") or []}
+    in_diff = diff_lines(diff)
     for i, item in enumerate(findings, 1):
         name = "finding %d" % i
         if not isinstance(item, dict) or sorted(item) != sorted(FINDING_KEYS):
@@ -4025,6 +4071,11 @@ def check_findings(found, pull, threads, cap):
         line = item["line"]
         if isinstance(line, bool) or not isinstance(line, int) or line < 1:
             faults.append("%s gives line %s, not a line number" % (name, json.dumps(line)))
+        elif item["path"] in paths and line not in in_diff.get(item["path"], ()):
+            faults.append(
+                "%s is on line %d of %s, which is outside the diff of #%d"
+                % (name, line, item["path"], pull["number"])
+            )
         if item["level"] not in LEVELS:
             faults.append(
                 "%s gives level %s, not one of %s"
@@ -4080,7 +4131,7 @@ def cmd_review_post(args):
     cap, _ = review_settings(settings)
     pull = pull_request(root, n)
     threads = review_threads(root, n)
-    faults = check_findings(found, pull, threads, cap)
+    faults = check_findings(found, pull, threads, cap, gh(root, "pr", "diff", str(n)))
     data = {"number": n, "posted": False, "findings": 0, "resolved": []}
     if faults:
         return emit(args, "review-post", data, faults, human=lambda: None)

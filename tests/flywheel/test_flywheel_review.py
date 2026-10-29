@@ -80,7 +80,28 @@ class FakeGitHub:
         }
         self.threads = []
         self.labels = ["approved", "plugin:demo", "enhancement"]
-        self.diff = "diff --git a/plugins/demo/app.py b/plugins/demo/app.py\n+fixed\n"
+        self.diff = (
+            "diff --git a/plugins/demo/app.py b/plugins/demo/app.py\n"
+            "--- a/plugins/demo/app.py\n"
+            "+++ b/plugins/demo/app.py\n"
+            "@@ -1,3 +1,4 @@\n"
+            " one\n"
+            "-two\n"
+            "+2\n"
+            "+two and a half\n"
+            " three\n"
+            "@@ -20,2 +21,3 @@ def late():\n"
+            " twenty\n"
+            "+++ not a file header\n"
+            "\\ No newline at end of file\n"
+            " end\n"
+            "diff --git a/tests/demo/test_app.py b/tests/demo/test_app.py\n"
+            "--- a/tests/demo/test_app.py\n"
+            "+++ b/tests/demo/test_app.py\n"
+            "@@ -5 +5 @@\n"
+            "-old\n"
+            "+new\n"
+        )
         self.missing = False
         self.merge_error = None
         self.calls = []
@@ -307,7 +328,7 @@ def one(level="P1", **change):
 class DescribeReviewPostPosting:
     def it_posts_one_review_of_the_head_that_only_comments(self, policies, github):
         code, env = post(
-            policies, {"head": HEAD, "findings": [one("P1"), one("P3", line=9, body="A nit.")]}
+            policies, {"head": HEAD, "findings": [one("P1"), one("P3", line=22, body="A nit.")]}
         )
         assert code == flywheel.OK
         assert env["data"] == {"number": 71, "posted": True, "findings": 2, "resolved": []}
@@ -319,7 +340,7 @@ class DescribeReviewPostPosting:
             {"path": "plugins/demo/app.py", "line": 3, "side": "RIGHT", "body": finding("P1")},
             {
                 "path": "plugins/demo/app.py",
-                "line": 9,
+                "line": 22,
                 "side": "RIGHT",
                 "body": finding("P3", "A nit."),
             },
@@ -407,6 +428,58 @@ class DescribeReviewPostRefusing:
         assert any(fault in e for e in env["errors"]), env["errors"]
         assert github.posted == []
         assert github.resolved == []
+
+    @pytest.mark.parametrize(
+        ("path", "line"),
+        [
+            ("plugins/demo/app.py", 5),
+            ("plugins/demo/app.py", 20),
+            ("plugins/demo/app.py", 25),
+            ("tests/demo/test_app.py", 4),
+            ("tests/demo/test_app.py", 6),
+        ],
+    )
+    def it_refuses_a_finding_on_a_line_outside_the_diff_and_posts_nothing(
+        self, policies, github, path, line
+    ):
+        github.threads = [thread("T1", finding("P1"), (ANSWER, AFTER))]
+        code, env = post(
+            policies,
+            {"head": HEAD, "findings": [one(path=path, line=line)], "resolve": ["T1"]},
+        )
+        assert code == flywheel.PROBLEMS
+        assert env["errors"] == [
+            "finding 1 is on line %d of %s, which is outside the diff of #71" % (line, path)
+        ]
+        assert env["data"]["posted"] is False
+        assert github.posted == []
+        assert github.resolved == []
+
+    @pytest.mark.parametrize(
+        ("path", "line"),
+        [
+            ("plugins/demo/app.py", 1),
+            ("plugins/demo/app.py", 3),
+            ("plugins/demo/app.py", 4),
+            ("plugins/demo/app.py", 21),
+            ("plugins/demo/app.py", 22),
+            ("plugins/demo/app.py", 23),
+            ("tests/demo/test_app.py", 5),
+        ],
+    )
+    def it_accepts_a_finding_on_a_context_or_added_line_of_the_diff(
+        self, policies, github, path, line
+    ):
+        code, _ = post(policies, {"head": HEAD, "findings": [one(path=path, line=line)]})
+        assert code == flywheel.OK
+
+    def it_refuses_a_finding_on_a_file_with_no_hunks_in_the_diff(self, policies, github):
+        github.diff = (
+            "diff --git a/plugins/demo/app.py b/plugins/demo/app.py\nBinary files differ\n"
+        )
+        code, env = post(policies, {"head": HEAD, "findings": [one(line=3)]})
+        assert code == flywheel.PROBLEMS
+        assert "outside the diff of #71" in env["errors"][0]
 
     def it_refuses_more_nits_than_the_cap(self, policies, github):
         set_setting(policies, flywheel.REVIEW_POLICY, "p3_cap", 1)
