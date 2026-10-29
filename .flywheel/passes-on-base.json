@@ -29,6 +29,8 @@
     "tests/prose-tuning/test_apply.py::DescribeHeldRewrites::it_still_refuses_a_pair_whose_rewrites_disagree[same-text]": "pins that report and apply still refuse a nested pair whose outer rewrite does not hold the inner change, which #777 keeps",
     "tests/todos/test_todos_review.py::DescribeProseFromOtherPullRequest::it_hands_off_a_todo_of_another_kind": "pins that a review TODO of a kind other than prose still goes to a skill under --pr, which #705 keeps",
     "tests/todos/test_todos_review.py::DescribeProseFromOtherPullRequest::it_hands_off_a_prose_todo_from_a_pull_request_about_prose": "pins that a prose TODO from a pull request about prose still goes to a skill, which #705 keeps",
-    "tests/flywheel/test_flywheel_lock.py::DescribeClaim::it_does_not_warn_in_a_clean_worktree": "pins that claim stays quiet in a clean worktree, which the warning for changes already there must keep"
+    "tests/flywheel/test_flywheel_lock.py::DescribeClaim::it_does_not_warn_in_a_clean_worktree": "pins that claim stays quiet in a clean worktree, which the warning for changes already there must keep",
+    "tests/flywheel/test_flywheel_lock.py::DescribeQueueTracking::it_refuses_a_closed_plan_issue_whose_plan_is_not_finished[subs0]": "pins that queue --plan still exits 1 on a closed plan issue with an open sub-issue or none, the case #809 narrows the closed-issue refusal to",
+    "tests/flywheel/test_flywheel_lock.py::DescribeQueueTracking::it_refuses_a_closed_plan_issue_whose_plan_is_not_finished[subs1]": "pins that queue --plan still exits 1 on a closed plan issue with an open sub-issue or none, the case #809 narrows the closed-issue refusal to"
   }
 }
