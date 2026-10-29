@@ -115,8 +115,8 @@ Commands:
                  last comment does not open with **Claude:**, which wait on
                  the implementer, and the pull request's state.
     review-post N  check the reviewer's findings against pull request N and
-                 the review policy, resolve the threads they name, and post
-                 one review of the head that only comments.
+                 the review policy, post one review of the head that only
+                 comments, and resolve the threads they name.
     merge-check N  whether pull request N flows or holds under
                  .flywheel/merge-policy.md, each reason it holds, and the
                  next step. With --merge, squash it when it flows.
@@ -512,8 +512,9 @@ Things that look like bugs and are not:
   owner's question, once it has an answer. The owner resolves or reopens it.
 - `merge-check --merge` passes --match-head-commit, so a push made after the
   check makes the merge fail, and the pull request holds for the owner.
-- `review-post` resolves threads before it posts the review, so the review's
-  time comes after the look at every answer it settled.
+- `review-post` resolves threads only after GitHub takes the review, so a
+  refused post leaves every thread as it was. The review is still posted after
+  the reviewer read every answer it settled.
 - `assess` reads whether the rules files state a rule and whether a workflow
   cites a principle, and cannot see whether agents follow the rule or the
   workflow enforces the principle. As a simplification, it takes the

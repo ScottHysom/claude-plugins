@@ -134,7 +134,11 @@ class FakeGitHub:
         if args[:2] == ("api", "graphql"):
             query = next(a for a in args if a.startswith("query="))
             if "resolveReviewThread" in query:
-                self.resolved.append(next(a for a in args if a.startswith("id="))[3:])
+                tid = next(a for a in args if a.startswith("id="))[3:]
+                self.resolved.append(tid)
+                for t in self.threads:
+                    if t["id"] == tid:
+                        t["isResolved"] = True
                 return "{}"
             pull = None if self.missing else {"reviewThreads": {"nodes": self.threads}}
             return json.dumps({"data": {"repository": {"pullRequest": pull}}})
@@ -385,6 +389,7 @@ class DescribeReviewPostPosting:
         code, _ = post(policies, {"head": HEAD, "resolve": ["T1"]})
         assert code == flywheel.CANNOT_RUN
         assert github.resolved == []
+        assert github.threads[0]["isResolved"] is False
         github.post_error = None
         code, env = post(policies, {"head": HEAD, "resolve": ["T1"]})
         assert code == flywheel.OK
