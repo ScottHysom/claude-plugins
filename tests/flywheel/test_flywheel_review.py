@@ -104,6 +104,7 @@ class FakeGitHub:
         )
         self.missing = False
         self.merge_error = None
+        self.post_error = None
         self.calls = []
         self.posted = []
         self.resolved = []
@@ -133,11 +134,17 @@ class FakeGitHub:
         if args[:2] == ("api", "graphql"):
             query = next(a for a in args if a.startswith("query="))
             if "resolveReviewThread" in query:
-                self.resolved.append(next(a for a in args if a.startswith("id="))[3:])
+                tid = next(a for a in args if a.startswith("id="))[3:]
+                self.resolved.append(tid)
+                for t in self.threads:
+                    if t["id"] == tid:
+                        t["isResolved"] = True
                 return "{}"
             pull = None if self.missing else {"reviewThreads": {"nodes": self.threads}}
             return json.dumps({"data": {"repository": {"pullRequest": pull}}})
         if args[0] == "api" and args[1] == flywheel.REVIEWS_PATH % 71:
+            if self.post_error:
+                raise flywheel.Fatal(self.post_error)
             self.posted.append(json.loads(stdin))
             return "{}"
         raise AssertionError("unexpected gh call: %r" % (args,))
@@ -375,6 +382,19 @@ class DescribeReviewPostPosting:
         assert github.resolved == ["T2"]
         assert env["data"]["resolved"] == ["T2"]
         assert len(github.posted) == 1
+
+    def it_leaves_every_thread_as_it_was_when_github_refuses_the_post(self, policies, github):
+        github.threads = [thread("T1", finding("P1"), (ANSWER, AFTER))]
+        github.post_error = "HTTP 422"
+        code, _ = post(policies, {"head": HEAD, "resolve": ["T1"]})
+        assert code == flywheel.CANNOT_RUN
+        assert github.resolved == []
+        assert github.threads[0]["isResolved"] is False
+        github.post_error = None
+        code, env = post(policies, {"head": HEAD, "resolve": ["T1"]})
+        assert code == flywheel.OK
+        assert env["data"]["posted"] is True
+        assert github.resolved == ["T1"]
 
     def it_reads_the_findings_from_stdin(self, policies, github, monkeypatch):
         monkeypatch.setattr("sys.stdin", io.StringIO(json.dumps({"head": HEAD})))
