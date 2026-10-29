@@ -27,8 +27,8 @@ CLEAN_BODY = (
 OWN_TEMPLATE = "## Why\n\nThe reason.\n\n## Spec changes\n\n<!-- requirement-ids -->\n"
 
 
-def check_run(status="COMPLETED", conclusion="SUCCESS"):
-    return {"__typename": "CheckRun", "status": status, "conclusion": conclusion}
+def check_run(status="COMPLETED", conclusion="SUCCESS", **more):
+    return {"__typename": "CheckRun", "status": status, "conclusion": conclusion, **more}
 
 
 def review(head=HEAD, at=REVIEWED_AT, body=None):
@@ -830,6 +830,23 @@ class DescribeTheNextStep:
         github.pull["mergeable"] = "CONFLICTING"
         _, data = check(policies)
         assert data["only_running_check"] is False
+
+    @pytest.mark.spec("mergecheck-cmd-ignores-replaced-canceled-check")
+    def it_waits_on_a_running_check_that_replaced_a_canceled_one(self, policies, github):
+        github.pull["statusCheckRollup"] = [
+            check_run(conclusion="CANCELLED", name="validate", startedAt="2026-10-29T09:29:37Z"),
+            check_run(
+                status="IN_PROGRESS",
+                conclusion="",
+                name="validate",
+                startedAt="2026-10-29T09:29:58Z",
+            ),
+        ]
+        github.pull["reviews"] = [review(OLD)]
+        _, data = check(policies)
+        assert data["next"] == flywheel.NEXT_WAIT
+        assert data["only_running_check"] is True
+        assert "a check fails on its head" not in data["reasons"]
 
     def it_waits_for_an_answer_to_each_thread(self, policies, github):
         github.threads = [thread("T1", finding("P1"))]

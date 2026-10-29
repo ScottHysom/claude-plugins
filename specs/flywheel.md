@@ -754,6 +754,13 @@ Source: #650, and the playbook's `autonomy-scales-with-risk` and
   the implementer, and `ask` when only the owner can settle it. It also
   reports `only_running_check`, true when a running check is the only reason
   that waits on the implementer.
+- `mergecheck-cmd-ignores-replaced-canceled-check` (test): When `events` and
+  `merge-check` read a pull request's checks, a check run that GitHub
+  canceled does not count if a later run of the same check (the same
+  workflow and name) is on the head. The later run decides, so the checks
+  read as pending while it runs and as passing or failing by its conclusion.
+  A canceled run with no later run of the same check still counts as
+  failing.
 - `mergecheck-cmd-merges-on-flow` (test): When `merge-check N --merge` finds
   that N flows, it squashes N at the head it checked. When N holds, it merges
   nothing, and when the merge fails, it reports hold with GitHub's reason.

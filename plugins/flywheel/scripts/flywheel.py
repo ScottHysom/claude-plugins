@@ -744,6 +744,7 @@ CI_NONE, CI_PENDING, CI_FAILING, CI_PASSING = "none", "pending", "failing", "pas
 PASSING_CONCLUSIONS = ("SUCCESS", "NEUTRAL", "SKIPPED")
 PENDING_STATES = ("PENDING", "EXPECTED")
 COMPLETED = "COMPLETED"
+CANCELLED = "CANCELLED"
 TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 DATE_FORMAT = "%Y-%m-%d"
 # `measure`. A commit's checks sum up to one of these states.
@@ -3148,12 +3149,46 @@ def claim_number(head):
     return int(m.group(1)) if m else None
 
 
+def check_key(check):
+    """The workflow and name that identify one check across its runs, or None."""
+    if check.get("__typename") == "StatusContext" or not check.get("name"):
+        return None
+    return (check.get("workflowName") or "", check["name"])
+
+
+def without_replaced_cancellations(rollup):
+    """The rollup less each canceled run that a later run of the same check replaced.
+
+    A run that has not completed replaces a canceled one outright: gh writes the
+    `startedAt` of a run that has not started as a zero time, which sorts first.
+    """
+    latest, unfinished = {}, set()
+    for check in rollup:
+        key = check_key(check)
+        if key is not None:
+            latest[key] = max(latest.get(key, ""), check.get("startedAt") or "")
+            if check.get("status") != COMPLETED:
+                unfinished.add(key)
+    return [
+        check
+        for check in rollup
+        if not (
+            check.get("conclusion") == CANCELLED
+            and check_key(check) is not None
+            and (
+                check_key(check) in unfinished
+                or (check.get("startedAt") or "") < latest[check_key(check)]
+            )
+        )
+    ]
+
+
 def ci_state(rollup):
     """One word for a pull request's checks: failing wins over pending, then passing."""
     if not rollup:
         return CI_NONE
     found = set()
-    for check in rollup:
+    for check in without_replaced_cancellations(rollup):
         if check.get("__typename") == "StatusContext":
             state = check.get("state")
             if state == "SUCCESS":
