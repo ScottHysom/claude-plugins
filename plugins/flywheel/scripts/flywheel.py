@@ -3157,19 +3157,28 @@ def check_key(check):
 
 
 def without_replaced_cancellations(rollup):
-    """The rollup less each cancelled run that a later run of the same check replaced."""
-    latest = {}
+    """The rollup less each canceled run that a later run of the same check replaced.
+
+    A run that has not completed replaces a canceled one outright: gh writes the
+    `startedAt` of a run that has not started as a zero time, which sorts first.
+    """
+    latest, unfinished = {}, set()
     for check in rollup:
         key = check_key(check)
         if key is not None:
             latest[key] = max(latest.get(key, ""), check.get("startedAt") or "")
+            if check.get("status") != COMPLETED:
+                unfinished.add(key)
     return [
         check
         for check in rollup
         if not (
             check.get("conclusion") == CANCELLED
             and check_key(check) is not None
-            and (check.get("startedAt") or "") < latest[check_key(check)]
+            and (
+                check_key(check) in unfinished
+                or (check.get("startedAt") or "") < latest[check_key(check)]
+            )
         )
     ]
 

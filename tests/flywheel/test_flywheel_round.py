@@ -293,7 +293,7 @@ class DescribeEvents:
         pulls(opened=[open_pull(31, "issue/12", checks)])
         assert project.run("events")[1]["data"]["open"][0]["ci"] == ci
 
-    @pytest.mark.spec("mergecheck-cmd-ignores-replaced-cancelled-check")
+    @pytest.mark.spec("mergecheck-cmd-ignores-replaced-canceled-check")
     @pytest.mark.parametrize(
         ("checks", "ci"),
         [
@@ -307,6 +307,20 @@ class DescribeEvents:
                         conclusion="",
                         name="validate",
                         startedAt="2026-10-29T09:29:58Z",
+                    ),
+                ],
+                "pending",
+            ),
+            (
+                [
+                    check_run(
+                        conclusion="CANCELLED", name="validate", startedAt="2026-10-29T09:29:37Z"
+                    ),
+                    check_run(
+                        status="QUEUED",
+                        conclusion="",
+                        name="validate",
+                        startedAt="0001-01-01T00:00:00Z",
                     ),
                 ],
                 "pending",
@@ -342,7 +356,7 @@ class DescribeEvents:
             ),
         ],
     )
-    def it_reads_a_cancelled_check_through_its_later_run(self, project, pulls, checks, ci):
+    def it_reads_a_canceled_check_through_its_later_run(self, project, pulls, checks, ci):
         pulls(opened=[open_pull(31, "issue/12", checks)])
         assert project.run("events")[1]["data"]["open"][0]["ci"] == ci
 

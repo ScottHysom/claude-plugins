@@ -37,7 +37,7 @@
     "tests/flywheel/test_flywheel_review.py::DescribeReviewPostRefusing::it_accepts_a_finding_on_a_context_or_added_line_of_the_diff[plugins/demo/app.py-22]": "pins that review-post still posts a finding on a line inside the diff, as it did before #811 refused the lines outside it",
     "tests/flywheel/test_flywheel_review.py::DescribeReviewPostRefusing::it_accepts_a_finding_on_a_context_or_added_line_of_the_diff[plugins/demo/app.py-23]": "pins that review-post still posts a finding on a line inside the diff, as it did before #811 refused the lines outside it",
     "tests/flywheel/test_flywheel_review.py::DescribeReviewPostRefusing::it_accepts_a_finding_on_a_context_or_added_line_of_the_diff[tests/demo/test_app.py-5]": "pins that review-post still posts a finding on a line inside the diff, as it did before #811 refused the lines outside it",
-    "tests/flywheel/test_flywheel_round.py::DescribeEvents::it_reads_a_cancelled_check_through_its_later_run[checks2-failing]": "pins that a cancelled run still counts as failing when no later run of the same check stands in for it, or when the later run failed",
-    "tests/flywheel/test_flywheel_round.py::DescribeEvents::it_reads_a_cancelled_check_through_its_later_run[checks3-failing]": "pins that a cancelled run still counts as failing when no later run of the same check stands in for it, or when the later run failed"
+    "tests/flywheel/test_flywheel_round.py::DescribeEvents::it_reads_a_canceled_check_through_its_later_run[checks3-failing]": "pins that a canceled run still counts as failing when no later run of the same check stands in for it, or when the later run failed",
+    "tests/flywheel/test_flywheel_round.py::DescribeEvents::it_reads_a_canceled_check_through_its_later_run[checks4-failing]": "pins that a canceled run still counts as failing when no later run of the same check stands in for it, or when the later run failed"
   }
 }
