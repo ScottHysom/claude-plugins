@@ -210,9 +210,11 @@ and leave the session unarchived.
 
 Then report the pull request's url to the owner, and say the check is
 scheduled. When the session has no `set_monitor` tool, or the call is
-refused, say so in the same report, with the app's reason and the words
-"Auto-fix is off", so the owner turns the watch on by hand. In a round the
-report goes to the dispatcher, which relays that line to the owner.
+refused, open the report with "Auto-fix is off" and the pull request's url,
+so the owner turns the watch on by hand. When the call is refused, give the
+app's reason right after. In a round the report goes to the dispatcher,
+which sees only the first 400 characters of it and relays that opening to
+the owner. Put the same opening in the wrap-up recap.
 When the session has no `CronCreate` tool, say so too, so the owner tells the
 session in chat when a comment arrives.
 

@@ -132,8 +132,9 @@ The app refused `set_monitor` on #802, #803 and #804, saying it can turn on
 Auto-fix only for a pull request it is sure the session opened. Those were
 opened by `flywheel.py pr open`, which calls `gh`, and binding the pull
 request with `bind_pr` did not change the answer. The plugin cannot change
-that, so work-issue reports the refusal as "Auto-fix is off" and run relays
-it to the owner, which a round did not do before (#805).
+that, so work-issue opens its report with "Auto-fix is off", since a dispatcher
+sees only the first 400 characters of it, and run relays that to the owner,
+which a round did not do before (#805).
 
 ## The dispatcher's skill
 

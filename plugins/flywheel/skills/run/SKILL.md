@@ -267,8 +267,7 @@ note that woke this session shows:
   time a look shows it. Then check it as step 8 says.
 - An implementer whose report says Auto-fix is off for its pull request.
   Tell the owner the pull request's `url` and the app's reason, once, so
-  the owner can turn Auto-fix on in the app. Until then step 8 messages the
-  implementer about a failing check.
+  the owner can turn Auto-fix on in the app.
 - A pull request in `data.merged` whose claim this session has not cleared
   since step 8 merged it. Clear its claim as step 10 says.
 - An implementer that reports it could not archive itself, once its claim
