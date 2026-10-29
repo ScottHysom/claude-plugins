@@ -272,8 +272,8 @@ owner that reason as step 8 does.
 CI finishing does not wake this session. A scheduled look is a `CronCreate`
 job that lasts this session and expires after seven days, so on each look
 check with `CronList` that the job is still there. When a look shows an open
-pull request and the job is missing, schedule one every five minutes
-(`*/5 * * * *`) and keep the job id. Its prompt says to take this step's look
+pull request and the job is missing, schedule one every two minutes
+(`*/2 * * * *`) and keep the job id. Its prompt says to take this step's look
 with the last `data.as_of` and act on it. Delete the job with `CronDelete`
 when step 12 stops the round.
 
