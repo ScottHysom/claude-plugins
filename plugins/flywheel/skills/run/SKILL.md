@@ -263,13 +263,17 @@ FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" events --issue 649 --issue
 
 Keep the new `data.as_of`. Each row of `data.open` carries the `next` step
 and `reasons` that `merge-check` gives, so one look shows every open pull
-request's next step.
+request's next step. A row whose `next` is `ask` can carry the error that
+kept `events` from assessing that pull request, as its only reason. Tell the
+owner that reason as step 8 does.
 
-CI finishing does not wake this session. The first time a look shows an open
-pull request, and no look is scheduled yet, schedule one with the
-`CronCreate` tool every five minutes (`*/5 * * * *`) and keep the job id. Its
-prompt says to take this step's look with the last `data.as_of` and act on
-it. Delete the job with `CronDelete` when step 12 stops the round.
+CI finishing does not wake this session. A scheduled look is a `CronCreate`
+job that lasts this session and expires after seven days, so on each look
+check with `CronList` that the job is still there. When a look shows an open
+pull request and the job is missing, schedule one every five minutes
+(`*/5 * * * *`) and keep the job id. Its prompt says to take this step's look
+with the last `data.as_of` and act on it. Delete the job with `CronDelete`
+when step 12 stops the round.
 
 Then act on each of these that the look or the
 note that woke this session shows:
@@ -291,14 +295,16 @@ note that woke this session shows:
 <!-- spec: run-merges-what-flows, run-asks-owner-on-hold, run-reviews-each-pull-request, run-acts-on-stalled-wait -->
 
 For each pull request in `data.open`, the look has already named the `next`
-step. Ask the merge policy whether it flows, and merge it when it does:
+step, the `head` and the `reasons`. Act on those, and run `merge-check` only
+for a row whose `next` is `merge`, to merge it:
 
 ```sh
 FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" merge-check 671 --merge --json
 ```
 
 `data.merged` true means `merge-check` squashed it. Clear its claim as step 10
-says. Otherwise `data.next` says what comes next, and `data.reasons` says
+says. When it holds instead, treat its `data.next` and `data.reasons` as the
+row's. For every other row, `next` says what comes next, and `reasons` says
 why it holds:
 
 - `review`: the pull request needs the reviewer's look at its head. Start a
@@ -307,8 +313,10 @@ why it holds:
 - `wait`: the pull request waits on its implementer, such as for a failing
   check, a thread to answer or a check still running. The app's Auto-fix
   does not wake the implementer on every failure, so read its state with
-  the app's `list_sessions` tool, with `linked` true. Then act on the one of
-  these that holds:
+  the app's `list_sessions` tool, with `linked` true. When the only reason is
+  "a check is still running on its head", leave it to the next look: message
+  nobody, and do not count it toward telling the owner. Otherwise act on the
+  one of these that holds:
   - The implementer is working. Nothing starts here.
   - The implementer is idle, and this session has not yet messaged it for
     this `data.head` with these `data.reasons`. Send it the `url` and each

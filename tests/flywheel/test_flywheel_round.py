@@ -252,6 +252,21 @@ class DescribeEvents:
         row = env["data"]["open"][0]
         assert (row["next"], row["reasons"]) == ("review", ["the reviewer has not reviewed it"])
 
+    def it_holds_for_the_owner_a_pull_request_it_cannot_assess(self, project, pulls, monkeypatch):
+        pulls(opened=[open_pull(31, "issue/12"), open_pull(32, "issue/13")])
+
+        def assess(root, number):
+            if number == 31:
+                raise flywheel.Fatal("no merge policy")
+            return dict(NEXT_STEP)
+
+        monkeypatch.setattr(flywheel, "assess", assess)
+        code, env = project.run("events")
+        first, second = env["data"]["open"]
+        assert code == flywheel.OK
+        assert (first["next"], first["reasons"]) == ("ask", ["no merge policy"])
+        assert second["next"] == "wait"
+
     @pytest.mark.parametrize(
         ("checks", "ci"),
         [

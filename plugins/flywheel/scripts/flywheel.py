@@ -3216,7 +3216,11 @@ def cmd_events(args):
         row = pull_row(pull)
         row["ci"] = ci_state(pull.get("statusCheckRollup"))
         row["review"] = (pull.get("reviewDecision") or "").lower() or None
-        verdict = assess(root, pull["number"])
+        try:
+            verdict = assess(root, pull["number"])
+        except Fatal as exc:
+            # One pull request that cannot be assessed does not hide the rest of the look.
+            verdict = {"head": None, "verdict": HOLD, "next": NEXT_ASK, "reasons": [str(exc)]}
         row.update({k: verdict[k] for k in ("head", "verdict", "next", "reasons")})
         rows.append(row)
     claimed = [p for p in merged if claim_number(p["headRefName"]) is not None]
