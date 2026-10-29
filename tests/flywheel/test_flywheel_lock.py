@@ -181,6 +181,29 @@ class DescribeClaim:
         assert ("issue", "edit", "12", "--add-label", "claimed") in gh.calls
         assert any(c[1] == "comment" and flywheel.CLAIM_MARK in c[-1] for c in gh.calls)
 
+    @pytest.mark.spec("claim-cmd-warns-of-changes-already-in-worktree")
+    def it_names_each_change_already_in_the_worktree_and_still_claims(
+        self, capsys, remote, clone, github
+    ):
+        a = clone("a")
+        (a / ".issues-plan").mkdir()
+        (a / ".issues-plan" / "old.json").write_text("{}")
+        (a / "README").write_text("edited\n")
+        github(make_issue(12, "approved"))
+        code, out = run(capsys, a, "claim", "12")
+        assert code == flywheel.OK
+        assert "issue/12" in remote_branches(remote)
+        assert git(a, "branch", "--show-current") == "issue/12"
+        assert "already holds a change the claim did not make: .issues-plan/" in out.err
+        assert "already holds a change the claim did not make: README" in out.err
+
+    @pytest.mark.spec("claim-cmd-warns-of-changes-already-in-worktree")
+    def it_does_not_warn_in_a_clean_worktree(self, capsys, clone, github):
+        github(make_issue(12, "approved"))
+        code, out = run(capsys, clone("a"), "claim", "12")
+        assert code == flywheel.OK
+        assert "already holds" not in out.err
+
     @pytest.mark.parametrize("main_moved", [False, True], ids=["same-main", "main-moved"])
     @pytest.mark.spec("claim-cmd-picks-one-winner")
     def it_lets_only_one_of_two_agents_claiming_at_once_win(

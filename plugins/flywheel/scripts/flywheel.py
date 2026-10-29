@@ -2860,7 +2860,10 @@ def take(args, root, n):
             return [held_message(n)], [], True
         raise Fatal("could not push %s: %s" % (branch(n), push.stderr.strip()))
 
-    warnings = []
+    warnings = [
+        "%s already holds a change the claim did not make: %s" % (root, line[3:])
+        for line in git(root, "status", "--porcelain").stdout.splitlines()
+    ]
     track = "%s/%s" % (REMOTE, branch(n))
     git(root, "fetch", "--quiet", REMOTE, "%s:refs/remotes/%s" % (ref(n), track))
     switch = git(root, "switch", "--quiet", "-c", branch(n), "--track", track, check=False)
