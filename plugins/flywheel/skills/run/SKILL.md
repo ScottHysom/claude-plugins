@@ -283,8 +283,9 @@ note that woke this session shows:
 - An implementer whose report says Auto-fix is off for its pull request.
   Tell the owner the pull request's `url` and the app's reason, once, so
   the owner can turn Auto-fix on in the app.
-- A pull request that this session started a reviewer on, which `data.open`
-  no longer lists and `data.merged` does not name, so it closed unmerged.
+- A pull request that this session started a reviewer on, whose reviewers it
+  has not archived, which `data.open` no longer lists and `data.merged` has
+  not named in this or any earlier look of the round, so it closed unmerged.
   Archive its reviewers as step 10 says.
 - A pull request in `data.merged` whose claim this session has not cleared
   since step 8 merged it. Clear its claim as step 10 says.
@@ -310,11 +311,15 @@ says. When it holds instead, treat its `data.next` and `data.reasons` as the
 row's. For every other row, `next` says what comes next, and `reasons` says
 why it holds:
 
-- `review`: the pull request needs the reviewer's look at its head. When
-  this session started a reviewer on it, that reviewer takes the look: when
-  it is working, leave it to the next look, and when it is idle, send it the
-  `url` and the `head` with `SendMessage`, to its `local_` id, and ask it to
-  review the pull request again. Otherwise start a reviewer as step 9 says.
+- `review`: the pull request needs the reviewer's look at its head. Act on
+  the one of these that holds:
+  - This session started a reviewer on it, and the reviewer is working. Leave
+    it to the next look.
+  - This session started a reviewer on it, and the reviewer is idle. Send it
+    the `url` and the `head` with `SendMessage`, to its `local_` id, and ask
+    it to review the pull request again.
+  - This session started no reviewer on it, or its reviewer's session has
+    stopped or is archived. Start a reviewer as step 9 says.
 - `wait`: the pull request waits on its implementer, such as for a failing
   check, a thread to answer or a check still running. The app's Auto-fix
   does not wake the implementer on every failure, so read its state with
@@ -344,7 +349,8 @@ On exit 2, relay the error to the owner and merge nothing.
 <!-- spec: run-reviews-each-pull-request, run-checks-started-session -->
 
 Run this step for a pull request's first look, and for a later look when
-this session has no reviewer on it.
+this session has no reviewer on it or its reviewer's session has stopped or
+is archived.
 
 Start the session with the app's `start_session` tool:
 

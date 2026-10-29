@@ -743,7 +743,8 @@ Source: #650, and the playbook's `autonomy-scales-with-risk` and
   stops rather than start one when either is above its own session's, as
   `check-role` finds. A later look at the same pull request goes back to the
   reviewer session that reviewed it, and `run` starts a new reviewer only
-  when it has none on that pull request.
+  when it has not started one on that pull request, or that reviewer's
+  session has stopped.
 - `workissue-answers-each-thread` (step): When a review comment arrives on
   its pull request, work-issue answers each unresolved thread with a reply
   opening with `**Claude:**`, and leaves resolving it to the reviewer.
