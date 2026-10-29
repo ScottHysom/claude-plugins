@@ -511,6 +511,26 @@ Source: #289, and README.md, under "Claiming an issue".
   1, names the worktree and says to commit or discard the changes, and neither
   moves a worktree nor deletes anything, with or without `--dry-run`.
 
+## need owner-runs-merged-flywheel: Run the merged flywheel in the next session
+
+When a pull request that changes flywheel merges, the owner wants the next
+session in this repository to run the merged flywheel, so a plan's later
+issues are worked under its earlier fixes.
+
+Source: #814. specs/repo.md has the need, and this repository's settings
+that the desktop app reads.
+
+- `clear-cmd-advances-main` (test): When `flywheel.py clear N` clears a claim,
+  or finds it cleared already, it fast-forwards the local `main` to
+  `origin/main`, in the checkout that has `main` checked out or, when none
+  has it, by moving the branch. It sets `data.main` to `advanced` or
+  `current`, and changes nothing under `--dry-run` once the claim is already
+  cleared.
+- `clear-cmd-keeps-main-it-cannot-fast-forward` (test): When the local `main`
+  holds a commit that `origin/main` lacks, or its checkout has changes that
+  block the move, `flywheel.py clear` leaves `main` where it is, sets
+  `data.main` to `kept`, names the cause in a warning and still exits 0.
+
 ## need owner-prevents-stale-branches: Keep finished branches from piling up
 
 When a session's work has merged or was never started, the owner wants every

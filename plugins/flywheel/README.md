@@ -337,6 +337,11 @@ request merges, ask Claude to clear the claim, which removes the branch from
 your clone. The dispatcher clears the claims of the pull requests in its
 round itself.
 
+Clearing a claim also moves your clone's local `main` up to `origin/main`, so
+the next session loads the plugin as merged. When `main` holds a commit that
+GitHub lacks, or its checkout has changes in the way, Claude leaves it and
+says why.
+
 ### Measuring the loop
 
 Ask Claude to measure the loop since a date, such as "measure the loop since

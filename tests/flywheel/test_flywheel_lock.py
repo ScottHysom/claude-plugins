@@ -1555,6 +1555,103 @@ class DescribeClear:
         assert "issue/12 is already cleared" in out.out
         assert out.err == ""
 
+    @pytest.mark.spec("clear-cmd-advances-main")
+    def it_moves_local_main_to_origin_main_when_no_worktree_has_it(
+        self, capsys, remote, clone, github
+    ):
+        a = squash_merged(capsys, clone, github, remote)
+        assert git(a, "rev-parse", flywheel.BASE) != git(remote, "rev-parse", flywheel.BASE)
+        code, data = run_json(capsys, a, "clear", "12")
+        assert code == flywheel.OK
+        assert data["data"]["main"] == "advanced"
+        assert git(a, "rev-parse", flywheel.BASE) == git(remote, "rev-parse", flywheel.BASE)
+
+    @pytest.mark.spec("clear-cmd-advances-main")
+    def it_moves_the_checkout_that_has_main(self, capsys, remote, clone, github):
+        a = squash_merged(capsys, clone, github, remote)
+        tree = a.parent / "tree"
+        git(a, "worktree", "add", "--quiet", str(tree), flywheel.BASE)
+        code, data = run_json(capsys, a, "clear", "12")
+        assert code == flywheel.OK
+        assert data["data"]["main"] == "advanced"
+        assert git(tree, "rev-parse", "HEAD") == git(remote, "rev-parse", flywheel.BASE)
+        assert (tree / "later").is_file()
+
+    @pytest.mark.spec("clear-cmd-advances-main")
+    def it_moves_main_when_the_claim_was_cleared_already(self, capsys, remote, clone, github):
+        a = squash_merged(capsys, clone, github, remote)
+        tip = git(a, "rev-parse", "issue/12")
+        git(a, "switch", "--quiet", "--detach")
+        git(a, "branch", "-D", "issue/12")
+        github(make_issue(12, "approved", state="CLOSED"), merged=[(7, "issue/12", tip)])
+        code, data = run_json(capsys, a, "clear", "12")
+        assert code == flywheel.OK
+        assert data["data"]["main"] == "advanced"
+        assert git(a, "rev-parse", flywheel.BASE) == git(remote, "rev-parse", flywheel.BASE)
+
+    @pytest.mark.spec("clear-cmd-advances-main")
+    def it_only_reports_on_a_dry_run_of_an_already_cleared_claim(
+        self, capsys, remote, clone, github
+    ):
+        a = squash_merged(capsys, clone, github, remote)
+        tip = git(a, "rev-parse", "issue/12")
+        git(a, "switch", "--quiet", "--detach")
+        git(a, "branch", "-D", "issue/12")
+        github(make_issue(12, "approved", state="CLOSED"), merged=[(7, "issue/12", tip)])
+        before = git(a, "rev-parse", flywheel.BASE)
+        code, data = run_json(capsys, a, "clear", "12", "--dry-run")
+        assert code == flywheel.OK
+        assert data["data"]["main"] == "advanced"
+        assert git(a, "rev-parse", flywheel.BASE) == before
+
+    @pytest.mark.spec("clear-cmd-advances-main")
+    def it_has_nothing_to_move_when_there_is_no_local_main(self, capsys, remote, clone, github):
+        a = squash_merged(capsys, clone, github, remote)
+        git(a, "branch", "-D", flywheel.BASE)
+        code, data = run_json(capsys, a, "clear", "12")
+        assert code == flywheel.OK
+        assert data["data"]["main"] == "current"
+        assert flywheel.BASE not in local_branches(a)
+
+    @pytest.mark.spec("clear-cmd-advances-main")
+    def it_leaves_main_current_when_it_is_already_there(self, capsys, remote, clone, github):
+        a = squash_merged(capsys, clone, github, remote)
+        git(a, "fetch", "--quiet", flywheel.REMOTE, flywheel.BASE)
+        git(a, "branch", "--force", flywheel.BASE, "origin/main")
+        code, data = run_json(capsys, a, "clear", "12")
+        assert code == flywheel.OK
+        assert data["data"]["main"] == "current"
+
+    @pytest.mark.spec("clear-cmd-keeps-main-it-cannot-fast-forward")
+    def it_warns_and_keeps_a_main_that_holds_commits_origin_lacks(
+        self, capsys, remote, clone, github
+    ):
+        a = squash_merged(capsys, clone, github, remote)
+        git(a, "switch", "--quiet", flywheel.BASE)
+        commit_file(a, "local-only", "local\n")
+        git(a, "switch", "--quiet", "issue/12")
+        before = git(a, "rev-parse", flywheel.BASE)
+        code, data = run_json(capsys, a, "clear", "12")
+        assert code == flywheel.OK
+        assert data["data"]["main"] == "kept"
+        assert "local main holds commits that origin/main lacks" in data["warnings"][0]
+        assert git(a, "rev-parse", flywheel.BASE) == before
+        assert "issue/12" not in local_branches(a)
+
+    @pytest.mark.spec("clear-cmd-keeps-main-it-cannot-fast-forward")
+    def it_warns_when_changes_in_the_checkout_block_the_move(self, capsys, remote, clone, github):
+        a = squash_merged(capsys, clone, github, remote)
+        tree = a.parent / "tree"
+        git(a, "worktree", "add", "--quiet", str(tree), flywheel.BASE)
+        (tree / "later").write_text("unsaved\n")
+        before = git(tree, "rev-parse", "HEAD")
+        code, data = run_json(capsys, a, "clear", "12")
+        assert code == flywheel.OK
+        assert data["data"]["main"] == "kept"
+        assert "could not move to origin/main" in data["warnings"][0]
+        assert git(tree, "rev-parse", "HEAD") == before
+        assert "issue/12" not in local_branches(a)
+
     @pytest.mark.spec("repo:command-never-writes-in-preview")
     def it_changes_nothing_on_a_dry_run(self, capsys, remote, clone, github):
         a = squash_merged(capsys, clone, github, remote)
@@ -1563,6 +1660,7 @@ class DescribeClear:
         assert out.out.startswith("Would clear issue/12\n")
         assert "issue/12" in local_branches(a)
         assert git(a, "branch", "--show-current") == "issue/12"
+        assert git(a, "rev-parse", flywheel.BASE) != git(remote, "rev-parse", flywheel.BASE)
 
 
 def gone_from_origin(remote, name):
@@ -1669,7 +1767,7 @@ class DescribeMain:
         a = squash_merged(capsys, clone, github, remote)
         code, data = run_json(capsys, a, "clear", "12")
         assert code == flywheel.OK
-        assert set(data["data"]) == {"number", "branch", "pull_request", "worktrees"}
+        assert set(data["data"]) == {"number", "branch", "pull_request", "worktrees", "main"}
 
     @pytest.mark.spec("repo:script-exits-2-when-unrunnable")
     def it_cannot_run_when_gh_fails(self, capsys, clone, github):

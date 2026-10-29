@@ -4332,10 +4332,13 @@ def cmd_clear(args):
         merged = merged_pulls(root, branch(n))
         if merged:
             data["pull_request"] = merged[0]["number"]
+            git(root, "fetch", "--quiet", REMOTE, BASE)
+            warnings = advance_main(root, data, args.dry_run)
             return emit(
                 args,
                 "clear",
                 data,
+                warnings=warnings,
                 human=lambda: print("%s is already cleared" % branch(n)),
             )
         return emit(args, "clear", data, ["there is no local %s to clear" % branch(n)])
@@ -4380,7 +4383,48 @@ def cmd_clear(args):
     for path in data["worktrees"]:
         git(path, "switch", "--quiet", "--detach", base)
     git(root, "branch", "--quiet", "-D", branch(n))
-    return emit(args, "clear", data, human=human)
+    warnings = advance_main(root, data, args.dry_run)
+    return emit(args, "clear", data, warnings=warnings, human=human)
+
+
+def advance_main(root, data, dry_run):
+    """Fast-forward the local `main` to `origin/main`, and return any warnings.
+
+    The desktop app loads this repository's plugins from the main checkout and
+    cuts each new worktree from local `main`, so a merge leaves the next
+    session on the old plugin until `main` moves. Sets `data["main"]` to
+    "advanced", "current" or "kept". A `main` that has diverged, or whose
+    checkout has changes in the way, is kept and named in a warning.
+    """
+    base = "%s/%s" % (REMOTE, BASE)
+    target = "refs/heads/%s" % BASE
+    data["main"] = "current"
+    if git(root, "rev-parse", "--verify", "--quiet", target, check=False).returncode != 0:
+        return []
+    if git(root, "merge-base", "--is-ancestor", base, target, check=False).returncode == 0:
+        return []
+    if git(root, "merge-base", "--is-ancestor", target, base, check=False).returncode != 0:
+        data["main"] = "kept"
+        return [
+            "local %s holds commits that %s lacks, so it was not moved. Push or move "
+            "them, then pull %s" % (BASE, base, BASE)
+        ]
+    if dry_run:
+        data["main"] = "advanced"
+        return []
+    path = worktrees(root).get(target)
+    if path:
+        proc = git(path, "merge", "--quiet", "--ff-only", base, check=False)
+        if proc.returncode != 0:
+            data["main"] = "kept"
+            return [
+                "%s is checked out at %s and could not move to %s: %s. Pull it there"
+                % (BASE, path, base, proc.stderr.strip())
+            ]
+    else:
+        git(root, "update-ref", target, base)
+    data["main"] = "advanced"
+    return []
 
 
 def merged_pulls(root, *head):

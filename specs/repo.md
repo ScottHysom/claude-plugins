@@ -255,6 +255,17 @@ holds the requirements the flywheel plugin meets under this need.
   starts in this repo, `.claude/settings.json` runs branch_sweep.py, with 30
   seconds to answer.
 
+## need owner-runs-merged-flywheel: Run the merged flywheel in the next session
+
+When a pull request that changes flywheel merges, the owner wants the next
+session in this repository to run the merged flywheel, so a plan's later
+issues are worked under its earlier fixes.
+
+Source: #814. This repository enables flywheel from its own directory, and the
+desktop app reads that directory from the main checkout and cuts each new
+worktree from its local `main`. specs/flywheel.md holds the requirements the
+flywheel plugin meets under this need.
+
 ## need contributor-catches-stale-commands: Catch a skill that names a missing command
 
 When a contributor renames a script's subcommand or flag, they want CI to fail
