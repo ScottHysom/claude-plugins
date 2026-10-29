@@ -142,9 +142,10 @@ run wakes the dispatcher. Plan #799's round showed dozens of near-identical
 wakes that buried the two changes #806 describes (#807). The app gives a
 scheduled job no way to hold back the wake, so the plugin cannot make a quiet
 run silent. It makes a quiet run unmistakable instead: the reply opens with
-"Nothing waiting on review threads", and says "CI" only for CI. The dispatcher
-now looks at its pull requests on a schedule of its own (#806), so it can
-skip these notes.
+"Nothing waiting on review threads", and says "CI" only for CI. Run's step
+7 still looks again on every wake, so a dispatcher that reads the note as
+nothing loses nothing: it looks at its pull requests on a schedule of its own
+(#806).
 
 ## The dispatcher's skill
 
