@@ -305,15 +305,18 @@ Source: the owner's request on 2026-10-05, recorded in #350.
 - `next-cmd-follows-plan-issue` (test): When `flywheel.py queue
   --plan N` runs, it offers the first sub-issue in #N's listed order that
   is open, unheld and unblocked. It exits 1 when that sub-issue lacks the
-  approval label, or when #N is not an open issue carrying both the plan
-  label and the approval label.
+  approval label, or when #N does not carry both the plan label and the
+  approval label, or is closed. A plan issue that is closed while all
+  its sub-issues are closed is the exception: the plan is finished, as
+  `next-cmd-reports-finished-plan` says.
 - `next-cmd-names-plan-issue` (test): When an open plan issue
   carrying the approval label takes its place in the queue, at the lowest number among itself
   and its open sub-issues, before the issue `flywheel.py queue` would offer,
   `queue` names the plan issue and the command to follow it, and exits 0.
 - `next-cmd-reports-finished-plan` (test): When every sub-issue of #N is
-  closed, `flywheel.py queue --plan N` says the plan is finished, names
-  the command that closes #N, and exits 0. An open sub-issue keeps the plan
+  closed, `flywheel.py queue --plan N` says the plan is finished and exits 0.
+  It names the command that closes #N when #N is open. When #N is closed
+  already, it marks `data.plan` with `closed` true and names no command. An open sub-issue keeps the plan
   unfinished even when a claim holds it, and so does a plan issue without
   sub-issues.
 - `planclose-cmd-closes-finished-plan` (test): When `flywheel.py plan close N`
@@ -695,7 +698,8 @@ and `match-capability-to-task`.
   the owner which pull request waits and why when the implementer has
   already been messaged or has stopped.
 - `run-closes-finished-plan` (step): When `queue --plan N` says #N's plan
-  is finished, `run` closes it with `plan close N`.
+  is finished, `run` closes it with `plan close N`. When `data.plan`
+  marks #N closed already, `run` does not close it a second time.
 - `run-stops-on-empty-queue` (step): When `queue` offers nothing and no pull
   request from its round is open, `run` reports what merged and stops.
 

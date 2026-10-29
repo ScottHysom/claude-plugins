@@ -463,6 +463,20 @@ class DescribeClaimNext:
         assert code == flywheel.PROBLEMS
         assert "plan is finished. To close it, run: flywheel.py plan close 20" in out.err
 
+    @pytest.mark.spec("next-cmd-moves-past-lost-claim")
+    def it_does_not_offer_to_close_a_plan_issue_that_is_closed_already(
+        self, capsys, remote, clone, github
+    ):
+        github(
+            make_issue(20, "approved", "plan", state="CLOSED"),
+            make_issue(11, "approved", state="CLOSED"),
+            subs={20: [11]},
+        )
+        code, out = run(capsys, clone("a"), "claim", "--next", "--plan", "20")
+        assert code == flywheel.PROBLEMS
+        assert "#20 is closed already" in out.err
+        assert "plan close" not in out.err
+
     @pytest.mark.parametrize(
         ("argv", "says"),
         [
@@ -676,7 +690,6 @@ class DescribeQueueTracking:
         [
             (("plan",), "OPEN", "not labeled approved"),
             (("approved",), "OPEN", "not labeled plan"),
-            (("approved", "plan"), "CLOSED", "is closed"),
         ],
     )
     def it_refuses_an_issue_that_is_not_an_open_approved_plan(
@@ -687,6 +700,20 @@ class DescribeQueueTracking:
         assert code == flywheel.PROBLEMS
         assert says in out.err
         assert not any(c[0] == "api" for c in gh.calls)
+
+    @pytest.mark.spec("next-cmd-follows-plan-issue")
+    @pytest.mark.parametrize("subs", [[], [11]])
+    def it_refuses_a_closed_plan_issue_whose_plan_is_not_finished(
+        self, capsys, clone, github, subs
+    ):
+        github(
+            make_issue(20, "approved", "plan", state="CLOSED"),
+            make_issue(11, "approved"),
+            subs={20: subs},
+        )
+        code, out = run(capsys, clone("a"), "queue", "--plan", "20")
+        assert code == flywheel.PROBLEMS
+        assert "#20 is closed, but its plan is not finished" in out.err
 
     @pytest.mark.spec("next-cmd-follows-plan-issue")
     def it_names_each_blocked_sub_issue_when_all_are_blocked(self, capsys, clone, github):
@@ -721,6 +748,24 @@ class DescribeQueueTracking:
         )
         code, data = run_json(capsys, clone("b"), "queue", "--plan", "20")
         assert data["data"]["finished"] is True
+        assert data["data"]["issues"] == []
+
+    @pytest.mark.spec("next-cmd-follows-plan-issue", "next-cmd-reports-finished-plan")
+    def it_says_a_closed_plan_issue_with_closed_sub_issues_is_finished(self, capsys, clone, github):
+        github(
+            make_issue(20, "approved", "plan", state="CLOSED"),
+            make_issue(11, "approved", state="CLOSED"),
+            subs={20: [11]},
+        )
+        code, out = run(capsys, clone("a"), "queue", "--plan", "20")
+        assert code == flywheel.OK
+        assert out.out == (
+            "Every sub-issue of #20 is closed, so its plan is finished.\n#20 is closed already.\n"
+        )
+        code, data = run_json(capsys, clone("b"), "queue", "--plan", "20")
+        assert code == flywheel.OK
+        assert data["data"]["finished"] is True
+        assert data["data"]["plan"] == {"number": 20, "closed": True}
         assert data["data"]["issues"] == []
 
     @pytest.mark.spec("next-cmd-reports-finished-plan")

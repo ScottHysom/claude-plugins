@@ -160,6 +160,8 @@ What the result means:
   every other issue. Ask the owner whether to run that plan, and on a yes,
   read the queue again with `--plan`.
 - `data.finished` true means the plan is finished. Close it as step 11 says.
+  When `data.plan` has `closed` true, the plan issue is closed already, so
+  step 11 skips `plan close`.
 - Fewer issues than free places, with `data.issues` empty and no session
   still working or waiting on a merge, means the round is over. Stop as step
   12 says.
@@ -400,14 +402,15 @@ tell the owner that the reviewer is ready to archive.
 ## Step 11: close a finished plan
 <!-- spec: run-closes-finished-plan -->
 
-When the queue says the plan is finished, close its plan issue:
+When the queue says the plan is finished, close its plan issue unless
+`data.plan` has `closed` true:
 
 ```sh
 FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" plan close 653 --json
 ```
 
-Tell the owner the plan is closed, or relay the error when `plan close`
-exits 1. A finished plan has nothing left to start, so stop as step 12 says
+Tell the owner the plan is closed (it is already, when `data.plan` has
+`closed` true), or relay the error when `plan close` exits 1. A finished plan has nothing left to start, so stop as step 12 says
 once no session is still working or waiting on a merge.
 
 ## Step 12: stop
