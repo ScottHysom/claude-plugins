@@ -318,8 +318,8 @@ why it holds:
   - This session started a reviewer on it, and the reviewer is idle. Send it
     the `url` and the `head` with `SendMessage`, to its `local_` id, and ask
     it to review the pull request again.
-  - This session started no reviewer on it, or its reviewer's session has
-    stopped or is archived. Start a reviewer as step 9 says.
+  - This session has not started a reviewer on it, or its reviewer's
+    session has stopped or is archived. Start a reviewer as step 9 says.
 - `wait`: the pull request waits on its implementer, such as for a failing
   check, a thread to answer or a check still running. The app's Auto-fix
   does not wake the implementer on every failure, so read its state with
