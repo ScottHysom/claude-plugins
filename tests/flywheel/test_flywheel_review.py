@@ -489,6 +489,30 @@ class DescribeReviewPostRefusing:
         assert code == flywheel.PROBLEMS
         assert "outside the diff of #71" in env["errors"][0]
 
+    def it_refuses_a_finding_on_a_deleted_file_and_still_reads_the_files_after_it(
+        self, policies, github
+    ):
+        github.pull["files"] = [{"path": "gone.py"}, {"path": "plugins/demo/app.py"}]
+        github.diff = (
+            "diff --git a/gone.py b/gone.py\n"
+            "--- a/gone.py\n"
+            "+++ /dev/null\n"
+            "@@ -1,2 +0,0 @@\n"
+            "-one\n"
+            "-two\n"
+            "diff --git a/plugins/demo/app.py b/plugins/demo/app.py\n"
+            "--- a/plugins/demo/app.py\n"
+            "+++ b/plugins/demo/app.py\n"
+            "@@ -1 +1,2 @@\n"
+            " one\n"
+            "+two\n"
+        )
+        code, env = post(policies, {"head": HEAD, "findings": [one(path="gone.py", line=1)]})
+        assert code == flywheel.PROBLEMS
+        assert "line 1 of gone.py, which is outside the diff" in env["errors"][0]
+        code, _ = post(policies, {"head": HEAD, "findings": [one(line=2)]})
+        assert code == flywheel.OK
+
     def it_refuses_a_finding_on_a_file_with_no_hunks_in_the_diff(self, policies, github):
         github.diff = (
             "diff --git a/plugins/demo/app.py b/plugins/demo/app.py\nBinary files differ\n"
