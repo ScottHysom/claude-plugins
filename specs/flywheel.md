@@ -618,9 +618,11 @@ and `match-capability-to-task`.
 
 - `events-cmd-lists-claim-prs` (test): When `flywheel.py events` runs, it
   lists each open pull request from an `issue/N` branch with its CI and
-  review state, and each merged since `--since`. It gives as `as_of` the
-  newest merge it saw, so a look that passes it as `--since` does not name a
-  merge twice.
+  review state. Each row also carries the head, verdict, next step, reasons
+  and `only_running_check` that `merge-check` gives it, or the error that
+  kept it from assessing the pull request, as a hold for the owner. It lists
+  each merge since `--since`, and gives as `as_of` the newest merge it saw,
+  so a look that passes it as `--since` does not name a merge twice.
 - `events-cmd-scopes-to-round` (test): When `flywheel.py events` runs with
   `--plan N`, it lists only the pull requests from sub-issues of #N, and
   with `--issue M`, given once per issue, only those from the issues it
@@ -672,6 +674,9 @@ and `match-capability-to-task`.
 - `run-takes-issue-requests` (step): When the owner asks to fix, work or
   take an issue, or the next issue, the session runs that issue as a round,
   unless the owner asks for the work in this session.
+- `run-looks-on-schedule` (step): While a pull request from its round is
+  open, `run` looks at the round on a schedule, so a check that finishes is
+  acted on without a session ending a turn.
 - `run-reports-pull-request` (step): When a worker reports its pull request,
   `run` reports the pull request to the owner.
 - `run-relays-refused-auto-fix` (step): When a worker reports that Auto-fix is
@@ -718,7 +723,9 @@ Source: #650, and the playbook's `autonomy-scales-with-risk` and
 - `mergecheck-cmd-names-next-step` (test): When `merge-check` reports hold,
   it names the next step: `review` when the reviewer has yet to look at the
   head or at an answer, `wait` when a check, a conflict or a thread waits on
-  the implementer, and `ask` when only the owner can settle it.
+  the implementer, and `ask` when only the owner can settle it. It also
+  reports `only_running_check`, true when a running check is the only reason
+  that waits on the implementer.
 - `mergecheck-cmd-merges-on-flow` (test): When `merge-check N --merge` finds
   that N flows, it squashes N at the head it checked. When N holds, it merges
   nothing, and when the merge fails, it reports hold with GitHub's reason.

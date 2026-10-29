@@ -849,6 +849,7 @@ CONFLICTING = "CONFLICTING"
 FLOW, HOLD = "flow", "hold"
 # What the dispatcher does next with a pull request merge-check has read.
 NEXT_REVIEW, NEXT_WAIT, NEXT_ASK, NEXT_MERGE = "review", "wait", "ask", "merge"
+CHECK_RUNNING_REASON = "a check is still running on its head"
 
 
 REVIEW_POST_HELP = """\
@@ -3183,7 +3184,8 @@ def in_round(pull, ours):
 
 
 def cmd_events(args):
-    """What the dispatcher acts on: open claim pull requests, and merges since its last look."""
+    """What the dispatcher acts on: open claim pull requests with the next step
+    merge-check names for each, and merges since its last look."""
     root = project_root(args.repo)
     ours = round_issues(root, args)
     opened = gh_json(
@@ -3215,6 +3217,20 @@ def cmd_events(args):
         row = pull_row(pull)
         row["ci"] = ci_state(pull.get("statusCheckRollup"))
         row["review"] = (pull.get("reviewDecision") or "").lower() or None
+        try:
+            verdict = assess(root, pull["number"])
+        except Fatal as exc:
+            # One pull request that cannot be assessed does not hide the rest of the look.
+            verdict = {
+                "head": None,
+                "verdict": HOLD,
+                "next": NEXT_ASK,
+                "reasons": [str(exc)],
+                "only_running_check": False,
+            }
+        row.update(
+            {k: verdict[k] for k in ("head", "verdict", "next", "reasons", "only_running_check")}
+        )
         rows.append(row)
     claimed = [p for p in merged if claim_number(p["headRefName"]) is not None]
     news = []
@@ -3231,8 +3247,8 @@ def cmd_events(args):
     def human():
         for row in rows:
             print(
-                "open #%d %s: ci %s, review %s"
-                % (row["number"], row["branch"], row["ci"], row["review"] or "none")
+                "open #%d %s: ci %s, review %s, next %s"
+                % (row["number"], row["branch"], row["ci"], row["review"] or "none", row["next"])
             )
         for row in news:
             print("merged #%d %s at %s" % (row["number"], row["branch"], row["merged_at"]))
@@ -3770,7 +3786,7 @@ def assess(root, number):
     elif ci == CI_FAILING:
         implementer.append("a check fails on its head")
     elif ci == CI_PENDING:
-        implementer.append("a check is still running on its head")
+        implementer.append(CHECK_RUNNING_REASON)
     if pull.get("mergeable") == CONFLICTING:
         implementer.append("it conflicts with its base branch")
 
@@ -3824,6 +3840,8 @@ def assess(root, number):
         "verdict": HOLD if reasons else FLOW,
         "next": step,
         "reasons": reasons,
+        # A look that finds only this to wait on has nothing to send the implementer.
+        "only_running_check": implementer == [CHECK_RUNNING_REASON],
         "merged": False,
     }
 

@@ -32,6 +32,15 @@ def open_pull(number, head, checks=(), review=""):
     }
 
 
+NEXT_STEP = {
+    "head": "abc1234",
+    "verdict": "hold",
+    "next": "wait",
+    "reasons": [],
+    "only_running_check": False,
+}
+
+
 def merged_pull(number, head, merged_at):
     return {
         "number": number,
@@ -46,7 +55,8 @@ def merged_pull(number, head, merged_at):
 def pulls(monkeypatch):
     """Answer gh pr list with the pull requests given, and each plan issue's sub-issues."""
 
-    def install(opened=(), merged=(), subs=None):
+    def install(opened=(), merged=(), subs=None, steps=None):
+        steps = steps or {}
         calls = []
 
         def fake(root, *args):
@@ -57,7 +67,11 @@ def pulls(monkeypatch):
             state = args[args.index("--state") + 1]
             return json.dumps(list(opened if state == "open" else merged))
 
+        def fake_assess(root, number):
+            return dict(NEXT_STEP, **steps.get(number, {}))
+
         monkeypatch.setattr(flywheel, "gh", fake)
+        monkeypatch.setattr(flywheel, "assess", fake_assess)
         return calls
 
     return install
@@ -215,6 +229,11 @@ class DescribeEvents:
                 "url": "https://github.com/owner/project/pull/30",
                 "ci": "failing",
                 "review": None,
+                "head": "abc1234",
+                "verdict": "hold",
+                "next": "wait",
+                "reasons": [],
+                "only_running_check": False,
             },
             {
                 "number": 31,
@@ -224,8 +243,37 @@ class DescribeEvents:
                 "url": "https://github.com/owner/project/pull/31",
                 "ci": "passing",
                 "review": "approved",
+                "head": "abc1234",
+                "verdict": "hold",
+                "next": "wait",
+                "reasons": [],
+                "only_running_check": False,
             },
         ]
+
+    def it_names_the_next_step_merge_check_gives_each_open_pull_request(self, project, pulls):
+        pulls(
+            opened=[open_pull(31, "issue/12", [check_run()])],
+            steps={31: {"next": "review", "reasons": ["the reviewer has not reviewed it"]}},
+        )
+        _, env = project.run("events")
+        row = env["data"]["open"][0]
+        assert (row["next"], row["reasons"]) == ("review", ["the reviewer has not reviewed it"])
+
+    def it_holds_for_the_owner_a_pull_request_it_cannot_assess(self, project, pulls, monkeypatch):
+        pulls(opened=[open_pull(31, "issue/12"), open_pull(32, "issue/13")])
+
+        def assess(root, number):
+            if number == 31:
+                raise flywheel.Fatal("no merge policy")
+            return dict(NEXT_STEP)
+
+        monkeypatch.setattr(flywheel, "assess", assess)
+        code, env = project.run("events")
+        first, second = env["data"]["open"]
+        assert code == flywheel.OK
+        assert (first["next"], first["reasons"]) == ("ask", ["no merge policy"])
+        assert second["next"] == "wait"
 
     @pytest.mark.parametrize(
         ("checks", "ci"),
@@ -295,7 +343,7 @@ class DescribeEvents:
         code, out, err = project.human("events", "--since", SINCE)
         assert (code, err) == (flywheel.OK, "")
         assert out == (
-            "open #31 issue/12: ci passing, review none\n"
+            "open #31 issue/12: ci passing, review none, next wait\n"
             "merged #41 issue/14 at 2026-10-15T12:00:00Z\n"
             "Next look: flywheel.py events --since 2026-10-15T12:00:00Z\n"
         )

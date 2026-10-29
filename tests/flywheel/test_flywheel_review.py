@@ -689,6 +689,15 @@ class DescribeTheNextStep:
         assert data["next"] == flywheel.NEXT_WAIT
         assert reason in data["reasons"]
 
+    def it_flags_a_wait_that_only_a_running_check_causes(self, policies, github):
+        github.pull["statusCheckRollup"] = [check_run(status="QUEUED")]
+        github.pull["reviews"] = [review(OLD)]
+        _, data = check(policies)
+        assert data["only_running_check"] is True
+        github.pull["mergeable"] = "CONFLICTING"
+        _, data = check(policies)
+        assert data["only_running_check"] is False
+
     def it_waits_for_an_answer_to_each_thread(self, policies, github):
         github.threads = [thread("T1", finding("P1"))]
         _, data = check(policies)
