@@ -588,7 +588,9 @@ Source: #305, #648, and the playbook's `checks-over-instructions`.
   review threads with `flywheel.py unanswered`, since the app does not wake the
   session on comments from the account the session posts as. It answers a
   waiting thread as `workissue-answers-each-thread` says, and ends the check
-  once the pull request is no longer open.
+  once the pull request is no longer open. A run that found nothing ends with
+  a reply whose first words say no review thread is waiting, and that names CI
+  only when it reports on CI. A run that acted says what it did.
 - `workissue-archives-after-clear` (step): When work-issue's pull request has
   merged, the session archives itself with the app's `archive_session` tool
   once `flywheel.py clear` has succeeded, or once it has discarded only its
