@@ -561,8 +561,8 @@ Source: #648, and the playbook's `pause-on-discovery` and
 - `workissue-claims-first` (step): When work-issue starts, it claims the
   issue and reports the claim before any other work.
 - `workissue-runs-check-before-pr` (step): When work-issue has the unit done,
-  it runs the project's `check` and does not open a pull request while it
-  fails.
+  it runs the project's `check`, and its `verify` when the gates name one,
+  and does not open a pull request while either fails.
 - `workissue-pauses-on-gap` (step): When work-issue finds the issue silent or
   wrong on something the unit needs, it stops and asks, and files a candidate
   need instead when the issue is only improvable.
@@ -577,7 +577,7 @@ turning either on by hand.
 Source: #305, #648, and the playbook's `checks-over-instructions`.
 
 - `workissue-opens-pr-through-skill` (step): When work-issue has the unit
-  committed and `check` passing, it opens the pull request through the
+  committed and `check` and `verify` passing, it opens the pull request through the
   project's own skill for opening one, and through the plugin's open-pr
   skill when the project has none.
 - `workissue-turns-on-pr-watch` (step): When work-issue has opened the pull

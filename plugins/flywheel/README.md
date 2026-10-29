@@ -155,8 +155,8 @@ yourself. The skill:
 3. stops and asks when the issue is silent or wrong on something the work
    needs. An idea the issue does not ask for, it files as a new issue for
    you to approve, and goes on.
-4. runs your `check` gate command, and does not open a pull request while
-   it fails.
+4. runs your `check` gate command, then your `verify` gate command when
+   your gates name one, and does not open a pull request while either fails.
 5. opens the pull request through your project's pull request skill, when
    you have one.
 6. turns on the session's Auto-fix, so the app wakes the session when CI
