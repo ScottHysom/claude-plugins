@@ -4145,8 +4145,6 @@ def cmd_review_post(args):
 
     findings = found.get("findings", [])
     resolve = found.get("resolve", [])
-    for tid in resolve:
-        gh(root, "api", "graphql", "-F", "id=%s" % tid, "-f", "query=" + RESOLVE_MUTATION)
     payload = {
         "commit_id": found["head"],
         "event": "COMMENT",
@@ -4162,6 +4160,10 @@ def cmd_review_post(args):
         ],
     }
     gh(root, "api", REVIEWS_PATH % n, "--method", "POST", "--input", "-", stdin=json.dumps(payload))
+    # Resolve only once GitHub has taken the review, so a refused post leaves every
+    # thread as it was and the same findings can be posted again.
+    for tid in resolve:
+        gh(root, "api", "graphql", "-F", "id=%s" % tid, "-f", "query=" + RESOLVE_MUTATION)
     data.update(posted=True, findings=len(findings), resolved=resolve)
 
     def human():

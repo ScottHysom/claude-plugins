@@ -787,9 +787,10 @@ Source: #650, and the playbook's `review-against-written-policy` and
     sit on.
   - resolve a thread that is not an unresolved thread on N.
 - `reviewpost-cmd-posts-comment-review` (test): When `review-post` accepts
-  the findings, it resolves each thread they name. It then posts one review
-  of the head that only comments, with each finding's comment opening with
-  `**Claude:**` and its level.
+  the findings, it posts one review of the head that only comments, with each
+  finding's comment opening with `**Claude:**` and its level. It resolves each
+  thread the findings name only after the post succeeds, so a post that GitHub
+  refuses leaves every thread as it was.
 - `reviewpr-reviews-against-policy` (step): When review-pr starts, it reads
   the policy with `review-policy` and the pull request with `review-brief`,
   and reviews the diff in each of the policy's passes, against the
