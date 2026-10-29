@@ -283,6 +283,9 @@ note that woke this session shows:
 - An implementer whose report says Auto-fix is off for its pull request.
   Tell the owner the pull request's `url` and the app's reason, once, so
   the owner can turn Auto-fix on in the app.
+- A pull request that this session started a reviewer on, which `data.open`
+  no longer lists and `data.merged` does not name, so it closed unmerged.
+  Archive its reviewers as step 10 says.
 - A pull request in `data.merged` whose claim this session has not cleared
   since step 8 merged it. Clear its claim as step 10 says.
 - An implementer that reports it could not archive itself, once its claim
@@ -307,9 +310,11 @@ says. When it holds instead, treat its `data.next` and `data.reasons` as the
 row's. For every other row, `next` says what comes next, and `reasons` says
 why it holds:
 
-- `review`: the pull request needs the reviewer's look at its head. Start a
-  reviewer as step 9 says, unless a reviewer this session started on it is
-  still working.
+- `review`: the pull request needs the reviewer's look at its head. When
+  this session started a reviewer on it, that reviewer takes the look: when
+  it is working, leave it to the next look, and when it is idle, send it the
+  `url` and the `head` with `SendMessage`, to its `local_` id, and ask it to
+  review the pull request again. Otherwise start a reviewer as step 9 says.
 - `wait`: the pull request waits on its implementer, such as for a failing
   check, a thread to answer or a check still running. The app's Auto-fix
   does not wake the implementer on every failure, so read its state with
@@ -338,6 +343,9 @@ On exit 2, relay the error to the owner and merge nothing.
 ## Step 9: start a reviewer
 <!-- spec: run-reviews-each-pull-request, run-checks-started-session -->
 
+Run this step for a pull request's first look, and for a later look when
+this session has no reviewer on it.
+
 Start the session with the app's `start_session` tool:
 
 - `initiation`: `user_asked`, since the owner asked for the round.
@@ -365,8 +373,8 @@ Pass the new session's model and effort as `--model` and `--effort`. When
 what the app started it at, and start nothing else on that pull request until the
 owner answers.
 
-## Step 10: clear a merged claim
-<!-- spec: run-restarts-after-merge -->
+## Step 10: clear a merged claim, and archive reviewers
+<!-- spec: run-restarts-after-merge, run-archives-reviewer -->
 
 For each issue whose pull request merged, clear its claim:
 
@@ -377,6 +385,11 @@ FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" clear 649 --json
 `clear` exits 0 for a claim its implementer already cleared. When it exits 1,
 relay its error to the owner and delete nothing by hand. Either way, a merge
 from this round freed a place in it, so read the queue as step 5 says.
+
+Then archive each reviewer session this session started on the pull request,
+merged or closed, with the app's `archive_session` tool and that reviewer's
+`local_` id. Its work ended with the pull request. When the call is refused,
+tell the owner that the reviewer is ready to archive.
 
 ## Step 11: close a finished plan
 <!-- spec: run-closes-finished-plan -->

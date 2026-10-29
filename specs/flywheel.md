@@ -687,6 +687,8 @@ and `match-capability-to-task`.
 - `run-restarts-after-merge` (step): When `events` reports a merge from its
   round, `run` clears the claim (or accepts a claim its implementer already
   cleared) and starts a worker on the next free issue.
+- `run-archives-reviewer` (step): When a pull request from the round merges
+  or closes, `run` archives each reviewer session it started on it.
 - `run-acts-on-stalled-wait` (step): When `merge-check` names `wait` for a
   pull request from the round and its implementer is not working, `run`
   messages the implementer once for each head and set of reasons, and tells
@@ -739,7 +741,9 @@ Source: #650, and the playbook's `autonomy-scales-with-risk` and
   as the next step for a pull request from the round, `run` starts a reviewer
   session on it at the roles file's model and effort for the reviewer. It
   stops rather than start one when either is above its own session's, as
-  `check-role` finds.
+  `check-role` finds. A later look at the same pull request goes back to the
+  reviewer session that reviewed it, and `run` starts a new reviewer only
+  when it has none on that pull request.
 - `workissue-answers-each-thread` (step): When a review comment arrives on
   its pull request, work-issue answers each unresolved thread with a reply
   opening with `**Claude:**`, and leaves resolving it to the reviewer.
