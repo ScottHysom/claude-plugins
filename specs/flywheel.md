@@ -783,6 +783,8 @@ Source: #650, and the playbook's `review-against-written-policy` and
   - name a head other than N's.
   - hold more P3 findings than the review policy's cap.
   - put a finding on a file N does not change, or at a level outside P0 to P3.
+  - put a finding on a line outside N's diff, one that a review comment cannot
+    sit on.
   - resolve a thread that is not an unresolved thread on N.
 - `reviewpost-cmd-posts-comment-review` (test): When `review-post` accepts
   the findings, it resolves each thread they name. It then posts one review

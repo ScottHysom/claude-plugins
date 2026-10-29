@@ -970,6 +970,8 @@ LIST_ITEM_RE = re.compile(r"^\s*(?:[-*+]|\d{1,9}[.)])(?:[ \t]|$)")
 INDENTED_CODE_RE = re.compile(r"^(?: {4}|\t)")
 NOT_TEXT_RE = re.compile(r"^\s*(?:\||>|<|(?:[-*_=][ \t]*){3,}$|=+[ \t]*$)")
 ISSUE_URL_RE = re.compile(r"/issues/(\d+)$")
+HUNK_RE = re.compile(r"^@@ -\d+(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
+NEW_FILE_PREFIX = "+++ "
 ORDER_HEADING = "## Order"
 # Where `plan report` writes the report for the owner to read, and where
 # `plan file` records what it has filed. The folder ignores itself.
@@ -3987,7 +3989,57 @@ def read_findings(path):
         ) from exc
 
 
-def check_findings(found, pull, threads, cap):
+def unquote_path(name):
+    """A path as git writes it in a diff header: quoted, with C escapes, when it
+    holds a non-ASCII byte, a double quote or a backslash."""
+    if len(name) < 2 or not (name.startswith('"') and name.endswith('"')):
+        return name
+    raw = name[1:-1].encode("latin-1", "backslashreplace")
+    return raw.decode("unicode_escape").encode("latin-1").decode("utf-8", "replace")
+
+
+def diff_lines(diff):
+    """Each file's lines that a review comment can sit on, from a unified diff.
+
+    Those are the lines on the new side of a hunk, added or unchanged. The
+    hunk header's counts say where a hunk ends, so a line inside one that
+    reads `+++ ` is content and not a file header.
+    """
+    out = {}
+    path = None
+    old_left = new_left = 0
+    new_line = 0
+    for text in diff.split("\n"):
+        if old_left > 0 or new_left > 0:
+            if text.startswith("\\"):
+                continue
+            if text.startswith("-"):
+                old_left -= 1
+            elif text.startswith("+"):
+                new_left -= 1
+                out[path].add(new_line)
+                new_line += 1
+            else:
+                old_left -= 1
+                new_left -= 1
+                out[path].add(new_line)
+                new_line += 1
+            continue
+        if text.startswith(NEW_FILE_PREFIX):
+            name = unquote_path(text[len(NEW_FILE_PREFIX) :].split("\t")[0])
+            path = name[2:] if name.startswith("b/") else None
+            if path is not None:
+                out.setdefault(path, set())
+            continue
+        hunk = HUNK_RE.match(text)
+        if hunk and path is not None:
+            old_left = int(hunk.group(1) if hunk.group(1) is not None else 1)
+            new_left = int(hunk.group(3) if hunk.group(3) is not None else 1)
+            new_line = int(hunk.group(2))
+    return out
+
+
+def check_findings(found, pull, threads, cap, diff):
     """Each fault in the reviewer's findings, against the pull request as it is now."""
     if not isinstance(found, dict):
         return ["the findings are not a JSON object. Write them as `review-post --help` shows"]
@@ -4012,6 +4064,7 @@ def check_findings(found, pull, threads, cap):
         faults.append('"findings" is not a list')
         findings = []
     paths = {f["path"] for f in pull.get("files") or []}
+    in_diff = diff_lines(diff)
     for i, item in enumerate(findings, 1):
         name = "finding %d" % i
         if not isinstance(item, dict) or sorted(item) != sorted(FINDING_KEYS):
@@ -4025,6 +4078,11 @@ def check_findings(found, pull, threads, cap):
         line = item["line"]
         if isinstance(line, bool) or not isinstance(line, int) or line < 1:
             faults.append("%s gives line %s, not a line number" % (name, json.dumps(line)))
+        elif item["path"] in paths and line not in in_diff.get(item["path"], ()):
+            faults.append(
+                "%s is on line %d of %s, which is outside the diff of #%d"
+                % (name, line, item["path"], pull["number"])
+            )
         if item["level"] not in LEVELS:
             faults.append(
                 "%s gives level %s, not one of %s"
@@ -4080,7 +4138,7 @@ def cmd_review_post(args):
     cap, _ = review_settings(settings)
     pull = pull_request(root, n)
     threads = review_threads(root, n)
-    faults = check_findings(found, pull, threads, cap)
+    faults = check_findings(found, pull, threads, cap, gh(root, "pr", "diff", str(n)))
     data = {"number": n, "posted": False, "findings": 0, "resolved": []}
     if faults:
         return emit(args, "review-post", data, faults, human=lambda: None)
