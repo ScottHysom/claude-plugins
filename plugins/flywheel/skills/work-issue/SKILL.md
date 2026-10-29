@@ -1,6 +1,6 @@
 ---
 name: work-issue
-description: Work one approved GitHub issue as the implementer, from its claim to a pull request the session watches. Claims the issue with flywheel.py claim, works from the issue as the owner approved it through flywheel.py brief, stops and asks on a gap the issue does not answer, runs the project's check gate, opens the pull request through the project's pull request skill, turns on the session's Auto-fix for it, and answers each review thread. Once the pull request has merged and the claim is cleared, archives the session. Claude Code desktop app only. Use when a session's first message is a brief that says to work an issue as the implementer with the work-issue skill, or when asked to work, fix or take an issue, the next issue, or the next issue in a plan here or in this session. A request to fix, work or take an issue that does not say here or this session goes to the plugin's run skill, which starts a reviewer and checks the merge.
+description: Work one approved GitHub issue as the implementer, from its claim to a pull request the session watches. Claims the issue with flywheel.py claim, works from the issue as the owner approved it through flywheel.py brief, stops and asks on a gap the issue does not answer, runs the project's check and verify gates, opens the pull request through the project's pull request skill, turns on the session's Auto-fix for it, and answers each review thread. Once the pull request has merged and the claim is cleared, archives the session. Claude Code desktop app only. Use when a session's first message is a brief that says to work an issue as the implementer with the work-issue skill, or when asked to work, fix or take an issue, the next issue, or the next issue in a plan here or in this session. A request to fix, work or take an issue that does not say here or this session goes to the plugin's run skill, which starts a reviewer and checks the merge.
 ---
 
 # Work an issue
@@ -127,18 +127,24 @@ FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" close 648 --reason "#261 r
 `close` frees the claim first, as `release` does, and refuses a branch that
 holds commits unless `--drop-work` is given on the same terms.
 
-## Step 4: run the check gate
+## Step 4: run the check and verify gates
 <!-- spec: workissue-runs-check-before-pr -->
-<!-- no-command: runs the project's own check command, which the brief names from .flywheel/gates.json -->
+<!-- no-command: runs the project's own check and verify commands, which the brief names from .flywheel/gates.json -->
 
 Run the `check` command from the brief's gate commands, or from
 `data.gates.check`, from the root of the clone. When the brief names no
 `check`, use the one the project's `CLAUDE.md` names, and ask the owner when
 neither does.
 
-Do not open a pull request while `check` fails. Fix what it reports and run it
-again. When the fix needs something the issue does not settle, it is a gap,
-as step 3 says.
+Then run the `verify` command from the same gate commands, when they name
+one. CI runs it on every pull request, and a failure it reports there, such
+as a new test that passes on the base branch's code, is one `check` does not
+find. Run it as a background command when it can take longer than two
+minutes.
+
+Do not open a pull request while `check` or `verify` fails. Fix what the
+failing gate reports and run both again. When the fix needs something the
+issue does not settle, it is a gap, as step 3 says.
 
 ## Step 5: open the pull request
 <!-- spec: workissue-opens-pr-through-skill -->
