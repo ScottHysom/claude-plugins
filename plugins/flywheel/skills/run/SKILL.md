@@ -313,9 +313,10 @@ why it holds:
 - `wait`: the pull request waits on its implementer, such as for a failing
   check, a thread to answer or a check still running. The app's Auto-fix
   does not wake the implementer on every failure, so read its state with
-  the app's `list_sessions` tool, with `linked` true. When the only reason is
-  "a check is still running on its head", leave it to the next look: message
-  nobody, and do not count it toward telling the owner. Otherwise act on the
+  the app's `list_sessions` tool, with `linked` true. When `only_running_check`
+  is true, a running check is all the implementer has to wait on. Leave it
+  to the next look: message nobody, and do not count it toward telling the
+  owner. Otherwise act on the
   one of these that holds:
   - The implementer is working. Nothing starts here.
   - The implementer is idle, and this session has not yet messaged it for

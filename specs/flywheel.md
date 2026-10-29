@@ -619,7 +619,7 @@ and `match-capability-to-task`.
 - `events-cmd-lists-claim-prs` (test): When `flywheel.py events` runs, it
   lists each open pull request from an `issue/N` branch with its CI and
   review state. Each row also carries the head, verdict, next step and
-  reasons that `merge-check` gives it, or the error that kept it from
+  reasons and `only_running_check` that `merge-check` gives it, or the error that kept it from
   assessing the pull request, as a hold for the owner. It lists each merge
   since `--since`, and gives as `as_of` the newest merge it saw, so a look
   that passes it as `--since` does not name a merge twice.
@@ -723,7 +723,9 @@ Source: #650, and the playbook's `autonomy-scales-with-risk` and
 - `mergecheck-cmd-names-next-step` (test): When `merge-check` reports hold,
   it names the next step: `review` when the reviewer has yet to look at the
   head or at an answer, `wait` when a check, a conflict or a thread waits on
-  the implementer, and `ask` when only the owner can settle it.
+  the implementer, and `ask` when only the owner can settle it. It also
+  reports `only_running_check`, true when a running check is the only reason
+  that waits on the implementer.
 - `mergecheck-cmd-merges-on-flow` (test): When `merge-check N --merge` finds
   that N flows, it squashes N at the head it checked. When N holds, it merges
   nothing, and when the merge fails, it reports hold with GitHub's reason.

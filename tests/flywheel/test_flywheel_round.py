@@ -32,7 +32,13 @@ def open_pull(number, head, checks=(), review=""):
     }
 
 
-NEXT_STEP = {"head": "abc1234", "verdict": "hold", "next": "wait", "reasons": []}
+NEXT_STEP = {
+    "head": "abc1234",
+    "verdict": "hold",
+    "next": "wait",
+    "reasons": [],
+    "only_running_check": False,
+}
 
 
 def merged_pull(number, head, merged_at):
@@ -227,6 +233,7 @@ class DescribeEvents:
                 "verdict": "hold",
                 "next": "wait",
                 "reasons": [],
+                "only_running_check": False,
             },
             {
                 "number": 31,
@@ -240,6 +247,7 @@ class DescribeEvents:
                 "verdict": "hold",
                 "next": "wait",
                 "reasons": [],
+                "only_running_check": False,
             },
         ]
 
