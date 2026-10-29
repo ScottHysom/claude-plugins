@@ -473,6 +473,22 @@ class DescribeReviewPostRefusing:
         code, _ = post(policies, {"head": HEAD, "findings": [one(path=path, line=line)]})
         assert code == flywheel.OK
 
+    def it_accepts_a_finding_on_a_file_whose_path_git_quotes(self, policies, github):
+        github.pull["files"] = [{"path": "caf\u00e9.py"}]
+        github.diff = (
+            'diff --git "a/caf\\303\\251.py" "b/caf\\303\\251.py"\n'
+            '--- "a/caf\\303\\251.py"\n'
+            '+++ "b/caf\\303\\251.py"\n'
+            "@@ -1 +1,2 @@\n"
+            " one\n"
+            "+two\n"
+        )
+        code, _ = post(policies, {"head": HEAD, "findings": [one(path="caf\u00e9.py", line=2)]})
+        assert code == flywheel.OK
+        code, env = post(policies, {"head": HEAD, "findings": [one(path="caf\u00e9.py", line=3)]})
+        assert code == flywheel.PROBLEMS
+        assert "outside the diff of #71" in env["errors"][0]
+
     def it_refuses_a_finding_on_a_file_with_no_hunks_in_the_diff(self, policies, github):
         github.diff = (
             "diff --git a/plugins/demo/app.py b/plugins/demo/app.py\nBinary files differ\n"

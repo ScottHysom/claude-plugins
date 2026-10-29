@@ -970,6 +970,8 @@ LIST_ITEM_RE = re.compile(r"^\s*(?:[-*+]|\d{1,9}[.)])(?:[ \t]|$)")
 INDENTED_CODE_RE = re.compile(r"^(?: {4}|\t)")
 NOT_TEXT_RE = re.compile(r"^\s*(?:\||>|<|(?:[-*_=][ \t]*){3,}$|=+[ \t]*$)")
 ISSUE_URL_RE = re.compile(r"/issues/(\d+)$")
+HUNK_RE = re.compile(r"^@@ -\d+(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
+NEW_FILE_PREFIX = "+++ "
 ORDER_HEADING = "## Order"
 # Where `plan report` writes the report for the owner to read, and where
 # `plan file` records what it has filed. The folder ignores itself.
@@ -3987,8 +3989,13 @@ def read_findings(path):
         ) from exc
 
 
-HUNK_RE = re.compile(r"^@@ -\d+(?:,(\d+))? \+(\d+)(?:,(\d+))? @@")
-NEW_FILE_PREFIX = "+++ "
+def unquote_path(name):
+    """A path as git writes it in a diff header: quoted, with C escapes, when it
+    holds a non-ASCII byte, a double quote or a backslash."""
+    if len(name) < 2 or not (name.startswith('"') and name.endswith('"')):
+        return name
+    raw = name[1:-1].encode("latin-1", "backslashreplace")
+    return raw.decode("unicode_escape").encode("latin-1").decode("utf-8", "replace")
 
 
 def diff_lines(diff):
@@ -4019,7 +4026,7 @@ def diff_lines(diff):
                 new_line += 1
             continue
         if text.startswith(NEW_FILE_PREFIX):
-            name = text[len(NEW_FILE_PREFIX) :].split("\t")[0]
+            name = unquote_path(text[len(NEW_FILE_PREFIX) :].split("\t")[0])
             path = name[2:] if name.startswith("b/") else None
             if path is not None:
                 out.setdefault(path, set())
