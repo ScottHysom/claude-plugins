@@ -128,6 +128,13 @@ the session's own `set_monitor` tool reaches. #305 found Auto-fix off on
 every new pull request, so the skill turns it on rather than leaving it to
 the owner.
 
+The app refused `set_monitor` on #802, #803 and #804, saying it can turn on
+Auto-fix only for a pull request it is sure the session opened. Those were
+opened by `flywheel.py pr open`, which calls `gh`, and binding the pull
+request with `bind_pr` did not change the answer. The plugin cannot change
+that, so work-issue reports the refusal as "Auto-fix is off" and run relays
+it to the owner, which a round did not do before (#805).
+
 ## The dispatcher's skill
 
 run starts the sessions through the desktop app's `start_session` tool,
