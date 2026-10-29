@@ -2647,7 +2647,10 @@ def queue_in_plan(args, root, number):
         other = "other " if found else ""
         if finished:
             print("Every sub-issue of #%d is closed, so its plan is finished." % number)
-            print("To close #%d, run: %s %d" % (number, PLAN_CLOSE, number))
+            if offer["plan"].get("closed"):
+                print("#%d is closed already." % number)
+            else:
+                print("To close #%d, run: %s %d" % (number, PLAN_CLOSE, number))
         elif blocked:
             print("Every %sfree sub-issue of #%d is blocked by an open issue:" % (other, number))
             print_blocked(blocked)
@@ -2698,7 +2701,9 @@ def plan_issues(root, number, count):
     plan = summary(item)
     names = role_labels(root)
     problems = []
-    if not is_open(item):
+    closed = not is_open(item)
+    subs = sub_issues(root, number) if closed else None
+    if closed and not (subs and not any(is_open(s) for s in subs)):
         problems.append("#%d is closed; its plan is finished" % number)
     if not has_label(item, names[PLAN]):
         problems.append(
@@ -2711,6 +2716,8 @@ def plan_issues(root, number, count):
     if problems:
         return offer_of(plan=plan, errors=problems)
 
+    if closed:
+        return offer_of(plan=dict(plan, closed=True), finished=True)
     held = claims(root)
     subs = sub_issues(root, number)
     finished = bool(subs) and not any(is_open(s) for s in subs)
@@ -2792,6 +2799,11 @@ def nothing_free(offer, plan_issue, lost):
             "#%d %s is an approved plan issue, and its plan comes first. Ask the owner "
             "whether to start on it, and on a yes run: %s claim --next --plan %d"
             % (plan["number"], plan["title"], PROG, plan["number"])
+        )
+    if offer["finished"] and plan and plan.get("closed"):
+        return "Every sub-issue of #%d is closed, and #%d is closed already." % (
+            plan_issue,
+            plan_issue,
         )
     if offer["finished"]:
         return (
