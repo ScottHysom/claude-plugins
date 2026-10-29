@@ -13,8 +13,8 @@ import flywheel
 SINCE = "2026-10-15T10:00:00Z"
 
 
-def check_run(status="COMPLETED", conclusion="SUCCESS"):
-    return {"__typename": "CheckRun", "status": status, "conclusion": conclusion}
+def check_run(status="COMPLETED", conclusion="SUCCESS", **more):
+    return {"__typename": "CheckRun", "status": status, "conclusion": conclusion, **more}
 
 
 def status(state):
@@ -290,6 +290,59 @@ class DescribeEvents:
         ],
     )
     def it_sums_up_the_checks_with_a_failure_first(self, project, pulls, checks, ci):
+        pulls(opened=[open_pull(31, "issue/12", checks)])
+        assert project.run("events")[1]["data"]["open"][0]["ci"] == ci
+
+    @pytest.mark.spec("mergecheck-cmd-ignores-replaced-cancelled-check")
+    @pytest.mark.parametrize(
+        ("checks", "ci"),
+        [
+            (
+                [
+                    check_run(
+                        conclusion="CANCELLED", name="validate", startedAt="2026-10-29T09:29:37Z"
+                    ),
+                    check_run(
+                        status="IN_PROGRESS",
+                        conclusion="",
+                        name="validate",
+                        startedAt="2026-10-29T09:29:58Z",
+                    ),
+                ],
+                "pending",
+            ),
+            (
+                [
+                    check_run(name="validate", startedAt="2026-10-29T09:29:58Z"),
+                    check_run(
+                        conclusion="CANCELLED", name="validate", startedAt="2026-10-29T09:29:37Z"
+                    ),
+                ],
+                "passing",
+            ),
+            (
+                [
+                    check_run(
+                        conclusion="CANCELLED", name="validate", startedAt="2026-10-29T09:29:37Z"
+                    ),
+                    check_run(
+                        conclusion="FAILURE", name="validate", startedAt="2026-10-29T09:29:58Z"
+                    ),
+                ],
+                "failing",
+            ),
+            (
+                [
+                    check_run(
+                        conclusion="CANCELLED", name="validate", startedAt="2026-10-29T09:29:37Z"
+                    ),
+                    check_run(name="other", startedAt="2026-10-29T09:29:58Z"),
+                ],
+                "failing",
+            ),
+        ],
+    )
+    def it_reads_a_cancelled_check_through_its_later_run(self, project, pulls, checks, ci):
         pulls(opened=[open_pull(31, "issue/12", checks)])
         assert project.run("events")[1]["data"]["open"][0]["ci"] == ci
 
