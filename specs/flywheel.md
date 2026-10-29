@@ -618,7 +618,8 @@ and `match-capability-to-task`.
 
 - `events-cmd-lists-claim-prs` (test): When `flywheel.py events` runs, it
   lists each open pull request from an `issue/N` branch with its CI and
-  review state, and each merged since `--since`. It gives as `as_of` the
+  review state, and the head, verdict, next step and reasons that
+  `merge-check` gives it, and each merged since `--since`. It gives as `as_of` the
   newest merge it saw, so a look that passes it as `--since` does not name a
   merge twice.
 - `events-cmd-scopes-to-round` (test): When `flywheel.py events` runs with
@@ -672,6 +673,9 @@ and `match-capability-to-task`.
 - `run-takes-issue-requests` (step): When the owner asks to fix, work or
   take an issue, or the next issue, the session runs that issue as a round,
   unless the owner asks for the work in this session.
+- `run-looks-on-schedule` (step): While a pull request from its round is
+  open, `run` looks at the round on a schedule, so a check that finishes is
+  acted on without a session ending a turn.
 - `run-reports-pull-request` (step): When a worker reports its pull request,
   `run` reports the pull request to the owner.
 - `run-relays-refused-auto-fix` (step): When a worker reports that Auto-fix is

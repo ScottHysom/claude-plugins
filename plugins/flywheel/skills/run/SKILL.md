@@ -239,11 +239,12 @@ what the app started it at, and start nothing else on that issue until the
 owner answers.
 
 Then tell the owner which sessions started, and end the turn. This session
-is woken when an implementer ends a turn. The owner wakes it by sending any
-message, such as after merging a pull request.
+is woken when an implementer ends a turn, and by the scheduled look that
+step 7 sets. The owner wakes it by sending any message, such as after
+merging a pull request.
 
 ## Step 7: look again when woken
-<!-- spec: run-reports-pull-request, run-relays-refused-auto-fix, run-restarts-after-merge, workissue-archives-after-clear -->
+<!-- spec: run-looks-on-schedule, run-reports-pull-request, run-relays-refused-auto-fix, run-restarts-after-merge, workissue-archives-after-clear -->
 <!-- seam: judgment: the owner chose a count, a plan or issues, and the command differs by that choice -->
 
 Each time this session is woken, look again with the last `data.as_of`, at
@@ -260,7 +261,17 @@ those whose pull request merged:
 FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" events --issue 649 --issue 650 --since 2026-10-15T09:00:00Z --json
 ```
 
-Keep the new `data.as_of`. Then act on each of these that the look or the
+Keep the new `data.as_of`. Each row of `data.open` carries the `next` step
+and `reasons` that `merge-check` gives, so one look shows every open pull
+request's next step.
+
+CI finishing does not wake this session. The first time a look shows an open
+pull request, and no look is scheduled yet, schedule one with the
+`CronCreate` tool every five minutes (`*/5 * * * *`) and keep the job id. Its
+prompt says to take this step's look with the last `data.as_of` and act on
+it. Delete the job with `CronDelete` when step 12 stops the round.
+
+Then act on each of these that the look or the
 note that woke this session shows:
 
 - A pull request in `data.open`. Report its `url` to the owner the first
@@ -279,8 +290,8 @@ note that woke this session shows:
 ## Step 8: check each pull request
 <!-- spec: run-merges-what-flows, run-asks-owner-on-hold, run-reviews-each-pull-request, run-acts-on-stalled-wait -->
 
-For each pull request in `data.open`, ask the merge policy whether it
-flows, and merge it when it does:
+For each pull request in `data.open`, the look has already named the `next`
+step. Ask the merge policy whether it flows, and merge it when it does:
 
 ```sh
 FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" merge-check 671 --merge --json
@@ -372,12 +383,13 @@ exits 1. A finished plan has nothing left to start, so stop as step 12 says
 once no session is still working or waiting on a merge.
 
 ## Step 12: stop
-<!-- spec: run-stops-on-empty-queue, run-starts-named-issues -->
+<!-- spec: run-looks-on-schedule, run-stops-on-empty-queue, run-starts-named-issues -->
 <!-- no-command: reports to the owner what the round's earlier looks found -->
 
 When the queue offers nothing, and either the round started no issue or
 `data.open` in the last look of step 7 is empty, report to the owner each pull request in the round
-that merged, and each issue that stopped without one. Then stop.
+that merged, and each issue that stopped without one. Delete the scheduled
+look with `CronDelete`. Then stop.
 
 A round of named issues stops the same way once each issue it started has
 merged or stopped, without reading the queue again.

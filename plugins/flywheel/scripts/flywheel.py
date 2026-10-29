@@ -3183,7 +3183,8 @@ def in_round(pull, ours):
 
 
 def cmd_events(args):
-    """What the dispatcher acts on: open claim pull requests, and merges since its last look."""
+    """What the dispatcher acts on: open claim pull requests with the next step
+    merge-check names for each, and merges since its last look."""
     root = project_root(args.repo)
     ours = round_issues(root, args)
     opened = gh_json(
@@ -3215,6 +3216,8 @@ def cmd_events(args):
         row = pull_row(pull)
         row["ci"] = ci_state(pull.get("statusCheckRollup"))
         row["review"] = (pull.get("reviewDecision") or "").lower() or None
+        verdict = assess(root, pull["number"])
+        row.update({k: verdict[k] for k in ("head", "verdict", "next", "reasons")})
         rows.append(row)
     claimed = [p for p in merged if claim_number(p["headRefName"]) is not None]
     news = []
@@ -3231,8 +3234,8 @@ def cmd_events(args):
     def human():
         for row in rows:
             print(
-                "open #%d %s: ci %s, review %s"
-                % (row["number"], row["branch"], row["ci"], row["review"] or "none")
+                "open #%d %s: ci %s, review %s, next %s"
+                % (row["number"], row["branch"], row["ci"], row["review"] or "none", row["next"])
             )
         for row in news:
             print("merged #%d %s at %s" % (row["number"], row["branch"], row["merged_at"]))
