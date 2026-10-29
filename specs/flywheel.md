@@ -618,11 +618,11 @@ and `match-capability-to-task`.
 
 - `events-cmd-lists-claim-prs` (test): When `flywheel.py events` runs, it
   lists each open pull request from an `issue/N` branch with its CI and
-  review state. Each row also carries the head, verdict, next step and
-  reasons and `only_running_check` that `merge-check` gives it, or the error that kept it from
-  assessing the pull request, as a hold for the owner. It lists each merge
-  since `--since`, and gives as `as_of` the newest merge it saw, so a look
-  that passes it as `--since` does not name a merge twice.
+  review state. Each row also carries the head, verdict, next step, reasons
+  and `only_running_check` that `merge-check` gives it, or the error that
+  kept it from assessing the pull request, as a hold for the owner. It lists
+  each merge since `--since`, and gives as `as_of` the newest merge it saw,
+  so a look that passes it as `--since` does not name a merge twice.
 - `events-cmd-scopes-to-round` (test): When `flywheel.py events` runs with
   `--plan N`, it lists only the pull requests from sub-issues of #N, and
   with `--issue M`, given once per issue, only those from the issues it
