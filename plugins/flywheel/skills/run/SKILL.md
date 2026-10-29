@@ -243,7 +243,7 @@ is woken when an implementer ends a turn. The owner wakes it by sending any
 message, such as after merging a pull request.
 
 ## Step 7: look again when woken
-<!-- spec: run-reports-pull-request, run-restarts-after-merge, workissue-archives-after-clear -->
+<!-- spec: run-reports-pull-request, run-relays-refused-auto-fix, run-restarts-after-merge, workissue-archives-after-clear -->
 <!-- seam: judgment: the owner chose a count, a plan or issues, and the command differs by that choice -->
 
 Each time this session is woken, look again with the last `data.as_of`, at
@@ -265,6 +265,9 @@ note that woke this session shows:
 
 - A pull request in `data.open`. Report its `url` to the owner the first
   time a look shows it. Then check it as step 8 says.
+- An implementer whose report says Auto-fix is off for its pull request.
+  Tell the owner the pull request's `url` and the app's reason, once, so
+  the owner can turn Auto-fix on in the app.
 - A pull request in `data.merged` whose claim this session has not cleared
   since step 8 merged it. Clear its claim as step 10 says.
 - An implementer that reports it could not archive itself, once its claim

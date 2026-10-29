@@ -579,7 +579,10 @@ Source: #305, #648, and the playbook's `checks-over-instructions`.
   skill when the project has none.
 - `workissue-turns-on-pr-watch` (step): When work-issue has opened the pull
   request, it turns on Auto-fix for it, and leaves archive-on-close
-  off, with the session's monitor tool, before reporting.
+  off, with the session's monitor tool, before reporting. When the
+  session has no monitor tool or the app refuses, its report and its
+  wrap-up recap open with "Auto-fix is off" and the pull request's url, and
+  a refusal's reason follows.
 - `workissue-rechecks-for-comments` (step): When work-issue has turned on the
   watch, it schedules a recurring check of its pull request's unresolved
   review threads with `flywheel.py unanswered`, since the app does not wake the
@@ -671,6 +674,9 @@ and `match-capability-to-task`.
   unless the owner asks for the work in this session.
 - `run-reports-pull-request` (step): When a worker reports its pull request,
   `run` reports the pull request to the owner.
+- `run-relays-refused-auto-fix` (step): When a worker reports that Auto-fix is
+  off for its pull request, `run` tells the owner the pull request's url and
+  the app's reason, once.
 - `run-restarts-after-merge` (step): When `events` reports a merge from its
   round, `run` clears the claim (or accepts a claim its implementer already
   cleared) and starts a worker on the next free issue.
