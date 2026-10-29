@@ -1614,6 +1614,31 @@ class DescribeClear:
         assert flywheel.BASE not in local_branches(a)
 
     @pytest.mark.spec("clear-cmd-advances-main")
+    def it_reports_main_on_a_dry_run_of_a_live_claim_without_moving_it(
+        self, capsys, remote, clone, github
+    ):
+        a = squash_merged(capsys, clone, github, remote)
+        before = git(a, "rev-parse", flywheel.BASE)
+        code, data = run_json(capsys, a, "clear", "12", "--dry-run")
+        assert code == flywheel.OK
+        assert data["data"]["main"] == "advanced"
+        assert git(a, "rev-parse", flywheel.BASE) == before
+
+    @pytest.mark.spec("clear-cmd-keeps-main-it-cannot-fast-forward")
+    def it_warns_when_the_checkout_that_had_main_was_deleted(self, capsys, remote, clone, github):
+        a = squash_merged(capsys, clone, github, remote)
+        tree = a.parent / "tree"
+        git(a, "worktree", "add", "--quiet", str(tree), flywheel.BASE)
+        shutil.rmtree(tree)
+        before = git(a, "rev-parse", flywheel.BASE)
+        code, data = run_json(capsys, a, "clear", "12")
+        assert code == flywheel.OK
+        assert data["data"]["main"] == "kept"
+        assert "git worktree prune" in data["warnings"][0]
+        assert git(a, "rev-parse", flywheel.BASE) == before
+        assert "issue/12" not in local_branches(a)
+
+    @pytest.mark.spec("clear-cmd-advances-main")
     def it_leaves_main_current_when_it_is_already_there(self, capsys, remote, clone, github):
         a = squash_merged(capsys, clone, github, remote)
         git(a, "fetch", "--quiet", flywheel.REMOTE, flywheel.BASE)

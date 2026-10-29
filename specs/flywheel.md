@@ -514,22 +514,22 @@ Source: #289, and README.md, under "Claiming an issue".
 ## need owner-runs-merged-flywheel: Run the merged flywheel in the next session
 
 When a pull request that changes flywheel merges, the owner wants the next
-session in this repository to run the merged flywheel, so a plan's later
-issues are worked under its earlier fixes.
+session in a repository that runs flywheel to start on the merged flywheel
+(for this repository, through its own directory as the plugin's source), so a
+plan's later issues are worked under its earlier fixes.
 
-Source: #814. specs/repo.md has the need, and this repository's settings
-that the desktop app reads.
+Source: #814. specs/repo.md has the need as it applies to this repository.
 
 - `clear-cmd-advances-main` (test): When `flywheel.py clear N` clears a claim,
   or finds it cleared already, it fast-forwards the local `main` to
   `origin/main`, in the checkout that has `main` checked out or, when none
   has it, by moving the branch. It sets `data.main` to `advanced` or
-  `current`, and changes nothing under `--dry-run` once the claim is already
-  cleared.
+  `current`. Under `--dry-run` it reports the same without moving `main`.
 - `clear-cmd-keeps-main-it-cannot-fast-forward` (test): When the local `main`
-  holds a commit that `origin/main` lacks, or its checkout has changes that
-  block the move, `flywheel.py clear` leaves `main` where it is, sets
-  `data.main` to `kept`, names the cause in a warning and still exits 0.
+  holds a commit that `origin/main` lacks, its checkout has changes that
+  block the move, or its checkout folder is gone, `flywheel.py clear` leaves
+  `main` where it is, sets `data.main` to `kept`, names the cause in a warning
+  and still exits 0.
 
 ## need owner-prevents-stale-branches: Keep finished branches from piling up
 

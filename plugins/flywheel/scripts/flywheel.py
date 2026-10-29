@@ -4378,7 +4378,8 @@ def cmd_clear(args):
             print("  %s detached at %s" % (path, base))
 
     if args.dry_run:
-        return emit(args, "clear", data, human=human)
+        warnings = advance_main(root, data, True)
+        return emit(args, "clear", data, warnings=warnings, human=human)
 
     for path in data["worktrees"]:
         git(path, "switch", "--quiet", "--detach", base)
@@ -4390,11 +4391,12 @@ def cmd_clear(args):
 def advance_main(root, data, dry_run):
     """Fast-forward the local `main` to `origin/main`, and return any warnings.
 
-    The desktop app loads this repository's plugins from the main checkout and
-    cuts each new worktree from local `main`, so a merge leaves the next
-    session on the old plugin until `main` moves. Sets `data["main"]` to
-    "advanced", "current" or "kept". A `main` that has diverged, or whose
-    checkout has changes in the way, is kept and named in a warning.
+    A repository that enables flywheel from its own directory has the desktop
+    app load it from the main checkout, and the app cuts each new worktree
+    from local `main` in any project. A merge leaves the next session on the
+    old code until `main` moves. Sets `data["main"]` to "advanced", "current"
+    or "kept". A `main` that has diverged, whose checkout has changes in the
+    way, or whose checkout folder is gone is kept and named in a warning.
     """
     base = "%s/%s" % (REMOTE, BASE)
     target = "refs/heads/%s" % BASE
@@ -4413,6 +4415,12 @@ def advance_main(root, data, dry_run):
         data["main"] = "advanced"
         return []
     path = worktrees(root).get(target)
+    if path and not os.path.isdir(path):
+        data["main"] = "kept"
+        return [
+            "%s is checked out at %s, which no longer exists, so %s was not moved. "
+            "Run `git worktree prune`, then clear again" % (BASE, path, BASE)
+        ]
     if path:
         proc = git(path, "merge", "--quiet", "--ff-only", base, check=False)
         if proc.returncode != 0:
