@@ -186,6 +186,15 @@ lists any, answer them as step 7 says. When `data.state` is not `OPEN`, delete
 the job by its id with `CronDelete` and stop checking. The job lasts the
 session and expires after seven days.
 
+Each run of the job ends a turn, and a dispatcher that started the session
+hears of every turn's end. So the prompt also says how to end the turn, and
+that a reply says "CI" only when it reports on CI:
+
+- When the run acted, by answering a thread, clearing a claim or stopping the
+  job, its last message says what it did.
+- When `data.threads` is empty and `data.state` is `OPEN`, the run's whole
+  reply is `Nothing waiting on review threads on pull request 795.`
+
 When `data.state` is `MERGED`, clear the claim before the session ends, with
 the issue's number:
 

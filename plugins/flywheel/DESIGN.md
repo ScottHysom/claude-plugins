@@ -136,6 +136,17 @@ that, so work-issue opens its report with "Auto-fix is off", since a dispatcher
 sees only the first 400 characters of it, and run relays that to the owner,
 which a round did not do before (#805).
 
+The review-thread check runs every minute as a turn of the implementer's
+session, and the dispatcher starts the session with `wake_when_done`, so every
+run wakes the dispatcher. Plan #799's round showed dozens of near-identical
+wakes that buried the two changes #806 describes (#807). The app gives a
+scheduled job no way to hold back the wake, so the plugin cannot make a quiet
+run silent. It makes a quiet run unmistakable instead: the reply opens with
+"Nothing waiting on review threads", and says "CI" only for CI. run's step
+7 still looks again on every wake. A dispatcher that skims a quiet note
+misses nothing, since it also looks at its pull requests on a schedule of its
+own (#806).
+
 ## The dispatcher's skill
 
 run starts the sessions through the desktop app's `start_session` tool,
