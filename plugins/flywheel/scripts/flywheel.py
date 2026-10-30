@@ -360,9 +360,10 @@ changing a role's model or effort, so the change is a trial:
 - the reviewer's findings by level, from the review threads whose first
   comment FINDING_RE reads. They inform whether the work's quality holds
   under the change.
-- CI's run time, the seconds from the first check starting to the last
-  finishing on the commit that merged, and the merge wait, the seconds from
-  that last check finishing to the merge. They inform whether a faster CI
+- CI's run time (the seconds from the first check starting to the last
+  finishing on the commit that merged) and the merge wait (the seconds from
+  that last check finishing to the merge). A check that ran more than once
+  counts at its latest run. They inform whether a faster CI
   tool or a quicker reaction to CI shortens the loop. As a simplification,
   only check runs count, and a status posted by an outside service does not.
 - lead time, the hours from the earliest approval of the issues the pull
@@ -764,7 +765,7 @@ query($owner: String!, $name: String!, $number: Int!) {
         nodes {
           commit {
             statusCheckRollup {
-              contexts(first: 100) { nodes { ... on CheckRun { startedAt completedAt } } }
+              contexts(first: 100) { nodes { ... on CheckRun { name workflowName startedAt completedAt } } }
             }
           }
         }
@@ -3434,13 +3435,20 @@ def first_pass(number, commits):
 def ci_timing(number, merged_at, heads):
     """Seconds CI ran on the merged head, and seconds from its last check to the merge.
 
-    Only a check run with both a start and a finish counts.
+    Only a check run with both a start and a finish counts, and a check that ran
+    more than once counts at its latest run, since the earlier ones were replaced.
     """
     nodes = []
     for c in heads:
         rollup = (c.get("commit") or {}).get("statusCheckRollup") or {}
         nodes += (rollup.get("contexts") or {}).get("nodes") or []
-    runs = [n for n in nodes if n and n.get("startedAt") and n.get("completedAt")]
+    latest = {}
+    for n in nodes:
+        if n and n.get("startedAt") and n.get("completedAt"):
+            key = check_key(n) or id(n)
+            if key not in latest or n["startedAt"] > latest[key]["startedAt"]:
+                latest[key] = n
+    runs = list(latest.values())
     if not runs:
         return None, None, "No check run finished on #%d's merged head" % number
     began = min(epoch(r["startedAt"]) for r in runs)
@@ -3571,7 +3579,7 @@ def duration(seconds):
 def measure_summary(pulls):
     spent = [p["spend"] for p in pulls if p["spend"]]
     known = [p["first_pass_ci"] for p in pulls if p["first_pass_ci"] is not None]
-    leads = sorted(p["lead_time_hours"] for p in pulls if p["lead_time_hours"] is not None)
+    leads = (p["lead_time_hours"] for p in pulls if p["lead_time_hours"] is not None)
     green = sum(1 for k in known if k)
     return {
         "pulls": len(pulls),

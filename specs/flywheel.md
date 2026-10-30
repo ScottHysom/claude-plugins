@@ -1015,6 +1015,6 @@ scheduled workflow meets under this need.
   `2026-10-12` or a UTC time such as `2026-10-12T06:03:00Z`, it reports spend,
   first-pass CI, reviewer findings by level, how long CI ran on its merged head,
   the time from the last check finishing to the merge, and lead time for each
-  pull request merged at or after it, and a summary that gives the median of
-  each run time, wait and lead time, and says which it could not compute and
-  why.
+  pull request merged at or after it, and a summary that gives the median,
+  least and greatest of the CI run time, the wait and the lead time. It says
+  which it could not compute and why.

@@ -31,7 +31,10 @@ def approved_at(*times, label="approved"):
 
 def check_runs(*spans):
     """The head commit's checks as MEASURE_QUERY returns them, from (start, finish) pairs."""
-    runs = [{"startedAt": a, "completedAt": b} for a, b in spans]
+    runs = [
+        {"name": rest[0] if rest else None, "startedAt": a, "completedAt": b}
+        for a, b, *rest in spans
+    ]
     return [{"commit": {"statusCheckRollup": {"contexts": {"nodes": runs}}}}]
 
 
@@ -333,6 +336,23 @@ class DescribeMeasure:
         pull = pulls_of(project.run("measure", "--since", SINCE)[1])[42]
         assert pull["ci_seconds"] == 270
         assert pull["merge_wait_seconds"] == 330
+
+    def it_counts_only_the_latest_run_of_a_check(self, project, github):
+        github(
+            merged=[merged_pull(42, "issue/14", "2026-10-12T09:00:00Z")],
+            details={
+                42: detail(
+                    head=check_runs(
+                        ("2026-10-12T05:00:00Z", "2026-10-12T05:03:00Z", "validate"),
+                        ("2026-10-12T08:50:00Z", "2026-10-12T08:52:00Z", "validate"),
+                        ("2026-10-12T08:51:00Z", "2026-10-12T08:54:00Z", "lint"),
+                    )
+                )
+            },
+        )
+        pull = pulls_of(project.run("measure", "--since", SINCE)[1])[42]
+        assert pull["ci_seconds"] == 240
+        assert pull["merge_wait_seconds"] == 360
 
     def it_says_why_ci_timing_is_unknown(self, project, github):
         github(
