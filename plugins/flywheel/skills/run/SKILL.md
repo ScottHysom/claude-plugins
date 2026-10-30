@@ -241,6 +241,14 @@ Pass the new session's model and effort as `--model` and `--effort`. When
 what the app started it at, and start nothing else on that issue until the
 owner answers.
 
+Then tell the owner which sessions started. Before any pull request is open,
+nothing else wakes this session while another session it started is working,
+so start the watch and schedule the look as step 7 says, without waiting for
+a look to show a pull request. Then end the turn. This session is woken when
+an implementer ends a turn, by the watch that step 7 starts, and by the look
+that step 7 schedules. The owner wakes it by sending any message, such as
+after merging a pull request.
+
 ### A session the app refuses
 
 The app lets `start_session` start a session only on the owner's own message
@@ -261,15 +269,7 @@ the same fields, except `initiation`, which is `own_initiative`. Then:
 When the owner next sends this session a message, start each session it
 offered that the owner has not started, with `initiation` `user_asked`. List
 the sessions this session started with `list_sessions` and `linked` true to
-see which have started. Check each new session against its role as above.
-
-Then tell the owner which sessions started. Before any pull request is open,
-nothing else wakes this session while another session it started is working,
-so start the watch and schedule the look as step 7 says, without waiting for
-a look to show a pull request. Then end the turn. This session is woken when
-an implementer ends a turn, by the watch that step 7 starts, and by the look
-that step 7 schedules. The owner wakes it by sending any message, such as
-after merging a pull request.
+see which have started, whether this session or the owner's click started them. Read each with `get_session` and check it against its role as above, and tell the owner when one runs below its role.
 
 ## Step 7: look again when woken
 <!-- spec: run-looks-on-schedule, run-reports-pull-request, run-relays-refused-auto-fix, run-restarts-after-merge, run-starts-offered-sessions, workissue-archives-after-clear -->
@@ -357,6 +357,8 @@ note that woke this session shows:
 - An implementer that stopped without a pull request. Relay what it said to
   the owner. When it lost its claim to another session, its place in the
   round is free, so read the queue as step 5 says.
+- A session that step 6 offered as a card and the owner has not started, on
+  a turn that the owner's message began. Start it as step 6 says.
 
 ## Step 8: check each pull request
 <!-- spec: run-merges-what-flows, run-asks-owner-on-hold, run-reviews-each-pull-request, run-acts-on-stalled-wait -->

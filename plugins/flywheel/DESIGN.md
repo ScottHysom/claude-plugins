@@ -197,10 +197,7 @@ you." What plan #837's round showed on 2026-10-30 (#846):
 | A background command's exit | Refused by the same wording, so `watch` does not lift it (#835). Not measured on its own. |
 
 So a look the owner did not start cannot start a reviewer (step 9) or the
-implementer for a freed place (step 6). run offers the session as a card with
-`initiation` set to `own_initiative`, which the owner starts with a click, and
-tells the owner what waits on it. On the owner's next message it starts each
-session it offered that the owner has not started.
+implementer for a freed place (step 6). The run skill's step 6 says what run does instead.
 
 ## Waking the dispatcher
 
