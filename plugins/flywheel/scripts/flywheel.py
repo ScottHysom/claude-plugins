@@ -4172,7 +4172,8 @@ def assess(root, number):
         step = NEXT_ASK
     elif review is None:
         step = NEXT_REVIEW
-    elif implementer:
+    elif implementer and not (reviewer and implementer == [CHECK_RUNNING_REASON]):
+        # The reviewer's look reads the diff and the answers, so it goes ahead while a check runs.
         step = NEXT_WAIT
     elif reviewer:
         step = NEXT_REVIEW

@@ -797,9 +797,11 @@ Source: #650, and the playbook's `autonomy-scales-with-risk` and
 - `mergecheck-cmd-names-next-step` (test): When `merge-check` reports hold,
   it names the next step: `review` when the reviewer has yet to look at the
   head or at an answer, `wait` when a check, a conflict or a thread waits on
-  the implementer, and `ask` when only the owner can settle it. It also
-  reports `only_running_check`, true when a running check is the only reason
-  that waits on the implementer.
+  the implementer, and `ask` when only the owner can settle it. It gives
+  `review`, rather than `wait`, when the reviewer has yet to look at the head
+  or at an answer and a running check is the only reason that waits on the
+  implementer. It also reports `only_running_check`, true when a running
+  check is the only reason that waits on the implementer.
 - `mergecheck-cmd-ignores-replaced-canceled-check` (test): When `events` and
   `merge-check` read a pull request's checks, a check run that GitHub
   canceled does not count if a later run of the same check (the same

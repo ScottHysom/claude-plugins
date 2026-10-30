@@ -808,10 +808,6 @@ class DescribeTheNextStep:
         ("change", "reason"),
         [
             ({"statusCheckRollup": [check_run(conclusion="FAILURE")]}, "a check fails on its head"),
-            (
-                {"statusCheckRollup": [check_run(status="QUEUED")]},
-                "a check is still running on its head",
-            ),
             ({"mergeable": "CONFLICTING"}, "it conflicts with its base branch"),
         ],
     )
@@ -822,9 +818,38 @@ class DescribeTheNextStep:
         assert data["next"] == flywheel.NEXT_WAIT
         assert reason in data["reasons"]
 
-    def it_flags_a_wait_that_only_a_running_check_causes(self, policies, github):
+    def it_waits_on_a_running_check_once_the_reviewer_has_seen_the_head(self, policies, github):
+        github.pull["statusCheckRollup"] = [check_run(status="QUEUED")]
+        github.pull["reviews"] = [review()]
+        _, data = check(policies)
+        assert data["next"] == flywheel.NEXT_WAIT
+        assert data["only_running_check"] is True
+
+    def it_sends_the_reviewer_back_while_a_check_runs(self, policies, github):
         github.pull["statusCheckRollup"] = [check_run(status="QUEUED")]
         github.pull["reviews"] = [review(OLD)]
+        _, data = check(policies)
+        assert data["next"] == flywheel.NEXT_REVIEW
+        assert data["verdict"] == flywheel.HOLD
+        assert data["only_running_check"] is True
+
+    def it_sends_the_reviewer_back_to_an_answer_while_a_check_runs(self, policies, github):
+        github.pull["statusCheckRollup"] = [check_run(status="QUEUED")]
+        github.pull["reviews"] = [review()]
+        github.threads = [thread("T1", finding("P2"), (ANSWER, AFTER))]
+        _, data = check(policies)
+        assert data["next"] == flywheel.NEXT_REVIEW
+
+    def it_waits_when_a_conflict_joins_the_running_check(self, policies, github):
+        github.pull["statusCheckRollup"] = [check_run(status="QUEUED")]
+        github.pull["mergeable"] = "CONFLICTING"
+        github.pull["reviews"] = [review(OLD)]
+        _, data = check(policies)
+        assert data["next"] == flywheel.NEXT_WAIT
+
+    def it_flags_a_wait_that_only_a_running_check_causes(self, policies, github):
+        github.pull["statusCheckRollup"] = [check_run(status="QUEUED")]
+        github.pull["reviews"] = [review()]
         _, data = check(policies)
         assert data["only_running_check"] is True
         github.pull["mergeable"] = "CONFLICTING"
@@ -842,7 +867,7 @@ class DescribeTheNextStep:
                 startedAt="2026-10-29T09:29:58Z",
             ),
         ]
-        github.pull["reviews"] = [review(OLD)]
+        github.pull["reviews"] = [review()]
         _, data = check(policies)
         assert data["next"] == flywheel.NEXT_WAIT
         assert data["only_running_check"] is True
