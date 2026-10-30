@@ -181,6 +181,24 @@ an idle one itself. It messages once for each head and set of reasons, and
 then tells the owner, so that a check still running cannot pass messages
 back and forth between the two sessions.
 
+## Which turns start a session
+
+The desktop app lets `start_session` start a session on one kind of turn: the
+owner's own message to the dispatcher. Its refusal on every other turn reads
+"Start sessions only on the user's own words to you here; this turn runs an
+automated event, another session's message, or the task another session gave
+you." What plan #837's round showed on 2026-10-30 (#846):
+
+| Turn | `start_session` |
+| --- | --- |
+| The owner's message | Starts. The reviewer on #845 started at 04:39:34Z, once the owner said "Start review-845". |
+| A started session's turn end | Refused. The look that #845's opening woke found the next step `review`, and the call for the reviewer was refused. |
+| A scheduled prompt | Refused by the app's wording ("an automated event"). Not measured on its own. |
+| A background command's exit | Refused by the same wording, so `watch` does not lift it (#835). Not measured on its own. |
+
+So a look the owner did not start cannot start a reviewer (step 9) or the
+implementer for a freed place (step 6). The run skill's step 6 says what run does instead.
+
 ## Waking the dispatcher
 
 A round's dispatcher acts on a pull request only when something wakes it, and
