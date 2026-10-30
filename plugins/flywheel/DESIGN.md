@@ -188,10 +188,12 @@ back and forth between the two sessions.
 
 The desktop app lets `start_session` start a session on the owner's own
 message to the dispatcher, and on the first started session's turn end after
-it. Its refusal on every other turn reads "Start sessions only on the user's
-own words to you here; this turn runs an automated event, another session's
-message, or the task another session gave you." What plan #837's round showed
-on 2026-10-30 (#846):
+it. It refused on a scheduled prompt, a watch exit and a turn end after
+either of them, with the words "Start sessions only on the user's own words
+to you here; this turn runs an automated event, another session's message,
+or the task another session gave you." Later turns of a chain of turn ends
+that starts at the owner's turn were not measured (next section). What plan
+#837's round showed on 2026-10-30 (#846):
 
 | Turn | `start_session` |
 | --- | --- |
