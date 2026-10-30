@@ -246,8 +246,7 @@ nothing else wakes this session while another session it started is working,
 so start the watch and schedule the look as step 7 says, without waiting for
 a look to show a pull request. Then end the turn. This session is woken when
 an implementer ends a turn, by the watch that step 7 starts, and by the look
-that step 7 schedules. The owner wakes it by sending any message, such as
-after merging a pull request.
+that step 7 schedules. A message from the owner wakes it too.
 
 ### A session the app refuses
 
@@ -405,8 +404,10 @@ why it holds:
     reasons.
 - `ask`: the pull request holds for the owner. Tell the owner its `url` and
   every reason in `data.reasons`, once for each `data.head`. The owner merges
-  it on GitHub or says what to do. Until the owner answers, start no
-  reviewer on it and merge nothing.
+  it on GitHub or says what to do. Tell the owner that this session notices
+  the merge and clears the claim by itself, and that a session it then
+  offers as a card starts when the owner clicks it or sends a message. Until
+  the owner answers, start no reviewer on it and merge nothing.
 
 On exit 2, relay the error to the owner and merge nothing.
 

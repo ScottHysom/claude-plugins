@@ -168,8 +168,11 @@ than the time of the look, so a merge is never named twice and `clear` never
 runs twice on one claim. The script's docstring has the case this leaves
 out.
 
-The dispatcher learns of a merge when it is woken. What wakes it is in the
-"Waking the dispatcher" section.
+The dispatcher learns of a merge when it is woken. The watch exits when the
+owner merges a pull request of the round, so the dispatcher notices the merge
+and clears the claim without a message. The session for the next issue is
+offered as a card, since the app refuses `start_session` on that turn.
+What wakes it is in the "Waking the dispatcher" section.
 
 The app's Auto-fix does not wake an implementer on every CI failure. On
 #700 it woke the session when `validate` failed on head `c72cd46`, and did
@@ -214,7 +217,9 @@ What the desktop app does, measured on 2026-10-29 from the session transcripts
   queued the notification 7 ms later and began the turn after 34 ms. This was
   measured on the implementer, which is the same kind of session as the
   dispatcher. The dispatcher's own wake from a background exit was not
-  measured.
+  measured, and neither was whether it still holds after a run of automated
+  wakes with no message from the owner. If a round shows it does not, the
+  watch moves to the Monitor tool.
 - A started session's turn end wakes the dispatcher only once none of the
   sessions it started is still working. The #835 implementer ended a turn at
   04:13:37.7 while the #836 implementer was working. The dispatcher was not

@@ -214,8 +214,11 @@ skill. It:
 6. clears the claim once a pull request merges, and starts a session on the
    next issue, so the number you named stays in flight. A round of issues
    you named takes only those issues. It looks again whenever one of its
-   sessions finishes a turn, or when you send it a message, such as after a
-   merge.
+   sessions finishes a turn, or when a pull request of the round changes, such
+   as when you merge one. It notices a merge and clears the claim without a
+   message from you. The session for the next issue starts when you click the
+   card it offers or send the dispatcher a message, since the app refuses to
+   start a session on a turn that you did not begin.
 7. closes a plan once every issue in it is closed, and stops once the queue offers
    nothing more and every pull request in the round has closed.
 
@@ -415,11 +418,12 @@ stateDiagram-v2
 
 The dispatcher works in a loop. It checks each role's model and effort,
 reads the queue, and starts an implementer per issue. Then it waits. Each
-time one of its sessions finishes a turn, or you send it a message, it looks
-at the round's pull requests. It merges, starts a reviewer, wakes an idle
-implementer, or asks you, as the merge check says, and clears each merged
-claim. It reads the queue again for each free place, and stops once the queue offers
-nothing more and every pull request in the round has closed.
+time one of its sessions finishes a turn, or a pull request of the round
+changes (including a merge), it looks at the round's pull requests. It
+merges, starts a reviewer, wakes an idle implementer, or asks you, as the
+merge check says, and clears each merged claim. It reads the queue again for
+each free place, and stops once the queue offers nothing more and every pull
+request in the round has closed.
 
 ```mermaid
 flowchart TD
