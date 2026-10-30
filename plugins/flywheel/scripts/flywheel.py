@@ -4089,19 +4089,17 @@ def short(sha):
 def base_requires_up_to_date(root, base):
     """Whether the rules of branch `base` require a pull request to be up to date with it
     before it merges: a ruleset's strict status checks, or branch protection's."""
-    try:
-        rules = gh_json(root, "api", BASE_RULES_PATH % base)
-    except Fatal:
-        rules = []
-    for rule in rules:
+    for rule in gh_json(root, "api", BASE_RULES_PATH % base):
         if rule.get("type") == "required_status_checks":
             if (rule.get("parameters") or {}).get("strict_required_status_checks_policy"):
                 return True
     try:
         protection = gh_json(root, "api", BASE_PROTECTION_PATH % base)
-    except Fatal:
-        # An unprotected branch answers 404.
-        return False
+    except Fatal as exc:
+        # An unprotected branch answers 404. Any other failure leaves the base unknown.
+        if NOT_FOUND in str(exc):
+            return False
+        raise
     return bool(protection.get("strict"))
 
 

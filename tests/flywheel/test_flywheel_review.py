@@ -81,7 +81,9 @@ class FakeGitHub:
             "reviews": [review()],
         }
         self.rules = []
+        self.rules_error = None
         self.protection = None
+        self.protection_error = "gh: Not Found (HTTP 404)"
         self.threads = []
         self.labels = ["approved", "plugin:demo", "enhancement"]
         self.diff = (
@@ -126,12 +128,12 @@ class FakeGitHub:
             self.merged.append(args)
             return ""
         if args[0] == "api" and args[1] == flywheel.BASE_RULES_PATH % "main":
-            if self.rules is None:
-                raise flywheel.Fatal("Not Found")
+            if self.rules_error:
+                raise flywheel.Fatal(self.rules_error)
             return json.dumps(self.rules)
         if args[0] == "api" and args[1] == flywheel.BASE_PROTECTION_PATH % "main":
             if self.protection is None:
-                raise flywheel.Fatal("Not Found")
+                raise flywheel.Fatal(self.protection_error)
             return json.dumps(self.protection)
         if args[:2] == ("issue", "view"):
             return json.dumps(
@@ -819,6 +821,7 @@ BEHIND_REASON = "it is behind main, which requires a pull request to be up to da
 
 @pytest.mark.spec("mergecheck-cmd-holds-behind-base")
 class DescribeBehindBase:
+    @pytest.mark.spec("mergecheck-cmd-names-next-step")
     def it_holds_a_branch_behind_a_base_that_requires_it_up_to_date(self, policies, github):
         github.pull["mergeStateStatus"] = "BEHIND"
         github.rules = STRICT_RULES
@@ -843,7 +846,7 @@ class DescribeBehindBase:
                     {
                         "type": "required_status_checks",
                         "parameters": {"strict_required_status_checks_policy": False},
-                    }
+                    },
                 ],
                 {"strict": False},
             ),
@@ -858,12 +861,14 @@ class DescribeBehindBase:
         _, data = check(policies)
         assert data["verdict"] == flywheel.FLOW
 
-    def it_reads_protection_when_the_rules_cannot_be_read(self, policies, github):
+    @pytest.mark.parametrize("failing", ["rules_error", "protection_error"])
+    def it_stops_when_the_rules_of_the_base_cannot_be_read(self, policies, github, failing):
         github.pull["mergeStateStatus"] = "BEHIND"
-        github.rules = None
-        github.protection = {"strict": True}
-        _, data = check(policies)
-        assert data["reasons"] == [BEHIND_REASON]
+        setattr(github, failing, "gh: API rate limit exceeded (HTTP 403)")
+        github.protection = None
+        code, _ = policies.run("merge-check", "71")
+        assert code == flywheel.CANNOT_RUN
+        assert "rate limit" in policies.err
 
     def it_does_not_look_at_the_rules_of_a_branch_that_is_not_behind(self, policies, github):
         github.rules = STRICT_RULES
