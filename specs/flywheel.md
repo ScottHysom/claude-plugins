@@ -754,10 +754,11 @@ Source: #835, and the playbook's `scripts-detect-models-diagnose`.
   that state has changed already. Review threads are read when a review or a
   review comment changed, and on a timer otherwise, so waiting spends GitHub's
   GraphQL limit only on them.
-- `run-looks-on-schedule` (step): While a pull request from its round is
-  open, `run` waits on `flywheel.py watch` in the background and acts on the
-  rows it prints when it exits, so a change is acted on without a session
-  ending a turn. A scheduled look every 15 minutes backs it up, and starts the
+- `run-looks-on-schedule` (step): From the moment it starts a round's first
+  implementer, and while a session it started is still working or a pull
+  request from its round is open, `run` waits on `flywheel.py watch` in the
+  background and acts on the rows it prints when it exits, so a change is
+  acted on without a session ending a turn. A scheduled look every 15 minutes backs it up, and starts the
   watch again when it has stopped.
 
 ## need owner-keeps-gate-on-behavior-changes: Keep the owner's gate on changes to behavior

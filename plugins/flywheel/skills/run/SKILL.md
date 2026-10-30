@@ -202,7 +202,7 @@ stopped implementer frees a place that no issue takes, and the round stops
 as step 12 says once each named issue has merged or stopped.
 
 ## Step 6: start a worker for each issue
-<!-- spec: run-starts-one-session-per-issue, run-checks-started-session -->
+<!-- spec: run-starts-one-session-per-issue, run-checks-started-session, run-looks-on-schedule -->
 <!-- seam: platform: start_session and get_session are app tools that a script cannot call -->
 
 For each issue the queue offered, print its brief:
@@ -240,10 +240,13 @@ Pass the new session's model and effort as `--model` and `--effort`. When
 what the app started it at, and start nothing else on that issue until the
 owner answers.
 
-Then tell the owner which sessions started, and end the turn. This session
-is woken when an implementer ends a turn, by the watch that step 7 starts,
-and by the look that step 7 schedules. The owner wakes it by sending any
-message, such as after merging a pull request.
+Then tell the owner which sessions started. Before any pull request is open,
+nothing else wakes this session while another implementer is still working,
+so start the watch and schedule the look as step 7 says, without waiting for
+a look to show a pull request. Then end the turn. This session is woken when
+an implementer ends a turn, by the watch that step 7 starts, and by the look
+that step 7 schedules. The owner wakes it by sending any message, such as
+after merging a pull request.
 
 ## Step 7: look again when woken
 <!-- spec: run-looks-on-schedule, run-reports-pull-request, run-relays-refused-auto-fix, run-restarts-after-merge, workissue-archives-after-clear -->
@@ -269,13 +272,17 @@ request's next step. A row whose `next` is `ask` can carry the error that
 kept `events` from assessing that pull request, as its only reason. Tell the
 owner that reason as step 8 does.
 
-CI finishing does not wake this session, so after each look that shows an
-open pull request this session waits on the round with `watch`. It exits
+CI finishing does not wake this session, and neither does a pull request
+opening while another implementer is still working. So after each look that
+shows an open pull request or an implementer still working, and right after
+step 6 starts the round's sessions, this session waits on the round with
+`watch`. It exits
 when a pull request of the round changes: its head, its CI, its reviews or its
 review threads, or a merge or a close. This session runs one watch at a time.
 Before it starts a watch, it stops the kept one with `TaskStop` (which does
-nothing when that watch has ended). It starts the new one only from a look's
-`data.state`, as a background command with `run_in_background` true, and
+nothing when that watch has ended). It starts the new one from a look's
+`data.state` (or without `--state` right after step 6, when no look has been
+taken), as a background command with `run_in_background` true, and
 keeps its task id. Passing the look's state means a change landing between
 the look and the start of the watch ends the watch at once. When the look's
 `data.state` is null, because `events` could not read the state, start the
@@ -300,7 +307,8 @@ is open. When the watch exits 2, relay its error and look again.
 A look every 15 minutes backs the watch up, and starts it again when it has
 stopped. It is a `CronCreate` job (`*/15 * * * *`) that lasts this session and
 expires after seven days, so on each look check with `CronList` that it is
-still there. When a look shows an open pull request and the job is missing,
+still there. When a look shows an open pull request or an implementer still
+working, or step 6 has just started the round, and the job is missing,
 schedule it and keep the job id. Its prompt says to take this step's look with
 the last `data.as_of` and to start the watch from it, which stops the kept
 watch first. Delete the job with `CronDelete` when step 12 stops the round.
