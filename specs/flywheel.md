@@ -758,8 +758,8 @@ Source: #835, and the playbook's `scripts-detect-models-diagnose`.
   implementer, and while a session it started is still working or a pull
   request from its round is open, `run` waits on `flywheel.py watch` in the
   background and acts on the rows it prints when it exits, so a change is
-  acted on without a session ending a turn. A scheduled look every 15 minutes backs it up, and starts the
-  watch again when it has stopped.
+  acted on without a session ending a turn. A scheduled look every 15
+  minutes backs it up, and starts the watch again when it has stopped.
 
 ## need owner-keeps-gate-on-behavior-changes: Keep the owner's gate on changes to behavior
 
