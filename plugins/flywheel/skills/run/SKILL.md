@@ -202,7 +202,7 @@ stopped implementer frees a place that no issue takes, and the round stops
 as step 12 says once each named issue has merged or stopped.
 
 ## Step 6: start a worker for each issue
-<!-- spec: run-starts-one-session-per-issue, run-checks-started-session, run-looks-on-schedule -->
+<!-- spec: run-starts-one-session-per-issue, run-checks-started-session, run-looks-on-schedule, run-offers-refused-session -->
 <!-- seam: platform: start_session and get_session are app tools that a script cannot call -->
 
 For each issue the queue offered, print its brief:
@@ -216,7 +216,8 @@ owner the error, start no session on it, and go on with the next issue.
 
 On exit 0, start the session with the app's `start_session` tool:
 
-- `initiation`: `user_asked`, since the owner asked for the round.
+- `initiation`: `user_asked`, since the owner asked for the round. On a turn
+  the app refuses, offer the session as the end of this step says.
 - `context`: `fresh`.
 - `prompt`: `data.prompt`, as `brief` printed it.
 - `background`: that the dispatcher started this session to work issue N as
@@ -240,6 +241,28 @@ Pass the new session's model and effort as `--model` and `--effort`. When
 what the app started it at, and start nothing else on that issue until the
 owner answers.
 
+### A session the app refuses
+
+The app lets `start_session` start a session only on the owner's own message
+to this session. On a turn that a scheduled look, a started session's turn end
+or a background command's exit began, it refuses with "Start sessions only on
+the user's own words to you here". That covers the look that step 7 takes
+when the watch exits. `DESIGN.md` records what was measured.
+
+When `start_session` is refused that way, offer the session as a card with
+the same fields, except `initiation`, which is `own_initiative`. Then:
+
+- Tell the owner which pull request (for a reviewer) or which issue (for an
+  implementer) waits on the card, and that clicking it or sending any message
+  starts it.
+- Offer each session once. A later look that finds the same pull request or
+  issue still waiting offers nothing more and says nothing more.
+
+When the owner next sends this session a message, start each session it
+offered that the owner has not started, with `initiation` `user_asked`. List
+the sessions this session started with `list_sessions` and `linked` true to
+see which have started. Check each new session against its role as above.
+
 Then tell the owner which sessions started. Before any pull request is open,
 nothing else wakes this session while another session it started is working,
 so start the watch and schedule the look as step 7 says, without waiting for
@@ -249,7 +272,7 @@ that step 7 schedules. The owner wakes it by sending any message, such as
 after merging a pull request.
 
 ## Step 7: look again when woken
-<!-- spec: run-looks-on-schedule, run-reports-pull-request, run-relays-refused-auto-fix, run-restarts-after-merge, workissue-archives-after-clear -->
+<!-- spec: run-looks-on-schedule, run-reports-pull-request, run-relays-refused-auto-fix, run-restarts-after-merge, run-starts-offered-sessions, workissue-archives-after-clear -->
 <!-- seam: judgment: the owner chose a count, a plan or issues, and the command differs by that choice -->
 
 Each time this session is woken, look again with the last `data.as_of`, at
@@ -386,7 +409,7 @@ why it holds:
 On exit 2, relay the error to the owner and merge nothing.
 
 ## Step 9: start a reviewer
-<!-- spec: run-reviews-each-pull-request, run-checks-started-session -->
+<!-- spec: run-reviews-each-pull-request, run-checks-started-session, run-offers-refused-session -->
 
 Run this step for a pull request's first look, and for a later look when
 this session has no reviewer on it or its reviewer's session has stopped or
@@ -394,7 +417,8 @@ is archived.
 
 Start the session with the app's `start_session` tool:
 
-- `initiation`: `user_asked`, since the owner asked for the round.
+- `initiation`: `user_asked`, since the owner asked for the round. On a turn
+  the app refuses, offer the session as step 6 says.
 - `context`: `fresh`, so the reviewer starts without any of the
   implementer's context.
 - `prompt`: "Review pull request #671 as the reviewer, with the review-pr

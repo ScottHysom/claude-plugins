@@ -760,6 +760,14 @@ Source: #835, and the playbook's `scripts-detect-models-diagnose`.
   background and acts on the rows it prints when it exits, so a change is
   acted on without a session ending a turn. A scheduled look every 15
   minutes backs it up, and starts the watch again when it has stopped.
+- `run-offers-refused-session` (step): When the app refuses a `start_session`
+  call because the turn is not the owner's own message, as on a scheduled
+  look, a started session's turn end or a background command's exit, `run`
+  offers the reviewer or implementer as a card with `initiation` set to
+  `own_initiative`, and tells the owner which pull request or issue waits on
+  it. It offers each session once.
+- `run-starts-offered-sessions` (step): When the owner sends `run` a message,
+  it starts each session it offered that the owner has not started.
 
 ## need owner-keeps-gate-on-behavior-changes: Keep the owner's gate on changes to behavior
 
