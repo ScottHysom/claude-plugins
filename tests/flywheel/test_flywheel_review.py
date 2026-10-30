@@ -839,6 +839,7 @@ class DescribeBehindBase:
             ([], None),
             (
                 [
+                    {"type": "deletion"},
                     {
                         "type": "required_status_checks",
                         "parameters": {"strict_required_status_checks_policy": False},
