@@ -193,8 +193,11 @@ opens the pull request against the repository's default branch, and only
 when `pr push` exited 0. Run `gh pr create` in this command and not in a
 script, since the desktop app binds a pull request to the session only when
 the session's own command runs it. When `pr push` exits 1, the draft changed
-after step 3 and fails the check, so go back to step 2. When it exits 2, its
-message names what to do.
+after step 3 and fails the check, so go back to step 2. When `pr push` exits
+2, its message names what to do. When `gh pr create` fails after `pr push`
+exited 0, the branch is pushed and no pull request was opened: relay gh's
+error to the owner. When the error says a pull request already exists for
+the branch, report that pull request's url instead of opening another.
 
 On success, tell the owner the url that `gh pr create` printed, and the issue the pull request closes.
 When `data.prose_rules` names a file and the rounds had no prose check, also

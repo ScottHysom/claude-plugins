@@ -131,13 +131,13 @@ the owner.
 The app turns on Auto-fix only for a pull request it saw the session open.
 It sees that when the session's own Bash command runs `gh pr create`, and
 binds the pull request then. `flywheel.py pr open` once ran `gh` itself, out
-of the app's sight, so the app refused `set_monitor` on #802 to #827, even
+of the app's sight, so the app refused `set_monitor` on #794 to #827, even
 after `bind_pr` (#831). `pr push` now checks the description and pushes the
 branch, and open-pr runs `gh pr create` in the same command, joined by `&&`,
 so a description that fails the check still opens nothing. work-issue keeps
-`bind_pr` and the "Auto-fix is off" report, since a dispatcher sees only the
-first 400 characters of a report and relays that opening to the owner (#805),
-for a pull request that a project's own skill opens out of the app's sight.
+`bind_pr` and the "Auto-fix is off" report for a pull request that a
+project's own skill opens out of the app's sight. A dispatcher sees only the
+first 400 characters of a report, and relays that opening to the owner (#805).
 
 The review-thread check runs every minute as a turn of the implementer's
 session, and the dispatcher starts the session with `wake_when_done`, so every

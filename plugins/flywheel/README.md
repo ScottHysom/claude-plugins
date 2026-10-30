@@ -592,10 +592,9 @@ it. When the template names no such skill, or the skill is not installed,
 open-pr opens the pull request without the check and tells you so.
 
 If your project has its own skill for opening a pull request, that skill gets
-Auto-fix only when the session's own command runs `gh pr create`. The desktop
-app turns on Auto-fix for a pull request only when it saw the session open it.
-A skill that opens the pull request through a script gets "Auto-fix is off"
-in the report, and you turn it on by hand.
+Auto-fix only when the session's own command runs `gh pr create`. A skill that
+opens the pull request through a script gets "Auto-fix is off" in the
+implementer's report, and you turn it on by hand.
 
 Each file on a `prose-rules` line has to follow the format that the skill on
 the `prose-check` line reads. The skill refuses a file in another format,
