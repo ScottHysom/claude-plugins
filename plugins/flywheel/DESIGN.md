@@ -244,19 +244,36 @@ What the table does not show:
   started its turn. In the round of #849, `SendMessage` (about 07:24Z) and
   `archive_session` (07:29Z) worked on turns that a watch exit began.
 - No approval prompt for `clear_session` or `archive_session` reached the
-  dispatcher on any turn. Both sessions ran in `auto` mode. Whether the owner
-  saw an approval dialog for either call is open.
+  dispatcher on any turn, and the owner confirmed that no approval dialog
+  appeared on their screen for either call. Both sessions ran in `auto` mode.
+  Whether the app asks in another permission mode was not measured.
 - `unarchive_session` restored the probe on every turn kind. Its worktree
   `flywheel-wake-timer-8ebe46` was still listed by `git worktree list`, on a
   detached HEAD at `06d1dc4` rather than on its branch.
 - A session that was cleared, archived and restored took a message and
   answered it. At 09:34:20Z `SendMessage` was delivered and the probe replied.
 
-Whether a session cleared with `clear_session` can take an issue on a new
-`issue/N` branch in its worktree, open the pull request, and have the app turn
-on Auto-fix for it is open. The app watches only a pull request it saw the
-session open (`app-only-watches-own-opened-pr`), and a cleared session has not
-been tested against that.
+A session cleared with `clear_session` can open a pull request on a new
+branch in its worktree, and the app then binds that pull request to the
+session. The probe measured it on 2026-10-30, after the dispatcher cleared
+`probe-855` and handed it a task with `SendMessage`:
+
+1. The probe switched to a new branch from `origin/main` in its worktree,
+   committed one file and pushed at about 09:43:49Z.
+2. It opened draft pull request #860 with its own `gh pr create` at 09:43:56Z.
+3. `get_status` showed the app had already bound #860 to the session, with
+   `auto_fix`, `address_comments`, `auto_merge` and `auto_archive_on_close`
+   all false. The app does not turn Auto-fix on by itself.
+4. `set_monitor` with `auto_fix` and `address_comments` true, at 09:44:05Z,
+   returned that Auto-fix was on. A second `get_status` agreed, and a
+   `<ci-monitor-event>` reached the session saying so.
+
+This differs from the case the question is about. The owner approved a
+throwaway draft pull request in place of a real issue, so the branch was
+`probe/855-autofix`, not an `issue/N` branch with a claim. The app does not
+read the branch name or the claim, so nothing suggests the result changes on
+an `issue/N` branch, but that was not run. The dispatcher closed #860
+unmerged.
 
 ## Waking the dispatcher
 
