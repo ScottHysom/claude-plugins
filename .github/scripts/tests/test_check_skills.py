@@ -1038,6 +1038,42 @@ class DescribeFences:
         assert code == cs.PROBLEMS
         assert "`%s`" % word in err
 
+    @pytest.mark.spec("fences-cmd-allows-pr-create-after-script")
+    def it_allows_pr_create_ending_a_line_after_the_script(self, make_repo, run):
+        line = (
+            'FOO=.foo/foo.py && python3 "$FOO" pr open --title "<the title>" '
+            "--body-file /var/folders/k2/T/pr-x8q1zv.md --json && "
+            'gh pr create --title "<the title>" --body-file /var/folders/k2/T/pr-x8q1zv.md'
+        )
+        root = make_repo(uses(sh(line)))
+        code, _, err = run("fences", "-C", str(root))
+        assert code == cs.OK, err
+
+    @pytest.mark.parametrize(
+        "line",
+        [
+            'gh pr create --title "t" --body-file /var/folders/k2/T/pr.md',
+            'python3 "$FOO" lint || gh pr create --title "t" --body-file /var/folders/k2/T/pr.md',
+            'python3 "$FOO" lint && gh pr create --title "t" --body-file /var/folders/k2/T/pr.md '
+            '&& python3 "$FOO" lint',
+            'python3 "$FOO" lint && gh pr create --title "t" --body-file /var/folders/k2/T/pr.md'
+            " | cat",
+            'python3 "$FOO" lint && gh pr create --title "t" --fill',
+            'python3 "$FOO" lint && gh pr merge 5',
+            'python3 "$FOO" lint && gh pr create --title "t" --body-file /var/folders/k2/T/pr.md'
+            " --web",
+        ],
+        ids=["alone", "after-or", "not-last", "piped", "no-body-file", "other-gh", "extra-flag"],
+    )
+    @pytest.mark.spec("fences-cmd-allows-pr-create-after-script")
+    def it_rejects_gh_anywhere_but_pr_create_ending_a_line_after_the_script(
+        self, make_repo, run, line
+    ):
+        root = make_repo(uses(sh(line)))
+        code, _, err = run("fences", "-C", str(root))
+        assert code == cs.PROBLEMS
+        assert "`gh`" in err
+
     @pytest.mark.spec("fences-cmd-allows-setup-commands")
     def it_allows_a_script_path_on_a_line_of_its_own(self, make_repo, run):
         root = make_repo(uses(sh("FOO=.foo/foo.py", 'python3 "$FOO" lint')))

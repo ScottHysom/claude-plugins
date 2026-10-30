@@ -790,6 +790,21 @@ the label `Bug` beside `bug` with "Name has already been taken".
   was given `approved` in another case, `changes` reads that as the time it
   was approved.
 
+## constraint app-autofix-needs-own-pr-create: The desktop app turns on Auto-fix only for a pull request the session's own command opened
+
+The desktop app's **Auto-fix** wakes a session when CI fails on its pull
+request. The app turns it on only for a pull request it saw the session open,
+and it sees that when the session's own Bash command runs `gh pr create`.
+
+Source: #830, and the probe in pull request #829, where `get_status` reported
+the pull request as the session's and `set_monitor` turned Auto-fix on after
+the session ran `gh pr create` itself.
+
+- `fences-cmd-allows-pr-create-after-script` (test): When a shell fence runs
+  `gh pr create --title <title> --body-file <path>` straight after a run of
+  the script through `&&`, as the last command of the line, `fences` passes it,
+  and fails `gh pr create` anywhere else and every other `gh` command.
+
 ## constraint hook-blocks-on-exit-2: A Claude Code hook that exits 2 blocks the call
 
 A PreToolUse hook is a command that Claude Code runs before each tool call. One
