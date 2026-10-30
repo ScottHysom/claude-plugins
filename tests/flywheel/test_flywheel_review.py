@@ -73,11 +73,15 @@ class FakeGitHub:
             "headRefOid": HEAD,
             "body": CLEAN_BODY,
             "files": [{"path": "plugins/demo/app.py"}, {"path": "tests/demo/test_app.py"}],
+            "baseRefName": "main",
             "mergeable": "MERGEABLE",
+            "mergeStateStatus": "CLEAN",
             "statusCheckRollup": [check_run()],
             "closingIssuesReferences": [{"number": 12}],
             "reviews": [review()],
         }
+        self.rules = []
+        self.protection = None
         self.threads = []
         self.labels = ["approved", "plugin:demo", "enhancement"]
         self.diff = (
@@ -121,6 +125,12 @@ class FakeGitHub:
                 raise flywheel.Fatal(self.merge_error)
             self.merged.append(args)
             return ""
+        if args[0] == "api" and args[1] == flywheel.BASE_RULES_PATH % "main":
+            return json.dumps(self.rules)
+        if args[0] == "api" and args[1] == flywheel.BASE_PROTECTION_PATH % "main":
+            if self.protection is None:
+                raise flywheel.Fatal("Not Found")
+            return json.dumps(self.protection)
         if args[:2] == ("issue", "view"):
             return json.dumps(
                 {
@@ -794,6 +804,62 @@ class DescribeOpenFindings:
         assert data["reasons"] == [
             "the thread at plugins/demo/app.py:3 has an answer the reviewer has not looked at"
         ]
+
+
+STRICT_RULES = [
+    {
+        "type": "required_status_checks",
+        "parameters": {"strict_required_status_checks_policy": True},
+    }
+]
+BEHIND_REASON = "it is behind main, which requires a pull request to be up to date"
+
+
+@pytest.mark.spec("mergecheck-cmd-holds-behind-base")
+class DescribeBehindBase:
+    def it_holds_a_branch_behind_a_base_that_requires_it_up_to_date(self, policies, github):
+        github.pull["mergeStateStatus"] = "BEHIND"
+        github.rules = STRICT_RULES
+        _, data = check(policies)
+        assert data["verdict"] == flywheel.HOLD
+        assert data["next"] == flywheel.NEXT_WAIT
+        assert data["reasons"] == [BEHIND_REASON]
+
+    def it_holds_a_branch_behind_a_protected_base_that_requires_it(self, policies, github):
+        github.pull["mergeStateStatus"] = "BEHIND"
+        github.protection = {"strict": True}
+        _, data = check(policies)
+        assert data["reasons"] == [BEHIND_REASON]
+
+    @pytest.mark.parametrize(
+        ("rules", "protection"),
+        [
+            ([], None),
+            (
+                [
+                    {
+                        "type": "required_status_checks",
+                        "parameters": {"strict_required_status_checks_policy": False},
+                    }
+                ],
+                {"strict": False},
+            ),
+        ],
+    )
+    def it_flows_a_branch_behind_a_base_that_does_not_require_it(
+        self, policies, github, rules, protection
+    ):
+        github.pull["mergeStateStatus"] = "BEHIND"
+        github.rules = rules
+        github.protection = protection
+        _, data = check(policies)
+        assert data["verdict"] == flywheel.FLOW
+
+    def it_does_not_look_at_the_rules_of_a_branch_that_is_not_behind(self, policies, github):
+        github.rules = STRICT_RULES
+        _, data = check(policies)
+        assert data["verdict"] == flywheel.FLOW
+        assert not any(a[0] == "api" and "rules" in a[1] for a in github.calls)
 
 
 @pytest.mark.spec("mergecheck-cmd-names-next-step")
