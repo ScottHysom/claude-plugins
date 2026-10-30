@@ -4172,7 +4172,8 @@ def assess(root, number):
         step = NEXT_ASK
     elif review is None:
         step = NEXT_REVIEW
-    elif implementer:
+    elif implementer and not (reviewer and implementer == [CHECK_RUNNING_REASON]):
+        # A running check does not hold back the reviewer, whose look needs no CI result.
         step = NEXT_WAIT
     elif reviewer:
         step = NEXT_REVIEW
