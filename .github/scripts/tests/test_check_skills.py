@@ -1060,10 +1060,29 @@ class DescribeFences:
             " | cat",
             'python3 "$FOO" lint && gh pr create --title "t" --fill',
             'python3 "$FOO" lint && gh pr merge 5',
+            'python3 "$FOO" lint && gh pr create --title "t" --draft --base main '
+            "--body-file /tmp/p.md",
+            'python3 "$FOO" lint && gh pr create --title t --body-file /tmp/a.md --repo x/y '
+            "--body-file /tmp/p.md",
+            'python3 "$FOO" lint && gh pr create --title "$(git log -1 --format=%s)" '
+            "--body-file /tmp/p.md",
+            'python3 "$FOO" lint && gh pr create --title "`id`" --body-file /tmp/p.md',
             'python3 "$FOO" lint && gh pr create --title "t" --body-file /var/folders/k2/T/pr.md'
             " --web",
         ],
-        ids=["alone", "after-or", "not-last", "piped", "no-body-file", "other-gh", "extra-flag"],
+        ids=[
+            "alone",
+            "after-or",
+            "not-last",
+            "piped",
+            "no-body-file",
+            "other-gh",
+            "extra-flag",
+            "flag-before-body-file",
+            "second-body-file",
+            "substitution",
+            "backtick",
+        ],
     )
     @pytest.mark.spec("fences-cmd-allows-pr-create-after-script")
     def it_rejects_gh_anywhere_but_pr_create_ending_a_line_after_the_script(

@@ -379,7 +379,9 @@ ALLOWED = (
     ),
     Allowed(
         "open pull request",
-        re.compile(r"^gh pr create --title .+ --body-file /[\w.-]+(?:/[\w.-]+)*$"),
+        re.compile(
+            r"^gh pr create --title (?:[^\s$`-][^\s$`]* )+--body-file /[\w.-]+(?:/[\w.-]+)*$"
+        ),
         AFTER_SCRIPT,
         "the desktop app turns on Auto-fix only for a pull request that the "
         "session's own command opened, so the skill runs this itself once the script has "
