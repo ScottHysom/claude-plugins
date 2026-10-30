@@ -859,9 +859,12 @@ query($owner: String!, $name: String!, $number: Int!) {
 
 # `review-brief`, `review-post` and `merge-check`.
 PULL_FIELDS = (
-    "number,title,url,state,headRefName,headRefOid,body,files,mergeable,statusCheckRollup,"
-    "closingIssuesReferences,reviews"
+    "number,title,url,state,headRefName,headRefOid,baseRefName,body,files,mergeable,"
+    "mergeStateStatus,statusCheckRollup,closingIssuesReferences,reviews"
 )
+BASE_RULES_PATH = "repos/{owner}/{repo}/rules/branches/%s"
+BASE_PROTECTION_PATH = "repos/{owner}/{repo}/branches/%s/protection/required_status_checks"
+BEHIND = "BEHIND"
 THREADS_QUERY = """\
 query($owner: String!, $name: String!, $number: Int!) {
   repository(owner: $owner, name: $name) {
@@ -4083,6 +4086,23 @@ def short(sha):
     return (sha or "")[:7]
 
 
+def base_requires_up_to_date(root, base):
+    """Whether the rules of branch `base` require a pull request to be up to date with it
+    before it merges: a ruleset's strict status checks, or branch protection's."""
+    for rule in gh_json(root, "api", BASE_RULES_PATH % base):
+        if rule.get("type") == "required_status_checks":
+            if (rule.get("parameters") or {}).get("strict_required_status_checks_policy"):
+                return True
+    try:
+        protection = gh_json(root, "api", BASE_PROTECTION_PATH % base)
+    except Fatal as exc:
+        # An unprotected branch answers 404. Any other failure leaves the base unknown.
+        if NOT_FOUND in str(exc):
+            return False
+        raise
+    return bool(protection.get("strict"))
+
+
 def assess(root, number):
     """merge-check's verdict on pull request `number`: flow or hold, each reason it
     holds, and what the dispatcher does next."""
@@ -4137,6 +4157,12 @@ def assess(root, number):
         implementer.append(CHECK_RUNNING_REASON)
     if pull.get("mergeable") == CONFLICTING:
         implementer.append("it conflicts with its base branch")
+    elif pull.get("mergeStateStatus") == BEHIND and base_requires_up_to_date(
+        root, pull["baseRefName"]
+    ):
+        implementer.append(
+            "it is behind %s, which requires a pull request to be up to date" % pull["baseRefName"]
+        )
 
     review = last_review(pull)
     if review is None:
