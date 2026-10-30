@@ -169,9 +169,10 @@ runs twice on one claim. The script's docstring has the case this leaves
 out.
 
 The dispatcher learns of a merge when it is woken. The watch exits when the
-owner merges a pull request of the round, so the owner does not message the
-dispatcher after a merge. What wakes it is in the "Waking the dispatcher"
-section.
+owner merges a pull request of the round, so the dispatcher notices the merge
+and clears the claim without a message. The session for the next issue is
+offered as a card, since the app refuses `start_session` on that turn.
+What wakes it is in the "Waking the dispatcher" section.
 
 The app's Auto-fix does not wake an implementer on every CI failure. On
 #700 it woke the session when `validate` failed on head `c72cd46`, and did
