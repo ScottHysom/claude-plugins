@@ -1292,12 +1292,7 @@ def placed(links, i, position):
         before = all(links[j][1] == "&&" and matches(links, j, LEADING) for j in range(i))
         return before and sep == "&&" and i < last
     if position == AFTER_SCRIPT:
-        return (
-            i == last
-            and i > 0
-            and links[i - 1][1] == "&&"
-            and is_invocation(links[i - 1][0])
-        )
+        return i == last and i > 0 and links[i - 1][1] == "&&" and is_invocation(links[i - 1][0])
     if position == FALLIBLE:
         return sep == "||" and i + 1 == last and matches(links, last, FALLBACK)
     if position == FALLBACK:
