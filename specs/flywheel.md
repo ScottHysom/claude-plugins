@@ -1024,9 +1024,11 @@ Source: #682, and the playbook's `agents-never-weaken-checks`.
 
 ## need owner-measures-loop: Measure the loop before changing a role
 
-When the owner considers a change to a role's model or effort, they want the
-loop's cost, first-pass CI rate, review findings and lead time over a period,
-so the change is a trial against a baseline and not a guess.
+When the owner considers a change to how the loop runs (such as how a round
+waits on CI) or to a role's model or effort, they want the loop's cost,
+first-pass CI rate, review findings, CI's run time, the wait after CI and lead
+time over a period, so the change is a trial against a baseline and not a
+guess.
 
 Source: #652, and the playbook's `measure-the-loop` and
 `improve-by-measured-trial`. specs/repo.md holds the requirement this repo's
@@ -1035,6 +1037,8 @@ scheduled workflow meets under this need.
 - `measure-cmd-reports-starting-measures` (test): When
   `flywheel.py measure --since <when>` runs, where `<when>` is a date such as
   `2026-10-12` or a UTC time such as `2026-10-12T06:03:00Z`, it reports spend,
-  first-pass CI, reviewer findings by level and lead time for each pull
-  request merged at or after it, and a summary, and says which it could not
-  compute and why.
+  first-pass CI, reviewer findings by level, how long CI ran on its merged head,
+  the time from the last check finishing to the merge, and lead time for each
+  pull request merged at or after it, and a summary that gives the median,
+  least and greatest of the CI run time, the wait and the lead time. It says
+  which it could not compute and why.
