@@ -235,6 +235,8 @@ class DescribeWatch:
         _, env = project.run("watch", "--state", state)
         assert env["data"]["merged"] == []
         assert [r["number"] for r in env["data"]["closed"]] == [31]
+        _, out, _ = project.human("watch", "--state", state)
+        assert out == "closed #31 issue/12\n"
 
     def it_does_not_wake_for_a_check_that_only_progresses(self, project, hub):
         hub.pull(31, "issue/12", checks=[run_of("validate", status="queued", conclusion=None)])
@@ -328,6 +330,14 @@ class DescribeEventsState:
         numbers = [part.split(":")[0] for part in state.split(",")]
         assert numbers == ["30", "31"]
         assert state_of(project) == state
+
+
+@pytest.mark.spec("watch-cmd-exits-on-change")
+def it_waits_by_sleeping(monkeypatch):
+    slept = []
+    monkeypatch.setattr(flywheel.time, "sleep", slept.append)
+    flywheel.sleep(2.5)
+    assert slept == [2.5]
 
 
 @pytest.mark.spec("watch-cmd-exits-on-change")
