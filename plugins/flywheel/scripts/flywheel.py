@@ -360,6 +360,12 @@ changing a role's model or effort, so the change is a trial:
 - the reviewer's findings by level, from the review threads whose first
   comment FINDING_RE reads. They inform whether the work's quality holds
   under the change.
+- CI's run time (the seconds from the first check starting to the last
+  finishing on the commit that merged) and the merge wait (the seconds from
+  that last check finishing to the merge). A check that ran more than once
+  counts at its latest run. They inform whether a faster CI
+  tool or a quicker reaction to CI shortens the loop. As a simplification,
+  only check runs count, and a status posted by an outside service does not.
 - lead time, the hours from the earliest approval of the issues the pull
   request closes to its merge, each issue's approval being the last time
   the approval label was added before the merge. It informs estimating, and
@@ -755,6 +761,20 @@ query($owner: String!, $name: String!, $number: Int!) {
   repository(owner: $owner, name: $name) {
     pullRequest(number: $number) {
       commits(first: 100) { nodes { commit { statusCheckRollup { state } } } }
+      head: commits(last: 1) {
+        nodes {
+          commit {
+            statusCheckRollup {
+              contexts(first: 100) { nodes { ... on CheckRun {
+                  name
+                  startedAt
+                  completedAt
+                  checkSuite { workflowRun { workflow { name } } }
+                } } }
+            }
+          }
+        }
+      }
       reviewThreads(first: 100) { nodes { comments(first: 1) { nodes { body } } } }
       closingIssuesReferences(first: 10) {
         nodes {
@@ -3417,6 +3437,31 @@ def first_pass(number, commits):
     )
 
 
+def ci_timing(number, merged_at, heads):
+    """Seconds CI ran on the merged head, and seconds from its last check to the merge.
+
+    Only a check run with both a start and a finish counts, and a check that ran
+    more than once counts at its latest run, since the earlier ones were replaced.
+    """
+    nodes = []
+    for c in heads:
+        rollup = (c.get("commit") or {}).get("statusCheckRollup") or {}
+        nodes += (rollup.get("contexts") or {}).get("nodes") or []
+    latest = {}
+    for n in nodes:
+        if n and n.get("startedAt") and n.get("completedAt"):
+            workflow = ((n.get("checkSuite") or {}).get("workflowRun") or {}).get("workflow") or {}
+            key = (workflow.get("name") or "", n["name"]) if n.get("name") else id(n)
+            if key not in latest or n["startedAt"] > latest[key]["startedAt"]:
+                latest[key] = n
+    runs = list(latest.values())
+    if not runs:
+        return None, None, "No check run finished on #%d's merged head" % number
+    began = min(epoch(r["startedAt"]) for r in runs)
+    ended = max(epoch(r["completedAt"]) for r in runs)
+    return ended - began, max(epoch(merged_at) - ended, 0), None
+
+
 def finding_counts(threads):
     """How many of the review threads open with a reviewer's finding, by level."""
     counts = dict.fromkeys(LEVELS, 0)
@@ -3495,6 +3540,10 @@ def measured_pull(root, pull, spent):
     green, why = first_pass(n, detail["commits"]["nodes"])
     if why:
         missing["first_pass_ci"] = why
+    heads = (detail.get("head") or {}).get("nodes") or []
+    ci_seconds, wait_seconds, why = ci_timing(n, pull["mergedAt"], heads)
+    if why:
+        missing["ci_seconds"] = missing["merge_wait_seconds"] = why
     hours, why = lead_time(n, pull["mergedAt"], issues, role_labels(root)[APPROVAL])
     if why:
         missing["lead_time_hours"] = why
@@ -3508,15 +3557,35 @@ def measured_pull(root, pull, spent):
         "spend": spend,
         "first_pass_ci": green,
         "findings": finding_counts(detail["reviewThreads"]["nodes"]),
+        "ci_seconds": ci_seconds,
+        "merge_wait_seconds": wait_seconds,
         "lead_time_hours": hours,
         "missing": missing,
     }
 
 
+def spread(values):
+    """The count, median, least and greatest of values, or None for no values."""
+    values = sorted(values)
+    if not values:
+        return None
+    return {
+        "pulls": len(values),
+        "median": round(statistics.median(values), 1),
+        "min": values[0],
+        "max": values[-1],
+    }
+
+
+def duration(seconds):
+    """Seconds as minutes and seconds, such as 2m14s."""
+    return "%dm%02ds" % divmod(round(seconds), 60)
+
+
 def measure_summary(pulls):
     spent = [p["spend"] for p in pulls if p["spend"]]
     known = [p["first_pass_ci"] for p in pulls if p["first_pass_ci"] is not None]
-    leads = sorted(p["lead_time_hours"] for p in pulls if p["lead_time_hours"] is not None)
+    leads = (p["lead_time_hours"] for p in pulls if p["lead_time_hours"] is not None)
     green = sum(1 for k in known if k)
     return {
         "pulls": len(pulls),
@@ -3531,16 +3600,11 @@ def measure_summary(pulls):
             "rate": round(float(green) / len(known), 2) if known else None,
         },
         "findings": {level: sum(p["findings"][level] for p in pulls) for level in LEVELS},
-        "lead_time_hours": (
-            {
-                "pulls": len(leads),
-                "median": round(statistics.median(leads), 1),
-                "min": leads[0],
-                "max": leads[-1],
-            }
-            if leads
-            else None
+        "ci_seconds": spread(p["ci_seconds"] for p in pulls if p["ci_seconds"] is not None),
+        "merge_wait_seconds": spread(
+            p["merge_wait_seconds"] for p in pulls if p["merge_wait_seconds"] is not None
         ),
+        "lead_time_hours": spread(leads),
     }
 
 
@@ -3600,6 +3664,12 @@ def cmd_measure(args):
             else:
                 print("  first-pass CI: %s" % ("green" if p["first_pass_ci"] else "not green"))
             print("  findings: %s" % findings_text(p["findings"]))
+            if p["ci_seconds"] is None:
+                print("  CI run time: not computed. %s" % gone["ci_seconds"])
+                print("  merge wait: not computed. %s" % gone["merge_wait_seconds"])
+            else:
+                print("  CI run time: %s" % duration(p["ci_seconds"]))
+                print("  merge wait: %s" % duration(p["merge_wait_seconds"]))
             if p["lead_time_hours"] is None:
                 print("  lead time: not computed. %s" % gone["lead_time_hours"])
             else:
@@ -3616,6 +3686,22 @@ def cmd_measure(args):
         rate = " (%d%%)" % round(ci["rate"] * 100) if ci["rate"] is not None else ""
         print("  first-pass CI: %d of %d green%s" % (ci["green"], ci["pulls"], rate))
         print("  findings: %s" % findings_text(summary["findings"]))
+        for label, key in (("CI run time", "ci_seconds"), ("merge wait", "merge_wait_seconds")):
+            sp = summary[key]
+            if sp:
+                print(
+                    "  %s: median %s, from %s to %s, over %d of %d pull requests"
+                    % (
+                        label,
+                        duration(sp["median"]),
+                        duration(sp["min"]),
+                        duration(sp["max"]),
+                        sp["pulls"],
+                        len(pulls),
+                    )
+                )
+            else:
+                print("  %s: not computed for any pull request" % label)
         if lead:
             print(
                 "  lead time: median %.1f hours, from %.1f to %.1f, over %d of %d pull requests"
@@ -6057,7 +6143,8 @@ def build_parser():
     p = sub.add_parser(
         "measure",
         parents=[common],
-        help="spend, first-pass CI, findings and lead time for each pull request merged since"
+        help="spend, first-pass CI, findings, CI run time, merge wait and lead time for each pull"
+        " request merged since"
         " --since, and a summary",
     )
     p.add_argument(

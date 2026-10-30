@@ -894,9 +894,11 @@ artifact", and the probe recorded in #334.
 
 ## need owner-measures-loop: Measure the loop before changing a role
 
-When the owner considers a change to a role's model or effort, they want the
-loop's cost, first-pass CI rate, review findings and lead time over a period,
-so the change is a trial against a baseline and not a guess.
+When the owner considers a change to how the loop runs (such as how a round
+waits on CI) or to a role's model or effort, they want the loop's cost,
+first-pass CI rate, review findings, CI's run time, the wait after CI and lead
+time over a period, so the change is a trial against a baseline and not a
+guess.
 
 Source: #652. specs/flywheel.md holds the requirements the flywheel plugin
 meets under this need.

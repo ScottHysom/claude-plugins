@@ -112,7 +112,7 @@ run.
 | "file an issue for …", "open an issue for …", "file this as a plan" | Claude drafts the issues, shows you a report, and files them once you approve. |
 | `! gh issue edit 12 --add-label approved` | You approve issue 12, so a session may work it. |
 | "review #671" | A reviewer reads the pull request against your review policy and posts its findings. |
-| "measure the loop since 2026-10-01" | Spend, first-pass CI, findings and lead time for each pull request merged since then. |
+| "measure the loop since 2026-10-01" | Spend, first-pass CI, findings, CI run time, the wait after CI and lead time for each pull request merged since then. |
 
 ### Fixing an issue
 
@@ -354,6 +354,10 @@ a summary:
   pull request.
 - **findings**: how many findings the reviewer posted, at each level from P0
   to P3.
+- **CI run time**: how long the checks on the merged commit took, from the
+  first starting to the last finishing.
+- **merge wait**: the time from the last of those checks finishing to the
+  merge.
 - **lead time**: the hours from when the issue was approved to the merge.
 
 A run, trimmed:
@@ -364,11 +368,15 @@ Since 2026-10-18: 15 merged pull requests.
   spend: 10,954,993 tokens (input 166, output 32,812, cache write 200,942, cache read 10,721,073)
   first-pass CI: green
   findings: P0 0, P1 0, P2 0, P3 0
+  CI run time: 2m14s
+  merge wait: 3m05s
   lead time: 22.8 hours
 Summary:
   spend: 152,691,382 tokens over 15 of 15 pull requests
   first-pass CI: 14 of 15 green (93%)
   findings: P0 0, P1 0, P2 0, P3 0
+  CI run time: median 2m20s, from 1m48s to 4m02s, over 15 of 15 pull requests
+  merge wait: median 3m10s, from 0m41s to 14m30s, over 15 of 15 pull requests
   lead time: median 19.1 hours, from 0.2 to 81.2, over 15 of 15 pull requests
 ```
 
