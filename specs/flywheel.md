@@ -112,6 +112,20 @@ plan posted there.
   `Requirements`. A template without a `##` heading stops a command that
   reads it with exit 2.
 
+## constraint app-only-watches-own-opened-pr: The app watches only a pull request it saw the session open
+
+The desktop app turns on Auto-fix only for a pull request it saw the session
+open. It sees that when the session's own Bash command runs `gh pr create`,
+and binds the pull request to the session then. A pull request that a script
+opened, or that `bind_pr` bound, is refused.
+
+Source: #831, and the probe in pull requests #828 and #829.
+
+- `prskill-runs-pr-create-itself` (step): When open-pr opens a pull request,
+  the session's own command runs `gh pr create`, straight after `pr push` in
+  the same command, so the app binds the pull request and lets `set_monitor`
+  turn on Auto-fix.
+
 ## need owner-sets-pr-shape: Open pull requests in the project's own shape
 
 When the owner adopts the loop, they want each pull request's description in
@@ -153,13 +167,11 @@ Source: #716, with the owner's approval of the plan posted there.
 - `prcheck-cmd-requires-closes` (test): When `pr check` finds no line that
   closes an issue, such as `Closes #N`, outside a code fence or an HTML
   comment, it says so and exits 1.
-- `propen-cmd-refuses-failing-draft` (test): When
-  `flywheel.py pr open --title TITLE --body-file FILE` reads a description
-  that `pr check` would fail, it names each fault, pushes nothing, opens
-  nothing and exits 1.
-- `propen-cmd-opens-from-file` (test): When `pr open` reads a description
-  that passes, it pushes the branch and opens a pull request with that
-  title, with the file as its description, and prints its url.
+- `prpush-cmd-refuses-failing-draft` (test): When
+  `flywheel.py pr push --body-file FILE` reads a description that `pr check`
+  would fail, it names each fault, pushes nothing and exits 1.
+- `prpush-cmd-pushes-checked-draft` (test): When `pr push` reads a
+  description that passes, it pushes the branch and opens nothing.
 - `prskill-drafts-from-template` (step): When the open-pr skill runs, it
   drafts the description in the shape `pr draft` gives, into the file
   `pr draft` made.
@@ -171,7 +183,8 @@ Source: #716, with the owner's approval of the plan posted there.
   the draft until a subagent names none that blocks the reading.
 - `prskill-opens-through-script` (step): When the cold reader names no
   blocking term, and the prose read leaves no sentence to rewrite or is
-  skipped, open-pr opens the pull request with `pr open`.
+  skipped, open-pr opens the pull request with `pr push` and `gh pr create`
+  in one command.
 - `adopt-asks-pr-shape` (step): When adopt asks the owner for the issue
   rules, it asks in the same question for the shape of a pull request's
   description, offering the default first, and writes an answer that

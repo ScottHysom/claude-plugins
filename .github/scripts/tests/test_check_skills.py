@@ -1041,7 +1041,7 @@ class DescribeFences:
     @pytest.mark.spec("fences-cmd-allows-pr-create-after-script")
     def it_allows_pr_create_ending_a_line_after_the_script(self, make_repo, run):
         line = (
-            'FOO=.foo/foo.py && python3 "$FOO" pr open --title "<the title>" '
+            'FOO=.foo/foo.py && python3 "$FOO" pr push '
             "--body-file /var/folders/k2/T/pr-x8q1zv.md --json && "
             'gh pr create --title "<the title>" --body-file /var/folders/k2/T/pr-x8q1zv.md'
         )

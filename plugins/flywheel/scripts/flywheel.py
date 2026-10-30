@@ -40,7 +40,7 @@ Usage:
     python3 flywheel.py sweep --dry-run
     python3 flywheel.py pr draft
     python3 flywheel.py pr check --body-file pr.md
-    python3 flywheel.py pr open --title "fix(app): ..." --body-file pr.md
+    python3 flywheel.py pr push --body-file pr.md
     python3 flywheel.py plan draft
     python3 flywheel.py plan report --drafts plan.json
     python3 flywheel.py plan file --drafts plan.json --token 3f9a1c0e7b2d4a68
@@ -152,8 +152,8 @@ Commands:
     pr check     check a drafted description against that shape, for a
                  paragraph or list item split across lines, and for a line
                  that closes an issue.
-    pr open      make pr check's check, then push the branch and open the
-                 pull request with --title and the draft as its description.
+    pr push      make pr check's check, then push the branch and open nothing.
+                 The session's own gh pr create opens the pull request.
     plan draft   make an empty file in the temporary directory for a plan's
                  drafts, named so that no other run gets it, and print its path.
                  With --json, also the kinds, role labels and headings
@@ -4846,32 +4846,19 @@ def cmd_pr_check(args):
     return emit(args, "pr check", data, errors, human=human)
 
 
-def cmd_pr_open(args):
+def cmd_pr_push(args):
     root = project_root(args.repo)
     shape = pr_shape(root)
     errors = description_faults(read_description(args.body_file), shape)
-    data = {"ids_heading": next(s.heading for s in shape if s.ids), "branch": None, "url": None}
+    data = {"ids_heading": next(s.heading for s in shape if s.ids), "branch": None}
     if not errors:
         data["branch"] = git(root, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
         # gh pr create, run without a terminal, stops on a branch the remote
-        # does not have yet.
+        # does not have yet. The session runs gh pr create itself, so that the
+        # desktop app sees it open the pull request and binds it.
         git(root, "push", "-u", REMOTE, "HEAD")
-        out = gh(
-            root,
-            "pr",
-            "create",
-            "--title",
-            args.title,
-            "--body-file",
-            os.path.abspath(args.body_file),
-        ).strip()
-        data["url"] = out.splitlines()[-1] if out else None
 
-    def human():
-        if data["url"]:
-            print(data["url"])
-
-    return emit(args, "pr open", data, errors, human=human)
+    return emit(args, "pr push", data, errors)
 
 
 # --------------------------------------------------------------------------
@@ -6102,7 +6089,7 @@ def build_parser():
     p.set_defaults(func=cmd_ids)
 
     p = sub.add_parser(
-        "pr", help="draft, check and open a pull request in the shape %s gives" % PR_TEMPLATE_FILE
+        "pr", help="draft, check and push a pull request in the shape %s gives" % PR_TEMPLATE_FILE
     )
     prs = p.add_subparsers(dest="pr_command", required=True)
     body = argparse.ArgumentParser(add_help=False)
@@ -6124,12 +6111,11 @@ def build_parser():
     p.set_defaults(func=cmd_pr_check)
 
     p = prs.add_parser(
-        "open",
+        "push",
         parents=[common, body],
-        help="check the drafted description, push the branch and open the pull request",
+        help="check the drafted description and push the branch, opening nothing",
     )
-    p.add_argument("--title", required=True, help="the pull request's title")
-    p.set_defaults(func=cmd_pr_open)
+    p.set_defaults(func=cmd_pr_push)
 
     p = sub.add_parser(
         "plan", help="file an issue, or a plan's issues under a plan issue, and close a plan"
