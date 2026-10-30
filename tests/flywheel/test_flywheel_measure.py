@@ -32,7 +32,12 @@ def approved_at(*times, label="approved"):
 def check_runs(*spans):
     """The head commit's checks as MEASURE_QUERY returns them, from (start, finish) pairs."""
     runs = [
-        {"name": rest[0] if rest else None, "startedAt": a, "completedAt": b}
+        {
+            "name": rest[0] if rest else None,
+            "startedAt": a,
+            "completedAt": b,
+            "checkSuite": {"workflowRun": {"workflow": {"name": "ci"}}},
+        }
         for a, b, *rest in spans
     ]
     return [{"commit": {"statusCheckRollup": {"contexts": {"nodes": runs}}}}]

@@ -765,7 +765,12 @@ query($owner: String!, $name: String!, $number: Int!) {
         nodes {
           commit {
             statusCheckRollup {
-              contexts(first: 100) { nodes { ... on CheckRun { name workflowName startedAt completedAt } } }
+              contexts(first: 100) { nodes { ... on CheckRun {
+                  name
+                  startedAt
+                  completedAt
+                  checkSuite { workflowRun { workflow { name } } }
+                } } }
             }
           }
         }
@@ -3445,7 +3450,8 @@ def ci_timing(number, merged_at, heads):
     latest = {}
     for n in nodes:
         if n and n.get("startedAt") and n.get("completedAt"):
-            key = check_key(n) or id(n)
+            workflow = ((n.get("checkSuite") or {}).get("workflowRun") or {}).get("workflow") or {}
+            key = (workflow.get("name") or "", n["name"]) if n.get("name") else id(n)
             if key not in latest or n["startedAt"] > latest[key]["startedAt"]:
                 latest[key] = n
     runs = list(latest.values())
