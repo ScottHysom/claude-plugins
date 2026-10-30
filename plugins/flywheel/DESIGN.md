@@ -186,8 +186,9 @@ back and forth between the two sessions.
 
 ## Which turns start a session
 
-The desktop app lets `start_session` start a session on one kind of turn: the
-owner's own message to the dispatcher. Its refusal on every other turn reads
+The desktop app lets `start_session` start a session on the owner's own message to the
+dispatcher, and on a started session's turn end that comes directly after it.
+Its refusal on every other turn reads
 "Start sessions only on the user's own words to you here; this turn runs an
 automated event, another session's message, or the task another session gave
 you." What plan #837's round showed on 2026-10-30 (#846):
@@ -195,12 +196,67 @@ you." What plan #837's round showed on 2026-10-30 (#846):
 | Turn | `start_session` |
 | --- | --- |
 | The owner's message | Starts. The reviewer on #845 started at 04:39:34Z, once the owner said "Start review-845". |
-| A started session's turn end | Refused. The look that #845's opening woke found the next step `review`, and the call for the reviewer was refused. |
-| A scheduled prompt | Refused by the app's wording ("an automated event"). Not measured on its own. |
-| A background command's exit | Refused by the same wording, so `watch` does not lift it (#835). Not measured on its own. |
+| A started session's turn end | Refused when it follows a scheduled prompt or a watch exit. The look that #845's opening woke found the next step `review`, and the call for the reviewer was refused. A turn end directly after the owner's turn started a session (see the next section). |
+| A scheduled prompt | Refused, with the same wording (measured under "What the app allows a dispatcher on each turn"). |
+| A background command's exit | Refused, with the same wording, so `watch` does not lift it (#835). |
 
-So a look the owner did not start cannot start a reviewer (step 9) or the
+So a look that neither the owner nor the owner's own turn directly before it started cannot start a reviewer (step 9) or the
 implementer for a freed place (step 6). The run skill's step 6 says what run does instead.
+
+## What the app allows a dispatcher on each turn
+
+A round that starts its sessions once and hands each one its tasks by message
+depends on four of the app's session tools: `start_session`, `SendMessage`,
+`clear_session` and `archive_session`. `clear_session` empties an idle
+session's conversation, and the session keeps its folder and settings. The
+tool's description says the app asks the owner to approve each call, except in
+auto mode, where it may decide without asking.
+
+The dispatcher of plan #857 measured each tool on 2026-10-30 (#855). It ran a
+throwaway session, `probe-855`, in the same permission mode as itself, `auto`.
+On each turn kind it called `start_session`, then `clear_session`,
+`archive_session`, `unarchive_session` and `SendMessage` on `probe-855`.
+Every call targeted a session the dispatcher started.
+
+| Turn began with | `start_session` | `SendMessage` | `clear_session` | `archive_session` |
+| --- | --- | --- | --- | --- |
+| The owner's message | Started | Delivered | Cleared | Archived |
+| A started session's turn end, directly after the owner's turn | Started | Delivered | Cleared | Archived |
+| A started session's turn end, after a scheduled prompt | Refused | Delivered | Cleared | Archived |
+| A scheduled prompt | Refused | Delivered | Cleared | Archived |
+| A background command's exit | Refused | Delivered | Cleared | Archived |
+
+What the table does not show:
+
+- `start_session` is allowed on a turn that a started session's turn end
+  began, only when the owner's own turn came directly before it. The turn at
+  about 09:34:35Z started `probe-855-b` at about 09:34:40Z. The turn at about
+  09:36:50Z, which followed a scheduled prompt, was refused at about
+  09:37:00Z. The app's system prompt for the dispatcher allows this: it names
+  "a `<side-sessions-event>` turn right after the user's own turn here (or
+  another such turn)". A turn that a watch exit, as in the round of #849
+  (06:01:39Z), or a scheduled prompt began is refused. The refusal reads
+  "Start sessions only on the user's own words to you here; this turn runs
+  an automated event, another session's message, or the task another session
+  gave you."
+- `clear_session`, `archive_session` and `SendMessage` worked on every turn
+  kind, with no refusal. `SendMessage` to an idle session delivered and
+  started its turn. In the round of #849, `SendMessage` (about 07:24Z) and
+  `archive_session` (07:29Z) worked on turns that a watch exit began.
+- No approval prompt for `clear_session` or `archive_session` reached the
+  dispatcher on any turn. Both sessions ran in `auto` mode. Whether the owner
+  saw an approval dialog for either call is open.
+- `unarchive_session` restored the probe on every turn kind. Its worktree
+  `flywheel-wake-timer-8ebe46` was still listed by `git worktree list`, on a
+  detached HEAD at `06d1dc4` rather than on its branch.
+- A session that was cleared, archived and restored took a message and
+  answered it. At 09:34:20Z `SendMessage` was delivered and the probe replied.
+
+Whether a session cleared with `clear_session` can take an issue on a new
+`issue/N` branch in its worktree, open the pull request, and have the app turn
+on Auto-fix for it is open. The app watches only a pull request it saw the
+session open (`app-only-watches-own-opened-pr`), and a cleared session has not
+been tested against that.
 
 ## Waking the dispatcher
 
