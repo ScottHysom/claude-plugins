@@ -29,12 +29,18 @@ def approved_at(*times, label="approved"):
     return [{"createdAt": t, "label": {"name": label}} for t in times]
 
 
-def detail(rollups=(), threads=(), issues=()):
+def check_runs(*spans):
+    """The head commit's checks as MEASURE_QUERY returns them, from (start, finish) pairs."""
+    runs = [{"startedAt": a, "completedAt": b} for a, b in spans]
+    return [{"commit": {"statusCheckRollup": {"contexts": {"nodes": runs}}}}]
+
+
+def detail(rollups=(), threads=(), issues=(), head=()):
     """A pull request as MEASURE_QUERY returns it.
 
     rollups is the state of each commit's checks, None where CI did not run;
     threads the first comment of each review thread; issues each closing
-    issue's number and labeled events.
+    issue's number and labeled events; head the merged head's check runs.
     """
     return {
         "commits": {
@@ -49,6 +55,7 @@ def detail(rollups=(), threads=(), issues=()):
                 for body in threads
             ]
         },
+        "head": {"nodes": list(head)},
         "closingIssuesReferences": {
             "nodes": [{"number": n, "timelineItems": {"nodes": events}} for n, events in issues]
         },
@@ -310,6 +317,34 @@ class DescribeMeasure:
         pull = pulls_of(project.run("measure", "--since", SINCE)[1])[42]
         assert str(tmp_path / "home" / ".claude" / "projects") in pull["missing"]["spend"]
 
+    def it_measures_ci_from_the_first_check_starting_to_the_last_finishing(self, project, github):
+        github(
+            merged=[merged_pull(42, "issue/14", "2026-10-12T09:00:00Z")],
+            details={
+                42: detail(
+                    head=check_runs(
+                        ("2026-10-12T08:50:00Z", "2026-10-12T08:52:00Z"),
+                        ("2026-10-12T08:51:00Z", "2026-10-12T08:54:30Z"),
+                        ("2026-10-12T08:51:00Z", None),
+                    )
+                )
+            },
+        )
+        pull = pulls_of(project.run("measure", "--since", SINCE)[1])[42]
+        assert pull["ci_seconds"] == 270
+        assert pull["merge_wait_seconds"] == 330
+
+    def it_says_why_ci_timing_is_unknown(self, project, github):
+        github(
+            merged=[merged_pull(42, "issue/14", "2026-10-12T09:00:00Z")],
+            details={42: detail(head=check_runs((None, None)))},
+        )
+        pull = pulls_of(project.run("measure", "--since", SINCE)[1])[42]
+        assert pull["ci_seconds"] is None
+        assert pull["merge_wait_seconds"] is None
+        assert "No check run finished on #42's merged head" in pull["missing"]["ci_seconds"]
+        assert "merge_wait_seconds" in pull["missing"]
+
     def it_sums_up_the_period(self, project, github, usage):
         root = flywheel.project_root(str(project.root))
         usage(
@@ -330,10 +365,12 @@ class DescribeMeasure:
                     rollups=["SUCCESS"],
                     threads=["**Claude:** P2 x"],
                     issues=[(14, approved_at("2026-10-12T08:00:00Z"))],
+                    head=check_runs(("2026-10-12T08:55:00Z", "2026-10-12T08:57:00Z")),
                 ),
                 43: detail(
                     rollups=["FAILURE"],
                     threads=["**Claude:** P2 y", "**Claude:** P0 z"],
+                    head=check_runs(("2026-10-12T09:55:00Z", "2026-10-12T09:58:00Z")),
                     issues=[(15, approved_at("2026-10-12T07:00:00Z"))],
                 ),
                 44: detail(issues=[(16, approved_at("2026-10-12T05:00:00Z"))]),
@@ -352,6 +389,8 @@ class DescribeMeasure:
             },
             "first_pass_ci": {"pulls": 2, "green": 1, "rate": 0.5},
             "findings": {"P0": 1, "P1": 0, "P2": 2, "P3": 0},
+            "ci_seconds": {"pulls": 2, "median": 150.0, "min": 120, "max": 180},
+            "merge_wait_seconds": {"pulls": 2, "median": 150.0, "min": 120, "max": 180},
             "lead_time_hours": {"pulls": 3, "median": 3.0, "min": 1.0, "max": 6.0},
         }
 
@@ -378,6 +417,8 @@ class DescribeMeasure:
             "spend": None,
             "first_pass_ci": {"pulls": 0, "green": 0, "rate": None},
             "findings": {"P0": 0, "P1": 0, "P2": 0, "P3": 0},
+            "ci_seconds": None,
+            "merge_wait_seconds": None,
             "lead_time_hours": None,
         }
 
@@ -395,6 +436,7 @@ class DescribeMeasure:
                     rollups=["SUCCESS"],
                     threads=["**Claude:** P3 x"],
                     issues=[(14, approved_at("2026-10-11T21:00:00Z"))],
+                    head=check_runs(("2026-10-12T08:50:00Z", "2026-10-12T08:52:14Z")),
                 ),
                 43: detail(rollups=["FAILURE"]),
             },
@@ -408,6 +450,11 @@ class DescribeMeasure:
         assert "first-pass CI: green" in out
         assert "first-pass CI: not green" in out
         assert "findings: P0 0, P1 0, P2 0, P3 1" in out
+        assert "CI run time: 2m14s" in out
+        assert "merge wait: 7m46s" in out
+        assert "CI run time: not computed. No check run finished on #43's merged head" in out
+        assert "CI run time: median 2m14s, from 2m14s to 2m14s, over 1 of 3 pull requests" in out
+        assert "merge wait: median 7m46s, from 7m46s to 7m46s, over 1 of 3 pull requests" in out
         assert "lead time: 12.0 hours" in out
         assert "spend: not computed. No usage record" in out
         assert "lead time: not computed. #43 does not close an issue" in out
