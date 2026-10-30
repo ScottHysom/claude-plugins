@@ -27,6 +27,7 @@ Usage:
     python3 flywheel.py check-role implementer
     python3 flywheel.py events --since 2026-10-15T09:00:00Z
     python3 flywheel.py events --plan 347 --since 2026-10-15T09:00:00Z
+    python3 flywheel.py watch --plan 347 --state 31:3f9a1c0e7b2d
     python3 flywheel.py review-policy
     python3 flywheel.py review-brief 71
     python3 flywheel.py unanswered 71
@@ -107,6 +108,13 @@ Commands:
                  --plan N, only those from plan issue N's
                  sub-issues, and with --issue N, given once for each issue,
                  only those from the issues it names.
+    watch        wait until an open pull request of the round has changed
+                 (its head, CI, reviews or review threads), or has merged
+                 or closed, since --state, which is the `state` of the last
+                 events or watch, and print the rows of the pull requests
+                 that changed. It reads every few seconds with conditional
+                 requests, which cost nothing while nothing changed. With
+                 --plan N or --issue N, as events does, only that round's.
     review-policy  print .flywheel/review-policy.md, its P3 cap and the
                  files its rules pass reads.
     review-brief N print pull request N for the reviewer: its head,
@@ -572,6 +580,7 @@ Python 3.9 is the floor. No match statements, no X | Y unions.
 import argparse
 import calendar
 import collections
+import concurrent.futures
 import configparser
 import fnmatch
 import hashlib
@@ -753,6 +762,23 @@ COMPLETED = "COMPLETED"
 CANCELLED = "CANCELLED"
 TIME_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 DATE_FORMAT = "%Y-%m-%d"
+# `watch` reads a round's pull requests this often, in seconds, and reads review
+# threads (GraphQL, which has no conditional request) unprompted every
+# THREADS_BACKSTOP reads, since resolving a thread changes nothing REST shows.
+WATCH_INTERVAL = 5
+# How much of a SHA-1 `watch` keeps for each pull request's state.
+STATE_DIGEST = 12
+THREADS_BACKSTOP = 12
+OPEN_PULLS_PATH = "repos/{owner}/{repo}/pulls?state=open&per_page=100"
+CHECK_RUNS_PATH = "repos/{owner}/{repo}/commits/%s/check-runs?per_page=100"
+COMMIT_STATUS_PATH = "repos/{owner}/{repo}/commits/%s/status"
+PULL_REVIEWS_PATH = "repos/{owner}/{repo}/pulls/%d/reviews?per_page=100"
+PULL_COMMENTS_PATH = "repos/{owner}/{repo}/pulls/%d/comments?per_page=100"
+HTTP_STATUS_RE = re.compile(r"^HTTP/\S+ (\d{3})")
+ETAG_RE = re.compile(r"^etag:[ \t]*(.+?)[ \t\r]*$", re.I | re.M)
+HEADER_END_RE = re.compile(r"\r?\n\r?\n")
+NOT_MODIFIED = 304
+PULL_STATE_FIELDS = "number,title,url,headRefName,state,mergedAt"
 # `measure`. A commit's checks sum up to one of these states.
 ROLLUP_GREEN = "SUCCESS"
 ROLLUP_RED = ("FAILURE", "ERROR")
@@ -3253,12 +3279,30 @@ def in_round(pull, ours):
     return n is not None and (ours is None or n in ours)
 
 
-def cmd_events(args):
-    """What the dispatcher acts on: open claim pull requests with the next step
-    merge-check names for each, and merges since its last look."""
-    root = project_root(args.repo)
-    ours = round_issues(root, args)
-    opened = gh_json(
+def open_row(root, pull):
+    """One open claim pull request as `events` and `watch` list it."""
+    row = pull_row(pull)
+    row["ci"] = ci_state(pull.get("statusCheckRollup"))
+    row["review"] = (pull.get("reviewDecision") or "").lower() or None
+    try:
+        verdict = assess(root, pull["number"])
+    except Fatal as exc:
+        # One pull request that cannot be assessed does not hide the rest of the look.
+        verdict = {
+            "head": None,
+            "verdict": HOLD,
+            "next": NEXT_ASK,
+            "reasons": [str(exc)],
+            "only_running_check": False,
+        }
+    row.update(
+        {k: verdict[k] for k in ("head", "verdict", "next", "reasons", "only_running_check")}
+    )
+    return row
+
+
+def open_pulls(root):
+    return gh_json(
         root,
         "pr",
         "list",
@@ -3269,6 +3313,35 @@ def cmd_events(args):
         "--json",
         OPEN_PULL_FIELDS,
     )
+
+
+def print_rows(rows, news, closed=()):
+    for row in rows:
+        print(
+            "open #%d %s: ci %s, review %s, next %s"
+            % (row["number"], row["branch"], row["ci"], row["review"] or "none", row["next"])
+        )
+    for row in news:
+        print("merged #%d %s at %s" % (row["number"], row["branch"], row["merged_at"]))
+    for row in closed:
+        print("closed #%d %s" % (row["number"], row["branch"]))
+
+
+def cmd_events(args):
+    """What the dispatcher acts on: open claim pull requests with the next step
+    merge-check names for each, and merges since its last look."""
+    root = project_root(args.repo)
+    ours = round_issues(root, args)
+    # The state `watch` starts from is read before the rows, so a change that
+    # lands during this look makes the watch exit at once. A read that fails
+    # leaves the state null, and the look goes on without it.
+    warnings = []
+    try:
+        state = format_state(Watcher(root).prints(ours))
+    except Fatal as exc:
+        state = None
+        warnings.append("could not read the state `watch` starts from: %s" % exc)
+    opened = open_pulls(root)
     merged = gh_json(
         root,
         "pr",
@@ -3280,28 +3353,11 @@ def cmd_events(args):
         "--json",
         MERGED_PULL_FIELDS,
     )
-    rows = []
-    for pull in sorted(opened, key=lambda p: p["number"]):
-        if not in_round(pull, ours):
-            continue
-        row = pull_row(pull)
-        row["ci"] = ci_state(pull.get("statusCheckRollup"))
-        row["review"] = (pull.get("reviewDecision") or "").lower() or None
-        try:
-            verdict = assess(root, pull["number"])
-        except Fatal as exc:
-            # One pull request that cannot be assessed does not hide the rest of the look.
-            verdict = {
-                "head": None,
-                "verdict": HOLD,
-                "next": NEXT_ASK,
-                "reasons": [str(exc)],
-                "only_running_check": False,
-            }
-        row.update(
-            {k: verdict[k] for k in ("head", "verdict", "next", "reasons", "only_running_check")}
-        )
-        rows.append(row)
+    rows = [
+        open_row(root, pull)
+        for pull in sorted(opened, key=lambda p: p["number"])
+        if in_round(pull, ours)
+    ]
     claimed = [p for p in merged if claim_number(p["headRefName"]) is not None]
     news = []
     if args.since is not None:
@@ -3312,21 +3368,177 @@ def cmd_events(args):
     # merge twice. The clock is read only when there is no merge to go by.
     marks = [p["mergedAt"] for p in claimed] + ([args.since] if args.since else [])
     as_of = max(marks) if marks else time.strftime(TIME_FORMAT, time.gmtime())
-    data = {"since": args.since, "as_of": as_of, "open": rows, "merged": news}
+    data = {"since": args.since, "as_of": as_of, "open": rows, "merged": news, "state": state}
 
     def human():
-        for row in rows:
-            print(
-                "open #%d %s: ci %s, review %s, next %s"
-                % (row["number"], row["branch"], row["ci"], row["review"] or "none", row["next"])
-            )
-        for row in news:
-            print("merged #%d %s at %s" % (row["number"], row["branch"], row["merged_at"]))
+        print_rows(rows, news)
         if not rows and not news:
             print("No claim has an open pull request or a new merge.")
         print("Next look: %s events --since %s" % (PROG, as_of))
 
-    return emit(args, "events", data, human=human)
+    return emit(args, "events", data, warnings=warnings, human=human)
+
+
+# --------------------------------------------------------------------------
+# watch
+# --------------------------------------------------------------------------
+
+
+def sleep(seconds):
+    """Wait. Tests replace this."""
+    time.sleep(seconds)
+
+
+def api_get(root, path, etag=None):
+    """GET `path` from GitHub's REST API as (status, etag, body). Tests replace this.
+
+    With `etag`, a 304 means the body is unchanged, and costs nothing against
+    the rate limit. gh exits 1 on a 304, so its output is read whatever the exit code.
+    """
+    cmd = ["gh", "api", "-i"]
+    if etag:
+        cmd += ["-H", "If-None-Match: " + etag]
+    proc = run(root, [*cmd, path], check=False)
+    head, *rest = HEADER_END_RE.split(proc.stdout, 1)
+    body = rest[0] if rest else ""
+    found = HTTP_STATUS_RE.match(head)
+    if not found:
+        raise Fatal("`gh api %s` failed: %s" % (path, proc.stderr.strip()))
+    status = int(found.group(1))
+    if status == NOT_MODIFIED:
+        return status, etag, None
+    if status >= 400:
+        raise Fatal("`gh api %s` failed: HTTP %d" % (path, status))
+    tag = ETAG_RE.search(head)
+    try:
+        return status, tag.group(1) if tag else None, json.loads(body)
+    except ValueError as exc:
+        raise Fatal("gh api %s did not return JSON: %s" % (path, exc)) from exc
+
+
+class Watcher:
+    """Reads a round's open pull requests and sums up what a change to one shows.
+
+    Each REST read is conditional on the ETag of the last answer, so a read of
+    something unchanged costs nothing. Review threads come from GraphQL, which has
+    no such request. They are read again when a review or a review comment
+    changed, and unprompted every THREADS_BACKSTOP reads.
+    """
+
+    def __init__(self, root):
+        self.root = root
+        self.answers = {}
+        self.threads = {}
+        self.reads = 0
+
+    def get(self, path):
+        """The body at `path`, and whether it changed since the last read."""
+        etag, body = self.answers.get(path, (None, None))
+        status, tag, fresh = api_get(self.root, path, etag)
+        if status == NOT_MODIFIED:
+            return body, False
+        self.answers[path] = (tag, fresh)
+        return fresh, True
+
+    def print_of(self, head, number):
+        checks, _ = self.get(CHECK_RUNS_PATH % head)
+        statuses, _ = self.get(COMMIT_STATUS_PATH % head)
+        reviews, reviewed = self.get(PULL_REVIEWS_PATH % number)
+        _, commented = self.get(PULL_COMMENTS_PATH % number)
+        rollup = [
+            {
+                "__typename": "CheckRun",
+                "name": c.get("name"),
+                "status": (c.get("status") or "").upper(),
+                "conclusion": (c.get("conclusion") or "").upper() or None,
+                "startedAt": c.get("started_at"),
+            }
+            for c in checks.get("check_runs", [])
+        ] + [
+            {"__typename": "StatusContext", "state": (s.get("state") or "").upper()}
+            for s in statuses.get("statuses", [])
+        ]
+        if number not in self.threads or reviewed or commented or not self.reads % THREADS_BACKSTOP:
+            self.threads[number] = [
+                (t["id"], t["resolved"], len(t["comments"]))
+                for t in review_threads(self.root, number)
+            ]
+        marks = [head, ci_state(rollup), [(r["id"], r["state"]) for r in reviews]]
+        marks.append(self.threads[number])
+        return hashlib.sha1(json.dumps(marks).encode()).hexdigest()[:STATE_DIGEST]
+
+    def prints(self, ours):
+        """{number: digest} for each open pull request of the round."""
+        listed, _ = self.get(OPEN_PULLS_PATH)
+        mine = [p for p in listed if in_round({"headRefName": p["head"]["ref"]}, ours)]
+        found = {}
+        if mine:
+            with concurrent.futures.ThreadPoolExecutor(len(mine)) as pool:
+                digests = pool.map(lambda p: self.print_of(p["head"]["sha"], p["number"]), mine)
+                found = {p["number"]: d for p, d in zip(mine, digests)}
+        self.reads += 1
+        return found
+
+
+def format_state(prints):
+    """The state `watch --state` takes, as `number:digest` pairs in number order."""
+    return ",".join("%d:%s" % (n, prints[n]) for n in sorted(prints))
+
+
+def parse_state(text):
+    prints = {}
+    for part in filter(None, text.split(",")):
+        number, _, digest = part.partition(":")
+        if not number.isdigit() or not digest:
+            raise Fatal(
+                "%r is not a state from `%s events` or `%s watch`. Pass its `state` as it is."
+                % (part, PROG, PROG)
+            )
+        prints[int(number)] = digest
+    return prints
+
+
+def changed_rows(root, numbers, ours):
+    """The `events` rows for the pull requests of `numbers`: open, merged or closed."""
+    opened = {p["number"]: p for p in open_pulls(root) if in_round(p, ours)}
+    rows, news, closed = [], [], []
+    for number in numbers:
+        if number in opened:
+            rows.append(open_row(root, opened[number]))
+            continue
+        pull = gh_json(root, "pr", "view", str(number), "--json", PULL_STATE_FIELDS)
+        if pull.get("mergedAt"):
+            news.append(dict(pull_row(pull), merged_at=pull["mergedAt"]))
+        else:
+            closed.append(pull_row(pull))
+    return rows, news, closed
+
+
+def cmd_watch(args):
+    """Wait until a pull request of the round changes, then print its row."""
+    root = project_root(args.repo)
+    ours = round_issues(root, args)
+    watcher = Watcher(root)
+    before = parse_state(args.state) if args.state is not None else None
+    while True:
+        began = time.monotonic()
+        now = watcher.prints(ours)
+        if before is None:
+            before = now
+        changed = sorted(n for n in before.keys() | now.keys() if before.get(n) != now.get(n))
+        if changed:
+            break
+        sleep(max(0, WATCH_INTERVAL - (time.monotonic() - began)))
+    rows, news, closed = changed_rows(root, changed, ours)
+    data = {
+        "changed": changed,
+        "open": rows,
+        "merged": news,
+        "closed": closed,
+        "state": format_state(now),
+    }
+
+    return emit(args, "watch", data, human=lambda: print_rows(rows, news, closed))
 
 
 # --------------------------------------------------------------------------
@@ -6071,6 +6283,33 @@ def build_parser():
         help="name only the pull requests from issue N; give it once for each issue",
     )
     p.set_defaults(func=cmd_events)
+
+    p = sub.add_parser(
+        "watch",
+        parents=[common],
+        help="wait until a pull request of the round changes, then print its row",
+    )
+    p.add_argument(
+        "--state",
+        metavar="STATE",
+        help="the state of the last look, `data.state` of events or of the last watch;"
+        " without it, the state when watch starts",
+    )
+    scope = p.add_mutually_exclusive_group()
+    scope.add_argument(
+        "--plan",
+        type=int,
+        metavar="N",
+        help="watch only the pull requests from plan issue N's sub-issues",
+    )
+    scope.add_argument(
+        "--issue",
+        type=int,
+        action="append",
+        metavar="N",
+        help="watch only the pull requests from issue N; give it once for each issue",
+    )
+    p.set_defaults(func=cmd_watch)
 
     pulled = argparse.ArgumentParser(add_help=False)
     pulled.add_argument("number", type=int, help="the pull request's number")

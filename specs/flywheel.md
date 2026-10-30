@@ -660,7 +660,9 @@ and `match-capability-to-task`.
   and `only_running_check` that `merge-check` gives it, or the error that
   kept it from assessing the pull request, as a hold for the owner. It lists
   each merge since `--since`, and gives as `as_of` the newest merge it saw,
-  so a look that passes it as `--since` does not name a merge twice.
+  so a look that passes it as `--since` does not name a merge twice. It also
+  gives the `state` of the round's open pull requests that `watch` starts
+  from, read before the rows.
 - `events-cmd-scopes-to-round` (test): When `flywheel.py events` runs with
   `--plan N`, it lists only the pull requests from sub-issues of #N, and
   with `--issue M`, given once per issue, only those from the issues it
@@ -712,9 +714,6 @@ and `match-capability-to-task`.
 - `run-takes-issue-requests` (step): When the owner asks to fix, work or
   take an issue, or the next issue, the session runs that issue as a round,
   unless the owner asks for the work in this session.
-- `run-looks-on-schedule` (step): While a pull request from its round is
-  open, `run` looks at the round on a schedule, so a check that finishes is
-  acted on without a session ending a turn.
 - `run-reports-pull-request` (step): When a worker reports its pull request,
   `run` reports the pull request to the owner.
 - `run-relays-refused-auto-fix` (step): When a worker reports that Auto-fix is
@@ -735,6 +734,31 @@ and `match-capability-to-task`.
   marks #N closed already, `run` does not close it a second time.
 - `run-stops-on-empty-queue` (step): When `queue` offers nothing and no pull
   request from its round is open, `run` reports what merged and stops.
+
+## need owner-keeps-round-moving: Keep a round moving when a pull request changes
+
+When a pull request in a round changes state, such as its CI finishing, a
+reviewer posting or a merge, the owner wants the round's next step taken
+within 15 seconds, in any repository however long its CI takes, so the
+round's time goes to work rather than to waiting for a look.
+
+Source: #835, and the playbook's `scripts-detect-models-diagnose`.
+
+- `watch-cmd-exits-on-change` (test): When `flywheel.py watch` runs with
+  `--plan N` or `--issue M`, as `events` does, it reads the round's open pull
+  requests every 5 seconds, with a conditional request wherever GitHub's REST
+  API answers one. It exits 0 when a pull request's head, CI state, reviews or
+  review threads changed, or it merged or closed, since the `--state` of the
+  last look, or since it started when it is given none, and prints the rows of
+  the pull requests that changed as `events` gives them. It exits at once when
+  that state has changed already. Review threads are read when a review or a
+  review comment changed, and on a timer otherwise, so waiting spends GitHub's
+  GraphQL limit only on them.
+- `run-looks-on-schedule` (step): While a pull request from its round is
+  open, `run` waits on `flywheel.py watch` in the background and acts on the
+  rows it prints when it exits, so a change is acted on without a session
+  ending a turn. A scheduled look every 15 minutes backs it up, and starts the
+  watch again when it has stopped.
 
 ## need owner-keeps-gate-on-behavior-changes: Keep the owner's gate on changes to behavior
 
