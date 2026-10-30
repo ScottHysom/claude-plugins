@@ -3333,8 +3333,14 @@ def cmd_events(args):
     root = project_root(args.repo)
     ours = round_issues(root, args)
     # The state `watch` starts from is read before the rows, so a change that
-    # lands during this look makes the watch exit at once.
-    state = format_state(Watcher(root).prints(ours))
+    # lands during this look makes the watch exit at once. A read that fails
+    # leaves the state null, and the look goes on without it.
+    warnings = []
+    try:
+        state = format_state(Watcher(root).prints(ours))
+    except Fatal as exc:
+        state = None
+        warnings.append("could not read the state `watch` starts from: %s" % exc)
     opened = open_pulls(root)
     merged = gh_json(
         root,
@@ -3370,7 +3376,7 @@ def cmd_events(args):
             print("No claim has an open pull request or a new merge.")
         print("Next look: %s events --since %s" % (PROG, as_of))
 
-    return emit(args, "events", data, human=human)
+    return emit(args, "events", data, warnings=warnings, human=human)
 
 
 # --------------------------------------------------------------------------

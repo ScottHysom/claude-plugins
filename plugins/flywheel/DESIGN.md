@@ -168,8 +168,8 @@ than the time of the look, so a merge is never named twice and `clear` never
 runs twice on one claim. The script's docstring has the case this leaves
 out.
 
-The dispatcher learns of a merge when it is woken. What wakes it is under
-"Waking the dispatcher".
+The dispatcher learns of a merge when it is woken. What wakes it is in the
+"Waking the dispatcher" section.
 
 The app's Auto-fix does not wake an implementer on every CI failure. On
 #700 it woke the session when `validate` failed on head `c72cd46`, and did
@@ -215,7 +215,8 @@ stops without telling the dispatcher.
 `watch` reads GitHub's REST API with conditional requests, since a `304 Not
 Modified` costs nothing against the rate limit. On 2026-10-29, a watch of the
 plan #837 round ran for 40 seconds, and once its first reads were done the core
-rate limit's `used` read 81 before and after. What it reads for each open pull request of the round:
+rate limit's `used` read 81 before and after. What it reads for each open pull
+request of the round:
 
 - the head, from the list of open pull requests.
 - the checks on the head, from the check runs and the commit status, summed

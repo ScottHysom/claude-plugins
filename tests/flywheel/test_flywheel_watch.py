@@ -315,6 +315,20 @@ class DescribeWatch:
         # and one on the backstop that found the resolved thread.
         assert len(hub.thread_reads) <= 3
 
+    def it_finds_a_thread_resolved_on_the_backstop_when_no_REST_answer_changed(self, project, hub):
+        hub.pull(31, "issue/12", threads=[("t1", False, 1)])
+        state = state_of(project)
+
+        def resolve(n):
+            assert n <= flywheel.THREADS_BACKSTOP + 2, "the backstop never read the threads"
+            if n == 1:
+                hub.threads[31] = [("t1", True, 1)]
+
+        hub.on_sleep = resolve
+        _, env = project.run("watch", "--state", state)
+        assert env["data"]["changed"] == [31]
+        assert len(hub.sleeps) >= flywheel.THREADS_BACKSTOP - 1
+
     def it_refuses_a_state_it_cannot_read(self, project, hub):
         code, _, err = project.human("watch", "--state", "31")
         assert code == flywheel.CANNOT_RUN
@@ -322,6 +336,20 @@ class DescribeWatch:
 
 
 class DescribeEventsState:
+    @pytest.mark.spec("events-cmd-lists-claim-prs")
+    def it_goes_on_with_a_null_state_when_a_state_read_fails(self, project, hub, monkeypatch):
+        hub.pull(31, "issue/12")
+
+        def fail(root, path, etag=None):
+            raise flywheel.Fatal("`gh api %s` failed: HTTP 502" % path)
+
+        monkeypatch.setattr(flywheel, "api_get", fail)
+        code, env = project.run("events")
+        assert code == flywheel.OK
+        assert env["data"]["state"] is None
+        assert [r["number"] for r in env["data"]["open"]] == [31]
+        assert "could not read the state" in env["warnings"][0]
+
     @pytest.mark.spec("events-cmd-lists-claim-prs")
     def it_gives_the_state_a_watch_starts_from(self, project, hub):
         hub.pull(31, "issue/12")
