@@ -272,21 +272,21 @@ request's next step. A row whose `next` is `ask` can carry the error that
 kept `events` from assessing that pull request, as its only reason. Tell the
 owner that reason as step 8 does.
 
-CI finishing does not wake this session, and neither does a pull request
-opening while another session it started is still working. So after each
-look that shows an open pull request, or when the app's `list_sessions` tool,
-with `linked` true, lists a session this session started that is working, and
-right after step 6 starts the round's sessions, this session waits on the
-round with `watch`. It exits when a pull request of the round changes: its head, its CI, its reviews or its
-review threads, or a merge or a close. This session runs one watch at a time.
-Before it starts a watch, it stops the kept one with `TaskStop` (which does
-nothing when that watch has ended). It starts the new one from a look's
+CI finishing does not wake this session, and neither does a pull request opening
+while another session it started is still working. So after each look that shows
+an open pull request, or when the app's `list_sessions` tool, with `linked`
+true, lists a session this session started that is working, and right after step
+6 starts the round's sessions, this session waits on the round with `watch`. It
+exits when a pull request of the round changes: its head, its CI, its reviews or
+its review threads, or a merge or a close. This session runs one watch at a
+time. Before it starts a watch, it stops the kept one with `TaskStop` (which
+does nothing when that watch has ended). It starts the new one from a look's
 `data.state` (or without `--state` right after step 6, when no look has been
-taken), as a background command with `run_in_background` true, and
-keeps its task id. Passing the look's state means a change landing between
-the look and the start of the watch ends the watch at once. When the look's
-`data.state` is null, because `events` could not read the state, start the
-watch without `--state`. For a plan:
+taken), as a background command with `run_in_background` true, and keeps its
+task id. Passing the look's state means a change landing between the look and
+the start of the watch ends the watch at once. When the look's `data.state` is
+null, because `events` could not read the state, start the watch without
+`--state`. For a plan:
 
 ```sh
 FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" watch --plan 653 --state 831:3f9a1c0e7b2d --json
@@ -302,17 +302,18 @@ When the watch exits, the app wakes this session. Its `data.open`,
 `data.merged` and `data.closed` hold the rows of the pull requests that
 changed, in the shape `events` gives them, so act on them as on a look's rows.
 Then look again, which starts the next watch while a pull request of the round
-is open or a session this session started is working. When the watch exits 2, relay its error and look again.
+is open or a session this session started is working. When the watch exits 2,
+relay its error and look again.
 
 A look every 15 minutes backs the watch up, and starts it again when it has
 stopped. It is a `CronCreate` job (`*/15 * * * *`) that lasts this session and
-expires after seven days, so on each look check with `CronList` that it is
-still there. When a look shows an open pull request, or `list_sessions` lists a
+expires after seven days, so on each look check with `CronList` that it is still
+there. When a look shows an open pull request, or `list_sessions` lists a
 session this session started that is working, or step 6 has just started the
-round, and the job is missing,
-schedule it and keep the job id. Its prompt says to take this step's look with
-the last `data.as_of` and to start the watch from it, which stops the kept
-watch first. Delete the job with `CronDelete` when step 12 stops the round.
+round, and the job is missing, schedule it and keep the job id. Its prompt says
+to take this step's look with the last `data.as_of` and to start the watch from
+it, which stops the kept watch first. Delete the job with `CronDelete` when step
+12 stops the round.
 
 Then act on each of these that the look or the
 note that woke this session shows:
