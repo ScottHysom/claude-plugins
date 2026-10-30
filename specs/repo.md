@@ -790,7 +790,7 @@ the label `Bug` beside `bug` with "Name has already been taken".
   was given `approved` in another case, `changes` reads that as the time it
   was approved.
 
-## constraint app-only-enables-autofix-after-pr-create: The desktop app turns on Auto-fix only for a pull request the session's own command opened
+## constraint app-only-watches-own-opened-pr: The desktop app turns on Auto-fix only for a pull request the session's own command opened
 
 The desktop app's **Auto-fix** wakes a session when CI fails on its pull
 request. The app turns it on only for a pull request it saw the session open,
