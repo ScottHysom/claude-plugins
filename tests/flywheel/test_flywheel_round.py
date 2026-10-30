@@ -72,6 +72,8 @@ def pulls(monkeypatch):
 
         monkeypatch.setattr(flywheel, "gh", fake)
         monkeypatch.setattr(flywheel, "assess", fake_assess)
+        # `watch`'s tests read the state these fakes would have to answer for.
+        monkeypatch.setattr(flywheel.Watcher, "prints", lambda self, ours: {})
         return calls
 
     return install

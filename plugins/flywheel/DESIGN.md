@@ -140,15 +140,15 @@ project's own skill opens out of the app's sight. A dispatcher sees only the
 first 400 characters of a report, and relays that opening to the owner (#805).
 
 The review-thread check runs every minute as a turn of the implementer's
-session, and the dispatcher starts the session with `wake_when_done`, so every
-run wakes the dispatcher. Plan #799's round showed dozens of near-identical
-wakes that buried the two changes #806 describes (#807). The app gives a
+session, and the dispatcher starts the session with `wake_when_done`, so a run
+wakes the dispatcher once none of the sessions it started is working. Plan
+#799's round showed dozens of near-identical wakes that buried the two changes
+#806 describes (#807). The app gives a
 scheduled job no way to hold back the wake, so the plugin cannot make a quiet
 run silent. It makes a quiet run unmistakable instead: the reply opens with
 "Nothing waiting on review threads", and says "CI" only for CI. run's step
 7 still looks again on every wake. A dispatcher that skims a quiet note
-misses nothing, since it also looks at its pull requests on a schedule of its
-own (#806).
+misses nothing, since it also watches its pull requests (#806, #835).
 
 ## The dispatcher's skill
 
@@ -168,8 +168,8 @@ than the time of the look, so a merge is never named twice and `clear` never
 runs twice on one claim. The script's docstring has the case this leaves
 out.
 
-The dispatcher learns of a merge when it is woken: by a session it started
-ending a turn, or by the owner's message.
+The dispatcher learns of a merge when it is woken. What wakes it is under
+"Waking the dispatcher".
 
 The app's Auto-fix does not wake an implementer on every CI failure. On
 #700 it woke the session when `validate` failed on head `c72cd46`, and did
@@ -180,6 +180,64 @@ is that the app reports a failure once per check per head commit. So on
 an idle one itself. It messages once for each head and set of reasons, and
 then tells the owner, so that a check still running cannot pass messages
 back and forth between the two sessions.
+
+## Waking the dispatcher
+
+A round's dispatcher acts on a pull request only when something wakes it, and
+CI finishing does not (#835). The owner wants a change acted on within 15
+seconds, in a repository whose CI takes seconds or tens of minutes, so the
+wake has to come from the change.
+
+What the desktop app does, measured on 2026-10-29 from the session transcripts
+(`~/.claude/projects/`) of the #835 implementer and its dispatcher:
+
+- A background command's exit wakes an idle session. A `sleep 30` run with
+  `run_in_background` exited at 04:14:04.266 UTC, and the session's transcript
+  queued the notification 7 ms later and began the turn after 34 ms. This was
+  measured on the implementer, which is the same kind of session as the
+  dispatcher. The dispatcher's own wake from a background exit was not
+  measured.
+- A started session's turn end wakes the dispatcher only once none of the
+  sessions it started is still working. The #835 implementer ended a turn at
+  04:13:37.7 while the #836 implementer was working. The dispatcher was not
+  woken then. #836 ended its turn at 04:13:48.400, and the dispatcher's
+  transcript queued both reports 10 ms later, in one wake.
+- So with an implementer working, only the owner, a scheduled job or a
+  background command wakes the dispatcher, which is why the wake alone does
+  not bound the time to act. The wake itself takes under 0.1 s.
+
+`flywheel.py watch` is the background command. It reads the round's open
+pull requests every 5 seconds and exits when one has changed, so the app wakes
+the dispatcher within about 5 seconds of the change, plus the 1 to 3 seconds
+a read takes. A 15-minute scheduled job stays as a backup, in case a watch
+stops without telling the dispatcher.
+
+`watch` reads GitHub's REST API with conditional requests, since a `304 Not
+Modified` costs nothing against the rate limit. On 2026-10-29, a watch of the
+plan #837 round ran for 40 seconds, and once its first reads were done the core
+rate limit's `used` read 81 before and after. What it reads for each open pull request of the round:
+
+- the head, from the list of open pull requests.
+- the checks on the head, from the check runs and the commit status, summed
+  into the `ci` word `events` gives, so a check that only moves from queued to
+  running does not wake the dispatcher.
+- the reviews.
+- the review comments, which only prompt the thread read below.
+
+Review threads come from GraphQL, which has no conditional request, and
+whether a thread is resolved is not in the REST answers. `watch` reads them when a
+review or a review comment changed, and on its own every 12th read, a minute.
+A thread read of one pull request cost 1 point of the GraphQL limit on
+2026-10-29, so a quiet watch spends about 60 points an hour for each open pull
+request, and 500 points covers 8 of them. Resolving a thread alone can take up
+to a minute to show.
+
+`events` gives the `state` that `watch --state` starts from. The digests are
+read before the rows are built, so a change that lands while the dispatcher
+is looking makes the next watch exit at once. A pull request that opens, merges
+or closes after the state was taken changes it too. The dispatcher passes
+each watch's own `state` to the next, so its own merge wakes it once, and it
+clears the claim from the row.
 
 ## Adoption
 

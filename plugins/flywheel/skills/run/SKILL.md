@@ -241,9 +241,9 @@ what the app started it at, and start nothing else on that issue until the
 owner answers.
 
 Then tell the owner which sessions started, and end the turn. This session
-is woken when an implementer ends a turn, and by the scheduled look that
-step 7 sets. The owner wakes it by sending any message, such as after
-merging a pull request.
+is woken when an implementer ends a turn, by the watch that step 7 starts,
+and by the look that step 7 schedules. The owner wakes it by sending any
+message, such as after merging a pull request.
 
 ## Step 7: look again when woken
 <!-- spec: run-looks-on-schedule, run-reports-pull-request, run-relays-refused-auto-fix, run-restarts-after-merge, workissue-archives-after-clear -->
@@ -269,13 +269,38 @@ request's next step. A row whose `next` is `ask` can carry the error that
 kept `events` from assessing that pull request, as its only reason. Tell the
 owner that reason as step 8 does.
 
-CI finishing does not wake this session. A scheduled look is a `CronCreate`
-job that lasts this session and expires after seven days, so on each look
-check with `CronList` that the job is still there. When a look shows an open
-pull request and the job is missing, schedule one every two minutes
-(`*/2 * * * *`) and keep the job id. Its prompt says to take this step's look
-with the last `data.as_of` and act on it. Delete the job with `CronDelete`
-when step 12 stops the round.
+CI finishing does not wake this session, so after each look that shows an
+open pull request this session waits on the round with `watch`. It exits
+when a pull request of the round changes: its head, its CI, its reviews or its
+review threads, or a merge or a close. Run it as a background command, with
+`run_in_background` true, and keep its task id. Pass it the look's
+`data.state`, so that a change landing between the look and the start of the
+watch ends it at once. For a plan:
+
+```sh
+FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" watch --plan 653 --state 831:3f9a1c0e7b2d --json
+```
+
+Otherwise, with `--issue` once for each issue this round started:
+
+```sh
+FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" watch --issue 649 --issue 650 --state 831:3f9a1c0e7b2d --json
+```
+
+When the watch exits, the app wakes this session. Its `data.open`,
+`data.merged` and `data.closed` hold the rows of the pull requests that
+changed, in the shape `events` gives them, so act on them as on a look's rows.
+Then start the watch again with its `data.state`, while a pull request of the
+round is open. When it exits 2, relay its error and start it again.
+
+A look every 15 minutes backs the watch up, and starts it again when it has
+stopped. It is a `CronCreate` job (`*/15 * * * *`) that lasts this session and
+expires after seven days, so on each look check with `CronList` that it is
+still there. When a look shows an open pull request and the job is missing,
+schedule it and keep the job id. Its prompt says to take this step's look with
+the last `data.as_of`, to stop the kept watch with `TaskStop` (which does
+nothing when it has ended), and to start a new one with the look's
+`data.state`. Delete the job with `CronDelete` when step 12 stops the round.
 
 Then act on each of these that the look or the
 note that woke this session shows:
@@ -418,9 +443,9 @@ once no session is still working or waiting on a merge.
 <!-- no-command: reports to the owner what the round's earlier looks found -->
 
 When the queue offers nothing, and either the round started no issue or
-`data.open` in the last look of step 7 is empty, report to the owner each pull request in the round
-that merged, and each issue that stopped without one. Delete the scheduled
-look with `CronDelete`. Then stop.
+`data.open` in the last look of step 7 is empty, report to the owner each
+pull request in the round that merged, and each issue that stopped without one. Stop the watch with
+`TaskStop` and delete the scheduled look with `CronDelete`. Then stop.
 
 A round of named issues stops the same way once each issue it started has
 merged or stopped, without reading the queue again.
