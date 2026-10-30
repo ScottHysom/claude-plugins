@@ -49,6 +49,9 @@
     ".github/scripts/tests/test_check_skills.py::DescribeFences::it_rejects_gh_anywhere_but_pr_create_ending_a_line_after_the_script[flag-before-body-file]": "pins that fences still fails this gh command, as it failed every gh command before #830 let gh pr create end a line after the script",
     ".github/scripts/tests/test_check_skills.py::DescribeFences::it_rejects_gh_anywhere_but_pr_create_ending_a_line_after_the_script[second-body-file]": "pins that fences still fails this gh command, as it failed every gh command before #830 let gh pr create end a line after the script",
     ".github/scripts/tests/test_check_skills.py::DescribeFences::it_rejects_gh_anywhere_but_pr_create_ending_a_line_after_the_script[substitution]": "pins that fences still fails this gh command, as it failed every gh command before #830 let gh pr create end a line after the script",
-    ".github/scripts/tests/test_check_skills.py::DescribeFences::it_rejects_gh_anywhere_but_pr_create_ending_a_line_after_the_script[backtick]": "pins that fences still fails this gh command, as it failed every gh command before #830 let gh pr create end a line after the script"
+    ".github/scripts/tests/test_check_skills.py::DescribeFences::it_rejects_gh_anywhere_but_pr_create_ending_a_line_after_the_script[backtick]": "pins that fences still fails this gh command, as it failed every gh command before #830 let gh pr create end a line after the script",
+    "tests/flywheel/test_flywheel_review.py::DescribeTheNextStep::it_waits_on_a_running_check_once_the_reviewer_has_seen_the_head": "pins that a running check still gives wait when the reviewer has nothing left to look at, which the change to review keeps",
+    "tests/flywheel/test_flywheel_review.py::DescribeTheNextStep::it_waits_on_the_implementer[change1-it conflicts with its base branch]": "pins that a conflict still gives wait, the case #849 moved to a new parameter index",
+    "tests/flywheel/test_flywheel_review.py::DescribeTheNextStep::it_waits_when_a_conflict_joins_the_running_check": "pins that a conflict beside a running check still gives wait, which #849 keeps"
   }
 }
