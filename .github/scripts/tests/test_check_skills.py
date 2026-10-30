@@ -1060,6 +1060,8 @@ class DescribeFences:
             " | cat",
             'python3 "$FOO" lint && gh pr create --title "t" --fill',
             'python3 "$FOO" lint && gh pr merge 5',
+            'python3 "$FOO" lint && gh pr create --title "t" --body-file /var/folders/k2/T/pr.md'
+            " --web",
             'python3 "$FOO" lint && gh pr create --title "t" --draft --base main '
             "--body-file /tmp/p.md",
             'python3 "$FOO" lint && gh pr create --title t --body-file /tmp/a.md --repo x/y '
@@ -1067,8 +1069,6 @@ class DescribeFences:
             'python3 "$FOO" lint && gh pr create --title "$(git log -1 --format=%s)" '
             "--body-file /tmp/p.md",
             'python3 "$FOO" lint && gh pr create --title "`id`" --body-file /tmp/p.md',
-            'python3 "$FOO" lint && gh pr create --title "t" --body-file /var/folders/k2/T/pr.md'
-            " --web",
         ],
         ids=[
             "alone",
