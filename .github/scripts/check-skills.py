@@ -194,7 +194,8 @@ Things that look like bugs and are not, in `fences`:
 - An invocation is any `python3` followed by a variable or a .py path. Whether
   the script accepts the arguments is `commands`' job, not this one's.
 - An ALLOWED entry holds only in its position. `cd` may open a line but not
-  end one, and `echo` may only follow `ls "$VAR" ||`, so a bare
+  end one, `gh pr create` may only end a line after a script invocation, and
+  `echo` may only follow `ls "$VAR" ||`, so a bare
   `echo "$x" | cut -f1` still fails.
 - A heredoc's body is not read, as in `commands`. The findings and draft
   heredocs are allowed because their body is the model's judgment, written
@@ -318,6 +319,8 @@ FALLIBLE = "fallible"
 FALLBACK = "fallback"
 # The only command on its line.
 ALONE = "alone"
+# Last, straight after a script invocation and the `&&` that follows it.
+AFTER_SCRIPT = "after_script"
 
 # The plugin root as every "Locate the script" step spells it.
 PLUGIN_ROOT = r"\$\{CLAUDE_PLUGIN_ROOT:-\$\{CLAUDE_SKILL_DIR\}/\.\./\.\.\}"
@@ -373,6 +376,16 @@ ALLOWED = (
         re.compile(r"^ln -sfn %s /tmp/[\w.-]+/plugin$" % PLUGIN_ROOT),
         LEADING,
         "links the plugin at a path short enough to repeat in every command",
+    ),
+    Allowed(
+        "open pull request",
+        re.compile(
+            r"^gh pr create --title (?:[^\s$`-][^\s$`]* )+--body-file /[\w.-]+(?:/[\w.-]+)*$"
+        ),
+        AFTER_SCRIPT,
+        "the desktop app turns on Auto-fix only for a pull request that the "
+        "session's own command opened, so the skill runs this itself once the script has "
+        "checked the description and pushed the branch",
     ),
 )
 
@@ -1280,6 +1293,8 @@ def placed(links, i, position):
     if position == LEADING:
         before = all(links[j][1] == "&&" and matches(links, j, LEADING) for j in range(i))
         return before and sep == "&&" and i < last
+    if position == AFTER_SCRIPT:
+        return i == last and i > 0 and links[i - 1][1] == "&&" and is_invocation(links[i - 1][0])
     if position == FALLIBLE:
         return sep == "||" and i + 1 == last and matches(links, last, FALLBACK)
     if position == FALLBACK:
