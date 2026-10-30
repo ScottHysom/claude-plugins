@@ -1,6 +1,6 @@
 ---
 name: open-pr
-description: Open a pull request once its work is committed, with a description in the project's own shape that the owner can review without the session's context. Uses scripts/flywheel.py pr draft for the shape and a file to draft in, pr check to check the draft's sections, lines and Closes line, gives the draft to a subagent that has none of the session's context to find each term it leaves undefined, hands it at the same time to the skill the pull request template names to check it against the project's prose rules, and opens the pull request with pr open from the checked file. Claude Code only. Use when opening, creating or raising a pull request, or when asked to put the work up for review, in a project that has no skill of its own for opening one.
+description: Open a pull request once its work is committed, with a description in the project's own shape that the owner can review without the session's context. Uses scripts/flywheel.py pr draft for the shape and a file to draft in, pr check to check the draft's sections, lines and Closes line, gives the draft to a subagent that has none of the session's context to find each term it leaves undefined, hands it at the same time to the skill the pull request template names to check it against the project's prose rules, and opens the pull request with pr push and the session's own gh pr create from the checked file. Claude Code only. Use when opening, creating or raising a pull request, or when asked to put the work up for review, in a project that has no skill of its own for opening one.
 ---
 
 # Open a pull request
@@ -182,18 +182,21 @@ cold reader lists "none" under BLOCKING, its summary matches the change, and
 the prose check leaves every sentence as it is.
 
 ## Step 4: open the pull request
-<!-- spec: prskill-opens-through-script, propen-cmd-refuses-failing-draft, propen-cmd-opens-from-file -->
+<!-- spec: prskill-opens-through-script, prskill-runs-pr-create-itself, prpush-cmd-refuses-failing-draft, prpush-cmd-pushes-checked-draft -->
 
 ```sh
-FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" pr open --title "<the title>" --body-file /var/folders/k2/T/pr-x8q1zv.md --json
+FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" pr push --body-file /var/folders/k2/T/pr-x8q1zv.md --json && gh pr create --title "<the title>" --body-file /var/folders/k2/T/pr-x8q1zv.md
 ```
 
-It checks the file again, pushes the branch and opens the pull request
-against the repository's default branch. When it exits 1, the draft changed
+`pr push` checks the file again and pushes the branch. `gh pr create` then
+opens the pull request against the repository's default branch, and only
+when `pr push` exited 0. Run `gh pr create` in this command and not in a
+script, since the desktop app binds a pull request to the session only when
+the session's own command runs it. When `pr push` exits 1, the draft changed
 after step 3 and fails the check, so go back to step 2. When it exits 2, its
 message names what to do.
 
-On exit 0, tell the owner `data.url`, and the issue the pull request closes.
+On success, tell the owner the url that `gh pr create` printed, and the issue the pull request closes.
 When `data.prose_rules` names a file and the rounds had no prose check, also
 tell the owner that the draft was not checked against the prose rules, and
 why: the template names no skill in a `prose-check` line, or the session

@@ -1,5 +1,5 @@
 """The shape of a pull request's description, and the commands that check one
-and open it: `.flywheel/pr-template.md`, `pr draft`, `pr check` and `pr open`.
+and open it: `.flywheel/pr-template.md`, `pr draft`, `pr check` and `pr push`.
 """
 
 import os
@@ -375,8 +375,8 @@ class DescribePrCheckOnTheIssue:
         assert "cannot read the description at" in project.err
 
 
-class FakeOpen:
-    """git push and gh pr create, recording each call."""
+class FakePush:
+    """git push, recording each call."""
 
     def __init__(self):
         self.calls = []
@@ -391,57 +391,44 @@ class FakeOpen:
 
     def gh(self, root, *args, stdin=None):
         self.calls.append(("gh", *args))
-        return "Creating pull request\nhttps://github.com/owner/project/pull/71\n"
+        return ""
 
 
 @pytest.fixture
-def opener(monkeypatch):
-    fake = FakeOpen()
+def pusher(monkeypatch):
+    fake = FakePush()
     monkeypatch.setattr(flywheel, "git", fake.git)
     monkeypatch.setattr(flywheel, "gh", fake.gh)
     return fake
 
 
-def open_pr(project, path):
-    return project.run("pr", "open", "--title", "fix(demo): mend it", "--body-file", path)
+def push_pr(project, path):
+    return project.run("pr", "push", "--body-file", path)
 
 
-@pytest.mark.spec("propen-cmd-opens-from-file")
-class DescribePrOpenOpening:
-    def it_pushes_the_branch_and_opens_from_the_file(self, project, drafted, opener):
-        path = drafted(GOOD)
-        code, out = open_pr(project, path)
+@pytest.mark.spec("prpush-cmd-pushes-checked-draft")
+class DescribePrPushPushing:
+    def it_pushes_the_branch_and_opens_nothing(self, project, drafted, pusher):
+        code, out = push_pr(project, drafted(GOOD))
         assert code == flywheel.OK
-        assert out["data"]["url"] == "https://github.com/owner/project/pull/71"
         assert out["data"]["branch"] == "issue/12"
-        assert opener.calls[1] == ("git", "push", "-u", flywheel.REMOTE, "HEAD")
-        assert opener.calls[2] == (
-            "gh",
-            "pr",
-            "create",
-            "--title",
-            "fix(demo): mend it",
-            "--body-file",
-            os.path.abspath(path),
-        )
+        assert pusher.calls[1] == ("git", "push", "-u", flywheel.REMOTE, "HEAD")
+        assert [c for c in pusher.calls if c[0] == "gh"] == []
 
-    def it_prints_the_url_in_text(self, project, drafted, opener):
-        path = drafted(GOOD)
-        code, out, _ = project.human("pr", "open", "--title", "t", "--body-file", path)
-        assert out == "https://github.com/owner/project/pull/71\n"
+    def it_prints_nothing_in_text(self, project, drafted, pusher):
+        code, out, _ = project.human("pr", "push", "--body-file", drafted(GOOD))
+        assert (code, out) == (flywheel.OK, "")
 
 
-@pytest.mark.spec("propen-cmd-refuses-failing-draft")
-class DescribePrOpenRefusing:
-    def it_prints_nothing_on_stdout_in_text(self, project, drafted, opener):
+@pytest.mark.spec("prpush-cmd-refuses-failing-draft")
+class DescribePrPushRefusing:
+    def it_prints_nothing_on_stdout_in_text(self, project, drafted, pusher):
         path = drafted(GOOD.replace(CLOSES, ""))
-        code, out, err = project.human("pr", "open", "--title", "t", "--body-file", path)
+        code, out, err = project.human("pr", "push", "--body-file", path)
         assert (code, out) == (flywheel.PROBLEMS, "")
         assert "does not close an issue" in err
 
-    def it_opens_nothing_from_a_draft_that_fails_the_check(self, project, drafted, opener):
-        code, out = open_pr(project, drafted(GOOD.replace("Closes #12\n", "")))
+    def it_pushes_nothing_for_a_draft_that_fails_the_check(self, project, drafted, pusher):
+        code, out = push_pr(project, drafted(GOOD.replace("Closes #12\n", "")))
         assert code == flywheel.PROBLEMS
-        assert opener.calls == []
-        assert out["data"]["url"] is None
-        assert out["errors"][0].startswith("the description does not close an issue")
+        assert pusher.calls == []

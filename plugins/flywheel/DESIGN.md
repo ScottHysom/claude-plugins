@@ -128,13 +128,16 @@ the session's own `set_monitor` tool reaches. #305 found Auto-fix off on
 every new pull request, so the skill turns it on rather than leaving it to
 the owner.
 
-The app refused `set_monitor` on #802, #803 and #804, saying it can turn on
-Auto-fix only for a pull request it is sure the session opened. Those were
-opened by `flywheel.py pr open`, which calls `gh`, and binding the pull
-request with `bind_pr` did not change the answer. The plugin cannot change
-that, so work-issue opens its report with "Auto-fix is off", since a dispatcher
-sees only the first 400 characters of it, and run relays that to the owner,
-which a round did not do before (#805).
+The app turns on Auto-fix only for a pull request it saw the session open.
+It sees that when the session's own Bash command runs `gh pr create`, and
+binds the pull request then. `flywheel.py pr open` once ran `gh` itself, out
+of the app's sight, so the app refused `set_monitor` on #802 to #827, even
+after `bind_pr` (#831). `pr push` now checks the description and pushes the
+branch, and open-pr runs `gh pr create` in the same command, joined by `&&`,
+so a description that fails the check still opens nothing. work-issue keeps
+`bind_pr` and the "Auto-fix is off" report, since a dispatcher sees only the
+first 400 characters of a report and relays that opening to the owner (#805),
+for a pull request that a project's own skill opens out of the app's sight.
 
 The review-thread check runs every minute as a turn of the implementer's
 session, and the dispatcher starts the session with `wake_when_done`, so every
