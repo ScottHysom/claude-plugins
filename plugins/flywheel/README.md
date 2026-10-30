@@ -214,8 +214,8 @@ skill. It:
 6. clears the claim once a pull request merges, and starts a session on the
    next issue, so the number you named stays in flight. A round of issues
    you named takes only those issues. It looks again whenever one of its
-   sessions finishes a turn, or when you send it a message, such as after a
-   merge.
+   sessions finishes a turn, or when a pull request of the round changes, such
+   as when you merge one. You do not need to message it after a merge.
 7. closes a plan once every issue in it is closed, and stops once the queue offers
    nothing more and every pull request in the round has closed.
 
@@ -415,8 +415,8 @@ stateDiagram-v2
 
 The dispatcher works in a loop. It checks each role's model and effort,
 reads the queue, and starts an implementer per issue. Then it waits. Each
-time one of its sessions finishes a turn, or you send it a message, it looks
-at the round's pull requests. It merges, starts a reviewer, wakes an idle
+time one of its sessions finishes a turn, or a pull request of the round
+changes (a merge included), it looks at the round's pull requests. It merges, starts a reviewer, wakes an idle
 implementer, or asks you, as the merge check says, and clears each merged
 claim. It reads the queue again for each free place, and stops once the queue offers
 nothing more and every pull request in the round has closed.

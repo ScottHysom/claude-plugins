@@ -815,7 +815,8 @@ Source: #650, and the playbook's `autonomy-scales-with-risk` and
 - `run-merges-what-flows` (step): When `merge-check` reports flow, `run`
   merges the pull request with a squash and clears the claim.
 - `run-asks-owner-on-hold` (step): When `merge-check` reports hold, `run`
-  asks the owner with its reasons and merges nothing until they answer.
+  asks the owner with its reasons, says it notices the owner's merge without
+  a message, and merges nothing until they answer.
 - `run-reviews-each-pull-request` (step): When `merge-check` names `review`
   as the next step for a pull request from the round, `run` starts a reviewer
   session on it at the roles file's model and effort for the reviewer. It
