@@ -126,6 +126,8 @@ class FakeGitHub:
             self.merged.append(args)
             return ""
         if args[0] == "api" and args[1] == flywheel.BASE_RULES_PATH % "main":
+            if self.rules is None:
+                raise flywheel.Fatal("Not Found")
             return json.dumps(self.rules)
         if args[0] == "api" and args[1] == flywheel.BASE_PROTECTION_PATH % "main":
             if self.protection is None:
@@ -854,6 +856,13 @@ class DescribeBehindBase:
         github.protection = protection
         _, data = check(policies)
         assert data["verdict"] == flywheel.FLOW
+
+    def it_reads_protection_when_the_rules_cannot_be_read(self, policies, github):
+        github.pull["mergeStateStatus"] = "BEHIND"
+        github.rules = None
+        github.protection = {"strict": True}
+        _, data = check(policies)
+        assert data["reasons"] == [BEHIND_REASON]
 
     def it_does_not_look_at_the_rules_of_a_branch_that_is_not_behind(self, policies, github):
         github.rules = STRICT_RULES
