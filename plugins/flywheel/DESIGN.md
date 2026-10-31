@@ -277,6 +277,19 @@ pull request in place of a real issue. The probe ran on `probe/855-autofix`,
 without a claim. A run on an `issue/N` branch with a claim was not made. The
 dispatcher closed #860 unmerged.
 
+## Sessions kept for the round
+
+#856 builds on the table above. A round's dispatcher starts each implementer
+and a reviewer beside it on the owner's message that starts the round, and
+hands every later task by `SendMessage` after `clear_session`, so it calls
+`start_session` on a refused turn only to replace a session that stopped or
+was archived. The implementer does not archive itself after a merge when a
+dispatcher started it, and the dispatcher archives the round's sessions when
+the round stops. A reviewer's second look on the same pull request is not
+preceded by `clear_session`, since it is the same task. Not measured: an
+implementer cleared and handed a second real issue on its `issue/N` branch,
+and whether the app then lets `set_monitor` turn on Auto-fix for it.
+
 ## Waking the dispatcher
 
 A round's dispatcher acts on a pull request only when something wakes it, and
