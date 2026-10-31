@@ -628,20 +628,36 @@ Source: #305, #648, and the playbook's `checks-over-instructions`.
   a reply whose first words say no review thread is waiting, and that names CI
   only when it reports on CI. A run that acted says what it did.
 - `workissue-archives-after-clear` (step): When work-issue's pull request has
-  merged, the session archives itself with the app's `archive_session` tool
-  once `flywheel.py clear` has succeeded, or once it has discarded only its
-  own temporary files and `clear` then succeeded. When `clear` finds changes
-  the session did not make or cannot account for, the session names them to
-  the owner and stays unarchived. When the pull request closes unmerged, the
-  session tells the owner and stays unarchived. When the session cannot
-  archive itself, the dispatcher of a round archives it once the
-  implementer reports, and outside a round the session tells the owner it is
-  ready to archive.
+  merged and `flywheel.py clear` has succeeded (or has succeeded after the
+  session discarded only its own temporary files), a session that a
+  dispatcher started does not archive itself and ends its turn, so the
+  dispatcher can send it the next brief, and the dispatcher archives it when
+  the round stops. Any other session archives itself with the app's
+  `archive_session` tool, and tells the owner it is ready to archive when it
+  cannot. When `clear` finds changes the session did not make or cannot
+  account for, the session names them to the owner and stays unarchived.
+  When the pull request closes unmerged, the session tells the owner and
+  stays unarchived.
 - `unanswered-cmd-lists-waiting-threads` (test): When `flywheel.py unanswered N`
   runs, it lists each unresolved review thread on pull request N whose last
   comment does not open with `**Claude:**`, or that has a single comment, with
   the pull request's state. It lists none for a thread that is resolved or
   whose last comment is an answer.
+
+## constraint app-starts-session-on-owner-message: The app starts a session only on the owner's own message
+
+The desktop app starts a session with `start_session` only on a turn that the
+owner's own message began (and on the first turn end after it). On a turn that
+a scheduled prompt, a watch exit or a later turn end began, it refuses. It
+delivers `SendMessage`, and runs `clear_session` and `archive_session`, on a
+session the dispatcher started on every turn kind.
+
+Source: #856, #846, #855, and `plugins/flywheel/DESIGN.md`.
+
+- `run-starts-session-at-round-start` (step): When the owner's message starts
+  a round, `run` starts every implementer and reviewer session the round
+  keeps in flight, and does not call `start_session` for a task afterwards
+  except to replace a session that stopped or was archived.
 
 ## need owner-starts-round-with-one-command: Start a round of issues with one command
 
@@ -681,8 +697,8 @@ and `match-capability-to-task`.
   model and effort with the app's `get_session` tool and checks the
   `dispatcher` role against them with `check-role`, before it starts
   anything. It stops when the role is above its own session.
-- `run-checks-started-session` (step): After each `start_session` call,
-  `run` reads the new session with `get_session` and checks it against its
+- `run-checks-started-session` (step): After each `start_session` call (at
+  the round's start, or for a replacement), `run` reads the new session with `get_session` and checks it against its
   role with `check-role`. When `check-role` exits 1, the session runs below
   its role's model or effort, and `run` tells the owner and starts nothing
   else on that work until the owner answers.
@@ -692,9 +708,12 @@ and `match-capability-to-task`.
   level, it asks the owner for each role's model and effort, since every
   round starts its sessions from them.
 - `run-starts-one-session-per-issue` (step): When `run` has the issues from
-  `queue`, it starts one session per issue with `brief N`, at the roles
-  file's model and effort for the implementer. It stops rather than start
-  one when either is above its own session's, as `check-role` finds.
+  `queue` at the round's start, it starts one implementer session per issue
+  with `brief N`, at the roles file's model and effort for the
+  implementer, and a reviewer session beside each. It stops rather than start
+  one when either is above its own session's, as `check-role` finds. It hands
+  every later issue to an idle implementer, as `run-restarts-after-merge`
+  says.
 - `queue-cmd-starts-at-issue` (test): When `flywheel.py queue --count N
   --from M` runs, it offers up to N free approved issues as `queue --count N`
   does, leaving out every issue and plan issue that comes before #M in the
@@ -721,9 +740,14 @@ and `match-capability-to-task`.
   the app's reason, once.
 - `run-restarts-after-merge` (step): When `events` reports a merge from its
   round, `run` clears the claim (or accepts a claim its implementer already
-  cleared) and starts a worker on the next free issue.
-- `run-archives-reviewer` (step): When a pull request from the round merges
-  or closes, `run` archives each reviewer session it started on it.
+  cleared). When the queue offers a free issue, `run` empties an idle
+  implementer's conversation with `clear_session` and sends it the issue's
+  brief with `SendMessage`, on whichever turn the merge appears. It starts a
+  replacement with `start_session` only when that place's implementer has
+  stopped or is archived.
+- `run-archives-reviewer` (step): When a round stops, `run` archives every
+  implementer and reviewer session it started. It archives none when a pull
+  request merges or closes.
 - `run-acts-on-stalled-wait` (step): When `merge-check` names `wait` for a
   pull request from the round and its implementer is not working, `run`
   messages the implementer once for each head and set of reasons, and tells
@@ -763,11 +787,12 @@ Source: #835, and the playbook's `scripts-detect-models-diagnose`.
 - `run-offers-refused-session` (step): When the app refuses a `start_session`
   call because the turn is not the owner's own message, as on a scheduled
   look, a started session's turn end or a background command's exit, `run`
-  offers the reviewer or implementer as a card with `initiation` set to
-  `own_initiative`, and tells the owner which pull request or issue waits on
+  offers a replacement reviewer or implementer as a card with `initiation`
+  set to `own_initiative`, and tells the owner which pull request or issue waits on
   it. It offers each session once.
 - `run-starts-offered-sessions` (step): When the owner sends `run` a message,
-  it starts each session it offered that the owner has not started.
+  it starts each session it offered (as a replacement) that the owner has not
+  started.
 
 ## need owner-keeps-gate-on-behavior-changes: Keep the owner's gate on changes to behavior
 
@@ -821,13 +846,16 @@ Source: #650, and the playbook's `autonomy-scales-with-risk` and
   asks the owner with its reasons, says it notices the owner's merge without
   a message, and merges nothing until they answer.
 - `run-reviews-each-pull-request` (step): When `merge-check` names `review`
-  as the next step for a pull request from the round, `run` starts a reviewer
-  session on it at the roles file's model and effort for the reviewer. It
-  stops rather than start one when either is above its own session's, as
-  `check-role` finds. A later look at the same pull request goes back to the
-  reviewer session that reviewed it, and `run` starts a new reviewer only
-  when it has not started one on that pull request, or that reviewer's
-  session has stopped or is archived.
+  as the next step for a pull request from the round, `run` gives it to an
+  reviewer session it started at the round's start, the one paired with the
+  implementer that opened it, once that reviewer is idle and holds no other
+  open pull request, at the roles file's model and effort for the reviewer,
+  after emptying that reviewer's
+  conversation with `clear_session`, with `SendMessage`, on whichever turn
+  the look is. A later look at the same pull request messages the same
+  reviewer without emptying it. It starts a new reviewer only when the
+  reviewer of that place has stopped or is archived. It stops rather than
+  start one when either is above its own session's, as `check-role` finds.
 - `workissue-answers-each-thread` (step): When a review comment arrives on
   its pull request, work-issue answers each unresolved thread with a reply
   opening with `**Claude:**`, and leaves resolving it to the reviewer.

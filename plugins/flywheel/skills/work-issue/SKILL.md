@@ -1,6 +1,6 @@
 ---
 name: work-issue
-description: Work one approved GitHub issue as the implementer, from its claim to a pull request the session watches. Claims the issue with flywheel.py claim, works from the issue as the owner approved it through flywheel.py brief, stops and asks on a gap the issue does not answer, runs the project's check and verify gates, opens the pull request through the project's pull request skill, turns on the session's Auto-fix for it, and answers each review thread. Once the pull request has merged and the claim is cleared, archives the session. Claude Code desktop app only. Use when a session's first message is a brief that says to work an issue as the implementer with the work-issue skill, or when asked to work, fix or take an issue, the next issue, or the next issue in a plan here or in this session. A request to fix, work or take an issue that does not say here or this session goes to the plugin's run skill, which starts a reviewer and checks the merge.
+description: Work one approved GitHub issue as the implementer, from its claim to a pull request the session watches. Claims the issue with flywheel.py claim, works from the issue as the owner approved it through flywheel.py brief, stops and asks on a gap the issue does not answer, runs the project's check and verify gates, opens the pull request through the project's pull request skill, turns on the session's Auto-fix for it, and answers each review thread. Once the pull request has merged and the claim is cleared, archives the session, unless a dispatcher started it, which then ends its turn so the dispatcher can send the next brief. Claude Code desktop app only. Use when a session's first message is a brief that says to work an issue as the implementer with the work-issue skill, or when asked to work, fix or take an issue, the next issue, or the next issue in a plan here or in this session. A request to fix, work or take an issue that does not say here or this session goes to the plugin's run skill, which gives the pull request to a reviewer and checks the merge.
 ---
 
 # Work an issue
@@ -38,8 +38,9 @@ FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" queue --json
 <!-- seam: judgment: the owner decides whether to start on a plan before claim runs again with --plan -->
 
 Claim the issue before any other work, including reading code. When the
-session's first message is a brief, or the request names an issue, as in
-"fix #648 here", claim that issue:
+session's first message is a brief (a dispatcher that reuses the session
+empties its conversation, so its next brief is the first message too), or
+the request names an issue, as in "fix #648 here", claim that issue:
 
 ```sh
 FLYWHEEL=.flywheel/flywheel.py && python3 "$FLYWHEEL" claim 648 --json
@@ -233,15 +234,19 @@ the owner. Put the same opening in the wrap-up recap.
 When the session has no `CronCreate` tool, say so too, so the owner tells the
 session in chat when a comment arrives.
 
-Once `clear` has succeeded, archive the session as the last thing it does,
-after any report. Load the app's `archive_session` tool with ToolSearch, and
-call it with `session_id: "self"`. The owner's approval of this skill is the
-agreement the tool asks for, and a prompt the owner leaves unanswered counts
-as a refusal. When the tool is missing or the call is refused:
+Once `clear` has succeeded, the session's last move depends on who started
+it:
 
-- when the session's first message came from a dispatcher session, say so in
-  the report. The dispatcher archives the implementer after it reports.
-- otherwise, tell the owner the session is ready to archive.
+- When the session's first message came from a dispatcher session, or the
+  dispatcher sent the brief by message after emptying the conversation, do not
+  archive. End the turn with the report, so the dispatcher can send the next
+  brief. The dispatcher archives the round's sessions when the round stops.
+- Otherwise, archive the session as the last thing it does, after any report.
+  Load the app's `archive_session` tool with ToolSearch, and call it with
+  `session_id: "self"`. The owner's approval of this skill is the agreement
+  the tool asks for, and a prompt the owner leaves unanswered counts as a
+  refusal. When the tool is missing or the call is refused, tell the owner the
+  session is ready to archive.
 
 ## Step 7: answer each review thread
 <!-- spec: workissue-answers-each-thread, workissue-hands-review-todos -->
