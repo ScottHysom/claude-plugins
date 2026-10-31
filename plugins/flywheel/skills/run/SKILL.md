@@ -1,13 +1,14 @@
 ---
 name: run
-description: Run a round of approved GitHub issues as the dispatcher, starting one implementer session per issue, a reviewer session on each pull request, and a new implementer each time a pull request merges. Checks each role's model and effort with flywheel.py check-role, takes the issues from flywheel.py queue, starts each session in its own worktree with flywheel.py brief as its first message, watches the claim pull requests with flywheel.py events, merges what the merge policy lets flow with flywheel.py merge-check, asks the owner about what it holds, clears each merged claim and closes a finished plan. Claude Code desktop app only. Use when asked to fix, work, run or start a round of issues, a number of issues at once such as the next 3 issues, particular issues named by number, or the issues of a plan or plan issue, and when asked to fix, work or take an issue, the next issue, or the next issue in a plan, unless the request says to do it here or in this session. Never use it in a session whose first message is a brief, which the work-issue skill takes.
+description: Run a round of approved GitHub issues as the dispatcher, starting one implementer session per issue, a reviewer session beside each, and each issue and pull request to an idle one of them by message as the work appears. Checks each role's model and effort with flywheel.py check-role, takes the issues from flywheel.py queue, starts each session in its own worktree with flywheel.py brief as its first message, watches the claim pull requests with flywheel.py events, merges what the merge policy lets flow with flywheel.py merge-check, asks the owner about what it holds, clears each merged claim and closes a finished plan. Claude Code desktop app only. Use when asked to fix, work, run or start a round of issues, a number of issues at once such as the next 3 issues, particular issues named by number, or the issues of a plan or plan issue, and when asked to fix, work or take an issue, the next issue, or the next issue in a plan, unless the request says to do it here or in this session. Never use it in a session whose first message is a brief, which the work-issue skill takes.
 ---
 
 # Run a round of issues
 
 The **dispatcher** is the session that runs this skill. It starts an
-implementer session for each issue in the round, and starts the next one when
-a pull request merges, so that the count the owner named stays in flight. An
+implementer session for each issue in the round, and hands the next issue to
+an idle implementer when a pull request merges, so that the count the owner
+named stays in flight. An
 **implementer** works one issue with the plugin's work-issue skill and opens
 its pull request. A **reviewer** reviews a pull request with the plugin's
 review-pr skill, from the project's review policy. A **brief** is the first
@@ -275,12 +276,13 @@ implementer. Run this on any turn:
    true. When the place's implementer is idle, go on. When it is working,
    leave the issue to the next look. When it has stopped or is archived,
    start a replacement as this step's first part says.
-2. Empty its conversation with `clear_session`, so the implementer carries
+2. Print the issue's brief, as the first part of this step does. When
+   `brief` exits 1, tell the owner and leave the implementer as it is.
+3. Empty its conversation with `clear_session`, so the implementer carries
    nothing from the last issue.
-3. Print the issue's brief, and send `data.prompt` to the implementer with
-   `SendMessage`, to its `local_` id. The brief tells it to work the issue
-   with the work-issue skill, which claims the issue on its own `issue/N`
-   branch.
+4. Send `data.prompt` to the implementer with `SendMessage`, to its `local_`
+   id. The brief tells it to work the issue with the work-issue skill, which
+   claims the issue on its own `issue/N` branch.
 
 ### A session the app refuses
 
@@ -382,8 +384,8 @@ note that woke this session shows:
   the owner can turn Auto-fix on in the app.
 - A pull request that `data.open` no longer lists and `data.merged` has not
   named in this or any earlier look of the round, so it closed unmerged.
-  Its reviewer is free for the next pull request, and its implementer's
-  place is free for the next issue, as step 6 says.
+  Its reviewer is free for the next pull request. Its implementer keeps its
+  claim, so tell the owner the pull request closed and wait for their word.
 - A pull request in `data.merged` whose claim this session has not cleared
   since step 8 merged it. Clear its claim as step 10 says.
 - An implementer that stopped without a pull request. Relay what it said to
@@ -412,7 +414,7 @@ why it holds:
 
 - `review`: the pull request needs the reviewer's look at its head. Act on
   the one of these that holds:
-  - This session started a reviewer on it, and the reviewer is working. Leave
+  - This session handed it to a reviewer, and the reviewer is working. Leave
     it to the next look.
   - This session handed it to a reviewer, and the reviewer is idle. Send it
     the `url` and the `head` with `SendMessage`, to its `local_` id, and ask
@@ -444,7 +446,7 @@ why it holds:
   it on GitHub or says what to do. Tell the owner that this session notices
   the merge and clears the claim by itself, and that a session it then
   offers as a card starts when the owner clicks it or sends a message. Until
-  the owner answers, start no reviewer on it and merge nothing.
+  the owner answers, hand it to no reviewer and merge nothing.
 
 On exit 2, relay the error to the owner and merge nothing.
 
@@ -484,12 +486,14 @@ what the app started it at, and start nothing else on that place until the
 owner answers.
 
 When `merge-check` names `review` for a pull request that no reviewer has
-been given, give it to an idle reviewer, on any turn:
+been given, give it to the reviewer of the place whose implementer opened it
+(the `issue/N` branch names the issue, and so the place), on any turn:
 
 1. List the sessions this session started with `list_sessions` and `linked`
-   true, and pick an idle reviewer. When all are working, leave the pull
-   request to the next look. When the place's reviewer has stopped or is
-   archived, start a replacement as this step's first part says.
+   true. When that reviewer is idle and holds no open pull request, go on.
+   When it is working, or still holds another open pull request, leave this
+   one to the next look. When it has stopped or is archived, start a
+   replacement as this step's first part says.
 2. Empty its conversation with `clear_session`, so the reviewer carries
    nothing from the last review or from any implementer.
 3. Send it "Review pull request #671 as the reviewer, with the review-pr
@@ -497,7 +501,8 @@ been given, give it to an idle reviewer, on any turn:
    `local_` id.
 
 A reviewer keeps the pull request it was given until that pull request
-merges or closes. Then it is idle and free for the next one.
+merges or closes, and is idle between looks at it. Only then is it free for
+the next one.
 
 ## Step 10: clear a merged claim
 <!-- spec: run-restarts-after-merge -->

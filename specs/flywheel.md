@@ -652,7 +652,7 @@ a scheduled prompt, a watch exit or a later turn end began, it refuses. It
 delivers `SendMessage`, and runs `clear_session` and `archive_session`, on a
 session the dispatcher started on every turn kind.
 
-Source: #846, #855, and `plugins/flywheel/DESIGN.md`.
+Source: #856, #846, #855, and `plugins/flywheel/DESIGN.md`.
 
 - `run-starts-session-at-round-start` (step): When the owner's message starts
   a round, `run` starts every implementer and reviewer session the round
@@ -743,8 +743,8 @@ and `match-capability-to-task`.
   cleared). When the queue offers a free issue, `run` empties an idle
   implementer's conversation with `clear_session` and sends it the issue's
   brief with `SendMessage`, on whichever turn the merge appears. It starts a
-  replacement with `start_session` only when no implementer of the round is
-  live.
+  replacement with `start_session` only when that place's implementer has
+  stopped or is archived.
 - `run-archives-reviewer` (step): When a round stops, `run` archives every
   implementer and reviewer session it started. It archives none when a pull
   request merges or closes.
@@ -847,8 +847,10 @@ Source: #650, and the playbook's `autonomy-scales-with-risk` and
   a message, and merges nothing until they answer.
 - `run-reviews-each-pull-request` (step): When `merge-check` names `review`
   as the next step for a pull request from the round, `run` gives it to an
-  idle reviewer session it started at the round's start, at the roles file's
-  model and effort for the reviewer, after emptying that reviewer's
+  reviewer session it started at the round's start, the one paired with the
+  implementer that opened it, once that reviewer is idle and holds no other
+  open pull request, at the roles file's model and effort for the reviewer,
+  after emptying that reviewer's
   conversation with `clear_session`, with `SendMessage`, on whichever turn
   the look is. A later look at the same pull request messages the same
   reviewer without emptying it. It starts a new reviewer only when the
