@@ -141,8 +141,8 @@ first 400 characters of a report, and relays that opening to the owner (#805).
 
 Outside a round, the implementer's review-thread check runs every minute,
 since the app may not wake the session on a comment from the account it posts
-as. In a round the implementer schedules no check. Each run of one would end
-a turn of the implementer's session, and the app continues the dispatcher
+as. In a round the implementer does not schedule a check. Each run of one
+would end a turn of the implementer's session, and the app continues the dispatcher
 whenever a session it started ends a turn, with no way for a scheduled job to
 hold the wake back (#807, #817). The pull request of #846's round took more
 than ten such turns in 22 minutes, and each carried nothing the dispatcher's

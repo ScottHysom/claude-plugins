@@ -177,8 +177,8 @@ moment the pull request closes, before the session has checked its worktree
 or cleared its claim.
 
 When the session's first message came from a dispatcher session, or the
-dispatcher sent the brief by message after emptying the conversation, schedule
-no check. The dispatcher's watch sees a change to the pull request's review
+dispatcher sent the brief by message after emptying the conversation, do not
+schedule a check. The dispatcher's watch sees a change to the pull request's review
 threads, and sends this session each thread that waits on it, to answer as
 step 7 says. Skip to the report below.
 
@@ -199,17 +199,15 @@ lists any, answer them as step 7 says. When `data.state` is not `OPEN`, delete
 the job by its id with `CronDelete` and stop checking. The job lasts the
 session and expires after seven days.
 
-Each run of the job ends a turn, and a dispatcher that started the session
-hears of every turn's end. So the prompt also says how to end the turn, and
-that a reply says "CI" only when it reports on CI:
+Each run of the job ends a turn. So the prompt also says how to end the turn,
+and that a reply says "CI" only when it reports on CI:
 
 - When the run acted, by answering a thread, clearing a claim or stopping the
   job, its last message says what it did.
 - When `data.threads` is empty and `data.state` is `OPEN`, the run's whole
   reply is `Nothing waiting on review threads on pull request 795.`
 
-When `data.state` is `MERGED`, or the dispatcher's message says the pull
-request merged, clear the claim before the session ends, with
+When `data.state` is `MERGED`, clear the claim before the session ends, with
 the issue's number:
 
 ```sh
@@ -232,14 +230,14 @@ the issue is still open. Tell the owner the pull request closed unmerged,
 and leave the session unarchived.
 
 Then report the pull request's url to the owner, and say the check is
-scheduled (or that the dispatcher covers review threads). When the session has no `set_monitor` tool, or the call is
-refused, open the report with "Auto-fix is off" and the pull request's url,
+scheduled (or that the dispatcher covers review threads). When the session has
+no `set_monitor` tool, or the call is refused, open the report with "Auto-fix is off" and the pull request's url,
 so the owner turns the watch on by hand. When the call is refused, give the
 app's reason right after. In a round the report goes to the dispatcher,
 which sees only the first 400 characters of it and relays that opening to
 the owner. Put the same opening in the wrap-up recap.
-When the session is not in a round and has no `CronCreate` tool, say so too, so the owner tells the
-session in chat when a comment arrives.
+When the session is not in a round and has no `CronCreate` tool, say so too,
+so the owner tells the session in chat when a comment arrives.
 
 Once `clear` has succeeded, the session's last move depends on who started
 it:
