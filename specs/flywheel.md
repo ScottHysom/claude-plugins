@@ -620,13 +620,17 @@ Source: #305, #648, and the playbook's `checks-over-instructions`.
   wrap-up recap open with "Auto-fix is off" and the pull request's url, and
   a refusal's reason follows.
 - `workissue-rechecks-for-comments` (step): When work-issue has turned on the
-  watch, it schedules a recurring check of its pull request's unresolved
-  review threads with `flywheel.py unanswered`, since the app does not wake the
-  session on comments from the account the session posts as. It answers a
+  watch, and a dispatcher did not start the session, it schedules a recurring
+  check of its pull request's unresolved review threads with
+  `flywheel.py unanswered`, since the app does not wake the session on comments
+  from the account the session posts as. It answers a
   waiting thread as `workissue-answers-each-thread` says, and ends the check
   once the pull request is no longer open. A run that found nothing ends with
   a reply whose first words say no review thread is waiting, and that names CI
   only when it reports on CI. A run that acted says what it did.
+  A session that a dispatcher started does not schedule a check, since the
+  dispatcher watches the pull request's review threads and sends the session
+  each one that waits on it.
 - `workissue-archives-after-clear` (step): When work-issue's pull request has
   merged and `flywheel.py clear` has succeeded (or has succeeded after the
   session discarded only its own temporary files), a session that a

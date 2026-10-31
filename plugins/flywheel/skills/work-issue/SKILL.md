@@ -176,10 +176,16 @@ Leave `auto_archive_on_close` off. The app would archive the session the
 moment the pull request closes, before the session has checked its worktree
 or cleared its claim.
 
-The app may not wake the session on a review comment from the account the
-session posts as, and where agents post under the owner's GitHub account that
-is the owner's every comment. So schedule a recurring check for review
-comments in every project, with the `CronCreate` tool, every minute
+When the session's first message came from a dispatcher session, or the
+dispatcher sent the brief by message after emptying the conversation, do not
+schedule a check. The dispatcher's watch sees a change to the pull request's review
+threads, and sends this session each thread that waits on it, to answer as
+step 7 says. Skip to the report below.
+
+Otherwise the app may not wake the session on a review comment from the
+account the session posts as, and where agents post under the owner's GitHub
+account that is the owner's every comment. So schedule a recurring check for
+review comments, with the `CronCreate` tool, every minute
 (`*/1 * * * *`), and keep the job id it returns. Give it a
 prompt that says to run this, with the pull request's number in place of 795
 (the pull request just opened, not the issue), and to act on its result:
@@ -193,9 +199,8 @@ lists any, answer them as step 7 says. When `data.state` is not `OPEN`, delete
 the job by its id with `CronDelete` and stop checking. The job lasts the
 session and expires after seven days.
 
-Each run of the job ends a turn, and a dispatcher that started the session
-hears of every turn's end. So the prompt also says how to end the turn, and
-that a reply says "CI" only when it reports on CI:
+Each run of the job ends a turn. So the prompt also says how to end the turn,
+and that a reply says "CI" only when it reports on CI:
 
 - When the run acted, by answering a thread, clearing a claim or stopping the
   job, its last message says what it did.
@@ -225,14 +230,14 @@ the issue is still open. Tell the owner the pull request closed unmerged,
 and leave the session unarchived.
 
 Then report the pull request's url to the owner, and say the check is
-scheduled. When the session has no `set_monitor` tool, or the call is
-refused, open the report with "Auto-fix is off" and the pull request's url,
+scheduled (or that the dispatcher covers review threads). When the session has
+no `set_monitor` tool, or the call is refused, open the report with "Auto-fix is off" and the pull request's url,
 so the owner turns the watch on by hand. When the call is refused, give the
 app's reason right after. In a round the report goes to the dispatcher,
 which sees only the first 400 characters of it and relays that opening to
 the owner. Put the same opening in the wrap-up recap.
-When the session has no `CronCreate` tool, say so too, so the owner tells the
-session in chat when a comment arrives.
+When the session is not in a round and has no `CronCreate` tool, say so too,
+so the owner tells the session in chat when a comment arrives.
 
 Once `clear` has succeeded, the session's last move depends on who started
 it:

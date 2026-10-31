@@ -139,16 +139,17 @@ so a description that fails the check still opens nothing. work-issue keeps
 project's own skill opens out of the app's sight. A dispatcher sees only the
 first 400 characters of a report, and relays that opening to the owner (#805).
 
-The review-thread check runs every minute as a turn of the implementer's
-session, and the dispatcher starts the session with `wake_when_done`, so a run
-wakes the dispatcher once none of the sessions it started is working. Plan
-#799's round showed dozens of near-identical wakes that buried the two changes
-#806 describes (#807). The app gives a
-scheduled job no way to hold back the wake, so the plugin cannot make a quiet
-run silent. It makes a quiet run unmistakable instead: the reply opens with
-"Nothing waiting on review threads", and says "CI" only for CI. run's step
-7 still looks again on every wake. A dispatcher that skims a quiet note
-misses nothing, since it also watches its pull requests (#806, #835).
+Outside a round, the implementer's review-thread check runs every minute,
+since the app may not wake the session on a comment from the account it posts
+as. In a round the implementer does not schedule a check. Each run of one
+would end a turn of the implementer's session, and the app continues the dispatcher
+whenever a session it started ends a turn, with no way for a scheduled job to
+hold the wake back (#807, #817). The pull request of #846's round took more
+than ten such turns in 22 minutes, and each carried nothing the dispatcher's
+`watch` had not shown. The watch exits on a change to a pull request's review
+threads, and run's step 8 sends an idle implementer each thread that waits on
+it (#851). A dispatcher that skims a quiet note misses nothing, since it also
+watches its pull requests (#806, #835).
 
 ## The dispatcher's skill
 
