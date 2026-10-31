@@ -102,7 +102,10 @@ jobs:
   # own so each finishes when the other fails. `check` skips the floors here,
   # and says so, since they are 3.13's figures.
   check-on-3-9:
-    runs-on: ubuntu-latest
+    # Pinned because actions/setup-python has no Python 3.9 build for the
+    # Ubuntu release that ubuntu-latest now resolves to (26.04). Move it back
+    # to ubuntu-latest once the job no longer needs 3.9 or a build exists.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
 
